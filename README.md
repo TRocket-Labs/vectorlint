@@ -4,7 +4,7 @@ AI-powered content compliance automation tool for Markdown files.
 
 ## What is VectorLint?
 
-VectorLint is a command-line tool that uses Large Language Models (LLMs) to automatically review and validate Markdown content against quality standards. It works like ESLint or Vale, but uses AI for intelligent, context-aware feedback.
+VectorLint is a command-line tool that uses Large Language Models (LLMs) to evaluate Markdown content using prompt files you provide. It runs every markdown prompt in a directory and aggregates the raw responses.
 
 ## Features
 
@@ -12,7 +12,8 @@ VectorLint is a command-line tool that uses Large Language Models (LLMs) to auto
 - ✅ **CLI Tool** - Run locally or in CI/CD pipelines
 - ✅ **Exit Codes** - Properly exits with 0 (pass) or 1 (fail) for CI integration
 - ✅ **Dependency Inversion** - Easily swap LLM providers
-- ✅ **Vale-like Output** - Familiar formatting with file paths, line numbers, and severity levels
+- ✅ **Prompt-Driven** - Put evaluation prompts in a folder; all are run
+- ✅ **Aggregated Reports** - Prints raw responses per prompt for each file
 
 ## Installation
 
@@ -34,6 +35,19 @@ AZURE_OPENAI_TEMPERATURE=1  # optional; omit to use server default
 
 You can find these values in your Azure Portal under your Azure OpenAI resource.
 
+### Prompts
+
+Prompts are markdown files. VectorLint loads all `.md` files from a directory and runs each one against your content. The result is an aggregated report with one section per prompt.
+
+- Default prompts directory: `prompts/`
+- Example prompt included: `prompts/headline-evaluator.md`
+
+You can set a custom prompts directory via `vectorlint.ini` in the project root:
+
+```
+promptsPath=prompts
+```
+
 ## Usage
 
 ### Local Development
@@ -42,7 +56,7 @@ You can find these values in your Azure Portal under your Azure OpenAI resource.
 # Run with tsx (no build needed)
 npm run dev -- path/to/article.md
 
-# Verbose mode (prints model response text)
+# Verbose mode (prints request summary and response text)
 npm run dev -- --verbose path/to/article.md
 
 # Show prompt and full JSON response
@@ -101,14 +115,11 @@ npx tsx src/index.ts $(git diff --cached --name-only --diff-filter=ACM | grep '\
 
 ## Example Output
 
-```bash
-$ vectorlint docs/article.md
+```
+=== File: docs/article.md ===
 
-docs/article.md
-  12:5   error    Grammar error: Subject-verb agreement    grammar
-  23:1   warning  Consider using active voice              grammar
-
-❌ 1 error, 1 warning
+## Prompt: headline-evaluator.md
+[raw model report here]
 ```
 
 ## Architecture
@@ -117,15 +128,12 @@ VectorLint uses dependency inversion to support multiple LLM providers:
 
 ```
 src/
-├── index.ts              # CLI entry point
-├── providers/
-│   ├── LLMProvider.ts    # Interface
-│   └── AzureOpenAIProvider.ts
-├── analyzer/
-│   ├── ContentAnalyzer.ts
-│   └── types.ts
-└── output/
-    └── Formatter.ts
+├── index.ts                 # CLI entry point
+├── config/Config.ts         # Loads vectorlint.ini (promptsPath)
+├── prompts/PromptLoader.ts  # Loads .md prompts from directory
+└── providers/
+    ├── LLMProvider.ts       # Interface (runPrompt)
+    └── AzureOpenAIProvider.ts
 ```
 
 ## Adding New Providers
@@ -136,8 +144,9 @@ To add a new LLM provider, implement the `LLMProvider` interface:
 import { LLMProvider } from './providers/LLMProvider.js';
 
 export class MyCustomProvider implements LLMProvider {
-  async analyze(content: string): Promise<AnalysisResult> {
-    // Your implementation
+  async runPrompt(content: string, promptText: string): Promise<string> {
+    // send promptText (with content injected) and return raw response text
+    return '';
   }
 }
 ```
