@@ -58,7 +58,11 @@ Note: `vectorlint.ini` is git-ignored; commit `vectorlint.example.ini` as the te
 
 ### Prompts
 
-Prompts are markdown files. VectorLint loads all `.md` files from `PromptsPath` and runs each one against your content. The result is an aggregated report with one section per prompt. Prompts do not need a placeholder; the file content is injected automatically as a separate message.
+Prompts are markdown files. VectorLint loads all `.md` files from `PromptsPath` and runs each one against your content. The result is an aggregated report with one section per prompt.
+
+- Prompts do not need a placeholder; the file content is injected automatically as a separate message.
+- Prompts start with a YAML frontmatter block that defines the evaluation criteria (names, weights, and optional thresholds/severities). Keep the body human‑readable.
+- You do not need to include a JSON output format in the prompt. VectorLint enforces a structured JSON response via the API; it parses and evaluates scores automatically.
 
 - Default prompts directory: `prompts/`
 - Example prompt included: `prompts/headline-evaluator.md`

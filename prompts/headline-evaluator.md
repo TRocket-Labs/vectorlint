@@ -148,35 +148,4 @@ Some unnatural phrasing or minor buzzword usage
 
 Heavy AI patterns, awkward constructions, or excessive buzzwords
 
-## OUTPUT FORMAT (STRICT JSON)
-
-Return ONLY JSON matching this shape exactly (no extra fields):
-
-{
-  "criteria": [
-    {
-      "name": "Value Communication",
-      "weight": 12,
-      "score": 0 | 1 | 2 | 3 | 4,
-      "analysis": "..."
-    },
-    {
-      "name": "Audience Relevance",
-      "weight": 4,
-      "score": 0 | 1 | 2 | 3 | 4,
-      "analysis": "..."
-    },
-    {
-      "name": "Curiosity Gap",
-      "weight": 2,
-      "score": 0 | 1 | 2 | 3 | 4,
-      "analysis": "..."
-    },
-    {
-      "name": "Language Authenticity",
-      "weight": 2,
-      "score": 0 | 1 | 2 | 3 | 4,
-      "analysis": "..."
-    }
-  ]
-}
+ 
