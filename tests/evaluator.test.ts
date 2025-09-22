@@ -19,9 +19,15 @@ function setupEnv() {
   const root = mkdtempSync(path.join(tmpdir(), 'vlint-'));
   const promptsDir = path.join(root, 'prompts');
   mkdirSync(promptsDir, { recursive: true });
-  // Two prompts (no placeholders needed)
-  writeFileSync(path.join(promptsDir, 'p1.md'), 'Evaluate: HEADLINE:');
-  writeFileSync(path.join(promptsDir, 'p2.md'), 'Evaluate without placeholder');
+  // Two prompts with minimal frontmatter criteria
+  writeFileSync(
+    path.join(promptsDir, 'p1.md'),
+    `---\ncriteria:\n  - name: A\n    weight: 1\n---\nBody 1\n`
+  );
+  writeFileSync(
+    path.join(promptsDir, 'p2.md'),
+    `---\ncriteria:\n  - name: B\n    weight: 1\n---\nBody 2\n`
+  );
   const files = [
     path.join(root, 'a.md'),
     path.join(root, 'b.txt'),
@@ -40,7 +46,7 @@ describe('Evaluation aggregation', () => {
     for (const f of files) {
       const content = '# test';
       for (const p of prompts) {
-        await provider.runPrompt(content, p.text);
+        await provider.runPrompt(content, p.body);
       }
     }
     expect(provider.calls.length).toBe(4);
