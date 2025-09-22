@@ -154,3 +154,11 @@ export class MyCustomProvider implements LLMProvider {
 ## License
 
 MIT
+
+## Testing
+
+- Run in watch mode (local dev): `npm test`
+- Single run (no watch): `npm run test:run`
+- CI with coverage: `npm run test:ci`
+
+Tests live under `tests/` and use Vitest. They validate config parsing (PromptsPath, ScanPaths), file discovery (including prompts exclusion), and prompt aggregation with a mocked provider.
