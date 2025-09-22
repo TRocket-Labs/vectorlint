@@ -7,6 +7,8 @@ import { loadConfig } from './config/Config.js';
 import { loadPrompts } from './prompts/PromptLoader.js';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/Schema.js';
 import { printFileHeader, printIssueRow, printGlobalSummary } from './output/Reporter.js';
+import { locateEvidence } from './locate/EvidenceLocator.js';
+import { DefaultRequestBuilder } from './providers/RequestBuilder.js';
 import { resolveTargets } from './scan/FileResolver.js';
 
 // Best-effort .env loader without external deps
@@ -83,7 +85,7 @@ program
       debug: Boolean(verbose),
       showPrompt: Boolean(showPrompt),
       debugJson: Boolean(debugJson),
-    });
+    }, new DefaultRequestBuilder());
     
     // Load config and prompts
     let config;
@@ -233,7 +235,17 @@ program
             const summary = (got.analysis || '').trim();
             const criterionId = (exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s=>s[0].toUpperCase()+s.slice(1)).join('') : ''));
             const ruleName = promptId && criterionId ? `${promptId}.${criterionId}` : (promptId || criterionId || p.filename);
-            printIssueRow(status, summary, ruleName);
+            // Locate evidence in content to compute line:col
+            let locStr = '—:—';
+            try {
+              const ev = (got as any).evidence as { quote: string; pre: string; post: string };
+              const loc = ev ? locateEvidence(content, ev) : null;
+              if (loc) locStr = `${loc.line}:${loc.column}`;
+              else { hadOperationalErrors = true; }
+            } catch {
+              hadOperationalErrors = true;
+            }
+            printIssueRow(locStr, status, summary, ruleName);
           }
           fileErrors += promptErrors;
           fileWarnings += promptWarnings;

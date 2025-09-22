@@ -16,8 +16,18 @@ export function buildCriteriaJsonSchema() {
               weight: { type: 'number' },
               score: { type: 'number', enum: [0, 1, 2, 3, 4] },
               analysis: { type: 'string' },
+              evidence: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  quote: { type: 'string' },
+                  pre: { type: 'string' },
+                  post: { type: 'string' },
+                },
+                required: ['quote', 'pre', 'post'],
+              },
             },
-            required: ['name', 'weight', 'score', 'analysis'],
+            required: ['name', 'weight', 'score', 'analysis', 'evidence'],
           },
         },
       },
@@ -32,5 +42,6 @@ export type CriteriaResult = {
     weight: number;
     score: 0 | 1 | 2 | 3 | 4;
     analysis: string;
+    evidence: { quote: string; pre: string; post: string };
   }>;
 };
