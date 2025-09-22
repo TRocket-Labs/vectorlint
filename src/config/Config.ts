@@ -4,6 +4,7 @@ import path from 'path';
 export interface Config {
   promptsPath: string;
   scanPaths: string[];
+  concurrency: number;
 }
 
 function parseBracketList(value: string): string[] {
@@ -34,6 +35,7 @@ export function loadConfig(cwd: string = process.cwd()): Config {
 
   let promptsPathRaw: string | undefined;
   let scanPathsRaw: string[] | undefined;
+  let concurrencyRaw: number | undefined;
   const raw = readFileSync(iniPath, 'utf-8');
   for (const rawLine of raw.split(/\r?\n/)) {
     const line = rawLine.trim();
@@ -46,6 +48,9 @@ export function loadConfig(cwd: string = process.cwd()): Config {
       promptsPathRaw = val.replace(/^\"|\"$/g, '').replace(/^'|'$/g, '');
     } else if (key === 'ScanPaths') {
       scanPathsRaw = parseBracketList(val);
+    } else if (key === 'Concurrency') {
+      const n = Number(val.replace(/^\"|\"$/g, '').replace(/^'|'$/g, ''));
+      if (Number.isFinite(n) && n > 0) concurrencyRaw = Math.floor(n);
     }
   }
 
@@ -66,5 +71,7 @@ export function loadConfig(cwd: string = process.cwd()): Config {
     ? promptsPathRaw
     : path.resolve(cwd, promptsPathRaw);
 
-  return { promptsPath, scanPaths: scanPathsRaw };
+  const concurrency = concurrencyRaw ?? 4;
+
+  return { promptsPath, scanPaths: scanPathsRaw, concurrency };
 }

@@ -135,6 +135,21 @@ program
     let totalErrors = 0;
     let totalWarnings = 0;
 
+    // Simple concurrency runner
+    async function runWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T, index: number) => Promise<R>): Promise<R[]> {
+      const results: R[] = new Array(items.length) as any;
+      let i = 0;
+      const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+        while (true) {
+          const idx = i++;
+          if (idx >= items.length) break;
+          results[idx] = await worker(items[idx], idx);
+        }
+      });
+      await Promise.all(workers);
+      return results;
+    }
+
     for (const file of targets) {
       try {
         const content = readFileSync(file, 'utf-8');
@@ -143,89 +158,87 @@ program
         printFileHeader(relFile);
         let fileErrors = 0;
         let fileWarnings = 0;
-        for (const p of prompts) {
+        // Build schema once
+        const schema = buildCriteriaJsonSchema();
+        // Run prompts concurrently per config.concurrency
+        const results = await runWithConcurrency(prompts, config.concurrency, async (p, idx) => {
           try {
-            // Build fixed JSON schema for structured outputs
-            const schema = buildCriteriaJsonSchema();
-            // Ensure required meta
             const meta = p.meta;
             if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
               throw new Error(`Prompt ${p.filename} has no criteria in frontmatter`);
             }
-            // Ask for structured output
             const result = await provider.runPromptStructured<CriteriaResult>(content, p.body, schema);
-            const promptId = (p.meta.id || '').toString();
-            // Validate names and compute findings
-            const expectedNames = new Set<string>(meta.criteria.map(c => String(c.name)));
-            const returnedNames = new Set(result.criteria.map(c => c.name));
-            // Check missing
-            for (const name of expectedNames) {
-              if (!returnedNames.has(name)) {
-                console.error(`Missing criterion in model output: ${name}`);
-                hadOperationalErrors = true;
-              }
-            }
-            // Warn extra
-            for (const name of returnedNames) {
-              if (!expectedNames.has(name)) {
-                console.warn(`[vectorlint] Extra criterion returned by model (ignored): ${name}`);
-              }
-            }
-            // Evaluate and summarize
-            let totalScore = 0;
-            let maxScore = 0;
-            let promptErrors = 0;
-            let promptWarnings = 0;
-            const issuesMap = new Map<string, { threshold: number; severity: 'warning' | 'error' }>();
-            for (const exp of meta.criteria) {
-              const nameKey = String(exp.name);
-              const got = result.criteria.find(c => c.name === nameKey);
-              if (!got) continue;
-              const score = Number(got.score) as number;
-              const weight = Number(exp.weight) as number;
-              if (!Number.isFinite(score) || score < 0 || score > 4) {
-                console.error(`Invalid score for ${exp.name}: ${score}`);
-                hadOperationalErrors = true;
-                continue;
-              }
-              totalScore += (score / 4) * weight;
-              maxScore += weight;
-              const effThreshold = exp.threshold ?? meta.threshold ?? 3;
-              const effSeverity = (meta.severity as any) || exp.severity || 'warning';
-              issuesMap.set(nameKey, { threshold: effThreshold, severity: effSeverity as any });
-            }
-            // Print per-criterion status lines
-            for (const exp of meta.criteria) {
-              const nameKey = String(exp.name);
-              const got = result.criteria.find(c => c.name === nameKey);
-              if (!got) continue;
-              const conf = issuesMap.get(nameKey)!;
-              const score = Number(got.score);
-              let status: 'ok' | 'warning' | 'error' = 'ok';
-              if (score < conf.threshold) {
-                status = conf.severity === 'error' ? 'error' : 'warning';
-                if (status === 'error') {
-                  hadSeverityErrors = true; promptErrors += 1;
-                } else {
-                  promptWarnings += 1;
-                }
-              }
-              // Multi-line assessment summary
-              const summary = (got.analysis || '').trim();
-              const criterionId = (exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s=>s[0].toUpperCase()+s.slice(1)).join('') : ''));
-              const ruleName = promptId && criterionId ? `${promptId}.${criterionId}` : (promptId || criterionId || p.filename);
-              printIssueRow(status, summary, ruleName);
-            }
-            fileErrors += promptErrors;
-            fileWarnings += promptWarnings;
-            totalErrors += promptErrors;
-            totalWarnings += promptWarnings;
-            // No verbose details block needed; summaries are already printed per row
+            return { ok: true as const, result };
           } catch (e) {
-            console.error(`  Prompt failed: ${p.filename}`);
-            console.error(e);
-            hadOperationalErrors = true;
+            return { ok: false as const, error: e };
           }
+        });
+
+        // Print results in stable order
+        for (let idx = 0; idx < prompts.length; idx++) {
+          const p = prompts[idx];
+          const r = results[idx];
+          if (!r) continue;
+          if (r.ok !== true) {
+            console.error(`  Prompt failed: ${p.filename}`);
+            console.error(r.error);
+            hadOperationalErrors = true;
+            continue;
+          }
+          const meta = p.meta;
+          const promptId = (meta.id || '').toString();
+          const result = r.result;
+          const expectedNames = new Set<string>(meta.criteria.map(c => String(c.name)));
+          const returnedNames = new Set(result.criteria.map(c => c.name));
+          for (const name of expectedNames) {
+            if (!returnedNames.has(name)) {
+              console.error(`Missing criterion in model output: ${name}`);
+              hadOperationalErrors = true;
+            }
+          }
+          for (const name of returnedNames) {
+            if (!expectedNames.has(name)) {
+              console.warn(`[vectorlint] Extra criterion returned by model (ignored): ${name}`);
+            }
+          }
+          let promptErrors = 0;
+          let promptWarnings = 0;
+          const issuesMap = new Map<string, { threshold: number; severity: 'warning' | 'error' }>();
+          for (const exp of meta.criteria) {
+            const nameKey = String(exp.name);
+            const got = result.criteria.find(c => c.name === nameKey);
+            if (!got) continue;
+            const score = Number(got.score) as number;
+            if (!Number.isFinite(score) || score < 0 || score > 4) {
+              console.error(`Invalid score for ${exp.name}: ${score}`);
+              hadOperationalErrors = true;
+              continue;
+            }
+            const effThreshold = exp.threshold ?? meta.threshold ?? 3;
+            const effSeverity = (meta.severity as any) || exp.severity || 'warning';
+            issuesMap.set(nameKey, { threshold: effThreshold, severity: effSeverity as any });
+          }
+          for (const exp of meta.criteria) {
+            const nameKey = String(exp.name);
+            const got = result.criteria.find(c => c.name === nameKey);
+            if (!got) continue;
+            const conf = issuesMap.get(nameKey)!;
+            const score = Number(got.score);
+            let status: 'ok' | 'warning' | 'error' = 'ok';
+            if (score < conf.threshold) {
+              status = conf.severity === 'error' ? 'error' : 'warning';
+              if (status === 'error') { hadSeverityErrors = true; promptErrors += 1; }
+              else { promptWarnings += 1; }
+            }
+            const summary = (got.analysis || '').trim();
+            const criterionId = (exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s=>s[0].toUpperCase()+s.slice(1)).join('') : ''));
+            const ruleName = promptId && criterionId ? `${promptId}.${criterionId}` : (promptId || criterionId || p.filename);
+            printIssueRow(status, summary, ruleName);
+          }
+          fileErrors += promptErrors;
+          fileWarnings += promptWarnings;
+          totalErrors += promptErrors;
+          totalWarnings += promptWarnings;
         }
         console.log('');
       } catch (error) {
