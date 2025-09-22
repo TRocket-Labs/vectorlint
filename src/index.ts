@@ -5,6 +5,7 @@ import path from 'path';
 import { AzureOpenAIProvider } from './providers/AzureOpenAIProvider.js';
 import { loadConfig } from './config/Config.js';
 import { loadPrompts } from './prompts/PromptLoader.js';
+import { resolveTargets } from './scan/FileResolver.js';
 
 // Best-effort .env loader without external deps
 function loadDotEnv() {
@@ -45,8 +46,8 @@ program
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--show-prompt', 'Print the prompt sent to the model')
   .option('--debug-json', 'Print full JSON response from the API')
-  .argument('<files...>', 'markdown files to check')
-  .action(async (files: string[]) => {
+  .argument('[paths...]', 'files or directories to check (optional)')
+  .action(async (paths: string[] = []) => {
     // Load environment from .env if present
     loadDotEnv();
     const { verbose, showPrompt, debugJson } = program.opts<{ verbose?: boolean; showPrompt?: boolean; debugJson?: boolean }>();
@@ -83,7 +84,14 @@ program
     });
     
     // Load config and prompts
-    const { promptsPath } = loadConfig();
+    let config;
+    try {
+      config = loadConfig();
+    } catch (e: any) {
+      console.error(`Error: ${e?.message || e}`);
+      process.exit(1);
+    }
+    const { promptsPath } = config;
     if (!existsSync(promptsPath)) {
       console.error(`Error: prompts path does not exist: ${promptsPath}`);
       process.exit(1);
@@ -100,15 +108,28 @@ program
       console.error(`Error: failed to load prompts: ${e?.message || e}`);
       process.exit(1);
     }
-    
+
+    // Resolve target files
+    let targets: string[] = [];
+    try {
+      targets = resolveTargets({
+        cliArgs: paths,
+        cwd: process.cwd(),
+        promptsPath,
+        scanPaths: config.scanPaths,
+      });
+    } catch (e: any) {
+      console.error(`Error: failed to resolve target files: ${e?.message || e}`);
+      process.exit(1);
+    }
+    if (targets.length === 0) {
+      console.error('Error: no target files found to evaluate.');
+      process.exit(1);
+    }
+
     let hadOperationalErrors = false;
 
-    for (const file of files) {
-      if (!file.endsWith('.md')) {
-        console.log(`Skipping ${file} (not a markdown file)`);
-        continue;
-      }
-
+    for (const file of targets) {
       try {
         const content = readFileSync(file, 'utf-8');
         console.log(`=== File: ${file} ===`);

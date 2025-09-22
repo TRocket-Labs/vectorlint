@@ -36,13 +36,14 @@ export class AzureOpenAIProvider implements LLMProvider {
   }
 
   async runPrompt(content: string, promptText: string): Promise<string> {
-    const prompt = promptText.replace('{{CONTENT}}', content);
+    const prompt = promptText;
 
     const params: Parameters<typeof this.client.chat.completions.create>[0] = {
       model: this.deploymentName,
       messages: [
         { role: 'system', content: 'Follow the instructions precisely and respond accordingly.' },
-        { role: 'user', content: prompt }
+        { role: 'user', content: prompt },
+        { role: 'user', content: `Input:\n\n${content}` }
       ],
     };
     if (this.temperature !== undefined) {
@@ -60,6 +61,10 @@ export class AzureOpenAIProvider implements LLMProvider {
         console.log('[vectorlint] Prompt (first 500 chars):');
         console.log(prompt.slice(0, 500));
         if (prompt.length > 500) console.log('... [truncated]');
+        const preview = content.slice(0, 500);
+        console.log('[vectorlint] Injected content preview (first 500 chars):');
+        console.log(preview);
+        if (content.length > 500) console.log('... [truncated]');
       }
     }
 

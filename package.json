@@ -8,7 +8,9 @@
     "dev": "tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "lint": "vectorlint"
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ci": "vitest run --coverage"
   },
   "bin": {
     "vectorlint": "./src/index.ts"
@@ -29,6 +31,8 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "fast-glob": "^3.3.2",
+    "vitest": "^2.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
   }
