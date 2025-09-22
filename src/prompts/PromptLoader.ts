@@ -5,7 +5,8 @@ import YAML from 'yaml';
 export type Severity = 'warning' | 'error';
 
 export interface PromptCriterionSpec {
-  name: string;
+  id?: string;
+  name?: string;
   weight: number;
   threshold?: number;
   severity?: Severity;
@@ -15,6 +16,8 @@ export interface PromptMeta {
   specVersion?: string;
   severity?: Severity;
   threshold?: number;
+  id?: string;
+  name?: string;
   criteria: PromptCriterionSpec[];
 }
 
@@ -62,7 +65,10 @@ export function loadPrompts(
               specVersion: data.specVersion,
               severity: data.severity,
               threshold: data.threshold,
+              id: typeof data.id === 'string' ? data.id : undefined,
+              name: typeof data.name === 'string' ? data.name : undefined,
               criteria: Array.isArray(data.criteria) ? data.criteria.map((c: any) => ({
+                id: c.id,
                 name: c.name,
                 weight: Number(c.weight),
                 threshold: c.threshold !== undefined ? Number(c.threshold) : undefined,
@@ -80,13 +86,22 @@ export function loadPrompts(
         warnings.push(`Skipping ${entry}: missing or invalid criteria in frontmatter`);
         continue;
       }
-      // Basic validation
+      // Helpers
+      const toPascal = (s: string) => s
+        .split(/[^A-Za-z0-9]+/)
+        .filter(Boolean)
+        .map((x) => x.charAt(0).toUpperCase() + x.slice(1))
+        .join('');
+
+      // Basic validation and derive ids/names
       for (const c of meta.criteria) {
-        if (!c.name || typeof c.name !== 'string' || !c.weight || Number.isNaN(c.weight)) {
-          warnings.push(`Skipping ${entry}: invalid criterion (name/weight)`);
+        if ((!c.name && !c.id) || !c.weight || Number.isNaN(c.weight)) {
+          warnings.push(`Skipping ${entry}: invalid criterion (id/name or weight missing)`);
           meta = undefined as any;
           break;
         }
+        if (!c.id && c.name) c.id = toPascal(String(c.name));
+        if (!c.name && c.id) c.name = String(c.id);
         if (c.threshold !== undefined && (c.threshold < 0 || c.threshold > 4)) {
           warnings.push(`Skipping ${entry}: invalid threshold for ${c.name} (must be 0-4)`);
           meta = undefined as any;
@@ -99,6 +114,18 @@ export function loadPrompts(
         }
       }
       if (!meta) continue;
+      // Ensure unique criterion ids
+      const ids = new Set<string>();
+      for (const c of meta.criteria) {
+        const cid = String(c.id);
+        if (ids.has(cid)) {
+          warnings.push(`Skipping ${entry}: duplicate criterion id ${cid}`);
+          meta = undefined as any;
+          break;
+        }
+        ids.add(cid);
+      }
+      if (!meta) continue;
       if (meta.threshold !== undefined && (meta.threshold < 0 || meta.threshold > 4)) {
         warnings.push(`Skipping ${entry}: invalid top-level threshold (must be 0-4)`);
         continue;
@@ -107,10 +134,14 @@ export function loadPrompts(
         warnings.push(`Skipping ${entry}: invalid top-level severity`);
         continue;
       }
+      // Derive prompt id and display name if not provided
+      const baseName = path.basename(full, path.extname(full));
+      const pascal = toPascal(baseName);
+
       prompts.push({
         id: path.basename(full, path.extname(full)),
         filename: path.basename(full),
-        meta,
+        meta: { ...meta, id: meta.id || pascal, name: meta.name || (pascal.replace(/([A-Z])/g, ' $1').trim()) },
         body,
       });
     } catch (e: any) {

@@ -1,16 +1,22 @@
 ---
 specVersion: 1.0.0
 threshold: 3
+name: Headline Evaluator
+id: HeadlineEvaluator
 criteria:
   - name: Value Communication
+    id: ValueCommunication
     weight: 12
     severity: error
   - name: Audience Relevance
+    id: AudienceRelevance
     weight: 4
     severity: warning
   - name: Curiosity Gap
+    id: CuriosityGap
     weight: 2
   - name: Language Authenticity
+    id: LanguageAuthenticity
     weight: 2
 ---
 
