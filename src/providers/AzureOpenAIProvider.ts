@@ -91,4 +91,68 @@ export class AzureOpenAIProvider implements LLMProvider {
     }
     return responseText;
   }
+
+  async runPromptStructured<T = unknown>(content: string, promptText: string, schema: any): Promise<T> {
+    const prompt = promptText;
+
+    const params: Parameters<typeof this.client.chat.completions.create>[0] = {
+      model: this.deploymentName,
+      messages: [
+        { role: 'system', content: 'Follow the instructions precisely and respond only with JSON matching the provided schema.' },
+        { role: 'user', content: prompt },
+        { role: 'user', content: `Input:\n\n${content}` }
+      ],
+      response_format: {
+        type: 'json_schema',
+        json_schema: schema,
+      } as any,
+    } as any;
+    if (this.temperature !== undefined) {
+      params.temperature = this.temperature;
+    }
+
+    if (this.debug) {
+      console.log('[vectorlint] Sending request to Azure OpenAI:', {
+        model: this.deploymentName,
+        apiVersion: this.apiVersion || '2024-02-15-preview',
+        temperature: this.temperature,
+      });
+      if (this.showPrompt) {
+        console.log('[vectorlint] Prompt (first 500 chars):');
+        console.log(prompt.slice(0, 500));
+        if (prompt.length > 500) console.log('... [truncated]');
+        const preview = content.slice(0, 500);
+        console.log('[vectorlint] Injected content preview (first 500 chars):');
+        console.log(preview);
+        if (content.length > 500) console.log('... [truncated]');
+      }
+    }
+
+    const response = await this.client.chat.completions.create(params as any);
+    const anyResp: any = response as any;
+    const responseTextRaw = anyResp.choices?.[0]?.message?.content;
+    const responseText = (responseTextRaw ?? '').trim();
+    if (this.debug) {
+      const usage = anyResp.usage;
+      const finish = anyResp.choices?.[0]?.finish_reason;
+      if (usage || finish) {
+        console.log('[vectorlint] LLM response meta:', { usage, finish_reason: finish });
+      }
+      if (this.debugJson) {
+        try {
+          console.log('[vectorlint] Full JSON response:');
+          console.log(JSON.stringify(anyResp, null, 2));
+        } catch {}
+      }
+    }
+    if (!responseText) {
+      throw new Error('Empty response from LLM (no content).');
+    }
+    try {
+      return JSON.parse(responseText) as T;
+    } catch (e) {
+      const preview = responseText.slice(0, 200);
+      throw new Error(`Failed to parse structured JSON response. Preview: ${preview}${responseText.length > 200 ? ' ...' : ''}`);
+    }
+  }
 }

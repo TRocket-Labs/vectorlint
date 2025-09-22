@@ -5,6 +5,7 @@ import path from 'path';
 import { AzureOpenAIProvider } from './providers/AzureOpenAIProvider.js';
 import { loadConfig } from './config/Config.js';
 import { loadPrompts } from './prompts/PromptLoader.js';
+import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/Schema.js';
 import { resolveTargets } from './scan/FileResolver.js';
 
 // Best-effort .env loader without external deps
@@ -128,6 +129,7 @@ program
     }
 
     let hadOperationalErrors = false;
+    let hadSeverityErrors = false;
 
     for (const file of targets) {
       try {
@@ -135,9 +137,72 @@ program
         console.log(`=== File: ${file} ===`);
         for (const p of prompts) {
           try {
-            const output = await provider.runPrompt(content, p.text);
-            console.log(`\n## Prompt: ${p.filename}\n`);
-            console.log(output);
+            // Build fixed JSON schema for structured outputs
+            const schema = buildCriteriaJsonSchema();
+            // Ensure required meta
+            const meta = p.meta;
+            if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
+              throw new Error(`Prompt ${p.filename} has no criteria in frontmatter`);
+            }
+            // Ask for structured output
+            const result = await provider.runPromptStructured<CriteriaResult>(content, p.body, schema);
+            console.log(`\n## Prompt: ${p.filename}`);
+            // Validate names and compute findings
+            const expectedNames = new Set(meta.criteria.map(c => c.name));
+            const returnedNames = new Set(result.criteria.map(c => c.name));
+            // Check missing
+            for (const name of expectedNames) {
+              if (!returnedNames.has(name)) {
+                console.error(`Missing criterion in model output: ${name}`);
+                hadOperationalErrors = true;
+              }
+            }
+            // Warn extra
+            for (const name of returnedNames) {
+              if (!expectedNames.has(name)) {
+                console.warn(`[vectorlint] Extra criterion returned by model (ignored): ${name}`);
+              }
+            }
+            // Evaluate and summarize
+            let totalScore = 0;
+            let maxScore = 0;
+            const issues: Array<{ name: string; score: number; threshold: number; severity: 'warning' | 'error' }>= [];
+            for (const exp of meta.criteria) {
+              const got = result.criteria.find(c => c.name === exp.name);
+              if (!got) continue;
+              const score = Number(got.score) as number;
+              const weight = Number(exp.weight) as number;
+              if (!Number.isFinite(score) || score < 0 || score > 4) {
+                console.error(`Invalid score for ${exp.name}: ${score}`);
+                hadOperationalErrors = true;
+                continue;
+              }
+              totalScore += (score / 4) * weight;
+              maxScore += weight;
+              const effThreshold = exp.threshold ?? meta.threshold ?? 3;
+              const effSeverity = (meta.severity as any) || exp.severity || 'warning';
+              if (score < effThreshold) {
+                issues.push({ name: exp.name, score, threshold: effThreshold, severity: effSeverity as any });
+                if (effSeverity === 'error') hadSeverityErrors = true;
+              }
+            }
+            console.log(`Overall: ${totalScore.toFixed(2)}/${maxScore}`);
+            if (issues.length > 0) {
+              console.log('Findings:');
+              for (const iss of issues) {
+                const tag = iss.severity === 'error' ? '[ERROR]' : '[WARN]';
+                console.log(`  ${tag} ${iss.name}: score ${iss.score} < threshold ${iss.threshold}`);
+              }
+            } else {
+              console.log('No findings.');
+            }
+            if (verbose) {
+              console.log('Details:');
+              for (const c of result.criteria) {
+                console.log(`  - ${c.name}: ${c.score}/4 (weight ${c.weight})`);
+                console.log(`    ${c.analysis}`);
+              }
+            }
           } catch (e) {
             console.error(`\n## Prompt: ${p.filename} failed`);
             console.error(e);
@@ -151,8 +216,8 @@ program
       }
     }
 
-    // Exit with 0 unless operational errors occurred
-    process.exit(hadOperationalErrors ? 1 : 0);
+    // Exit with 0 unless operational errors or severity errors occurred
+    process.exit(hadOperationalErrors || hadSeverityErrors ? 1 : 0);
   });
 
 program.parse();
