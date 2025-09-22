@@ -6,6 +6,7 @@ import { AzureOpenAIProvider } from './providers/AzureOpenAIProvider.js';
 import { loadConfig } from './config/Config.js';
 import { loadPrompts } from './prompts/PromptLoader.js';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/Schema.js';
+import { printFileHeader, printPromptHeader, printOverall, printCriterionLine, printPromptSummary, printFileSummary, printGlobalSummary } from './output/Reporter.js';
 import { resolveTargets } from './scan/FileResolver.js';
 
 // Best-effort .env loader without external deps
@@ -130,11 +131,17 @@ program
 
     let hadOperationalErrors = false;
     let hadSeverityErrors = false;
+    let totalFiles = 0;
+    let totalErrors = 0;
+    let totalWarnings = 0;
 
     for (const file of targets) {
       try {
         const content = readFileSync(file, 'utf-8');
-        console.log(`=== File: ${file} ===`);
+        totalFiles += 1;
+        printFileHeader(file);
+        let fileErrors = 0;
+        let fileWarnings = 0;
         for (const p of prompts) {
           try {
             // Build fixed JSON schema for structured outputs
@@ -146,7 +153,7 @@ program
             }
             // Ask for structured output
             const result = await provider.runPromptStructured<CriteriaResult>(content, p.body, schema);
-            console.log(`\n## Prompt: ${p.filename}`);
+            printPromptHeader(p.filename);
             // Validate names and compute findings
             const expectedNames = new Set(meta.criteria.map(c => c.name));
             const returnedNames = new Set(result.criteria.map(c => c.name));
@@ -166,7 +173,9 @@ program
             // Evaluate and summarize
             let totalScore = 0;
             let maxScore = 0;
-            const issues: Array<{ name: string; score: number; threshold: number; severity: 'warning' | 'error' }>= [];
+            let promptErrors = 0;
+            let promptWarnings = 0;
+            const issuesMap = new Map<string, { threshold: number; severity: 'warning' | 'error' }>();
             for (const exp of meta.criteria) {
               const got = result.criteria.find(c => c.name === exp.name);
               if (!got) continue;
@@ -181,40 +190,56 @@ program
               maxScore += weight;
               const effThreshold = exp.threshold ?? meta.threshold ?? 3;
               const effSeverity = (meta.severity as any) || exp.severity || 'warning';
-              if (score < effThreshold) {
-                issues.push({ name: exp.name, score, threshold: effThreshold, severity: effSeverity as any });
-                if (effSeverity === 'error') hadSeverityErrors = true;
-              }
+              issuesMap.set(exp.name, { threshold: effThreshold, severity: effSeverity as any });
             }
-            console.log(`Overall: ${totalScore.toFixed(2)}/${maxScore}`);
-            if (issues.length > 0) {
-              console.log('Findings:');
-              for (const iss of issues) {
-                const tag = iss.severity === 'error' ? '[ERROR]' : '[WARN]';
-                console.log(`  ${tag} ${iss.name}: score ${iss.score} < threshold ${iss.threshold}`);
+            printOverall(totalScore, maxScore);
+            // Print per-criterion status lines
+            for (const exp of meta.criteria) {
+              const got = result.criteria.find(c => c.name === exp.name);
+              if (!got) continue;
+              const conf = issuesMap.get(exp.name)!;
+              const score = Number(got.score);
+              let status: 'ok' | 'warning' | 'error' = 'ok';
+              if (score < conf.threshold) {
+                status = conf.severity === 'error' ? 'error' : 'warning';
+                if (status === 'error') {
+                  hadSeverityErrors = true; promptErrors += 1;
+                } else {
+                  promptWarnings += 1;
+                }
               }
-            } else {
-              console.log('No findings.');
+              printCriterionLine(exp.name, status, score, conf.threshold, Number(exp.weight));
             }
+            // Prompt summary line
+            printPromptSummary(promptErrors, promptWarnings);
+            fileErrors += promptErrors;
+            fileWarnings += promptWarnings;
+            totalErrors += promptErrors;
+            totalWarnings += promptWarnings;
             if (verbose) {
-              console.log('Details:');
+              console.log('    Details:');
               for (const c of result.criteria) {
-                console.log(`  - ${c.name}: ${c.score}/4 (weight ${c.weight})`);
-                console.log(`    ${c.analysis}`);
+                console.log(`      - ${c.name}: ${c.score}/4 (weight ${c.weight})`);
+                console.log(`        ${c.analysis}`);
               }
             }
           } catch (e) {
-            console.error(`\n## Prompt: ${p.filename} failed`);
+            console.error(`  Prompt failed: ${p.filename}`);
             console.error(e);
             hadOperationalErrors = true;
           }
         }
-        console.log('\n');
+        // File summary (accumulated from prompts within this file)
+        printFileSummary(fileErrors, fileWarnings);
+        console.log('');
       } catch (error) {
         console.error(`Error processing file ${file}:`, error);
         hadOperationalErrors = true;
       }
     }
+
+    // Global summary
+    printGlobalSummary(totalFiles, totalErrors, totalWarnings);
 
     // Exit with 0 unless operational errors or severity errors occurred
     process.exit(hadOperationalErrors || hadSeverityErrors ? 1 : 0);
