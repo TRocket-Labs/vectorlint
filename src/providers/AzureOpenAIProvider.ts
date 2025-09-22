@@ -8,12 +8,19 @@ export interface AzureOpenAIConfig {
   deploymentName: string;
   apiVersion?: string;
   temperature?: number;
+  debug?: boolean;
+  showPrompt?: boolean;
+  debugJson?: boolean;
 }
 
 export class AzureOpenAIProvider implements LLMProvider {
   private client: AzureOpenAI;
   private deploymentName: string;
   private temperature?: number;
+  private apiVersion?: string;
+  private debug?: boolean;
+  private showPrompt?: boolean;
+  private debugJson?: boolean;
 
   constructor(config: AzureOpenAIConfig) {
     this.client = new AzureOpenAI({
@@ -23,6 +30,10 @@ export class AzureOpenAIProvider implements LLMProvider {
     });
     this.deploymentName = config.deploymentName;
     this.temperature = config.temperature;
+    this.apiVersion = config.apiVersion;
+    this.debug = config.debug;
+    this.showPrompt = config.showPrompt;
+    this.debugJson = config.debugJson;
   }
 
   async analyze(content: string): Promise<AnalysisResult> {
@@ -54,16 +65,47 @@ ${content}`;
       params.temperature = this.temperature;
     }
 
+    if (this.debug) {
+      console.log('[vectorlint] Sending request to Azure OpenAI:', {
+        model: this.deploymentName,
+        apiVersion: this.apiVersion || '2024-02-15-preview',
+        temperature: this.temperature,
+      });
+      if (this.showPrompt) {
+        console.log('[vectorlint] Prompt (first 500 chars):');
+        console.log(prompt.slice(0, 500));
+        if (prompt.length > 500) console.log('... [truncated]');
+      }
+    }
+
     const response = await this.client.chat.completions.create(params);
 
-    const responseText = response.choices[0]?.message?.content || '[]';
-    
+    const responseTextRaw = response.choices[0]?.message?.content;
+    const responseText = (responseTextRaw ?? '').trim();
+    if (this.debug) {
+      console.log('[vectorlint] LLM response content:', responseText);
+      const usage = (response as any).usage;
+      const finish = response.choices[0]?.finish_reason;
+      if (usage || finish) {
+        console.log('[vectorlint] LLM response meta:', { usage, finish_reason: finish });
+      }
+      if (this.debugJson) {
+        try {
+          console.log('[vectorlint] Full JSON response:');
+          console.log(JSON.stringify(response, null, 2));
+        } catch {}
+      }
+    }
+    if (!responseText) {
+      throw new Error('Empty response from LLM (no content).');
+    }
+
     try {
       const issues: Issue[] = JSON.parse(responseText);
       return { issues };
     } catch (error) {
-      console.error('Failed to parse LLM response:', responseText);
-      return { issues: [] };
+      const preview = responseText.slice(0, 200);
+      throw new Error(`Failed to parse LLM response as JSON. Preview: ${preview}${responseText.length > 200 ? ' ...' : ''}`);
     }
   }
 }
