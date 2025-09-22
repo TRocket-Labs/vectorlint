@@ -2,7 +2,7 @@
 specVersion: 1.0.0
 threshold: 3
 name: Headline Evaluator
-id: HeadlineEvaluator
+id: Headline
 criteria:
   - name: Value Communication
     id: ValueCommunication

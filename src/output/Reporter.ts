@@ -30,26 +30,17 @@ export function printIssueRow(
   status: Status,
   summary: string,
   ruleName: string,
-  opts: { width?: number; severityWidth?: number; ruleWidth?: number } = {}
+  opts: { severityWidth?: number; messageWidth?: number } = {}
 ) {
-  // Columns: severity (fixed), message (wrap), rule/id (fixed at end)
-  const width = opts.width ?? 100;
+  // Columns: severity (fixed), message (fixed wrap), rule/id (unbounded; let terminal wrap naturally)
   const severityWidth = opts.severityWidth ?? 8;
-  const ruleWidth = opts.ruleWidth ?? 28;
+  const messageWidth = opts.messageWidth ?? 60;
 
   const label = statusLabel(status).padEnd(severityWidth, ' ');
   const prefix = `  ${label}  `; // extra space after severity
   const prefixLen = stripAnsi(prefix).length;
 
-  // Prepare rule column fixed width
-  let rule = ruleName || '';
-  const rawRule = stripAnsi(rule);
-  if (rawRule.length > ruleWidth) {
-    rule = rawRule.slice(0, ruleWidth - 1) + '…';
-  }
-  const rulePadded = rule.padEnd(ruleWidth, ' ');
-
-  const messageWidth = Math.max(20, width - prefixLen - 2 - ruleWidth);
+  // No fixed width or chunking for rule; print raw id and let terminal wrap
   const words = (summary || '').split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = '';
@@ -67,13 +58,14 @@ export function printIssueRow(
     lines.push('');
   }
 
-  // First line with rule at end
-  console.log(`${prefix}${lines[0].padEnd(messageWidth, ' ')}  ${chalk.dim(rulePadded)}`);
+  // First line with rule at end (unbounded)
+  console.log(`${prefix}${lines[0].padEnd(messageWidth, ' ')}  ${chalk.dim(ruleName || '')}`);
   // Continuation lines
   const contPrefix = ' '.repeat(prefixLen);
   for (let i = 1; i < lines.length; i++) {
     console.log(`${contPrefix}${lines[i]}`);
   }
+  // No manual rule overflow handling to keep id truly unfixed-width
   // Blank line after each row block
   console.log('');
 }
