@@ -2,9 +2,9 @@
 import { program } from 'commander';
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
-import { ContentAnalyzer } from './analyzer/ContentAnalyzer.js';
 import { AzureOpenAIProvider } from './providers/AzureOpenAIProvider.js';
-import { Formatter } from './output/Formatter.js';
+import { loadConfig } from './config/Config.js';
+import { loadPrompts } from './prompts/PromptLoader.js';
 
 // Best-effort .env loader without external deps
 function loadDotEnv() {
@@ -70,7 +70,7 @@ program
       process.exit(1);
     }
 
-    // Inject Azure OpenAI provider (dependency inversion!)
+    // Provider
     const provider = new AzureOpenAIProvider({
       apiKey,
       endpoint,
@@ -82,9 +82,26 @@ program
       debugJson: Boolean(debugJson),
     });
     
-    const analyzer = new ContentAnalyzer(provider);
+    // Load config and prompts
+    const { promptsPath } = loadConfig();
+    if (!existsSync(promptsPath)) {
+      console.error(`Error: prompts path does not exist: ${promptsPath}`);
+      process.exit(1);
+    }
+    let prompts;
+    try {
+      const loaded = loadPrompts(promptsPath, { verbose: Boolean(verbose) });
+      prompts = loaded.prompts;
+      if (prompts.length === 0) {
+        console.error(`Error: no .md prompts found in ${promptsPath}`);
+        process.exit(1);
+      }
+    } catch (e: any) {
+      console.error(`Error: failed to load prompts: ${e?.message || e}`);
+      process.exit(1);
+    }
     
-    let hasErrors = false;
+    let hadOperationalErrors = false;
 
     for (const file of files) {
       if (!file.endsWith('.md')) {
@@ -94,21 +111,27 @@ program
 
       try {
         const content = readFileSync(file, 'utf-8');
-        const result = await analyzer.analyzeFile(file, content);
-        
-        console.log(Formatter.formatIssues(file, result.issues));
-        
-        if (result.issues.some(issue => issue.severity === 'error')) {
-          hasErrors = true;
+        console.log(`=== File: ${file} ===`);
+        for (const p of prompts) {
+          try {
+            const output = await provider.runPrompt(content, p.text);
+            console.log(`\n## Prompt: ${p.filename}\n`);
+            console.log(output);
+          } catch (e) {
+            console.error(`\n## Prompt: ${p.filename} failed`);
+            console.error(e);
+            hadOperationalErrors = true;
+          }
         }
+        console.log('\n');
       } catch (error) {
         console.error(`Error processing file ${file}:`, error);
-        hasErrors = true;
+        hadOperationalErrors = true;
       }
     }
 
-    // Exit with appropriate code for CI
-    process.exit(hasErrors ? 1 : 0);
+    // Exit with 0 unless operational errors occurred
+    process.exit(hadOperationalErrors ? 1 : 0);
   });
 
 program.parse();

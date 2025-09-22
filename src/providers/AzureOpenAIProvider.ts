@@ -1,6 +1,5 @@
 import { AzureOpenAI } from 'openai';
 import { LLMProvider } from './LLMProvider.js';
-import { AnalysisResult, Issue } from '../analyzer/types.js';
 
 export interface AzureOpenAIConfig {
   apiKey: string;
@@ -36,27 +35,13 @@ export class AzureOpenAIProvider implements LLMProvider {
     this.debugJson = config.debugJson;
   }
 
-  async analyze(content: string): Promise<AnalysisResult> {
-    // Simple grammar check prompt
-    const prompt = `Check for grammar errors in this content. Return a JSON array of issues with this exact structure:
-[
-  {
-    "line": 1,
-    "severity": "error",
-    "message": "Grammar error description",
-    "rule": "grammar"
-  }
-]
-
-If no errors are found, return an empty array: []
-
-Content to check:
-${content}`;
+  async runPrompt(content: string, promptText: string): Promise<string> {
+    const prompt = promptText.replace('{{CONTENT}}', content);
 
     const params: Parameters<typeof this.client.chat.completions.create>[0] = {
       model: this.deploymentName,
       messages: [
-        { role: 'system', content: 'You are a grammar checker. Return only valid JSON.' },
+        { role: 'system', content: 'Follow the instructions precisely and respond accordingly.' },
         { role: 'user', content: prompt }
       ],
     };
@@ -80,32 +65,26 @@ ${content}`;
 
     const response = await this.client.chat.completions.create(params);
 
-    const responseTextRaw = response.choices[0]?.message?.content;
+    const anyResp: any = response as any;
+    const responseTextRaw = anyResp.choices?.[0]?.message?.content;
     const responseText = (responseTextRaw ?? '').trim();
     if (this.debug) {
       console.log('[vectorlint] LLM response content:', responseText);
-      const usage = (response as any).usage;
-      const finish = response.choices[0]?.finish_reason;
+      const usage = anyResp.usage;
+      const finish = anyResp.choices?.[0]?.finish_reason;
       if (usage || finish) {
         console.log('[vectorlint] LLM response meta:', { usage, finish_reason: finish });
       }
       if (this.debugJson) {
         try {
           console.log('[vectorlint] Full JSON response:');
-          console.log(JSON.stringify(response, null, 2));
+          console.log(JSON.stringify(anyResp, null, 2));
         } catch {}
       }
     }
     if (!responseText) {
       throw new Error('Empty response from LLM (no content).');
     }
-
-    try {
-      const issues: Issue[] = JSON.parse(responseText);
-      return { issues };
-    } catch (error) {
-      const preview = responseText.slice(0, 200);
-      throw new Error(`Failed to parse LLM response as JSON. Preview: ${preview}${responseText.length > 200 ? ' ...' : ''}`);
-    }
+    return responseText;
   }
 }
