@@ -6,7 +6,7 @@ import { AzureOpenAIProvider } from './providers/AzureOpenAIProvider.js';
 import { loadConfig } from './config/Config.js';
 import { loadPrompts } from './prompts/PromptLoader.js';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/Schema.js';
-import { printFileHeader, printPromptHeader, printOverall, printCriterionLine, printPromptSummary, printFileSummary, printGlobalSummary } from './output/Reporter.js';
+import { printFileHeader, printIssueRow, printGlobalSummary } from './output/Reporter.js';
 import { resolveTargets } from './scan/FileResolver.js';
 
 // Best-effort .env loader without external deps
@@ -139,7 +139,8 @@ program
       try {
         const content = readFileSync(file, 'utf-8');
         totalFiles += 1;
-        printFileHeader(file);
+        const relFile = path.relative(process.cwd(), file) || file;
+        printFileHeader(relFile);
         let fileErrors = 0;
         let fileWarnings = 0;
         for (const p of prompts) {
@@ -153,9 +154,9 @@ program
             }
             // Ask for structured output
             const result = await provider.runPromptStructured<CriteriaResult>(content, p.body, schema);
-            printPromptHeader(p.filename);
+            const promptId = (p.meta.id || '').toString();
             // Validate names and compute findings
-            const expectedNames = new Set(meta.criteria.map(c => c.name));
+            const expectedNames = new Set<string>(meta.criteria.map(c => String(c.name)));
             const returnedNames = new Set(result.criteria.map(c => c.name));
             // Check missing
             for (const name of expectedNames) {
@@ -177,7 +178,8 @@ program
             let promptWarnings = 0;
             const issuesMap = new Map<string, { threshold: number; severity: 'warning' | 'error' }>();
             for (const exp of meta.criteria) {
-              const got = result.criteria.find(c => c.name === exp.name);
+              const nameKey = String(exp.name);
+              const got = result.criteria.find(c => c.name === nameKey);
               if (!got) continue;
               const score = Number(got.score) as number;
               const weight = Number(exp.weight) as number;
@@ -190,14 +192,14 @@ program
               maxScore += weight;
               const effThreshold = exp.threshold ?? meta.threshold ?? 3;
               const effSeverity = (meta.severity as any) || exp.severity || 'warning';
-              issuesMap.set(exp.name, { threshold: effThreshold, severity: effSeverity as any });
+              issuesMap.set(nameKey, { threshold: effThreshold, severity: effSeverity as any });
             }
-            printOverall(totalScore, maxScore);
             // Print per-criterion status lines
             for (const exp of meta.criteria) {
-              const got = result.criteria.find(c => c.name === exp.name);
+              const nameKey = String(exp.name);
+              const got = result.criteria.find(c => c.name === nameKey);
               if (!got) continue;
-              const conf = issuesMap.get(exp.name)!;
+              const conf = issuesMap.get(nameKey)!;
               const score = Number(got.score);
               let status: 'ok' | 'warning' | 'error' = 'ok';
               if (score < conf.threshold) {
@@ -208,29 +210,23 @@ program
                   promptWarnings += 1;
                 }
               }
-              printCriterionLine(exp.name, status, score, conf.threshold, Number(exp.weight));
+              // Multi-line assessment summary
+              const summary = (got.analysis || '').trim();
+              const criterionId = (exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s=>s[0].toUpperCase()+s.slice(1)).join('') : ''));
+              const ruleName = promptId && criterionId ? `${promptId}.${criterionId}` : (promptId || criterionId || p.filename);
+              printIssueRow(status, summary, ruleName);
             }
-            // Prompt summary line
-            printPromptSummary(promptErrors, promptWarnings);
             fileErrors += promptErrors;
             fileWarnings += promptWarnings;
             totalErrors += promptErrors;
             totalWarnings += promptWarnings;
-            if (verbose) {
-              console.log('    Details:');
-              for (const c of result.criteria) {
-                console.log(`      - ${c.name}: ${c.score}/4 (weight ${c.weight})`);
-                console.log(`        ${c.analysis}`);
-              }
-            }
+            // No verbose details block needed; summaries are already printed per row
           } catch (e) {
             console.error(`  Prompt failed: ${p.filename}`);
             console.error(e);
             hadOperationalErrors = true;
           }
         }
-        // File summary (accumulated from prompts within this file)
-        printFileSummary(fileErrors, fileWarnings);
         console.log('');
       } catch (error) {
         console.error(`Error processing file ${file}:`, error);
