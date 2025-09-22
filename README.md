@@ -42,6 +42,12 @@ You can find these values in your Azure Portal under your Azure OpenAI resource.
 # Run with tsx (no build needed)
 npm run dev -- path/to/article.md
 
+# Verbose mode (prints model response text)
+npm run dev -- --verbose path/to/article.md
+
+# Show prompt and full JSON response
+npm run dev -- --verbose --show-prompt --debug-json path/to/article.md
+
 # Or make the script executable
 chmod +x src/index.ts
 ./src/index.ts path/to/article.md
@@ -81,6 +87,7 @@ jobs:
           AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}
           AZURE_OPENAI_API_VERSION: 2024-02-15-preview
         run: npx tsx src/index.ts docs/**/*.md
+        # Add --verbose to debug model responses if needed
 ```
 
 ### Pre-commit Hook

@@ -42,10 +42,15 @@ program
   .name('vectorlint')
   .description('AI-powered content compliance checker')
   .version('1.0.0')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .option('--show-prompt', 'Print the prompt sent to the model')
+  .option('--debug-json', 'Print full JSON response from the API')
   .argument('<files...>', 'markdown files to check')
   .action(async (files: string[]) => {
     // Load environment from .env if present
     loadDotEnv();
+    const { verbose, showPrompt, debugJson } = program.opts<{ verbose?: boolean; showPrompt?: boolean; debugJson?: boolean }>();
+
     // Azure OpenAI Configuration
     const apiKey = process.env.AZURE_OPENAI_API_KEY;
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
@@ -72,6 +77,9 @@ program
       deploymentName,
       apiVersion,
       temperature,
+      debug: Boolean(verbose),
+      showPrompt: Boolean(showPrompt),
+      debugJson: Boolean(debugJson),
     });
     
     const analyzer = new ContentAnalyzer(provider);
@@ -94,7 +102,7 @@ program
           hasErrors = true;
         }
       } catch (error) {
-        console.error(`Error reading file ${file}:`, error);
+        console.error(`Error processing file ${file}:`, error);
         hasErrors = true;
       }
     }
