@@ -35,9 +35,30 @@ AZURE_OPENAI_TEMPERATURE=1  # optional; omit to use server default
 
 You can find these values in your Azure Portal under your Azure OpenAI resource.
 
+### Project Config (vectorlint.ini)
+
+- Copy the sample and edit for your project:
+
+```bash
+cp vectorlint.example.ini vectorlint.ini
+```
+
+- Keys (PascalCase):
+  - `PromptsPath`: directory containing your `.md` prompts
+  - `ScanPaths`: bracketed list of file patterns to scan (supports only `.md` and `.txt`)
+
+Example (vectorlint.example.ini):
+
+```
+PromptsPath=prompts
+ScanPaths=[*.md]
+```
+
+Note: `vectorlint.ini` is git-ignored; commit `vectorlint.example.ini` as the template.
+
 ### Prompts
 
-Prompts are markdown files. VectorLint loads all `.md` files from a directory and runs each one against your content. The result is an aggregated report with one section per prompt.
+Prompts are markdown files. VectorLint loads all `.md` files from `PromptsPath` and runs each one against your content. The result is an aggregated report with one section per prompt. Prompts do not need a placeholder; the file content is injected automatically as a separate message.
 
 - Default prompts directory: `prompts/`
 - Example prompt included: `prompts/headline-evaluator.md`

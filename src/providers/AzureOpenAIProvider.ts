@@ -74,7 +74,6 @@ export class AzureOpenAIProvider implements LLMProvider {
     const responseTextRaw = anyResp.choices?.[0]?.message?.content;
     const responseText = (responseTextRaw ?? '').trim();
     if (this.debug) {
-      console.log('[vectorlint] LLM response content:', responseText);
       const usage = anyResp.usage;
       const finish = anyResp.choices?.[0]?.finish_reason;
       if (usage || finish) {
