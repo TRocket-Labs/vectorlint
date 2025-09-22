@@ -27,17 +27,20 @@ export function printOverall(overall: number, max: number) {
 }
 
 export function printIssueRow(
+  loc: string,
   status: Status,
   summary: string,
   ruleName: string,
-  opts: { severityWidth?: number; messageWidth?: number } = {}
+  opts: { locWidth?: number; severityWidth?: number; messageWidth?: number } = {}
 ) {
-  // Columns: severity (fixed), message (fixed wrap), rule/id (unbounded; let terminal wrap naturally)
+  // Columns: loc (fixed), severity (fixed), message (fixed wrap), rule/id (unbounded; let terminal wrap)
+  const locWidth = opts.locWidth ?? 10;
   const severityWidth = opts.severityWidth ?? 8;
   const messageWidth = opts.messageWidth ?? 60;
 
+  const locCell = (loc || '').padEnd(locWidth, ' ');
   const label = statusLabel(status).padEnd(severityWidth, ' ');
-  const prefix = `  ${label}  `; // extra space after severity
+  const prefix = `  ${locCell} ${label}  `; // extra space after severity
   const prefixLen = stripAnsi(prefix).length;
 
   // No fixed width or chunking for rule; print raw id and let terminal wrap

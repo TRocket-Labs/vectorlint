@@ -1,5 +1,6 @@
 import { AzureOpenAI } from 'openai';
 import { LLMProvider } from './LLMProvider.js';
+import { DefaultRequestBuilder, RequestBuilder } from './RequestBuilder.js';
 
 export interface AzureOpenAIConfig {
   apiKey: string;
@@ -20,8 +21,9 @@ export class AzureOpenAIProvider implements LLMProvider {
   private debug?: boolean;
   private showPrompt?: boolean;
   private debugJson?: boolean;
+  private builder: RequestBuilder;
 
-  constructor(config: AzureOpenAIConfig) {
+  constructor(config: AzureOpenAIConfig, builder?: RequestBuilder) {
     this.client = new AzureOpenAI({
       apiKey: config.apiKey,
       endpoint: config.endpoint,
@@ -33,6 +35,7 @@ export class AzureOpenAIProvider implements LLMProvider {
     this.debug = config.debug;
     this.showPrompt = config.showPrompt;
     this.debugJson = config.debugJson;
+    this.builder = builder ?? new DefaultRequestBuilder();
   }
 
   async runPrompt(content: string, promptText: string): Promise<string> {
@@ -93,7 +96,7 @@ export class AzureOpenAIProvider implements LLMProvider {
   }
 
   async runPromptStructured<T = unknown>(content: string, promptText: string, schema: any): Promise<T> {
-    const prompt = promptText;
+    const prompt = this.builder.buildPromptBodyForStructured(promptText);
 
     const params: Parameters<typeof this.client.chat.completions.create>[0] = {
       model: this.deploymentName,
