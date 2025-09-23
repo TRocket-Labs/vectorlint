@@ -232,8 +232,8 @@ program
             const missingTarget = targetCheck.missing;
 
             if (missingTarget) {
-              const status: 'ok' | 'warning' | 'error' = (exp.severity === 'error') ? 'error' : 'warning';
-              if (status === 'error') { hadSeverityErrors = true; promptErrors += 1; } else { promptWarnings += 1; }
+              const status: 'ok' | 'warning' | 'error' = 'error';
+              hadSeverityErrors = true; promptErrors += 1;
               const summary = 'target not found';
               const suggestion = (targetCheck.suggestion || exp.target?.suggestion || meta.target?.suggestion || 'Add the required target section.');
               const locStr = '1:1';
