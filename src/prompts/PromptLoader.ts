@@ -10,6 +10,13 @@ export interface PromptCriterionSpec {
   weight: number;
   threshold?: number;
   severity?: Severity;
+  target?: {
+    regex?: string;
+    flags?: string;
+    group?: number;
+    required?: boolean;
+    suggestion?: string;
+  };
 }
 
 export interface PromptMeta {
@@ -18,6 +25,13 @@ export interface PromptMeta {
   threshold?: number;
   id?: string;
   name?: string;
+  target?: {
+    regex?: string;
+    flags?: string;
+    group?: number;
+    required?: boolean;
+    suggestion?: string;
+  };
   criteria: PromptCriterionSpec[];
 }
 
@@ -67,12 +81,26 @@ export function loadPrompts(
               threshold: data.threshold,
               id: typeof data.id === 'string' ? data.id : undefined,
               name: typeof data.name === 'string' ? data.name : undefined,
+              target: data.target ? {
+                regex: data.target.regex,
+                flags: data.target.flags,
+                group: data.target.group !== undefined ? Number(data.target.group) : undefined,
+                required: data.target.required === true,
+                suggestion: data.target.suggestion,
+              } : undefined,
               criteria: Array.isArray(data.criteria) ? data.criteria.map((c: any) => ({
                 id: c.id,
                 name: c.name,
                 weight: Number(c.weight),
                 threshold: c.threshold !== undefined ? Number(c.threshold) : undefined,
                 severity: c.severity,
+                target: c.target ? {
+                  regex: c.target.regex,
+                  flags: c.target.flags,
+                  group: c.target.group !== undefined ? Number(c.target.group) : undefined,
+                  required: c.target.required === true,
+                  suggestion: c.target.suggestion,
+                } : undefined,
               })) : [],
             } as PromptMeta;
           } catch (e: any) {
@@ -133,6 +161,13 @@ export function loadPrompts(
       if (meta.severity && meta.severity !== 'warning' && meta.severity !== 'error') {
         warnings.push(`Skipping ${entry}: invalid top-level severity`);
         continue;
+      }
+      if (meta.target) {
+        if (meta.target.group !== undefined && (meta.target.group as number) < 0) {
+          warnings.push(`Skipping ${entry}: invalid top-level target.group`);
+          continue;
+        }
+        // regex/flags are strings if present; no further validation here
       }
       // Derive prompt id and display name if not provided
       const baseName = path.basename(full, path.extname(full));

@@ -26,8 +26,11 @@ export function buildCriteriaJsonSchema() {
                 },
                 required: ['quote', 'pre', 'post'],
               },
+              suggestion: { type: 'string' },
             },
-            required: ['name', 'weight', 'score', 'analysis', 'evidence'],
+            // Azure strict json_schema requires that `required` include every property key.
+            // We require `suggestion` too (we'll ignore it when status is OK).
+            required: ['name', 'weight', 'score', 'analysis', 'evidence', 'suggestion'],
           },
         },
       },
@@ -43,5 +46,6 @@ export type CriteriaResult = {
     score: 0 | 1 | 2 | 3 | 4;
     analysis: string;
     evidence: { quote: string; pre: string; post: string };
+    suggestion?: string;
   }>;
 };

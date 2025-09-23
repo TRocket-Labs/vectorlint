@@ -7,8 +7,9 @@ import { loadConfig } from './config/Config.js';
 import { loadPrompts } from './prompts/PromptLoader.js';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/Schema.js';
 import { printFileHeader, printIssueRow, printGlobalSummary } from './output/Reporter.js';
-import { locateEvidence } from './locate/EvidenceLocator.js';
+import { locateEvidence } from './output/Location.js';
 import { DefaultRequestBuilder } from './providers/RequestBuilder.js';
+import { checkTarget } from './prompts/Target.js';
 import { resolveTargets } from './scan/FileResolver.js';
 
 // Best-effort .env loader without external deps
@@ -136,6 +137,7 @@ program
     let totalFiles = 0;
     let totalErrors = 0;
     let totalWarnings = 0;
+    let requestFailures = 0;
 
     // Simple concurrency runner
     async function runWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T, index: number) => Promise<R>): Promise<R[]> {
@@ -185,6 +187,7 @@ program
             console.error(`  Prompt failed: ${p.filename}`);
             console.error(r.error);
             hadOperationalErrors = true;
+            requestFailures += 1;
             continue;
           }
           const meta = p.meta;
@@ -222,6 +225,22 @@ program
           }
           for (const exp of meta.criteria) {
             const nameKey = String(exp.name);
+            const criterionId = (exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s=>s[0].toUpperCase()+s.slice(1)).join('') : ''));
+            const ruleName = promptId && criterionId ? `${promptId}.${criterionId}` : (promptId || criterionId || p.filename);
+            // Target gating (deterministic precheck)
+            const targetCheck = checkTarget(content, meta.target, exp.target);
+            const missingTarget = targetCheck.missing;
+
+            if (missingTarget) {
+              const status: 'ok' | 'warning' | 'error' = (exp.severity === 'error') ? 'error' : 'warning';
+              if (status === 'error') { hadSeverityErrors = true; promptErrors += 1; } else { promptWarnings += 1; }
+              const summary = 'target not found';
+              const suggestion = (targetCheck.suggestion || exp.target?.suggestion || meta.target?.suggestion || 'Add the required target section.');
+              const locStr = '1:1';
+              printIssueRow(locStr, status, summary, ruleName, { suggestion });
+              continue;
+            }
+
             const got = result.criteria.find(c => c.name === nameKey);
             if (!got) continue;
             const conf = issuesMap.get(nameKey)!;
@@ -233,8 +252,7 @@ program
               else { promptWarnings += 1; }
             }
             const summary = (got.analysis || '').trim();
-            const criterionId = (exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s=>s[0].toUpperCase()+s.slice(1)).join('') : ''));
-            const ruleName = promptId && criterionId ? `${promptId}.${criterionId}` : (promptId || criterionId || p.filename);
+            const suggestion = (got as any).suggestion as (string | undefined);
             // Locate evidence in content to compute line:col
             let locStr = '—:—';
             try {
@@ -245,7 +263,7 @@ program
             } catch {
               hadOperationalErrors = true;
             }
-            printIssueRow(locStr, status, summary, ruleName);
+            printIssueRow(locStr, status, summary, ruleName, { suggestion });
           }
           fileErrors += promptErrors;
           fileWarnings += promptWarnings;
@@ -260,7 +278,7 @@ program
     }
 
     // Global summary
-    printGlobalSummary(totalFiles, totalErrors, totalWarnings);
+    printGlobalSummary(totalFiles, totalErrors, totalWarnings, requestFailures);
 
     // Exit with 0 unless operational errors or severity errors occurred
     process.exit(hadOperationalErrors || hadSeverityErrors ? 1 : 0);

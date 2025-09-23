@@ -64,6 +64,36 @@ Prompts are markdown files. VectorLint loads all `.md` files from `PromptsPath` 
 - Prompts start with a YAML frontmatter block that defines the evaluation criteria (names, weights, and optional thresholds/severities). Keep the body human‑readable.
 - You do not need to include a JSON output format in the prompt. VectorLint enforces a structured JSON response via the API; it parses and evaluates scores automatically.
 
+#### Frontmatter fields (per‑criterion)
+
+- `id`, `name`, `weight`, optional `threshold`, `severity`
+  - `target`: deterministic gating for where to evaluate
+    - `regex`: JavaScript RegExp pattern
+    - `flags`: default `mu` (multiline + unicode)
+    - `group`: capture to anchor (reserved, defaults to 0)
+    - `required`: if true and no match, LLM is skipped and a deterministic error is printed
+    - `suggestion`: short human tip shown when the criterion fails deterministically
+
+Example:
+
+```
+criteria:
+  - name: Value Communication
+    id: ValueCommunication
+    weight: 12
+    severity: error
+    target:
+      regex: '^#\s+(.+)$'
+      flags: 'mu'
+      group: 1
+      required: true
+      suggestion: Add an H1 headline describing the article.
+```
+
+Behavior:
+- If `target.required` is true and no match is found, VectorLint prints `target not found` at `1:1` with the configured `suggestion`, and does not call the LLM for that criterion.
+- Otherwise, VectorLint calls the LLM and shows the assessment; for warnings/errors it also shows a succinct “suggestion:” line returned by the model. Line/column is computed via exact quote+anchors from the LLM.
+
 - Default prompts directory: `prompts/`
 - Example prompt included: `prompts/headline-evaluator.md`
 

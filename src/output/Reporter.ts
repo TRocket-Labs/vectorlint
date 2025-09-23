@@ -31,7 +31,7 @@ export function printIssueRow(
   status: Status,
   summary: string,
   ruleName: string,
-  opts: { locWidth?: number; severityWidth?: number; messageWidth?: number } = {}
+  opts: { locWidth?: number; severityWidth?: number; messageWidth?: number; suggestion?: string } = {}
 ) {
   // Columns: loc (fixed), severity (fixed), message (fixed wrap), rule/id (unbounded; let terminal wrap)
   const locWidth = opts.locWidth ?? 10;
@@ -68,6 +68,21 @@ export function printIssueRow(
   for (let i = 1; i < lines.length; i++) {
     console.log(`${contPrefix}${lines[i]}`);
   }
+  // Suggestion for warnings/errors (one cell, next line)
+  if (status !== 'ok' && opts.suggestion) {
+    const words = opts.suggestion.split(/\s+/).filter(Boolean);
+    const suggPrefix = `${contPrefix}`;
+    let curr = 'suggestion: ';
+    for (const w of words) {
+      if (stripAnsi(curr).length + (curr ? 1 : 0) + w.length > messageWidth) {
+        console.log(`${suggPrefix}${curr}`);
+        curr = w;
+      } else {
+        curr = curr ? `${curr} ${w}` : w;
+      }
+    }
+    if (curr) console.log(`${suggPrefix}${curr}`);
+  }
   // No manual rule overflow handling to keep id truly unfixed-width
   // Blank line after each row block
   console.log('');
@@ -87,7 +102,7 @@ export function printFileSummary(errors: number, warnings: number) {
   console.log(`${okMark} ${errTxt}, ${warnTxt} in file`);
 }
 
-export function printGlobalSummary(files: number, errors: number, warnings: number) {
+export function printGlobalSummary(files: number, errors: number, warnings: number, failures: number = 0) {
   const okMark = errors === 0 ? chalk.green('✓') : chalk.red('✖');
   const errTxt = errors === 1 ? '1 error' : `${errors} errors`;
   const warnTxt = warnings === 1 ? '1 warning' : `${warnings} warnings`;
@@ -96,4 +111,8 @@ export function printGlobalSummary(files: number, errors: number, warnings: numb
   const coloredErr = errors > 0 ? chalk.red(errTxt) : chalk.green(errTxt);
   const coloredWarn = warnings > 0 ? chalk.yellow(warnTxt) : chalk.green(warnTxt);
   console.log(`${okMark} ${coloredErr}, ${coloredWarn} and ${suggestionTxt} in ${fileTxt}.`);
+  if (failures > 0) {
+    const failTxt = failures === 1 ? '1 request failure' : `${failures} request failures`;
+    console.log(chalk.red(`✖ ${failTxt}`));
+  }
 }
