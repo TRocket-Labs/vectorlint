@@ -6,11 +6,12 @@ import { AzureOpenAIProvider } from './providers/AzureOpenAIProvider.js';
 import { loadConfig } from './config/Config.js';
 import { loadPrompts } from './prompts/PromptLoader.js';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/Schema.js';
-import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine } from './output/Reporter.js';
+import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow } from './output/Reporter.js';
 import { locateEvidence } from './output/Location.js';
 import { DefaultRequestBuilder } from './providers/RequestBuilder.js';
 import { checkTarget } from './prompts/Target.js';
 import { resolveTargets } from './scan/FileResolver.js';
+import { validateAll } from './prompts/PromptValidator.js';
 
 // Best-effort .env loader without external deps
 function loadDotEnv() {
@@ -48,6 +49,56 @@ program
   .name('vectorlint')
   .description('AI-powered content compliance checker')
   .version('1.0.0')
+  .command('validate')
+    .description('Validate prompt configuration files')
+    .option('--prompts <dir>', 'override prompts directory')
+    .action(async (opts: { prompts?: string }) => {
+      loadDotEnv();
+      let promptsPath = opts.prompts;
+      if (!promptsPath) {
+        try { promptsPath = loadConfig().promptsPath; } catch (e: any) {
+          console.error(`Error: ${e?.message || e}`);
+          process.exit(1);
+        }
+      }
+      if (!existsSync(promptsPath)) {
+        console.error(`Error: prompts path does not exist: ${promptsPath}`);
+        process.exit(1);
+      }
+      const loaded = loadPrompts(promptsPath, { verbose: true });
+      const { prompts, warnings } = loaded;
+      // Show loader warnings
+      if (warnings.length) {
+        printFileHeader('Loader');
+        for (const w of warnings) printValidationRow('warning', w);
+        console.log('');
+      }
+      if (prompts.length === 0) {
+        console.error(`Error: no .md prompts found in ${promptsPath}`);
+        process.exit(1);
+      }
+      const result = validateAll(prompts);
+      const byFile = new Map<string, { e: string[]; w: string[] }>();
+      for (const e of result.errors) {
+        const g = byFile.get(e.file) || { e: [], w: [] }; g.e.push(e.message); byFile.set(e.file, g);
+      }
+      for (const w of result.warnings) {
+        const g = byFile.get(w.file) || { e: [], w: [] }; g.w.push(w.message); byFile.set(w.file, g);
+      }
+      for (const [file, g] of byFile) {
+        printFileHeader(file);
+        for (const m of g.e) printValidationRow('error', m);
+        for (const m of g.w) printValidationRow('warning', m);
+        console.log('');
+      }
+      const totalErrs = result.errors.length;
+      const totalWarns = result.warnings.length;
+      const okMark = totalErrs === 0 ? '✓' : '✖';
+      console.log(`${okMark} ${totalErrs} errors, ${totalWarns} warnings in ${prompts.length} prompt(s).`);
+      process.exit(totalErrs > 0 ? 1 : 0);
+    });
+;
+program
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--show-prompt', 'Print the prompt sent to the model')
   .option('--debug-json', 'Print full JSON response from the API')
