@@ -67,6 +67,8 @@ Prompts are markdown files. VectorLint loads all `.md` files from `PromptsPath` 
 #### Frontmatter fields (per‑criterion)
 
 - `id`, `name`, `weight`, optional `threshold`, `severity`
+  - `threshold`: weighted score target (same unit as sum of weights)
+  - `severity`: error | warning (below-threshold handling)
   - `target`: deterministic gating for where to evaluate
     - `regex`: JavaScript RegExp pattern
     - `flags`: default `mu` (multiline + unicode)
@@ -82,6 +84,8 @@ criteria:
     id: ValueCommunication
     weight: 12
     severity: error
+    threshold: 16
+    severity: error
     target:
       regex: '^#\s+(.+)$'
       flags: 'mu'
@@ -93,6 +97,7 @@ criteria:
 Behavior:
 - If `target.required` is true and no match is found, VectorLint prints `target not found` at `1:1` with the configured `suggestion`, and does not call the LLM for that criterion.
 - Otherwise, VectorLint calls the LLM and shows the assessment; for warnings/errors it also shows a succinct “suggestion:” line returned by the model. Line/column is computed via exact quote+anchors from the LLM.
+- Overall pass/fail uses the weighted score vs `threshold`, treated by top‑level `severity` (error fails CI; warning does not).
 
 - Default prompts directory: `prompts/`
 - Example prompt included: `prompts/headline-evaluator.md`

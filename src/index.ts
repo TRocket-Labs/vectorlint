@@ -270,10 +270,10 @@ program
             printIssueRow(locStr, status, summary, ruleName, { suggestion: status !== 'ok' ? suggestion : undefined, scoreText });
           }
           // After rows: print overall vs threshold
-          const thresholdOverall = meta.overall?.threshold !== undefined ? Number(meta.overall.threshold) : undefined;
+          const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
           printPromptOverallLine(promptMaxScore, thresholdOverall, promptUserScore);
           if (thresholdOverall !== undefined && promptUserScore < thresholdOverall) {
-            const sev = (meta.overall?.severity || 'error') as 'warning' | 'error';
+            const sev = (meta.severity || 'error') as 'warning' | 'error';
             if (sev === 'error') hadSeverityErrors = true; else totalWarnings += 1;
           }
           fileErrors += promptErrors;
