@@ -35,7 +35,8 @@ export interface PromptMeta {
 
 export interface PromptFile {
   id: string; // basename without extension
-  filename: string;
+  filename: string; // basename only
+  fullPath: string; // absolute path to the prompt file
   meta: PromptMeta;
   body: string;
 }
@@ -158,6 +159,7 @@ export function loadPrompts(
       prompts.push({
         id: path.basename(full, path.extname(full)),
         filename: path.basename(full),
+        fullPath: full,
         meta: { ...meta, id: meta.id || pascal, name: meta.name || (pascal.replace(/([A-Z])/g, ' $1').trim()) },
         body,
       });

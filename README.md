@@ -52,6 +52,7 @@ Example (vectorlint.example.ini):
 ```
 PromptsPath=prompts
 ScanPaths=[*.md]
+Concurrency=4
 ```
 
 Note: `vectorlint.ini` is git-ignored; commit `vectorlint.example.ini` as the template.
@@ -105,7 +106,7 @@ Behavior:
 You can set a custom prompts directory via `vectorlint.ini` in the project root:
 
 ```
-promptsPath=prompts
+PromptsPath=prompts
 ```
 
 ## Usage
@@ -173,6 +174,43 @@ Add to `.git/hooks/pre-commit`:
 npx tsx src/index.ts $(git diff --cached --name-only --diff-filter=ACM | grep '\\.md$')
 ```
 
+## Validation
+
+Validate prompt frontmatter without calling the LLM:
+
+```
+npx tsx src/index.ts validate --prompts prompts
+```
+
+Reports errors/warnings per prompt (e.g., invalid weights, missing IDs, bad regex) and exits non‑zero on errors.
+
+## Prompt Mapping (INI)
+
+Control which prompts apply to which files using INI sections. Precedence: `Prompt:<Id>` → `Directory:<Alias>` → `Defaults`. Excludes are unioned and win over includes.
+
+Example:
+
+```
+[Prompts]
+paths = ["Default:prompts", "Blog:prompts/blog"]
+
+[Defaults]
+include = ["**/*.md"]
+exclude = ["archived/**"]
+
+[Directory:Blog]
+include = ["content/blog/**/*.md"]
+exclude = ["content/blog/drafts/**"]
+
+[Prompt:Headline]
+include = ["content/blog/**/*.md"]
+exclude = ["content/blog/drafts/**"]
+```
+
+Notes:
+- Aliases in `[Prompts].paths` tie a prompt’s folder to a logical name.
+- The CLI derives a prompt’s alias from its actual file path and applies the mapping per scanned file.
+
 ## Example Output
 
 ```
@@ -221,4 +259,4 @@ MIT
 - Single run (no watch): `npm run test:run`
 - CI with coverage: `npm run test:ci`
 
-Tests live under `tests/` and use Vitest. They validate config parsing (PromptsPath, ScanPaths), file discovery (including prompts exclusion), and prompt aggregation with a mocked provider.
+Tests live under `tests/` and use Vitest. They validate config parsing (PromptsPath, ScanPaths), file discovery (including prompts exclusion), prompt/file mapping, and prompt aggregation with a mocked provider.

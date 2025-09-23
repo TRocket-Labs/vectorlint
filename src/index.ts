@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { AzureOpenAIProvider } from './providers/AzureOpenAIProvider.js';
 import { loadConfig } from './config/Config.js';
-import { loadPrompts } from './prompts/PromptLoader.js';
+import { loadPrompts, type PromptFile } from './prompts/PromptLoader.js';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/Schema.js';
 import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow } from './output/Reporter.js';
 import { locateEvidence } from './output/Location.js';
@@ -12,6 +12,7 @@ import { DefaultRequestBuilder } from './providers/RequestBuilder.js';
 import { checkTarget } from './prompts/Target.js';
 import { resolveTargets } from './scan/FileResolver.js';
 import { validateAll } from './prompts/PromptValidator.js';
+import { readPromptMappingFromIni, resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from './prompts/PromptMapping.js';
 
 // Best-effort .env loader without external deps
 function loadDotEnv() {
@@ -152,7 +153,7 @@ program
       console.error(`Error: prompts path does not exist: ${promptsPath}`);
       process.exit(1);
     }
-    let prompts;
+    let prompts: PromptFile[];
     try {
       const loaded = loadPrompts(promptsPath, { verbose: Boolean(verbose) });
       prompts = loaded.prompts;
@@ -205,6 +206,18 @@ program
       return results;
     }
 
+    // Load prompt/file mapping from INI (optional). If not configured, we run all prompts.
+    const iniPath = path.resolve(process.cwd(), 'vectorlint.ini');
+    let mapping: ReturnType<typeof readPromptMappingFromIni> | undefined;
+    try {
+      if (existsSync(iniPath)) {
+        mapping = readPromptMappingFromIni(iniPath);
+      }
+    } catch {
+      // ignore mapping parse errors here; validate command covers this
+      mapping = undefined;
+    }
+
     for (const file of targets) {
       try {
         const content = readFileSync(file, 'utf-8');
@@ -215,8 +228,19 @@ program
         let fileWarnings = 0;
         // Build schema once
         const schema = buildCriteriaJsonSchema();
-        // Run prompts concurrently per config.concurrency
-        const results = await runWithConcurrency(prompts, config.concurrency, async (p, idx) => {
+        // Determine applicable prompts for this file
+        const toRun: PromptFile[] = (() => {
+          if (!mapping || !isMappingConfigured(mapping)) return prompts;
+          return prompts.filter((p) => {
+            const promptId = String(p.meta.id || p.id);
+            const full = (p as any).fullPath || path.resolve(promptsPath, p.filename);
+            const alias = aliasForPromptPath(full, mapping!, process.cwd());
+            return resolvePromptMapping(relFile, promptId, mapping!, alias);
+          });
+        })();
+
+        // Run applicable prompts concurrently per config.concurrency
+        const results = await runWithConcurrency(toRun, config.concurrency, async (p, idx) => {
           try {
             const meta = p.meta;
             if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
@@ -230,8 +254,8 @@ program
         });
 
         // Print results in stable order
-        for (let idx = 0; idx < prompts.length; idx++) {
-          const p = prompts[idx];
+        for (let idx = 0; idx < toRun.length; idx++) {
+          const p = toRun[idx];
           const r = results[idx];
           if (!r) continue;
           if (r.ok !== true) {
