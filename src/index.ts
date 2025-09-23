@@ -6,7 +6,7 @@ import { AzureOpenAIProvider } from './providers/AzureOpenAIProvider.js';
 import { loadConfig } from './config/Config.js';
 import { loadPrompts } from './prompts/PromptLoader.js';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/Schema.js';
-import { printFileHeader, printIssueRow, printGlobalSummary } from './output/Reporter.js';
+import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine } from './output/Reporter.js';
 import { locateEvidence } from './output/Location.js';
 import { DefaultRequestBuilder } from './providers/RequestBuilder.js';
 import { checkTarget } from './prompts/Target.js';
@@ -208,7 +208,8 @@ program
           }
           let promptErrors = 0;
           let promptWarnings = 0;
-          const issuesMap = new Map<string, { threshold: number; severity: 'warning' | 'error' }>();
+          let promptUserScore = 0;
+          let promptMaxScore = 0;
           for (const exp of meta.criteria) {
             const nameKey = String(exp.name);
             const got = result.criteria.find(c => c.name === nameKey);
@@ -217,11 +218,7 @@ program
             if (!Number.isFinite(score) || score < 0 || score > 4) {
               console.error(`Invalid score for ${exp.name}: ${score}`);
               hadOperationalErrors = true;
-              continue;
             }
-            const effThreshold = exp.threshold ?? meta.threshold ?? 3;
-            const effSeverity = (meta.severity as any) || exp.severity || 'warning';
-            issuesMap.set(nameKey, { threshold: effThreshold, severity: effSeverity as any });
           }
           for (const exp of meta.criteria) {
             const nameKey = String(exp.name);
@@ -231,26 +228,26 @@ program
             const targetCheck = checkTarget(content, meta.target, exp.target);
             const missingTarget = targetCheck.missing;
 
+            // Always add to max score using weight
+            const weightNum = Number((exp as any).weight) || 0;
+            promptMaxScore += weightNum;
+
             if (missingTarget) {
               const status: 'ok' | 'warning' | 'error' = 'error';
               hadSeverityErrors = true; promptErrors += 1;
               const summary = 'target not found';
               const suggestion = (targetCheck.suggestion || exp.target?.suggestion || meta.target?.suggestion || 'Add the required target section.');
               const locStr = '1:1';
-              printIssueRow(locStr, status, summary, ruleName, { suggestion });
+              printIssueRow(locStr, status, summary, ruleName, { suggestion, scoreText: 'nil' });
               continue;
             }
 
             const got = result.criteria.find(c => c.name === nameKey);
             if (!got) continue;
-            const conf = issuesMap.get(nameKey)!;
             const score = Number(got.score);
-            let status: 'ok' | 'warning' | 'error' = 'ok';
-            if (score < conf.threshold) {
-              status = conf.severity === 'error' ? 'error' : 'warning';
-              if (status === 'error') { hadSeverityErrors = true; promptErrors += 1; }
-              else { promptWarnings += 1; }
-            }
+            let status: 'ok' | 'warning' | 'error' = score <= 1 ? 'error' : (score === 2 ? 'warning' : 'ok');
+            if (status === 'error') { hadSeverityErrors = true; promptErrors += 1; }
+            else if (status === 'warning') { promptWarnings += 1; }
             const summary = (got.analysis || '').trim();
             const suggestion = (got as any).suggestion as (string | undefined);
             // Locate evidence in content to compute line:col
@@ -263,7 +260,21 @@ program
             } catch {
               hadOperationalErrors = true;
             }
-            printIssueRow(locStr, status, summary, ruleName, { suggestion });
+            // Weighted score x/y for this criterion; no decimals if integer
+            const w = weightNum;
+            const rawWeighted = (score / 4) * w;
+            promptUserScore += rawWeighted;
+            const rounded = Math.round(rawWeighted * 100) / 100;
+            const weightedStr = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+            const scoreText = `${weightedStr}/${w}`;
+            printIssueRow(locStr, status, summary, ruleName, { suggestion: status !== 'ok' ? suggestion : undefined, scoreText });
+          }
+          // After rows: print overall vs threshold
+          const thresholdOverall = meta.overall?.threshold !== undefined ? Number(meta.overall.threshold) : undefined;
+          printPromptOverallLine(promptMaxScore, thresholdOverall, promptUserScore);
+          if (thresholdOverall !== undefined && promptUserScore < thresholdOverall) {
+            const sev = (meta.overall?.severity || 'error') as 'warning' | 'error';
+            if (sev === 'error') hadSeverityErrors = true; else totalWarnings += 1;
           }
           fileErrors += promptErrors;
           fileWarnings += promptWarnings;
