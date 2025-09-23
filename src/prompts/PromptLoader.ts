@@ -8,8 +8,6 @@ export interface PromptCriterionSpec {
   id?: string;
   name?: string;
   weight: number;
-  threshold?: number;
-  severity?: Severity;
   target?: {
     regex?: string;
     flags?: string;
@@ -21,8 +19,10 @@ export interface PromptCriterionSpec {
 
 export interface PromptMeta {
   specVersion?: string;
-  severity?: Severity;
-  threshold?: number;
+  overall?: {
+    threshold?: number;
+    severity?: Severity;
+  };
   id?: string;
   name?: string;
   target?: {
@@ -77,8 +77,10 @@ export function loadPrompts(
             const data = YAML.parse(yamlBlock) || {};
             meta = {
               specVersion: data.specVersion,
-              severity: data.severity,
-              threshold: data.threshold,
+              overall: data.overall ? {
+                threshold: data.overall.threshold !== undefined ? Number(data.overall.threshold) : undefined,
+                severity: data.overall.severity,
+              } : undefined,
               id: typeof data.id === 'string' ? data.id : undefined,
               name: typeof data.name === 'string' ? data.name : undefined,
               target: data.target ? {
@@ -92,8 +94,6 @@ export function loadPrompts(
                 id: c.id,
                 name: c.name,
                 weight: Number(c.weight),
-                threshold: c.threshold !== undefined ? Number(c.threshold) : undefined,
-                severity: c.severity,
                 target: c.target ? {
                   regex: c.target.regex,
                   flags: c.target.flags,
@@ -130,16 +130,6 @@ export function loadPrompts(
         }
         if (!c.id && c.name) c.id = toPascal(String(c.name));
         if (!c.name && c.id) c.name = String(c.id);
-        if (c.threshold !== undefined && (c.threshold < 0 || c.threshold > 4)) {
-          warnings.push(`Skipping ${entry}: invalid threshold for ${c.name} (must be 0-4)`);
-          meta = undefined as any;
-          break;
-        }
-        if (c.severity && c.severity !== 'warning' && c.severity !== 'error') {
-          warnings.push(`Skipping ${entry}: invalid severity for ${c.name}`);
-          meta = undefined as any;
-          break;
-        }
       }
       if (!meta) continue;
       // Ensure unique criterion ids
@@ -154,13 +144,11 @@ export function loadPrompts(
         ids.add(cid);
       }
       if (!meta) continue;
-      if (meta.threshold !== undefined && (meta.threshold < 0 || meta.threshold > 4)) {
-        warnings.push(`Skipping ${entry}: invalid top-level threshold (must be 0-4)`);
-        continue;
-      }
-      if (meta.severity && meta.severity !== 'warning' && meta.severity !== 'error') {
-        warnings.push(`Skipping ${entry}: invalid top-level severity`);
-        continue;
+      if (meta.overall) {
+        if (meta.overall.severity && meta.overall.severity !== 'warning' && meta.overall.severity !== 'error') {
+          warnings.push(`Skipping ${entry}: invalid overall.severity`);
+          continue;
+        }
       }
       if (meta.target) {
         if (meta.target.group !== undefined && (meta.target.group as number) < 0) {

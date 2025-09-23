@@ -31,12 +31,13 @@ export function printIssueRow(
   status: Status,
   summary: string,
   ruleName: string,
-  opts: { locWidth?: number; severityWidth?: number; messageWidth?: number; suggestion?: string } = {}
+  opts: { locWidth?: number; severityWidth?: number; messageWidth?: number; suggestion?: string; scoreText?: string; scoreWidth?: number } = {}
 ) {
-  // Columns: loc (fixed), severity (fixed), message (fixed wrap), rule/id (unbounded; let terminal wrap)
+  // Columns: loc (fixed), severity (fixed), message (fixed wrap), score (fixed), rule/id (unbounded)
   const locWidth = opts.locWidth ?? 7;
   const severityWidth = opts.severityWidth ?? 8;
-  const messageWidth = opts.messageWidth ?? 60;
+  const messageWidth = opts.messageWidth ?? 56; // slightly reduced to fit score column
+  const scoreWidth = opts.scoreWidth ?? 8;
 
   const locCell = (loc || '').padEnd(locWidth, ' ');
   const colored = statusLabel(status);
@@ -64,8 +65,9 @@ export function printIssueRow(
     lines.push('');
   }
 
-  // First line with rule at end (unbounded)
-  console.log(`${prefix}${lines[0].padEnd(messageWidth, ' ')}  ${chalk.dim(ruleName || '')}`);
+  // First line with score and rule at end (unbounded)
+  const scoreCell = (opts.scoreText ?? '').toString().padEnd(scoreWidth, ' ');
+  console.log(`${prefix}${lines[0].padEnd(messageWidth, ' ')}  ${scoreCell}  ${chalk.dim(ruleName || '')}`);
   // Continuation lines
   const contPrefix = ' '.repeat(prefixLen);
   for (let i = 1; i < lines.length; i++) {
@@ -118,4 +120,16 @@ export function printGlobalSummary(files: number, errors: number, warnings: numb
     const failTxt = failures === 1 ? '1 request failure' : `${failures} request failures`;
     console.log(chalk.red(`✖ ${failTxt}`));
   }
+}
+
+export function printPromptOverallLine(maxScore: number, threshold?: number, userScore?: number) {
+  const fmt = (n: number | undefined) => {
+    if (n === undefined || n === null) return '-';
+    const r = Math.round(n * 100) / 100;
+    return Number.isInteger(r) ? String(r) : r.toFixed(2);
+  };
+  const top = fmt(maxScore);
+  const thr = threshold !== undefined ? fmt(threshold) : '-';
+  const usr = userScore !== undefined ? fmt(userScore) : '-';
+  console.log(`  Top: ${top}, Threshold: ${thr}, Score: ${usr}`);
 }
