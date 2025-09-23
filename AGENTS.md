@@ -44,6 +44,18 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
 - Group related changes; avoid drive‑by formatting
 - PRs: describe motivation, approach, and testing; include sample CLI output when relevant
 
+### Commit Message Style
+
+- Subject: imperative mood, ≤72 chars, single theme
+  - Example: `Add overall { threshold, severity } to prompt YAML`
+- Body: concise bullet points for what/why/impact
+  - Focus on actionable specifics and user‑visible behaviors
+  - Prefer lists over paragraphs for scanability
+- Trailers (when applicable):
+  - `BREAKING:` to call out breaking changes
+  - `Co-authored-by:` for pair work
+  - `Refs:` or `Fixes:` to link issues/PRs
+
 ## Architecture & Principles
 
 - Dependency inversion: depend on `LLMProvider` interface; keep providers thin (transport only)

@@ -133,3 +133,8 @@ export function printPromptOverallLine(maxScore: number, threshold?: number, use
   const usr = userScore !== undefined ? fmt(userScore) : '-';
   console.log(`  Top: ${top}, Threshold: ${thr}, Score: ${usr}`);
 }
+
+export function printValidationRow(level: 'error' | 'warning', message: string) {
+  const label = level === 'error' ? chalk.red('error') : chalk.yellow('warning');
+  console.log(`  ${label}  ${message}`);
+}
