@@ -184,6 +184,12 @@ npx tsx src/index.ts validate --prompts prompts
 
 Reports errors/warnings per prompt (e.g., invalid weights, missing IDs, bad regex) and exits non‑zero on errors.
 
+## Global Prompt Directive
+
+- VectorLint appends a built-in directive string to every evaluation prompt.
+- To override in a project, create `.vectorlint/directive.md` in your repository root. If present, its contents fully replace the built‑in directive.
+- Keep directives concise; they are appended after each prompt body. VectorLint appends its evidence instructions after the directive to ensure reliable JSON with anchors.
+
 ## Prompt Mapping (INI)
 
 Control which prompts apply to which files using INI sections. Precedence: `Prompt:<Id>` → `Directory:<Alias>` → `Defaults`. Excludes are unioned and win over includes.
@@ -242,9 +248,10 @@ To add a new LLM provider, implement the `LLMProvider` interface:
 import { LLMProvider } from './providers/LLMProvider.js';
 
 export class MyCustomProvider implements LLMProvider {
-  async runPrompt(content: string, promptText: string): Promise<string> {
-    // send promptText (with content injected) and return raw response text
-    return '';
+  async runPromptStructured<T = unknown>(content: string, promptText: string, schema: any): Promise<T> {
+    // Build and send promptText + content; enforce JSON via schema
+    // Return parsed JSON as T
+    return {} as T;
   }
 }
 ```

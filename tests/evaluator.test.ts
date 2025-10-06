@@ -7,11 +7,10 @@ import { loadPrompts } from '../src/prompts/PromptLoader.js';
 // Fake provider implementing LLMProvider
 class FakeProvider {
   calls: Array<{ content: string; prompt: string }>= [];
-  async runPrompt(content: string, promptText: string): Promise<string> {
+  async runPromptStructured<T = unknown>(content: string, promptText: string, _schema: any): Promise<T> {
     this.calls.push({ content, prompt: promptText });
-    // Consider content injected if non-empty content provided
     const injected = content && content.length > 0 ? 'OK' : 'MISSING';
-    return `RESULT:${injected}`;
+    return { result: `RESULT:${injected}` } as any;
   }
 }
 
@@ -46,7 +45,7 @@ describe('Evaluation aggregation', () => {
     for (const f of files) {
       const content = '# test';
       for (const p of prompts) {
-        await provider.runPrompt(content, p.body);
+        await provider.runPromptStructured(content, p.body, {});
       }
     }
     expect(provider.calls.length).toBe(4);

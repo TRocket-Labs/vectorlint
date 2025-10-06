@@ -9,6 +9,7 @@ import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/Schema.j
 import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow } from './output/Reporter.js';
 import { locateEvidence } from './output/Location.js';
 import { DefaultRequestBuilder } from './providers/RequestBuilder.js';
+import { loadDirective } from './prompts/DirectiveLoader.js';
 import { checkTarget } from './prompts/Target.js';
 import { resolveTargets } from './scan/FileResolver.js';
 import { validateAll } from './prompts/PromptValidator.js';
@@ -101,13 +102,14 @@ program
 ;
 program
   .option('-v, --verbose', 'Enable verbose logging')
-  .option('--show-prompt', 'Print the prompt sent to the model')
+  .option('--show-prompt', 'Print full prompt and injected content')
+  .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
   .option('--debug-json', 'Print full JSON response from the API')
   .argument('[paths...]', 'files or directories to check (optional)')
   .action(async (paths: string[] = []) => {
     // Load environment from .env if present
     loadDotEnv();
-    const { verbose, showPrompt, debugJson } = program.opts<{ verbose?: boolean; showPrompt?: boolean; debugJson?: boolean }>();
+    const { verbose, showPrompt, showPromptTrunc, debugJson } = program.opts<{ verbose?: boolean; showPrompt?: boolean; showPromptTrunc?: boolean; debugJson?: boolean }>();
 
     // Azure OpenAI Configuration
     const apiKey = process.env.AZURE_OPENAI_API_KEY;
@@ -129,6 +131,7 @@ program
     }
 
     // Provider
+    const directive = loadDirective();
     const provider = new AzureOpenAIProvider({
       apiKey,
       endpoint,
@@ -137,8 +140,13 @@ program
       temperature,
       debug: Boolean(verbose),
       showPrompt: Boolean(showPrompt),
+      showPromptTrunc: Boolean(showPromptTrunc),
       debugJson: Boolean(debugJson),
-    }, new DefaultRequestBuilder());
+    }, new DefaultRequestBuilder(directive));
+    if (verbose) {
+      const directiveLen = directive ? directive.length : 0;
+      console.log(`[vectorlint] Directive active: ${directiveLen} char(s)`);
+    }
     
     // Load config and prompts
     let config;
@@ -323,18 +331,8 @@ program
             let status: 'ok' | 'warning' | 'error' = score <= 1 ? 'error' : (score === 2 ? 'warning' : 'ok');
             if (status === 'error') { hadSeverityErrors = true; promptErrors += 1; }
             else if (status === 'warning') { promptWarnings += 1; }
-            const summary = (got.analysis || '').trim();
-            const suggestion = (got as any).suggestion as (string | undefined);
-            // Locate evidence in content to compute line:col
-            let locStr = '—:—';
-            try {
-              const ev = (got as any).evidence as { quote: string; pre: string; post: string };
-              const loc = ev ? locateEvidence(content, ev) : null;
-              if (loc) locStr = `${loc.line}:${loc.column}`;
-              else { hadOperationalErrors = true; }
-            } catch {
-              hadOperationalErrors = true;
-            }
+            const violations = Array.isArray((got as any).violations) ? (got as any).violations as { quote: string; pre: string; post: string; analysis?: string; suggestion?: string }[] : [];
+
             // Weighted score x/y for this criterion; no decimals if integer
             const w = weightNum;
             const rawWeighted = (score / 4) * w;
@@ -342,7 +340,30 @@ program
             const rounded = Math.round(rawWeighted * 100) / 100;
             const weightedStr = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
             const scoreText = `${weightedStr}/${w}`;
-            printIssueRow(locStr, status, summary, ruleName, { suggestion: status !== 'ok' ? suggestion : undefined, scoreText });
+
+            if (violations.length === 0) {
+              // Print positive remark when no findings are reported
+              const sum = ((got as any).summary || '').toString().trim();
+              const words = sum.split(/\s+/).filter(Boolean);
+              const limited = words.slice(0, 15).join(' ');
+              const summaryText = limited || 'No findings';
+              printIssueRow('—:—', status, summaryText, ruleName, { scoreText });
+            } else {
+              // Print one row per finding; include score on the first row
+              for (let i = 0; i < violations.length; i++) {
+                const v = violations[i];
+                let locStr = '—:—';
+                try {
+                  const loc = locateEvidence(content, { quote: v.quote, pre: v.pre, post: v.post });
+                  if (loc) locStr = `${loc.line}:${loc.column}`;
+                  else { hadOperationalErrors = true; }
+                } catch {
+                  hadOperationalErrors = true;
+                }
+                const rowSummary = (v.analysis || '').trim() || v.quote;
+                printIssueRow(locStr, status, rowSummary, ruleName, { suggestion: status !== 'ok' ? v.suggestion : undefined, scoreText: i === 0 ? scoreText : '' });
+              }
+            }
           }
           // After rows: print overall vs threshold
           const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
