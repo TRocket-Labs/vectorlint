@@ -6,7 +6,7 @@ import { AzureOpenAIProvider } from './providers/AzureOpenAIProvider.js';
 import { loadConfig } from './config/Config.js';
 import { loadPrompts, type PromptFile } from './prompts/PromptLoader.js';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/Schema.js';
-import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow } from './output/Reporter.js';
+import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines } from './output/Reporter.js';
 import { locateEvidence } from './output/Location.js';
 import { DefaultRequestBuilder } from './providers/RequestBuilder.js';
 import { loadDirective } from './prompts/DirectiveLoader.js';
@@ -293,6 +293,7 @@ program
           let promptWarnings = 0;
           let promptUserScore = 0;
           let promptMaxScore = 0;
+          const criterionScores: Array<{ id: string; scoreText: string }> = [];
           for (const exp of meta.criteria) {
             const nameKey = String(exp.name);
             const got = result.criteria.find(c => c.name === nameKey);
@@ -321,7 +322,8 @@ program
               const summary = 'target not found';
               const suggestion = (targetCheck.suggestion || exp.target?.suggestion || meta.target?.suggestion || 'Add the required target section.');
               const locStr = '1:1';
-              printIssueRow(locStr, status, summary, ruleName, { suggestion, scoreText: 'nil' });
+              printIssueRow(locStr, status, summary, ruleName, { suggestion });
+              criterionScores.push({ id: ruleName, scoreText: 'nil' });
               continue;
             }
 
@@ -347,7 +349,7 @@ program
               const words = sum.split(/\s+/).filter(Boolean);
               const limited = words.slice(0, 15).join(' ');
               const summaryText = limited || 'No findings';
-              printIssueRow('—:—', status, summaryText, ruleName, { scoreText });
+              printIssueRow('—:—', status, summaryText, ruleName, {});
             } else {
               // Print one row per finding; include score on the first row
               for (let i = 0; i < violations.length; i++) {
@@ -361,13 +363,17 @@ program
                   hadOperationalErrors = true;
                 }
                 const rowSummary = (v.analysis || '').trim() || v.quote;
-                printIssueRow(locStr, status, rowSummary, ruleName, { suggestion: status !== 'ok' ? v.suggestion : undefined, scoreText: i === 0 ? scoreText : '' });
+                printIssueRow(locStr, status, rowSummary, ruleName, { suggestion: status !== 'ok' ? v.suggestion : undefined });
               }
             }
+            // Record score for summary list
+            criterionScores.push({ id: ruleName, scoreText });
           }
-          // After rows: print overall vs threshold
+          // After rows: print per-criterion scores (each on its own line), then overall vs threshold
+          printCriterionScoreLines(criterionScores);
           const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
           printPromptOverallLine(promptMaxScore, thresholdOverall, promptUserScore);
+          console.log('');
           if (thresholdOverall !== undefined && promptUserScore < thresholdOverall) {
             const sev = (meta.severity || 'error') as 'warning' | 'error';
             if (sev === 'error') hadSeverityErrors = true; else totalWarnings += 1;

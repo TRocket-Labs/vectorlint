@@ -19,8 +19,15 @@ Provide pre/post as the exact 10–20 characters immediately around the quoted s
 - pre: 10–20 exact characters immediately before the quote, or empty string
 - post: 10–20 exact characters immediately after the quote, or empty string
 - suggestion: a succinct, imperative fix (max 15 words).
+- When a criterion has no findings, provide one short positive remark describing compliance.
 
-When a criterion has no findings, provide one short positive remark describing compliance.`;
+***Important*** 
+- Use ONLY the provided ‘Input’ content to derive findings. Do not infer or hypothesize from examples or 
+prior context. Every quoted snippet must be a verbatim substring of Input. Mentioning issues or quotes that don't exist
+is equivalent to failure. 
+- All quotes must be copy‑pasteable from Input; anchors must be raw
+  characters before/after that exact substring. If none are found for a criterion, return an empty list
+- Show your step-by-step reasoning towards accomplishing the task and justify that you successfully avoided halluncinating findings.`;
 
 export function loadDirective(cwd: string = process.cwd()): string {
   // 1) Project override

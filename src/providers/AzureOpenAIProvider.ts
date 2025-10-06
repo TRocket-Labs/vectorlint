@@ -47,8 +47,7 @@ export class AzureOpenAIProvider implements LLMProvider {
     const params: Parameters<typeof this.client.chat.completions.create>[0] = {
       model: this.deploymentName,
       messages: [
-        { role: 'system', content: 'Follow the instructions precisely and respond only with JSON matching the provided schema.' },
-        { role: 'user', content: prompt },
+        { role: 'system', content: prompt },
         { role: 'user', content: `Input:\n\n${content}` }
       ],
       response_format: {

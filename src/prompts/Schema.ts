@@ -16,6 +16,7 @@ export function buildCriteriaJsonSchema() {
               weight: { type: 'number' },
               score: { type: 'number', enum: [0, 1, 2, 3, 4] },
               summary: { type: 'string' },
+              reasoning: { type: 'string' },
               violations: {
                 type: 'array',
                 items: {
@@ -33,8 +34,8 @@ export function buildCriteriaJsonSchema() {
               },
             },
             // Azure strict json_schema requires that `required` include every property key.
-            // We require `summary` and `violations` to ensure positive remarks and findings are captured.
-            required: ['name', 'weight', 'score', 'summary', 'violations'],
+            // We require `summary`, `reasoning`, and `violations` to ensure positive remarks, reasoning, and findings are captured.
+            required: ['name', 'weight', 'score', 'summary', 'reasoning', 'violations'],
           },
         },
       },
@@ -49,6 +50,7 @@ export type CriteriaResult = {
     weight: number;
     score: 0 | 1 | 2 | 3 | 4;
     summary: string;
+    reasoning: string;
     violations: Array<{ quote: string; pre: string; post: string; analysis: string; suggestion: string }>;
   }>;
 };
