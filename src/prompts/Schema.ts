@@ -15,22 +15,26 @@ export function buildCriteriaJsonSchema() {
               name: { type: 'string' },
               weight: { type: 'number' },
               score: { type: 'number', enum: [0, 1, 2, 3, 4] },
-              analysis: { type: 'string' },
-              evidence: {
-                type: 'object',
-                additionalProperties: false,
-                properties: {
-                  quote: { type: 'string' },
-                  pre: { type: 'string' },
-                  post: { type: 'string' },
+              summary: { type: 'string' },
+              violations: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  properties: {
+                    quote: { type: 'string' },
+                    pre: { type: 'string' },
+                    post: { type: 'string' },
+                    analysis: { type: 'string' },
+                    suggestion: { type: 'string' },
+                  },
+                  required: ['quote', 'pre', 'post', 'analysis', 'suggestion'],
                 },
-                required: ['quote', 'pre', 'post'],
               },
-              suggestion: { type: 'string' },
             },
             // Azure strict json_schema requires that `required` include every property key.
-            // We require `suggestion` too (we'll ignore it when status is OK).
-            required: ['name', 'weight', 'score', 'analysis', 'evidence', 'suggestion'],
+            // We require `summary` and `violations` to ensure positive remarks and findings are captured.
+            required: ['name', 'weight', 'score', 'summary', 'violations'],
           },
         },
       },
@@ -44,8 +48,7 @@ export type CriteriaResult = {
     name: string;
     weight: number;
     score: 0 | 1 | 2 | 3 | 4;
-    analysis: string;
-    evidence: { quote: string; pre: string; post: string };
-    suggestion?: string;
+    summary: string;
+    violations: Array<{ quote: string; pre: string; post: string; analysis: string; suggestion: string }>;
   }>;
 };
