@@ -7,7 +7,7 @@ export const TARGET_SPEC_SCHEMA = z.object({
   group: z.number().int().min(0).optional(),
   required: z.boolean().optional(),
   suggestion: z.string().optional(),
-});
+}).strict();
 
 // Prompt criterion specification schema
 export const PROMPT_CRITERION_SCHEMA = z.object({

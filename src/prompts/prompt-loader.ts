@@ -1,9 +1,10 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
 import YAML from 'yaml';
-import { PROMPT_META_SCHEMA, type PromptFile, type PromptMeta, type PromptCriterionSpec } from '../schemas/prompt-schemas.js';
+import { PROMPT_META_SCHEMA, type PromptFile, type PromptMeta } from '../schemas/prompt-schemas.js';
 
-// Types are now imported from schemas
+// Re-export types for backward compatibility
+export type { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas.js';
 
 export function loadPrompts(
   dir: string,
@@ -64,7 +65,7 @@ export function loadPrompts(
       for (const c of meta.criteria) {
         if ((!c.name && !c.id) || !c.weight || Number.isNaN(c.weight)) {
           warnings.push(`Skipping ${entry}: invalid criterion (id/name or weight missing)`);
-          meta = undefined as any;
+          meta = undefined;
           break;
         }
         if (!c.id && c.name) c.id = toPascal(String(c.name));
@@ -77,7 +78,7 @@ export function loadPrompts(
         const cid = String(c.id);
         if (ids.has(cid)) {
           warnings.push(`Skipping ${entry}: duplicate criterion id ${cid}`);
-          meta = undefined as any;
+          meta = undefined;
           break;
         }
         ids.add(cid);

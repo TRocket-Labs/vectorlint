@@ -1,4 +1,4 @@
-import { PromptFile, PromptMeta, PromptCriterionSpec } from './prompt-loader.js';
+import { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas.js';
 
 export type ValidationLevel = 'error' | 'warning';
 export interface Validation {
@@ -39,7 +39,7 @@ export function validatePrompt(p: PromptFile): Validation[] {
     if (!c.id && !c.name) {
       out.push({ file: p.filename, level: 'error', message: 'Criterion missing id/name' });
     }
-    const w = Number((c as any).weight);
+    const w = Number(c.weight);
     if (!Number.isFinite(w) || w <= 0) {
       out.push({ file: p.filename, level: 'error', message: `Invalid weight for ${c.name || c.id}` });
     } else {

@@ -1,16 +1,13 @@
-export interface TargetSpec {
-  regex?: string;
-  flags?: string;
-  group?: number;
-  required?: boolean;
-  suggestion?: string;
-}
+// Re-export the schema-defined type
+export type { TargetSpec } from '../schemas/prompt-schemas.js';
+
+import type { TargetSpec } from '../schemas/prompt-schemas.js';
 
 export function checkTarget(
   content: string,
   metaTarget?: TargetSpec,
   criterionTarget?: TargetSpec
-): { missing: boolean; suggestion?: string } {
+): { missing: boolean; suggestion?: string | undefined } {
   const tgt = criterionTarget ?? metaTarget;
   if (!tgt || !tgt.regex) return { missing: false };
   let match: RegExpExecArray | null = null;

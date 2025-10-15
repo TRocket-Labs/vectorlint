@@ -6,23 +6,23 @@ export interface AzureOpenAIConfig {
   apiKey: string;
   endpoint: string;
   deploymentName: string;
-  apiVersion?: string;
-  temperature?: number;
-  debug?: boolean;
-  showPrompt?: boolean; // full prompt and content
-  showPromptTrunc?: boolean; // truncated previews (500 chars)
-  debugJson?: boolean;
+  apiVersion?: string | undefined;
+  temperature?: number | undefined;
+  debug?: boolean | undefined;
+  showPrompt?: boolean | undefined; // full prompt and content
+  showPromptTrunc?: boolean | undefined; // truncated previews (500 chars)
+  debugJson?: boolean | undefined;
 }
 
 export class AzureOpenAIProvider implements LLMProvider {
   private client: AzureOpenAI;
   private deploymentName: string;
-  private temperature?: number;
-  private apiVersion?: string;
-  private debug?: boolean;
-  private showPrompt?: boolean;
-  private showPromptTrunc?: boolean;
-  private debugJson?: boolean;
+  private temperature?: number | undefined;
+  private apiVersion?: string | undefined;
+  private debug?: boolean | undefined;
+  private showPrompt?: boolean | undefined;
+  private showPromptTrunc?: boolean | undefined;
+  private debugJson?: boolean | undefined;
   private builder: RequestBuilder;
 
   constructor(config: AzureOpenAIConfig, builder?: RequestBuilder) {
@@ -41,7 +41,7 @@ export class AzureOpenAIProvider implements LLMProvider {
     this.builder = builder ?? new DefaultRequestBuilder();
   }
 
-  async runPromptStructured<T = unknown>(content: string, promptText: string, schema: { name: string; schema: object }): Promise<T> {
+  async runPromptStructured<T = unknown>(content: string, promptText: string, schema: { name: string; schema: Record<string, unknown> }): Promise<T> {
     const prompt = this.builder.buildPromptBodyForStructured(promptText);
 
     const params: Parameters<typeof this.client.chat.completions.create>[0] = {
