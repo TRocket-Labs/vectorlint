@@ -13,12 +13,12 @@ List every finding you detect.
 - If the issue occurs within a sentence, the offending word or short phrase in your evidence (example: "leverage" is an AI buzzword).
 - If a sentence contains multiple issues, report each as a separate violation using the same sentence attribution.
 
-For each finding, 
-Provide pre/post as the exact 10–20 characters immediately around the quoted snippet; do not fabricate anchors. Include:
-- quote: the exact snippet you are evaluating (word/sentence/paragraph/section)
-- pre: 10–20 exact characters immediately before the quote, or empty string
-- post: 10–20 exact characters immediately after the quote, or empty string
-- suggestion: a succinct, imperative fix (max 15 words).
+For each finding,
+Provide anchors as exact 10–20 characters immediately before (pre) and after (post) the judged region; do not fabricate anchors. Include:
+- pre: 10–20 exact characters immediately before the judged region, or empty string at start
+- post: 10–20 exact characters immediately after the judged region, or empty string at end
+- analysis: a specific, concrete explanation of the issue (respect word limit)
+- suggestion: a succinct, imperative fix (max 15 words)
 - When a criterion has no findings, provide one short positive remark describing compliance.
 
 ***Important*** 
@@ -36,7 +36,9 @@ export function loadDirective(cwd: string = process.cwd()): string {
     if (existsSync(overridePath)) {
       return (readFileSync(overridePath, 'utf-8') || '').trim();
     }
-  } catch {}
+  } catch {
+    // Ignore errors when reading override file
+  }
 
   // 2) Built-in string directive (no file copy required)
   return DEFAULT_DIRECTIVE.trim();

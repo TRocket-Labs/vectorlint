@@ -53,8 +53,8 @@ export class AzureOpenAIProvider implements LLMProvider {
       response_format: {
         type: 'json_schema',
         json_schema: schema,
-      } as any,
-    } as any;
+      },
+    };
     if (this.temperature !== undefined) {
       params.temperature = this.temperature;
     }
@@ -81,8 +81,8 @@ export class AzureOpenAIProvider implements LLMProvider {
       }
     }
 
-    const response = await this.client.chat.completions.create(params as any);
-    const anyResp: any = response as any;
+    const response = await this.client.chat.completions.create(params);
+    const anyResp = response as any;
     const responseTextRaw = anyResp.choices?.[0]?.message?.content;
     const responseText = (responseTextRaw ?? '').trim();
     if (this.debug) {
@@ -95,7 +95,9 @@ export class AzureOpenAIProvider implements LLMProvider {
         try {
           console.log('[vectorlint] Full JSON response:');
           console.log(JSON.stringify(anyResp, null, 2));
-        } catch {}
+        } catch {
+          // Ignore JSON stringify errors for logging
+        }
       }
     }
     if (!responseText) {
@@ -103,7 +105,7 @@ export class AzureOpenAIProvider implements LLMProvider {
     }
     try {
       return JSON.parse(responseText) as T;
-    } catch (e) {
+    } catch {
       const preview = responseText.slice(0, 200);
       throw new Error(`Failed to parse structured JSON response. Preview: ${preview}${responseText.length > 200 ? ' ...' : ''}`);
     }

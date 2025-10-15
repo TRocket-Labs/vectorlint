@@ -16,7 +16,7 @@ function parseBracketList(value: string): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
-    .map((s) => s.replace(/^\"|\"$/g, '').replace(/^'|'$/g, ''));
+    .map((s) => s.replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
 }
 
 function isSupportedPattern(p: string): boolean {
@@ -45,11 +45,11 @@ export function loadConfig(cwd: string = process.cwd()): Config {
     const key = m[1];
     const val = m[2];
     if (key === 'PromptsPath') {
-      promptsPathRaw = val.replace(/^\"|\"$/g, '').replace(/^'|'$/g, '');
+      promptsPathRaw = val.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
     } else if (key === 'ScanPaths') {
       scanPathsRaw = parseBracketList(val);
     } else if (key === 'Concurrency') {
-      const n = Number(val.replace(/^\"|\"$/g, '').replace(/^'|'$/g, ''));
+      const n = Number(val.replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
       if (Number.isFinite(n) && n > 0) concurrencyRaw = Math.floor(n);
     }
   }

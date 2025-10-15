@@ -82,7 +82,7 @@ describe('PromptValidator', () => {
           { id: 'A', name: 'A', weight: 0 },
           { id: 'B', name: 'B', weight: -1 },
         ],
-      } as any,
+      },
     };
     const res = validatePrompt(p);
     const weightErrors = res.filter(e => /Invalid weight/i.test(e.message));

@@ -23,13 +23,12 @@ export function buildCriteriaJsonSchema() {
                   type: 'object',
                   additionalProperties: false,
                   properties: {
-                    quote: { type: 'string' },
                     pre: { type: 'string' },
                     post: { type: 'string' },
                     analysis: { type: 'string' },
                     suggestion: { type: 'string' },
                   },
-                  required: ['quote', 'pre', 'post', 'analysis', 'suggestion'],
+                  required: ['pre', 'post', 'analysis', 'suggestion'],
                 },
               },
             },
@@ -51,6 +50,6 @@ export type CriteriaResult = {
     score: 0 | 1 | 2 | 3 | 4;
     summary: string;
     reasoning: string;
-    violations: Array<{ quote: string; pre: string; post: string; analysis: string; suggestion: string }>;
+    violations: Array<{ pre: string; post: string; analysis: string; suggestion: string }>;
   }>;
 };
