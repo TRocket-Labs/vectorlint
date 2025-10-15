@@ -1,6 +1,6 @@
 import { AzureOpenAI } from 'openai';
-import { LLMProvider } from './LLMProvider.js';
-import { DefaultRequestBuilder, RequestBuilder } from './RequestBuilder.js';
+import { LLMProvider } from './llm-provider.js';
+import { DefaultRequestBuilder, RequestBuilder } from './request-builder.js';
 
 export interface AzureOpenAIConfig {
   apiKey: string;
@@ -41,7 +41,7 @@ export class AzureOpenAIProvider implements LLMProvider {
     this.builder = builder ?? new DefaultRequestBuilder();
   }
 
-  async runPromptStructured<T = unknown>(content: string, promptText: string, schema: any): Promise<T> {
+  async runPromptStructured<T = unknown>(content: string, promptText: string, schema: { name: string; schema: object }): Promise<T> {
     const prompt = this.builder.buildPromptBodyForStructured(promptText);
 
     const params: Parameters<typeof this.client.chat.completions.create>[0] = {
@@ -82,19 +82,24 @@ export class AzureOpenAIProvider implements LLMProvider {
     }
 
     const response = await this.client.chat.completions.create(params);
-    const anyResp = response as any;
-    const responseTextRaw = anyResp.choices?.[0]?.message?.content;
+
+    // Type guard to ensure we have a ChatCompletion, not a Stream
+    if (!('choices' in response)) {
+      throw new Error('Received streaming response when expecting structured response');
+    }
+
+    const responseTextRaw = response.choices?.[0]?.message?.content;
     const responseText = (responseTextRaw ?? '').trim();
     if (this.debug) {
-      const usage = anyResp.usage;
-      const finish = anyResp.choices?.[0]?.finish_reason;
+      const usage = response.usage;
+      const finish = response.choices?.[0]?.finish_reason;
       if (usage || finish) {
         console.log('[vectorlint] LLM response meta:', { usage, finish_reason: finish });
       }
       if (this.debugJson) {
         try {
           console.log('[vectorlint] Full JSON response:');
-          console.log(JSON.stringify(anyResp, null, 2));
+          console.log(JSON.stringify(response, null, 2));
         } catch {
           // Ignore JSON stringify errors for logging
         }

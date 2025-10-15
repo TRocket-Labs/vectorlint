@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { loadPrompts, type PromptFile } from '../src/prompts/PromptLoader.js';
-import { validateAll, validatePrompt } from '../src/prompts/PromptValidator.js';
+import { loadPrompts, type PromptFile } from '../src/prompts/prompt-loader.js';
+import { validateAll, validatePrompt } from '../src/prompts/prompt-validator.js';
 
 function writePrompt(dir: string, name: string, yaml: string, body = 'Body') {
   const full = path.join(dir, name);

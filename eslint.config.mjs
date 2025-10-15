@@ -29,7 +29,15 @@ export default defineConfig([
 
     // Add typed rules (safer). Requires a tsconfig.
     ...tseslint.configs.recommendedTypeChecked,
-    { languageOptions: { parserOptions: { projectService: true } } },
+    {
+        files: ["**/*.{ts,tsx}"],
+        languageOptions: {
+            parserOptions: {
+                projectService: true,
+                tsconfigRootDir: process.cwd()
+            }
+        }
+    },
 
     // Node + Import
     pluginN.configs["flat/recommended"],
@@ -85,6 +93,12 @@ export default defineConfig([
         rules: { "n/no-unpublished-import": "off" }
     },
 
+    // Disable type-aware rules for config files
+    {
+        files: ["*.config.{js,mjs,ts}"],
+        ...tseslint.configs.disableTypeChecked
+    },
+
     // Runtime sources must not import dev deps
     {
         files: ["src/**/*"],
@@ -94,22 +108,13 @@ export default defineConfig([
         }
     },
 
-    // CLI entry point can use process.exit and any types
+    // CLI entry point can use process.exit
     {
         files: ["src/index.ts"],
         rules: {
             "n/no-process-exit": "off",
-            "@typescript-eslint/no-explicit-any": "off",
             // Use underscore pattern for intentional unused vars
             "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
-        }
-    },
-
-    // YAML parsing files and providers can use any types
-    {
-        files: ["src/prompts/PromptLoader.ts", "src/prompts/PromptValidator.ts", "src/providers/*.ts"],
-        rules: {
-            "@typescript-eslint/no-explicit-any": "off"
         }
     },
 

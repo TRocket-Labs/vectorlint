@@ -1,4 +1,4 @@
-import micromatch from 'micromatch';
+import { isMatch } from 'micromatch';
 import { readFileSync } from 'fs';
 import path from 'path';
 
@@ -91,8 +91,8 @@ export function resolvePromptMapping(filePath: string, promptId: string, mapping
   // If there are no includes at any level, do not run
   if (!includes || includes.length === 0) return false;
 
-  const included = micromatch.isMatch(file, includes, { dot: true });
-  const excluded = excludes.length > 0 && micromatch.isMatch(file, excludes, { dot: true });
+  const included: boolean = isMatch(file, includes, { dot: true });
+  const excluded: boolean = excludes.length > 0 && isMatch(file, excludes, { dot: true });
   return included && !excluded;
 }
 
@@ -115,7 +115,7 @@ export function isMappingConfigured(mapping: PromptMapping): boolean {
 export function aliasForPromptPath(promptFullPath: string, mapping: PromptMapping, cwd: string = process.cwd()): string | undefined {
   const normPrompt = path.resolve(promptFullPath).replace(/\\/g, '/');
   // Build absolute alias roots once
-  const candidates = Object.entries(mapping.aliases).map(([alias, p]) => [alias, path.resolve(cwd, p).replace(/\\/g, '/')]) as [string, string][];
+  const candidates = Object.entries(mapping.aliases).map(([alias, p]) => [alias, path.resolve(cwd, p).replace(/\\/g, '/')]);
   // Choose the longest matching base path to be precise when nested
   let best: { alias: string; base: string } | undefined;
   for (const [alias, base] of candidates) {

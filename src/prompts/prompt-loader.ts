@@ -1,45 +1,9 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
 import YAML from 'yaml';
+import { PROMPT_META_SCHEMA, type PromptFile, type PromptMeta, type PromptCriterionSpec } from '../schemas/prompt-schemas.js';
 
-export type Severity = 'warning' | 'error';
-
-export interface PromptCriterionSpec {
-  id?: string;
-  name?: string;
-  weight: number;
-  target?: {
-    regex?: string;
-    flags?: string;
-    group?: number;
-    required?: boolean;
-    suggestion?: string;
-  };
-}
-
-export interface PromptMeta {
-  specVersion?: string;
-  threshold?: number;
-  severity?: Severity;
-  id?: string;
-  name?: string;
-  target?: {
-    regex?: string;
-    flags?: string;
-    group?: number;
-    required?: boolean;
-    suggestion?: string;
-  };
-  criteria: PromptCriterionSpec[];
-}
-
-export interface PromptFile {
-  id: string; // basename without extension
-  filename: string; // basename only
-  fullPath: string; // absolute path to the prompt file
-  meta: PromptMeta;
-  body: string;
-}
+// Types are now imported from schemas
 
 export function loadPrompts(
   dir: string,
@@ -49,8 +13,9 @@ export function loadPrompts(
   let entries: string[];
   try {
     entries = readdirSync(dir);
-  } catch (e: any) {
-    throw new Error(`Failed to read prompts directory: ${e?.message || e}`);
+  } catch (e: unknown) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    throw new Error(`Failed to read prompts directory: ${err.message}`);
   }
 
   const prompts: PromptFile[] = [];
@@ -60,8 +25,9 @@ export function loadPrompts(
     try {
       const st = statSync(full);
       if (!st.isFile()) continue;
-    } catch (e: any) {
-      warnings.push(`Skipping ${entry}: cannot stat file (${e?.message || e})`);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      warnings.push(`Skipping ${entry}: cannot stat file (${err.message})`);
       continue;
     }
     try {
@@ -73,35 +39,11 @@ export function loadPrompts(
         if (end !== -1) {
           const yamlBlock = raw.slice(3, end).trim();
           try {
-            const data = YAML.parse(yamlBlock) || {};
-            meta = {
-              specVersion: data.specVersion,
-              threshold: data.threshold !== undefined ? Number(data.threshold) : undefined,
-              severity: data.severity,
-              id: typeof data.id === 'string' ? data.id : undefined,
-              name: typeof data.name === 'string' ? data.name : undefined,
-              target: data.target ? {
-                regex: data.target.regex,
-                flags: data.target.flags,
-                group: data.target.group !== undefined ? Number(data.target.group) : undefined,
-                required: data.target.required === true,
-                suggestion: data.target.suggestion,
-              } : undefined,
-              criteria: Array.isArray(data.criteria) ? data.criteria.map((c: any) => ({
-                id: c.id,
-                name: c.name,
-                weight: Number(c.weight),
-                target: c.target ? {
-                  regex: c.target.regex,
-                  flags: c.target.flags,
-                  group: c.target.group !== undefined ? Number(c.target.group) : undefined,
-                  required: c.target.required === true,
-                  suggestion: c.target.suggestion,
-                } : undefined,
-              })) : [],
-            } as PromptMeta;
-          } catch (e: any) {
-            warnings.push(`Skipping ${entry}: invalid YAML frontmatter (${e?.message || e})`);
+            const rawData: unknown = YAML.parse(yamlBlock) || {};
+            meta = PROMPT_META_SCHEMA.parse(rawData);
+          } catch (e: unknown) {
+            const err = e instanceof Error ? e : new Error(String(e));
+            warnings.push(`Skipping ${entry}: invalid YAML frontmatter (${err.message})`);
             continue;
           }
           body = raw.slice(end + 4).replace(/^\s*\n/, '');
@@ -146,7 +88,7 @@ export function loadPrompts(
         continue;
       }
       if (meta.target) {
-        if (meta.target.group !== undefined && (meta.target.group as number) < 0) {
+        if (meta.target.group !== undefined && (meta.target.group) < 0) {
           warnings.push(`Skipping ${entry}: invalid top-level target.group`);
           continue;
         }
@@ -163,8 +105,9 @@ export function loadPrompts(
         meta: { ...meta, id: meta.id || pascal, name: meta.name || (pascal.replace(/([A-Z])/g, ' $1').trim()) },
         body,
       });
-    } catch (e: any) {
-      warnings.push(`Skipping ${entry}: cannot read file (${e?.message || e})`);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      warnings.push(`Skipping ${entry}: cannot read file (${err.message})`);
       continue;
     }
   }
