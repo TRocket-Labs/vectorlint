@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { program } from 'commander';
 import { readFileSync, existsSync } from 'fs';
-import path from 'path';
+import * as path from 'path';
 import { AzureOpenAIProvider } from './providers/azure-open-ai-provider.js';
-import { loadConfig } from './config/config.js';
+import { loadConfig } from './boundaries/config-loader.js';
 import { loadPrompts, type PromptFile } from './prompts/prompt-loader.js';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/schema.js';
 import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines } from './output/reporter.js';
@@ -14,9 +14,11 @@ import { checkTarget } from './prompts/target.js';
 import { resolveTargets } from './scan/file-resolver.js';
 import { validateAll } from './prompts/prompt-validator.js';
 import { readPromptMappingFromIni, resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from './prompts/prompt-mapping.js';
+import { parseCliOptions, parseValidateOptions, parseEnvironment } from './boundaries/index.js';
+import { handleUnknownError } from './errors/index.js';
 
 // Best-effort .env loader without external deps
-function loadDotEnv() {
+function loadDotEnv(): void {
   const candidates = ['.env', '.env.local'];
   for (const filename of candidates) {
     const full = path.resolve(process.cwd(), filename);
@@ -27,7 +29,7 @@ function loadDotEnv() {
         const line = rawLine.trim();
         if (!line || line.startsWith('#')) continue;
         const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
-        if (!match) continue;
+        if (!match || !match[1] || !match[2]) continue;
         const key = match[1];
         let value = match[2];
         if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
@@ -41,8 +43,10 @@ function loadDotEnv() {
         }
       }
       break; // stop after first found
-    } catch {
+    } catch (e: unknown) {
       // ignore parse errors; rely on existing env
+      const err = handleUnknownError(e, 'Loading .env file');
+      console.warn(`[vectorlint] Warning: ${err.message}`);
     }
   }
 }
@@ -52,53 +56,75 @@ program
   .description('AI-powered content compliance checker')
   .version('1.0.0')
   .command('validate')
-    .description('Validate prompt configuration files')
-    .option('--prompts <dir>', 'override prompts directory')
-    .action((opts: { prompts?: string }) => {
-      loadDotEnv();
-      let promptsPath = opts.prompts;
-      if (!promptsPath) {
-        try { promptsPath = loadConfig().promptsPath; } catch (e: unknown) {
-          console.error(`Error: ${e instanceof Error ? e.message : String(e)}`);
-          process.exit(1);
-        }
-      }
-      if (!existsSync(promptsPath)) {
-        console.error(`Error: prompts path does not exist: ${promptsPath}`);
+  .description('Validate prompt configuration files')
+  .option('--prompts <dir>', 'override prompts directory')
+  .action((rawOpts: unknown) => {
+    loadDotEnv();
+    
+    let validateOptions;
+    try {
+      validateOptions = parseValidateOptions(rawOpts);
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'Parsing validate command options');
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    }
+    
+    let promptsPath = validateOptions.prompts;
+    if (!promptsPath) {
+      try { 
+        promptsPath = loadConfig().promptsPath; 
+      } catch (e: unknown) {
+        const err = handleUnknownError(e, 'Loading configuration');
+        console.error(`Error: ${err.message}`);
         process.exit(1);
       }
-      const loaded = loadPrompts(promptsPath, { verbose: true });
-      const { prompts, warnings } = loaded;
-      // Show loader warnings
-      if (warnings.length) {
-        printFileHeader('Loader');
-        for (const w of warnings) printValidationRow('warning', w);
-        console.log('');
-      }
-      if (prompts.length === 0) {
-        console.error(`Error: no .md prompts found in ${promptsPath}`);
-        process.exit(1);
-      }
-      const result = validateAll(prompts);
-      const byFile = new Map<string, { e: string[]; w: string[] }>();
-      for (const e of result.errors) {
-        const g = byFile.get(e.file) || { e: [], w: [] }; g.e.push(e.message); byFile.set(e.file, g);
-      }
-      for (const w of result.warnings) {
-        const g = byFile.get(w.file) || { e: [], w: [] }; g.w.push(w.message); byFile.set(w.file, g);
-      }
-      for (const [file, g] of byFile) {
-        printFileHeader(file);
-        for (const m of g.e) printValidationRow('error', m);
-        for (const m of g.w) printValidationRow('warning', m);
-        console.log('');
-      }
-      const totalErrs = result.errors.length;
-      const totalWarns = result.warnings.length;
-      const okMark = totalErrs === 0 ? '✓' : '✖';
-      console.log(`${okMark} ${totalErrs} errors, ${totalWarns} warnings in ${prompts.length} prompt(s).`);
-      process.exit(totalErrs > 0 ? 1 : 0);
-    });
+    }
+    if (!existsSync(promptsPath)) {
+      console.error(`Error: prompts path does not exist: ${promptsPath}`);
+      process.exit(1);
+    }
+    
+    let loaded;
+    try {
+      loaded = loadPrompts(promptsPath, { verbose: true });
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'Loading prompts');
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    }
+    
+    const { prompts, warnings } = loaded;
+    // Show loader warnings
+    if (warnings.length) {
+      printFileHeader('Loader');
+      for (const w of warnings) printValidationRow('warning', w);
+      console.log('');
+    }
+    if (prompts.length === 0) {
+      console.error(`Error: no .md prompts found in ${promptsPath}`);
+      process.exit(1);
+    }
+    const result = validateAll(prompts);
+    const byFile = new Map<string, { e: string[]; w: string[] }>();
+    for (const e of result.errors) {
+      const g = byFile.get(e.file) || { e: [], w: [] }; g.e.push(e.message); byFile.set(e.file, g);
+    }
+    for (const w of result.warnings) {
+      const g = byFile.get(w.file) || { e: [], w: [] }; g.w.push(w.message); byFile.set(w.file, g);
+    }
+    for (const [file, g] of byFile) {
+      printFileHeader(file);
+      for (const m of g.e) printValidationRow('error', m);
+      for (const m of g.w) printValidationRow('warning', m);
+      console.log('');
+    }
+    const totalErrs = result.errors.length;
+    const totalWarns = result.warnings.length;
+    const okMark = totalErrs === 0 ? '✓' : '✖';
+    console.log(`${okMark} ${totalErrs} errors, ${totalWarns} warnings in ${prompts.length} prompt(s).`);
+    process.exit(totalErrs > 0 ? 1 : 0);
+  });
 ;
 program
   .option('-v, --verbose', 'Enable verbose logging')
@@ -109,51 +135,62 @@ program
   .action(async (paths: string[] = []) => {
     // Load environment from .env if present
     loadDotEnv();
-    const { verbose, showPrompt, showPromptTrunc, debugJson } = program.opts<{ verbose?: boolean; showPrompt?: boolean; showPromptTrunc?: boolean; debugJson?: boolean }>();
-
-    // Azure OpenAI Configuration
-    const apiKey = process.env.AZURE_OPENAI_API_KEY;
-    const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-02-15-preview';
-    const temperatureEnv = process.env.AZURE_OPENAI_TEMPERATURE;
-    const temperature = temperatureEnv !== undefined && temperatureEnv !== ''
-      ? Number(temperatureEnv)
-      : undefined;
     
-    if (!apiKey || !endpoint || !deploymentName) {
-      console.error('Error: Missing required environment variables:');
-      console.error('  - AZURE_OPENAI_API_KEY');
-      console.error('  - AZURE_OPENAI_ENDPOINT');
-      console.error('  - AZURE_OPENAI_DEPLOYMENT_NAME');
-      console.error('\\nPlease set these in your .env file or environment.');
+    // Parse and validate CLI options
+    let cliOptions;
+    try {
+      cliOptions = parseCliOptions(program.opts());
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'Parsing CLI options');
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    }
+
+    // Parse and validate environment variables
+    let env;
+    try {
+      env = parseEnvironment();
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'Validating environment variables');
+      console.error(`Error: ${err.message}`);
+      console.error('Please set these in your .env file or environment.');
       process.exit(1);
     }
 
     // Provider
-    const directive = loadDirective();
+    let directive;
+    try {
+      directive = loadDirective();
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'Loading directive');
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    }
+    
     const provider = new AzureOpenAIProvider({
-      apiKey,
-      endpoint,
-      deploymentName,
-      apiVersion,
-      temperature,
-      debug: Boolean(verbose),
-      showPrompt: Boolean(showPrompt),
-      showPromptTrunc: Boolean(showPromptTrunc),
-      debugJson: Boolean(debugJson),
+      apiKey: env.AZURE_OPENAI_API_KEY,
+      endpoint: env.AZURE_OPENAI_ENDPOINT,
+      deploymentName: env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      apiVersion: env.AZURE_OPENAI_API_VERSION,
+      temperature: env.AZURE_OPENAI_TEMPERATURE,
+      debug: cliOptions.verbose,
+      showPrompt: cliOptions.showPrompt,
+      showPromptTrunc: cliOptions.showPromptTrunc,
+      debugJson: cliOptions.debugJson,
     }, new DefaultRequestBuilder(directive));
-    if (verbose) {
+    
+    if (cliOptions.verbose) {
       const directiveLen = directive ? directive.length : 0;
       console.log(`[vectorlint] Directive active: ${directiveLen} char(s)`);
     }
-    
+
     // Load config and prompts
     let config;
     try {
       config = loadConfig();
     } catch (e: unknown) {
-      console.error(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      const err = handleUnknownError(e, 'Loading configuration');
+      console.error(`Error: ${err.message}`);
       process.exit(1);
     }
     const { promptsPath } = config;
@@ -163,14 +200,15 @@ program
     }
     let prompts: PromptFile[];
     try {
-      const loaded = loadPrompts(promptsPath, { verbose: Boolean(verbose) });
+      const loaded = loadPrompts(promptsPath, { verbose: cliOptions.verbose });
       prompts = loaded.prompts;
       if (prompts.length === 0) {
         console.error(`Error: no .md prompts found in ${promptsPath}`);
         process.exit(1);
       }
     } catch (e: unknown) {
-      console.error(`Error: failed to load prompts: ${e instanceof Error ? e.message : String(e)}`);
+      const err = handleUnknownError(e, 'Loading prompts');
+      console.error(`Error: failed to load prompts: ${err.message}`);
       process.exit(1);
     }
 
@@ -184,7 +222,8 @@ program
         scanPaths: config.scanPaths,
       });
     } catch (e: unknown) {
-      console.error(`Error: failed to resolve target files: ${e instanceof Error ? e.message : String(e)}`);
+      const err = handleUnknownError(e, 'Resolving target files');
+      console.error(`Error: failed to resolve target files: ${err.message}`);
       process.exit(1);
     }
     if (targets.length === 0) {
@@ -201,13 +240,16 @@ program
 
     // Simple concurrency runner
     async function runWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T, index: number) => Promise<R>): Promise<R[]> {
-      const results: R[] = new Array(items.length) as any;
+      const results: R[] = new Array(items.length);
       let i = 0;
       const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
         while (true) {
           const idx = i++;
           if (idx >= items.length) break;
-          results[idx] = await worker(items[idx], idx);
+          const item = items[idx];
+          if (item !== undefined) {
+            results[idx] = await worker(item, idx);
+          }
         }
       });
       await Promise.all(workers);
@@ -221,8 +263,10 @@ program
       if (existsSync(iniPath)) {
         mapping = readPromptMappingFromIni(iniPath);
       }
-    } catch {
+    } catch (e: unknown) {
       // ignore mapping parse errors here; validate command covers this
+      const err = handleUnknownError(e, 'Loading prompt mapping');
+      console.warn(`[vectorlint] Warning: ${err.message}`);
       mapping = undefined;
     }
 
@@ -240,7 +284,7 @@ program
           if (!mapping || !isMappingConfigured(mapping)) return prompts;
           return prompts.filter((p) => {
             const promptId = String(p.meta.id || p.id);
-            const full = (p as any).fullPath || path.resolve(promptsPath, p.filename);
+            const full = p.fullPath || path.resolve(promptsPath, p.filename);
             const alias = aliasForPromptPath(full, mapping, process.cwd());
             return resolvePromptMapping(relFile, promptId, mapping, alias);
           });
@@ -255,8 +299,9 @@ program
             }
             const result = await provider.runPromptStructured<CriteriaResult>(content, p.body, schema);
             return { ok: true as const, result };
-          } catch (e) {
-            return { ok: false as const, error: e };
+          } catch (e: unknown) {
+            const err = handleUnknownError(e, `Running prompt ${p.filename}`);
+            return { ok: false as const, error: err };
           }
         });
 
@@ -264,7 +309,7 @@ program
         for (let idx = 0; idx < toRun.length; idx++) {
           const p = toRun[idx];
           const r = results[idx];
-          if (!r) continue;
+          if (!p || !r) continue;
           if (r.ok !== true) {
             console.error(`  Prompt failed: ${p.filename}`);
             console.error(r.error);
@@ -275,8 +320,8 @@ program
           const meta = p.meta;
           const promptId = (meta.id || '').toString();
           const result = r.result;
-          const expectedNames = new Set<string>(meta.criteria.map(c => String(c.name)));
-          const returnedNames = new Set(result.criteria.map(c => c.name));
+          const expectedNames = new Set<string>(meta.criteria.map((c) => String(c.name)));
+          const returnedNames = new Set(result.criteria.map((c: { name: string }) => c.name));
           for (const name of expectedNames) {
             if (!returnedNames.has(name)) {
               console.error(`Missing criterion in model output: ${name}`);
@@ -305,14 +350,14 @@ program
           }
           for (const exp of meta.criteria) {
             const nameKey = String(exp.name);
-            const criterionId = (exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s=>s[0].toUpperCase()+s.slice(1)).join('') : ''));
+            const criterionId = (exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('') : ''));
             const ruleName = promptId && criterionId ? `${promptId}.${criterionId}` : (promptId || criterionId || p.filename);
             // Target gating (deterministic precheck)
             const targetCheck = checkTarget(content, meta.target, exp.target);
             const missingTarget = targetCheck.missing;
 
             // Always add to max score using weight
-            const weightNum = Number((exp as any).weight) || 0;
+            const weightNum = exp.weight;
             promptMaxScore += weightNum;
 
             if (missingTarget) {
@@ -332,7 +377,7 @@ program
             const status: 'ok' | 'warning' | 'error' = score <= 1 ? 'error' : (score === 2 ? 'warning' : 'ok');
             if (status === 'error') { hadSeverityErrors = true; promptErrors += 1; }
             else if (status === 'warning') { promptWarnings += 1; }
-            const violations = Array.isArray((got as any).violations) ? (got as any).violations as { pre: string; post: string; analysis?: string; suggestion?: string }[] : [];
+            const violations = got.violations;
 
             // Weighted score x/y for this criterion; no decimals if integer
             const w = weightNum;
@@ -344,7 +389,7 @@ program
 
             if (violations.length === 0) {
               // Print positive remark when no findings are reported
-              const sum = ((got as any).summary || '').toString().trim();
+              const sum = got.summary.trim();
               const words = sum.split(/\s+/).filter(Boolean);
               const limited = words.slice(0, 15).join(' ');
               const summaryText = limited || 'No findings';
@@ -353,16 +398,21 @@ program
               // Print one row per finding; include score on the first row
               for (let i = 0; i < violations.length; i++) {
                 const v = violations[i];
+                if (!v) continue;
                 let locStr = '—:—';
                 try {
                   const loc = locateEvidence(content, { pre: v.pre, post: v.post });
                   if (loc) locStr = `${loc.line}:${loc.column}`;
                   else { hadOperationalErrors = true; }
-                } catch {
+                } catch (e: unknown) {
+                  const err = handleUnknownError(e, 'Locating evidence');
+                  console.warn(`[vectorlint] Warning: ${err.message}`);
                   hadOperationalErrors = true;
                 }
                 const rowSummary = (v.analysis || '').trim();
-                printIssueRow(locStr, status, rowSummary, ruleName, { suggestion: status !== 'ok' ? v.suggestion : undefined });
+                const suggestion = status !== 'ok' && v.suggestion ? v.suggestion : undefined;
+                const opts = suggestion ? { suggestion } : {};
+                printIssueRow(locStr, status, rowSummary, ruleName, opts);
               }
             }
             // Record score for summary list
@@ -382,8 +432,9 @@ program
           totalWarnings += promptWarnings;
         }
         console.log('');
-      } catch (error) {
-        console.error(`Error processing file ${file}:`, error);
+      } catch (e: unknown) {
+        const err = handleUnknownError(e, `Processing file ${file}`);
+        console.error(`Error processing file ${file}: ${err.message}`);
         hadOperationalErrors = true;
       }
     }

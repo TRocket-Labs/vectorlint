@@ -15,7 +15,7 @@ export interface PromptMapping {
 function parseBracketList(val: string): string[] {
   const m = val.trim().match(/^\[(.*)\]$/);
   if (!m) return [];
-  return m[1]
+  return (m[1] || '')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean)
@@ -38,18 +38,18 @@ export function readPromptMappingFromIni(iniPath: string): PromptMapping {
     const line = raw.trim();
     if (!line || line.startsWith('#') || line.startsWith(';')) continue;
     const sec = line.match(/^\[(.+)\]$/);
-    if (sec) { section = sec[1]; continue; }
+    if (sec) { section = sec[1] || ''; continue; }
     const kv = line.match(/^([A-Za-z0-9_]+)\s*=\s*(.+)$/);
-    if (!kv) continue;
+    if (!kv || !kv[1] || !kv[2]) continue;
     const key = kv[1];
     const val = kv[2];
     if (section === 'Prompts' && key === 'paths') {
       for (const entry of parseBracketList(val)) {
         const parts = entry.split(':');
         if (parts.length >= 2) {
-          const alias = parts[0].trim();
+          const alias = parts[0]?.trim();
           const dir = parts.slice(1).join(':').trim();
-          aliases[alias] = dir;
+          if (alias) aliases[alias] = dir;
         }
       }
     } else if (section === 'Defaults') {
@@ -57,12 +57,12 @@ export function readPromptMappingFromIni(iniPath: string): PromptMapping {
       if (key === 'exclude') excludeDefault.push(...parseBracketList(val));
     } else if (section.startsWith('Directory:')) {
       const alias = section.split(':')[1];
-      if (key === 'include') includeByDir[alias] = parseBracketList(val);
-      if (key === 'exclude') excludeByDir[alias] = parseBracketList(val);
+      if (alias && key === 'include') includeByDir[alias] = parseBracketList(val);
+      if (alias && key === 'exclude') excludeByDir[alias] = parseBracketList(val);
     } else if (section.startsWith('Prompt:')) {
       const id = section.split(':')[1];
-      if (key === 'include') includeById[id] = parseBracketList(val);
-      if (key === 'exclude') excludeById[id] = parseBracketList(val);
+      if (id && key === 'include') includeById[id] = parseBracketList(val);
+      if (id && key === 'exclude') excludeById[id] = parseBracketList(val);
     }
   }
 
@@ -119,8 +119,8 @@ export function aliasForPromptPath(promptFullPath: string, mapping: PromptMappin
   // Choose the longest matching base path to be precise when nested
   let best: { alias: string; base: string } | undefined;
   for (const [alias, base] of candidates) {
-    if (normPrompt === base || normPrompt.startsWith(base + '/')) {
-      if (!best || base.length > best.base.length) best = { alias, base };
+    if (base && (normPrompt === base || normPrompt.startsWith(base + '/'))) {
+      if (!best || base.length > best.base.length) best = { alias, base: base };
     }
   }
   return best?.alias;

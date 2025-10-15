@@ -65,7 +65,7 @@ export function printIssueRow(
   }
 
   // First line with score and rule at end (unbounded)
-  console.log(`${prefix}${lines[0].padEnd(messageWidth, ' ')}  ${chalk.dim(ruleName || '')}`);
+  console.log(`${prefix}${lines[0]!.padEnd(messageWidth, ' ')}  ${chalk.dim(ruleName || '')}`);
   // Continuation lines
   const contPrefix = ' '.repeat(prefixLen);
   for (let i = 1; i < lines.length; i++) {
