@@ -21,7 +21,7 @@ export function resolveTargets(args: {
   const promptsRel = path.relative(cwd, promptsPath) || promptsPath;
   exclude.push(`${promptsRel.replace(/\\/g, '/')}/**`);
 
-  let files: string[] = [];
+  const files: string[] = [];
   if (cliArgs.length > 0) {
     // Resolve each CLI arg
     for (const input of cliArgs) {

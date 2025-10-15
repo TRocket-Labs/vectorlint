@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
@@ -7,10 +7,10 @@ import { loadPrompts } from '../src/prompts/PromptLoader.js';
 // Fake provider implementing LLMProvider
 class FakeProvider {
   calls: Array<{ content: string; prompt: string }>= [];
-  async runPromptStructured<T = unknown>(content: string, promptText: string, _schema: any): Promise<T> {
+  async runPromptStructured<T = unknown>(content: string, promptText: string): Promise<T> {
     this.calls.push({ content, prompt: promptText });
     const injected = content && content.length > 0 ? 'OK' : 'MISSING';
-    return { result: `RESULT:${injected}` } as any;
+    return { result: `RESULT:${injected}` } as T;
   }
 }
 
@@ -38,14 +38,14 @@ function setupEnv() {
 
 describe('Evaluation aggregation', () => {
   it('runs all prompts for all files and injects content if placeholder exists', async () => {
-    const { root, promptsDir, files } = setupEnv();
+    const { promptsDir, files } = setupEnv();
     const provider = new FakeProvider();
     const { prompts } = loadPrompts(promptsDir);
     // Simulate aggregation: 2 prompts x 2 files = 4 calls
-    for (const f of files) {
+    for (let i = 0; i < files.length; i++) {
       const content = '# test';
       for (const p of prompts) {
-        await provider.runPromptStructured(content, p.body, {});
+        await provider.runPromptStructured(content, p.body);
       }
     }
     expect(provider.calls.length).toBe(4);

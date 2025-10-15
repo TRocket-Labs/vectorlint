@@ -1,5 +1,4 @@
 export interface Evidence {
-  quote: string;
   pre: string;
   post: string;
 }
@@ -23,43 +22,42 @@ function computeLineCol(text: string, index: number): Location {
 }
 
 export function locateEvidence(text: string, ev: Evidence): Location | null {
-  const quote = ev.quote ?? '';
   const pre = ev.pre ?? '';
   const post = ev.post ?? '';
-  if (!quote) return null;
 
-  // Find all quote occurrences
-  const indices: number[] = [];
-  let from = 0;
-  while (true) {
-    const idx = text.indexOf(quote, from);
-    if (idx === -1) break;
-    indices.push(idx);
-    from = idx + 1;
-  }
-  if (indices.length === 0) return null;
+  // Strategy:
+  // - If both pre and post exist: find occurrences of pre and the nearest following post; anchor at seam.
+  // - If only pre: anchor at end of first pre occurrence.
+  // - If only post: anchor at start of first post occurrence.
+  // - If neither: no location.
 
-  // Score candidates: prefer exact pre/post matches
-  let bestIdx = indices[0];
-  let bestScore = -1;
-  for (const idx of indices) {
-    let score = 0;
-    if (pre) {
-      const start = Math.max(0, idx - pre.length);
-      const before = text.slice(start, idx);
-      if (before === pre) score += 2;
+  if (pre && post) {
+    let bestSeam = -1;
+    let bestGap = Number.POSITIVE_INFINITY;
+    let from = 0;
+    while (true) {
+      const i = text.indexOf(pre, from);
+      if (i === -1) break;
+      const j = text.indexOf(post, i + pre.length);
+      if (j !== -1) {
+        const gap = j - (i + pre.length);
+        if (gap >= 0 && gap < bestGap) {
+          bestGap = gap;
+          bestSeam = i + pre.length;
+        }
+      }
+      from = i + 1;
     }
-    if (post) {
-      const after = text.slice(idx + quote.length, idx + quote.length + post.length);
-      if (after === post) score += 2;
-    }
-    if (score > bestScore) {
-      bestScore = score;
-      bestIdx = idx;
-    }
+    if (bestSeam !== -1) return computeLineCol(text, bestSeam);
   }
 
-  // If no anchors matched, just use the first occurrence
-  return computeLineCol(text, bestIdx);
+  if (pre) {
+    const i = text.indexOf(pre);
+    if (i !== -1) return computeLineCol(text, i + pre.length);
+  }
+  if (post) {
+    const j = text.indexOf(post);
+    if (j !== -1) return computeLineCol(text, j);
+  }
+  return null;
 }
-

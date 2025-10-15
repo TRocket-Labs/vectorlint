@@ -58,8 +58,8 @@ program
       loadDotEnv();
       let promptsPath = opts.prompts;
       if (!promptsPath) {
-        try { promptsPath = loadConfig().promptsPath; } catch (e: any) {
-          console.error(`Error: ${e?.message || e}`);
+        try { promptsPath = loadConfig().promptsPath; } catch (e: unknown) {
+          console.error(`Error: ${e instanceof Error ? e.message : String(e)}`);
           process.exit(1);
         }
       }
@@ -330,10 +330,10 @@ program
             const got = result.criteria.find(c => c.name === nameKey);
             if (!got) continue;
             const score = Number(got.score);
-            let status: 'ok' | 'warning' | 'error' = score <= 1 ? 'error' : (score === 2 ? 'warning' : 'ok');
+            const status: 'ok' | 'warning' | 'error' = score <= 1 ? 'error' : (score === 2 ? 'warning' : 'ok');
             if (status === 'error') { hadSeverityErrors = true; promptErrors += 1; }
             else if (status === 'warning') { promptWarnings += 1; }
-            const violations = Array.isArray((got as any).violations) ? (got as any).violations as { quote: string; pre: string; post: string; analysis?: string; suggestion?: string }[] : [];
+            const violations = Array.isArray((got as any).violations) ? (got as any).violations as { pre: string; post: string; analysis?: string; suggestion?: string }[] : [];
 
             // Weighted score x/y for this criterion; no decimals if integer
             const w = weightNum;
@@ -356,13 +356,13 @@ program
                 const v = violations[i];
                 let locStr = '—:—';
                 try {
-                  const loc = locateEvidence(content, { quote: v.quote, pre: v.pre, post: v.post });
+                  const loc = locateEvidence(content, { pre: v.pre, post: v.post });
                   if (loc) locStr = `${loc.line}:${loc.column}`;
                   else { hadOperationalErrors = true; }
                 } catch {
                   hadOperationalErrors = true;
                 }
-                const rowSummary = (v.analysis || '').trim() || v.quote;
+                const rowSummary = (v.analysis || '').trim();
                 printIssueRow(locStr, status, rowSummary, ruleName, { suggestion: status !== 'ok' ? v.suggestion : undefined });
               }
             }
