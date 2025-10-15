@@ -1,6 +1,8 @@
 import { AzureOpenAI } from 'openai';
 import { LLMProvider } from './llm-provider.js';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder.js';
+import { validateApiResponse } from '../boundaries/api-client.js';
+import { handleUnknownError } from '../errors/index.js';
 
 export interface AzureOpenAIConfig {
   apiKey: string;
@@ -81,27 +83,43 @@ export class AzureOpenAIProvider implements LLMProvider {
       }
     }
 
-    const response = await this.client.chat.completions.create(params);
+    let response;
+    try {
+      response = await this.client.chat.completions.create(params);
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'OpenAI API call');
+      throw new Error(`OpenAI API call failed: ${err.message}`);
+    }
 
     // Type guard to ensure we have a ChatCompletion, not a Stream
     if (!('choices' in response)) {
       throw new Error('Received streaming response when expecting structured response');
     }
 
-    const responseTextRaw = response.choices?.[0]?.message?.content;
+    // Validate the API response structure
+    let validatedResponse;
+    try {
+      validatedResponse = validateApiResponse(response);
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'API response validation');
+      throw new Error(`Invalid API response structure: ${err.message}`);
+    }
+
+    const responseTextRaw = validatedResponse.choices[0]?.message?.content;
     const responseText = (responseTextRaw ?? '').trim();
     if (this.debug) {
-      const usage = response.usage;
-      const finish = response.choices?.[0]?.finish_reason;
+      const usage = validatedResponse.usage;
+      const finish = validatedResponse.choices[0]?.finish_reason;
       if (usage || finish) {
         console.log('[vectorlint] LLM response meta:', { usage, finish_reason: finish });
       }
       if (this.debugJson) {
         try {
           console.log('[vectorlint] Full JSON response:');
-          console.log(JSON.stringify(response, null, 2));
-        } catch {
-          // Ignore JSON stringify errors for logging
+          console.log(JSON.stringify(validatedResponse, null, 2));
+        } catch (e: unknown) {
+          const err = handleUnknownError(e, 'JSON stringify for debug');
+          console.warn(`[vectorlint] Warning: ${err.message}`);
         }
       }
     }
@@ -110,9 +128,10 @@ export class AzureOpenAIProvider implements LLMProvider {
     }
     try {
       return JSON.parse(responseText) as T;
-    } catch {
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'JSON parsing');
       const preview = responseText.slice(0, 200);
-      throw new Error(`Failed to parse structured JSON response. Preview: ${preview}${responseText.length > 200 ? ' ...' : ''}`);
+      throw new Error(`Failed to parse structured JSON response: ${err.message}. Preview: ${preview}${responseText.length > 200 ? ' ...' : ''}`);
     }
   }
 }
