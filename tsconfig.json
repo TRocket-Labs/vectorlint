@@ -11,6 +11,6 @@
     "resolveJsonModule": true,
     "declaration": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "tests/**/*", "*.config.{js,mjs,ts}"],
   "exclude": ["node_modules", "dist"]
 }
