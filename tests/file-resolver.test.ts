@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { resolveTargets } from '../src/scan/FileResolver.js';
+import { resolveTargets } from '../src/scan/file-resolver.js';
 
 function setupTree(structure: Record<string, string>) {
   const root = mkdtempSync(path.join(tmpdir(), 'vlint-'));

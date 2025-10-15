@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { writeFileSync, mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
-import { loadConfig } from '../src/config/Config.js';
+import { loadConfig } from '../src/config/config.js';
 
 describe('Config (vectorlint.ini)', () => {
   it('errors when config file is missing', () => {

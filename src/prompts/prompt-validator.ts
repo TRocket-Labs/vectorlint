@@ -1,4 +1,4 @@
-import { PromptFile, PromptMeta, PromptCriterionSpec } from './PromptLoader.js';
+import { PromptFile, PromptMeta, PromptCriterionSpec } from './prompt-loader.js';
 
 export type ValidationLevel = 'error' | 'warning';
 export interface Validation {

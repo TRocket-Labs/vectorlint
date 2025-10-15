@@ -2,18 +2,18 @@
 import { program } from 'commander';
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
-import { AzureOpenAIProvider } from './providers/AzureOpenAIProvider.js';
-import { loadConfig } from './config/Config.js';
-import { loadPrompts, type PromptFile } from './prompts/PromptLoader.js';
-import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/Schema.js';
-import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines } from './output/Reporter.js';
-import { locateEvidence } from './output/Location.js';
-import { DefaultRequestBuilder } from './providers/RequestBuilder.js';
-import { loadDirective } from './prompts/DirectiveLoader.js';
-import { checkTarget } from './prompts/Target.js';
-import { resolveTargets } from './scan/FileResolver.js';
-import { validateAll } from './prompts/PromptValidator.js';
-import { readPromptMappingFromIni, resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from './prompts/PromptMapping.js';
+import { AzureOpenAIProvider } from './providers/azure-open-ai-provider.js';
+import { loadConfig } from './config/config.js';
+import { loadPrompts, type PromptFile } from './prompts/prompt-loader.js';
+import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/schema.js';
+import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines } from './output/reporter.js';
+import { locateEvidence } from './output/location.js';
+import { DefaultRequestBuilder } from './providers/request-builder.js';
+import { loadDirective } from './prompts/directive-loader.js';
+import { checkTarget } from './prompts/target.js';
+import { resolveTargets } from './scan/file-resolver.js';
+import { validateAll } from './prompts/prompt-validator.js';
+import { readPromptMappingFromIni, resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from './prompts/prompt-mapping.js';
 
 // Best-effort .env loader without external deps
 function loadDotEnv() {
@@ -54,7 +54,7 @@ program
   .command('validate')
     .description('Validate prompt configuration files')
     .option('--prompts <dir>', 'override prompts directory')
-    .action(async (opts: { prompts?: string }) => {
+    .action((opts: { prompts?: string }) => {
       loadDotEnv();
       let promptsPath = opts.prompts;
       if (!promptsPath) {
@@ -152,8 +152,8 @@ program
     let config;
     try {
       config = loadConfig();
-    } catch (e: any) {
-      console.error(`Error: ${e?.message || e}`);
+    } catch (e: unknown) {
+      console.error(`Error: ${e instanceof Error ? e.message : String(e)}`);
       process.exit(1);
     }
     const { promptsPath } = config;
@@ -169,8 +169,8 @@ program
         console.error(`Error: no .md prompts found in ${promptsPath}`);
         process.exit(1);
       }
-    } catch (e: any) {
-      console.error(`Error: failed to load prompts: ${e?.message || e}`);
+    } catch (e: unknown) {
+      console.error(`Error: failed to load prompts: ${e instanceof Error ? e.message : String(e)}`);
       process.exit(1);
     }
 
@@ -183,8 +183,8 @@ program
         promptsPath,
         scanPaths: config.scanPaths,
       });
-    } catch (e: any) {
-      console.error(`Error: failed to resolve target files: ${e?.message || e}`);
+    } catch (e: unknown) {
+      console.error(`Error: failed to resolve target files: ${e instanceof Error ? e.message : String(e)}`);
       process.exit(1);
     }
     if (targets.length === 0) {
@@ -232,8 +232,7 @@ program
         totalFiles += 1;
         const relFile = path.relative(process.cwd(), file) || file;
         printFileHeader(relFile);
-        let fileErrors = 0;
-        let fileWarnings = 0;
+
         // Build schema once
         const schema = buildCriteriaJsonSchema();
         // Determine applicable prompts for this file
@@ -242,13 +241,13 @@ program
           return prompts.filter((p) => {
             const promptId = String(p.meta.id || p.id);
             const full = (p as any).fullPath || path.resolve(promptsPath, p.filename);
-            const alias = aliasForPromptPath(full, mapping!, process.cwd());
-            return resolvePromptMapping(relFile, promptId, mapping!, alias);
+            const alias = aliasForPromptPath(full, mapping, process.cwd());
+            return resolvePromptMapping(relFile, promptId, mapping, alias);
           });
         })();
 
         // Run applicable prompts concurrently per config.concurrency
-        const results = await runWithConcurrency(toRun, config.concurrency, async (p, idx) => {
+        const results = await runWithConcurrency(toRun, config.concurrency, async (p, _idx) => {
           try {
             const meta = p.meta;
             if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
@@ -298,7 +297,7 @@ program
             const nameKey = String(exp.name);
             const got = result.criteria.find(c => c.name === nameKey);
             if (!got) continue;
-            const score = Number(got.score) as number;
+            const score = Number(got.score);
             if (!Number.isFinite(score) || score < 0 || score > 4) {
               console.error(`Invalid score for ${exp.name}: ${score}`);
               hadOperationalErrors = true;
@@ -378,8 +377,7 @@ program
             const sev = (meta.severity || 'error') as 'warning' | 'error';
             if (sev === 'error') hadSeverityErrors = true; else totalWarnings += 1;
           }
-          fileErrors += promptErrors;
-          fileWarnings += promptWarnings;
+
           totalErrors += promptErrors;
           totalWarnings += promptWarnings;
         }

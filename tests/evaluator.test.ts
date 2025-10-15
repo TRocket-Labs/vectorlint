@@ -2,15 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { loadPrompts } from '../src/prompts/PromptLoader.js';
+import { loadPrompts } from '../src/prompts/prompt-loader.js';
 
 // Fake provider implementing LLMProvider
 class FakeProvider {
   calls: Array<{ content: string; prompt: string }>= [];
-  async runPromptStructured<T = unknown>(content: string, promptText: string): Promise<T> {
+  runPromptStructured<T = unknown>(content: string, promptText: string): Promise<T> {
     this.calls.push({ content, prompt: promptText });
     const injected = content && content.length > 0 ? 'OK' : 'MISSING';
-    return { result: `RESULT:${injected}` } as T;
+    return Promise.resolve({ result: `RESULT:${injected}` } as T);
   }
 }
 

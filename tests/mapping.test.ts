@@ -6,7 +6,7 @@ import { tmpdir } from 'os';
 // Expected API (prompt mapping):
 // - readPromptMappingFromIni(iniPath): returns mapping object
 // - resolvePromptMapping(filePath, promptId, mapping): boolean
-import { readPromptMappingFromIni, resolvePromptMapping } from '../src/prompts/PromptMapping.js';
+import { readPromptMappingFromIni, resolvePromptMapping } from '../src/prompts/prompt-mapping.js';
 
 function writeIni(dir: string, content: string) {
   const p = path.join(dir, 'vectorlint.ini');
