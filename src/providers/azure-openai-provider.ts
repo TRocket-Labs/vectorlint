@@ -1,8 +1,8 @@
 import { AzureOpenAI } from 'openai';
-import { LLMProvider } from './llm-provider.js';
-import { DefaultRequestBuilder, RequestBuilder } from './request-builder.js';
-import { validateApiResponse } from '../boundaries/api-client.js';
-import { handleUnknownError } from '../errors/index.js';
+import { LLMProvider } from './llm-provider';
+import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
+import { validateApiResponse } from '../boundaries/api-client';
+import { handleUnknownError } from '../errors/index';
 
 export interface AzureOpenAIConfig {
   apiKey: string;
