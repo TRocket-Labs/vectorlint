@@ -1,5 +1,5 @@
-import { CLI_OPTIONS_SCHEMA, VALIDATE_OPTIONS_SCHEMA, type CliOptions, type ValidateOptions } from '../schemas/cli-schemas.js';
-import { ValidationError, handleUnknownError } from '../errors/index.js';
+import { CLI_OPTIONS_SCHEMA, VALIDATE_OPTIONS_SCHEMA, type CliOptions, type ValidateOptions } from '../schemas/cli-schemas';
+import { ValidationError, handleUnknownError } from '../errors/index';
 
 /**
  * Parse and validate CLI options from Commander.js

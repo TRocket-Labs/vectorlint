@@ -1,7 +1,7 @@
 import micromatch from 'micromatch';
 import { readFileSync } from 'fs';
 import * as path from 'path';
-import { handleUnknownError } from '../errors/index.js';
+import { handleUnknownError } from '../errors/index';
 
 // Type-safe wrapper for micromatch.isMatch
 function safeIsMatch(input: string, patterns: string[], options?: { dot?: boolean }): boolean {

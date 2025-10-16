@@ -1,4 +1,4 @@
-import { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas.js';
+import { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
 
 export type ValidationLevel = 'error' | 'warning';
 export interface Validation {

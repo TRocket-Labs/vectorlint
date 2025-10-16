@@ -1,6 +1,6 @@
 // Re-export all boundary validation utilities
-export * from './cli-parser.js';
-export * from './config-loader.js';
-export * from './yaml-parser.js';
-export * from './api-client.js';
-export * from './env-parser.js';
+export * from './cli-parser';
+export * from './config-loader';
+export * from './yaml-parser';
+export * from './api-client';
+export * from './env-parser';
