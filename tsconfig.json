@@ -4,16 +4,18 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "strict": true,
     "useUnknownInCatchVariables": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "skipLibCheck": true,
     "outDir": "./dist",
-    "rootDir": "./src",
     "resolveJsonModule": true,
-    "declaration": true
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
   },
-  "include": ["src/**/*", "tests/**/*", "*.config.{js,mjs,ts}"],
-  "exclude": ["node_modules", "dist", "tests/**/*"]
+  "include": ["src/**/*", "*.config.{js,mjs,ts}"],
+  "exclude": ["node_modules", "dist", "tests"]
 }
