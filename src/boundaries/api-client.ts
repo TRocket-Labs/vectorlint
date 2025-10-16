@@ -1,5 +1,5 @@
-import { OPENAI_RESPONSE_SCHEMA, type OpenAIResponse } from '../schemas/api-schemas.js';
-import { ValidationError, handleUnknownError } from '../errors/index.js';
+import { OPENAI_RESPONSE_SCHEMA, type OpenAIResponse } from '../schemas/api-schemas';
+import { ValidationError, handleUnknownError } from '../errors/index';
 
 /**
  * Validate OpenAI API response using schema validation

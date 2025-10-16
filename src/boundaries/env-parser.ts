@@ -1,5 +1,5 @@
-import { ENV_SCHEMA, type EnvConfig } from '../schemas/env-schemas.js';
-import { ValidationError, handleUnknownError } from '../errors/index.js';
+import { ENV_SCHEMA, type EnvConfig } from '../schemas/env-schemas';
+import { ValidationError, handleUnknownError } from '../errors/index';
 
 /**
  * Parse and validate environment variables using schema validation

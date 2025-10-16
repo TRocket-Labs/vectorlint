@@ -1,7 +1,7 @@
 // Re-export the schema-defined type
-export type { TargetSpec } from '../schemas/prompt-schemas.js';
+export type { TargetSpec } from '../schemas/prompt-schemas';
 
-import type { TargetSpec } from '../schemas/prompt-schemas.js';
+import type { TargetSpec } from '../schemas/prompt-schemas';
 
 export function checkTarget(
   content: string,

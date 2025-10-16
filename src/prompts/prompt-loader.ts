@@ -1,10 +1,10 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
 import YAML from 'yaml';
-import { PROMPT_META_SCHEMA, type PromptFile, type PromptMeta } from '../schemas/prompt-schemas.js';
+import { PROMPT_META_SCHEMA, type PromptFile, type PromptMeta } from '../schemas/prompt-schemas';
 
 // Re-export types for backward compatibility
-export type { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas.js';
+export type { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
 
 export function loadPrompts(
   dir: string,

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import * as path from 'path';
-import { CONFIG_SCHEMA, type Config } from '../schemas/config-schemas.js';
-import { ConfigError, ValidationError, handleUnknownError } from '../errors/index.js';
+import { CONFIG_SCHEMA, type Config } from '../schemas/config-schemas';
+import { ConfigError, ValidationError, handleUnknownError } from '../errors/index';
 
 function parseBracketList(value: string): string[] {
   const v = value.trim();
