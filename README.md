@@ -1,5 +1,5 @@
 # VectorLint
-A command-line tool that evaluates Markdown content using LLMs and provides quality scores. Think of it like [Vale](https://github.com/errata-ai/vale), but instead of pattern matching, it uses LLMs to catch subjective issues like clarity, tone, and technical accuracy.
+A command-line tool that evaluates Markdown content using LLMs and provides quality scores. Think of it like [Vale](https://github.com/errata-ai/vale), but instead of pattern matching, it uses LLMs enabling you to catch subjective issues like clarity, tone, and technical accuracy.
 
 ![VectorLint Screenshot](./assets/VectorLint_screenshot.jpeg)
 
