@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsup",
     "start": "node dist/index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -15,7 +15,7 @@
     "test:ci": "vitest run --coverage"
   },
   "bin": {
-    "vectorlint": "./src/index.ts"
+    "vectorlint": "./dist/index.js"
   },
   "keywords": [
     "linting",
@@ -50,6 +50,7 @@
     "eslint-plugin-n": "^17.23.1",
     "eslint-plugin-unicorn": "^61.0.2",
     "globals": "^16.4.0",
+    "tsup": "^8.5.0",
     "tsx": "^4.0.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.1",
