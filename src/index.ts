@@ -2,7 +2,7 @@
 import { program } from 'commander';
 import { readFileSync, existsSync } from 'fs';
 import * as path from 'path';
-import { AzureOpenAIProvider } from './providers/azure-open-ai-provider.js';
+import { AzureOpenAIProvider } from './providers/azure-openai-provider.js';
 import { loadConfig } from './boundaries/config-loader.js';
 import { loadPrompts, type PromptFile } from './prompts/prompt-loader.js';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/schema.js';
