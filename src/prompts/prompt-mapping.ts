@@ -1,4 +1,4 @@
-import { isMatch } from 'micromatch';
+import micromatch from 'micromatch';
 import { readFileSync } from 'fs';
 import * as path from 'path';
 import { handleUnknownError } from '../errors/index.js';
@@ -6,8 +6,8 @@ import { handleUnknownError } from '../errors/index.js';
 // Type-safe wrapper for micromatch.isMatch
 function safeIsMatch(input: string, patterns: string[], options?: { dot?: boolean }): boolean {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-    const result = isMatch(input, patterns, options);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const result = micromatch.isMatch(input, patterns, options);
     return Boolean(result);
   } catch (e: unknown) {
     const err = handleUnknownError(e, 'Pattern matching');
