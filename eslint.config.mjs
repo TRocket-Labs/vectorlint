@@ -108,11 +108,12 @@ export default defineConfig([
         }
     },
 
-    // CLI entry point can use process.exit
+    // CLI entry point can use process.exit and needs shebang
     {
         files: ["src/index.ts"],
         rules: {
             "n/no-process-exit": "off",
+            "n/hashbang": "off",
             // Use underscore pattern for intentional unused vars
             "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
         }
