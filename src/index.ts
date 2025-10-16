@@ -2,20 +2,20 @@
 import { program } from 'commander';
 import { readFileSync, existsSync } from 'fs';
 import * as path from 'path';
-import { AzureOpenAIProvider } from './providers/azure-openai-provider.js';
-import { loadConfig } from './boundaries/config-loader.js';
-import { loadPrompts, type PromptFile } from './prompts/prompt-loader.js';
-import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/schema.js';
-import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines } from './output/reporter.js';
-import { locateEvidence } from './output/location.js';
-import { DefaultRequestBuilder } from './providers/request-builder.js';
-import { loadDirective } from './prompts/directive-loader.js';
-import { checkTarget } from './prompts/target.js';
-import { resolveTargets } from './scan/file-resolver.js';
-import { validateAll } from './prompts/prompt-validator.js';
-import { readPromptMappingFromIni, resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from './prompts/prompt-mapping.js';
-import { parseCliOptions, parseValidateOptions, parseEnvironment } from './boundaries/index.js';
-import { handleUnknownError } from './errors/index.js';
+import { AzureOpenAIProvider } from './providers/azure-openai-provider';
+import { loadConfig } from './boundaries/config-loader';
+import { loadPrompts, type PromptFile } from './prompts/prompt-loader';
+import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/schema';
+import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines } from './output/reporter';
+import { locateEvidence } from './output/location';
+import { DefaultRequestBuilder } from './providers/request-builder';
+import { loadDirective } from './prompts/directive-loader';
+import { checkTarget } from './prompts/target';
+import { resolveTargets } from './scan/file-resolver';
+import { validateAll } from './prompts/prompt-validator';
+import { readPromptMappingFromIni, resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from './prompts/prompt-mapping';
+import { parseCliOptions, parseValidateOptions, parseEnvironment } from './boundaries/index';
+import { handleUnknownError } from './errors/index';
 
 // Best-effort .env loader without external deps
 function loadDotEnv(): void {

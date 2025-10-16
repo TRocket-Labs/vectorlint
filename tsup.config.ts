@@ -9,7 +9,7 @@ export default defineConfig({
   target: 'es2022',
   outDir: 'dist',
   splitting: false,
-  bundle: false, // Keep individual files for CLI tool
+  bundle: true, // Bundle for CLI tool distribution
   external: [
     // All dependencies should be external for CLI tool
     'chalk',
