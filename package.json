@@ -1,7 +1,7 @@
 {
   "name": "vectorlint",
   "version": "1.0.0",
-  "description": "AI-powered content compliance automation tool",
+  "description": "LLM-based prose linter for subjective writing issues",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -22,10 +22,11 @@
     "content",
     "ai",
     "compliance",
-    "markdown"
+    "markdown",
+    "content QA"
   ],
   "author": "",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=18.0.0"
   },
@@ -43,6 +44,7 @@
   "devDependencies": {
     "@eslint/js": "^9.37.0",
     "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^2.1.9",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.4",
