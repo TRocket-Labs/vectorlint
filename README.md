@@ -1,19 +1,13 @@
 # VectorLint
 
-AI-powered content compliance automation tool for Markdown files.
-
-## What is VectorLint?
-
-VectorLint is a command-line tool that uses Large Language Models (LLMs) to evaluate Markdown content using prompt files you provide. It runs every markdown prompt in a directory and aggregates the raw responses.
+A command-line tool that evaluates Markdown content using LLMs and provides quality scores. Think of it like [Vale](https://github.com/errata-ai/vale), but instead of pattern matching, it uses LLMs to catch subjective issues like clarity, tone, and technical accuracy.
 
 ## Features
 
-- ✅ **AI-Powered Analysis** - Uses Azure OpenAI to check content quality
-- ✅ **CLI Tool** - Run locally or in CI/CD pipelines
-- ✅ **Exit Codes** - Properly exits with 0 (pass) or 1 (fail) for CI integration
-- ✅ **Dependency Inversion** - Easily swap LLM providers
-- ✅ **Prompt-Driven** - Put evaluation prompts in a folder; all are run
-- ✅ **Aggregated Reports** - Prints raw responses per prompt for each file
+- **LLM-based** - Uses LLMs to check content quality.
+- **CLI Support** - Run locally or in CI/CD pipelines.
+- **Consistent Evaluations** - Write structured evaluation prompts to get consistent evaluation results. 
+- **Quality Scores & Thresholds** - Define scores and thresholds to define quality standards.
 
 ## Installation
 
@@ -21,19 +15,6 @@ VectorLint is a command-line tool that uses Large Language Models (LLMs) to eval
 npm install
 ```
 
-## Configuration
-
-Create a `.env` file in the project root (auto-loaded by the CLI):
-
-```bash
-AZURE_OPENAI_API_KEY=your-api-key-here
-AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com
-AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
-AZURE_OPENAI_API_VERSION=2024-02-15-preview
-AZURE_OPENAI_TEMPERATURE=1  # optional; omit to use server default
-```
-
-You can find these values in your Azure Portal under your Azure OpenAI resource.
 
 ### Project Config (vectorlint.ini)
 
@@ -65,50 +46,6 @@ Prompts are markdown files. VectorLint loads all `.md` files from `PromptsPath` 
 - Prompts start with a YAML frontmatter block that defines the evaluation criteria (names, weights, and optional thresholds/severities). Keep the body human‑readable.
 - You do not need to include a JSON output format in the prompt. VectorLint enforces a structured JSON response via the API; it parses and evaluates scores automatically.
 
-#### Frontmatter fields (per‑criterion)
-
-- `id`, `name`, `weight`, optional `threshold`, `severity`
-  - `threshold`: weighted score target (same unit as sum of weights)
-  - `severity`: error | warning (below-threshold handling)
-  - `target`: deterministic gating for where to evaluate
-    - `regex`: JavaScript RegExp pattern
-    - `flags`: default `mu` (multiline + unicode)
-    - `group`: capture to anchor (reserved, defaults to 0)
-    - `required`: if true and no match, LLM is skipped and a deterministic error is printed
-    - `suggestion`: short human tip shown when the criterion fails deterministically
-
-Example:
-
-```
-criteria:
-  - name: Value Communication
-    id: ValueCommunication
-    weight: 12
-    severity: error
-    threshold: 16
-    severity: error
-    target:
-      regex: '^#\s+(.+)$'
-      flags: 'mu'
-      group: 1
-      required: true
-      suggestion: Add an H1 headline describing the article.
-```
-
-Behavior:
-- If `target.required` is true and no match is found, VectorLint prints `target not found` at `1:1` with the configured `suggestion`, and does not call the LLM for that criterion.
-- Otherwise, VectorLint calls the LLM and shows the assessment; for warnings/errors it also shows a succinct “suggestion:” line returned by the model. Line/column is computed via exact quote+anchors from the LLM.
-- Overall pass/fail uses the weighted score vs `threshold`, treated by top‑level `severity` (error fails CI; warning does not).
-
-- Default prompts directory: `prompts/`
-- Example prompt included: `prompts/headline-evaluator.md`
-
-You can set a custom prompts directory via `vectorlint.ini` in the project root:
-
-```
-PromptsPath=prompts
-```
-
 ## Usage
 
 ### Local Development
@@ -127,68 +64,6 @@ npm run dev -- --verbose --show-prompt --debug-json path/to/article.md
 chmod +x src/index.ts
 ./src/index.ts path/to/article.md
 ```
-
-### Production
-
-```bash
-# Build TypeScript
-npm run build
-
-# Run built version
-npm start path/to/article.md
-```
-
-### CI/CD Integration
-
-In GitHub Actions:
-
-```yaml
-name: Content Check
-on: [pull_request]
-
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-      - run: npm install
-      - name: Check content
-        env:
-          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
-          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-          AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}
-          AZURE_OPENAI_API_VERSION: 2024-02-15-preview
-        run: npx tsx src/index.ts docs/**/*.md
-        # Add --verbose to debug model responses if needed
-```
-
-### Pre-commit Hook
-
-Add to `.git/hooks/pre-commit`:
-
-```bash
-#!/bin/sh
-npx tsx src/index.ts $(git diff --cached --name-only --diff-filter=ACM | grep '\\.md$')
-```
-
-## Validation
-
-Validate prompt frontmatter without calling the LLM:
-
-```
-npx tsx src/index.ts validate --prompts prompts
-```
-
-Reports errors/warnings per prompt (e.g., invalid weights, missing IDs, bad regex) and exits non‑zero on errors.
-
-## Global Prompt Directive
-
-- VectorLint appends a built-in directive string to every evaluation prompt.
-- To override in a project, create `.vectorlint/directive.md` in your repository root. If present, its contents fully replace the built‑in directive.
-- Keep directives concise; they are appended after each prompt body. VectorLint appends its evidence instructions after the directive to ensure reliable JSON with anchors.
 
 ## Prompt Mapping (INI)
 
@@ -217,48 +92,6 @@ Notes:
 - Aliases in `[Prompts].paths` tie a prompt’s folder to a logical name.
 - The CLI derives a prompt’s alias from its actual file path and applies the mapping per scanned file.
 
-## Example Output
-
-```
-=== File: docs/article.md ===
-
-## Prompt: headline-evaluator.md
-[raw model report here]
-```
-
-## Architecture
-
-VectorLint uses dependency inversion to support multiple LLM providers:
-
-```
-src/
-├── index.ts                 # CLI entry point
-├── config/Config.ts         # Loads vectorlint.ini (promptsPath)
-├── prompts/PromptLoader.ts  # Loads .md prompts from directory
-└── providers/
-    ├── LLMProvider.ts       # Interface (runPrompt)
-    └── AzureOpenAIProvider.ts
-```
-
-## Adding New Providers
-
-To add a new LLM provider, implement the `LLMProvider` interface:
-
-```typescript
-import { LLMProvider } from './providers/LLMProvider.js';
-
-export class MyCustomProvider implements LLMProvider {
-  async runPromptStructured<T = unknown>(content: string, promptText: string, schema: any): Promise<T> {
-    // Build and send promptText + content; enforce JSON via schema
-    // Return parsed JSON as T
-    return {} as T;
-  }
-}
-```
-
-## License
-
-MIT
 
 ## Testing
 
