@@ -1,32 +1,34 @@
 # VectorLint
-
 A command-line tool that evaluates Markdown content using LLMs and provides quality scores. Think of it like [Vale](https://github.com/errata-ai/vale), but instead of pattern matching, it uses LLMs to catch subjective issues like clarity, tone, and technical accuracy.
+
+![VectorLint Screenshot](./assets/VectorLint_screenshot.jpeg)
 
 ## Features
 
-- **LLM-based** - Uses LLMs to check content quality.
-- **CLI Support** - Run locally or in CI/CD pipelines.
-- **Consistent Evaluations** - Write structured evaluation prompts to get consistent evaluation results. 
-- **Quality Scores & Thresholds** - Define scores and thresholds to define quality standards.
+- **LLM-based** - Uses LLMs to check content quality
+- **CLI Support** - Run locally or in CI/CD pipelines
+- **Consistent Evaluations** - Write structured evaluation prompts to get consistent evaluation results
+- **Quality Scores & Thresholds** - Set scores and thresholds for your quality standards
 
 ## Installation
+
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-
 ### Project Config (vectorlint.ini)
 
-- Copy the sample and edit for your project:
+Copy the sample and edit for your project:
 
 ```bash
 cp vectorlint.example.ini vectorlint.ini
 ```
 
-- Keys (PascalCase):
-  - `PromptsPath`: directory containing your `.md` prompts
-  - `ScanPaths`: bracketed list of file patterns to scan (supports only `.md` and `.txt`)
+Keys (PascalCase):
+- `PromptsPath`: directory containing your `.md` prompts
+- `ScanPaths`: bracketed list of file patterns to scan (supports only `.md` and `.txt`)
 
 Example (vectorlint.example.ini):
 
@@ -42,25 +44,30 @@ Note: `vectorlint.ini` is git-ignored; commit `vectorlint.example.ini` as the te
 
 Prompts are markdown files. VectorLint loads all `.md` files from `PromptsPath` and runs each one against your content. The result is an aggregated report with one section per prompt.
 
-- Prompts do not need a placeholder; the file content is injected automatically as a separate message.
-- Prompts start with a YAML frontmatter block that defines the evaluation criteria (names, weights, and optional thresholds/severities). Keep the body human‑readable.
-- You do not need to include a JSON output format in the prompt. VectorLint enforces a structured JSON response via the API; it parses and evaluates scores automatically.
+- Prompts do not need a placeholder; the file content is injected automatically as a separate message
+- Prompts start with a YAML frontmatter block that defines the evaluation criteria (names, weights, and optional thresholds/severities). Keep the body human‑readable
+- VectorLint enforces a structured JSON response via the API and parses scores automatically - you don't need to specify output format in your prompts
 
 ## Usage
 
 ### Local Development
 
+Run VectorLint without building:
+
 ```bash
-# Run with tsx (no build needed)
+# Basic usage
 npm run dev -- path/to/article.md
 
-# Verbose mode (prints request summary and response text)
+# See what's being sent to the LLM
 npm run dev -- --verbose path/to/article.md
 
-# Show prompt and full JSON response
+# Debug mode: show prompt and full JSON response
 npm run dev -- --verbose --show-prompt --debug-json path/to/article.md
+```
 
-# Or make the script executable
+Or make the script executable:
+
+```bash
 chmod +x src/index.ts
 ./src/index.ts path/to/article.md
 ```
@@ -89,9 +96,8 @@ exclude = ["content/blog/drafts/**"]
 ```
 
 Notes:
-- Aliases in `[Prompts].paths` tie a prompt’s folder to a logical name.
-- The CLI derives a prompt’s alias from its actual file path and applies the mapping per scanned file.
-
+- Aliases in `[Prompts].paths` tie a prompt's folder to a logical name
+- The CLI derives a prompt's alias from its actual file path and applies the mapping per scanned file
 
 ## Testing
 
