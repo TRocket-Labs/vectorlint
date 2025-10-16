@@ -240,7 +240,7 @@ program
 
     // Simple concurrency runner
     async function runWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T, index: number) => Promise<R>): Promise<R[]> {
-      const results: R[] = new Array(items.length);
+      const results: R[] = new Array<R>(items.length);
       let i = 0;
       const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
         while (true) {
@@ -424,7 +424,7 @@ program
           printPromptOverallLine(promptMaxScore, thresholdOverall, promptUserScore);
           console.log('');
           if (thresholdOverall !== undefined && promptUserScore < thresholdOverall) {
-            const sev = (meta.severity || 'error') as 'warning' | 'error';
+            const sev = meta.severity || 'error';
             if (sev === 'error') hadSeverityErrors = true; else totalWarnings += 1;
           }
 
