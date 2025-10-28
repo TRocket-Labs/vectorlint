@@ -1,0 +1,81 @@
+name: "Bug report"
+description: "Report a bug, crash, or unexpected behavior in VectorLint."
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: checkboxes
+    id: dupes
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched existing Issues and Discussions for this problem
+          required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: "Keep it short: OS, Node version, how you installed, and VectorLint version/commit."
+      placeholder: "macOS 15.1 • Node 20.11 • install: cloned repo • VectorLint commit abc123"
+    validations:
+      required: true
+
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened?
+      description: "A clear description of the bug. Paste the command you ran if relevant."
+      placeholder: |
+        Command: npm run dev -- --verbose --show-prompt path/to/file.md
+        Output: error parsing prompt JSON...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: "Tool should exit 0 and print scores; JSON should be valid."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Minimal steps to reproduce
+      description: "Smallest possible repro. A gist/repo is great, but a short list of steps is fine."
+      placeholder: |
+        1) Use vectorlint.example.ini with PromptsPath=prompts and ScanPaths=[*.md]
+        2) Run: npm run dev -- --debug-json content/post.md
+        3) See stack trace
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant config (optional)
+      description: "Paste the relevant part of your vectorlint.ini or mention PromptsPath/ScanPaths."
+      render: yaml
+
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Tiny content excerpt (optional)
+      description: "3–6 lines that trigger the bug. Remove sensitive info."
+      render: text
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      description: "If possible, re-run with --verbose --show-prompt --debug-json and paste the relevant lines."
+      render: text
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I removed secrets/PII from snippets and logs
+          required: true
