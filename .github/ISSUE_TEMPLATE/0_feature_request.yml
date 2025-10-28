@@ -1,0 +1,30 @@
+name: "Feature request"
+description: "Suggest an idea or improvement for VectorLint."
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: checkboxes
+    id: dupes
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched existing issues and Discussions
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: One or two sentences describing the workflow pain or gap.
+      placeholder: "Example: Fail CI when clarity < 80 on MDX files."
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should happen if we add this?
+      placeholder: "Example: Add `--threshold clarity=80` and exit 1 if unmet."
+    validations:
+      required: true
