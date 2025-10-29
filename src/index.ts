@@ -2,7 +2,7 @@
 import { program } from 'commander';
 import { readFileSync, existsSync } from 'fs';
 import * as path from 'path';
-import { AzureOpenAIProvider } from './providers/azure-openai-provider';
+import { createProvider } from './providers/provider-factory';
 import { loadConfig } from './boundaries/config-loader';
 import { loadPrompts, type PromptFile } from './prompts/prompt-loader';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/schema';
@@ -167,12 +167,7 @@ program
       process.exit(1);
     }
     
-    const provider = new AzureOpenAIProvider({
-      apiKey: env.AZURE_OPENAI_API_KEY,
-      endpoint: env.AZURE_OPENAI_ENDPOINT,
-      deploymentName: env.AZURE_OPENAI_DEPLOYMENT_NAME,
-      apiVersion: env.AZURE_OPENAI_API_VERSION,
-      temperature: env.AZURE_OPENAI_TEMPERATURE,
+    const provider = createProvider(env, {
       debug: cliOptions.verbose,
       showPrompt: cliOptions.showPrompt,
       showPromptTrunc: cliOptions.showPromptTrunc,
