@@ -38,6 +38,7 @@ describe('Provider Factory', () => {
         AZURE_OPENAI_API_KEY: 'test-key',
         AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
         AZURE_OPENAI_DEPLOYMENT_NAME: 'test-deployment',
+        AZURE_OPENAI_API_VERSION: '2024-02-15-preview',
       };
 
       const provider = createProvider(envConfig);
@@ -48,6 +49,8 @@ describe('Provider Factory', () => {
       const envConfig: EnvConfig = {
         LLM_PROVIDER: 'anthropic',
         ANTHROPIC_API_KEY: 'sk-ant-test-key',
+        ANTHROPIC_MODEL: 'claude-3-sonnet-20240229',
+        ANTHROPIC_MAX_TOKENS: 4096,
       };
 
       const provider = createProvider(envConfig);
@@ -60,6 +63,7 @@ describe('Provider Factory', () => {
         AZURE_OPENAI_API_KEY: 'test-key',
         AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
         AZURE_OPENAI_DEPLOYMENT_NAME: 'test-deployment',
+        AZURE_OPENAI_API_VERSION: '2024-02-15-preview',
       };
 
       const customBuilder = new DefaultRequestBuilder('Custom directive');
@@ -102,6 +106,7 @@ describe('Provider Factory', () => {
         AZURE_OPENAI_API_KEY: 'test-key',
         AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
         AZURE_OPENAI_DEPLOYMENT_NAME: 'test-deployment',
+        AZURE_OPENAI_API_VERSION: '2024-02-15-preview',
       };
 
       const options = {
@@ -119,6 +124,8 @@ describe('Provider Factory', () => {
       const envConfig: EnvConfig = {
         LLM_PROVIDER: 'anthropic',
         ANTHROPIC_API_KEY: 'sk-ant-test-key',
+        ANTHROPIC_MODEL: 'claude-3-sonnet-20240229',
+        ANTHROPIC_MAX_TOKENS: 4096,
       };
 
       const options = {
@@ -176,7 +183,7 @@ describe('Provider Factory', () => {
       };
 
       const provider = createProvider(envConfig);
-      
+
       // Should implement the LLMProvider interface
       expect(provider).toHaveProperty('runPromptStructured');
       expect(typeof provider.runPromptStructured).toBe('function');
@@ -186,10 +193,12 @@ describe('Provider Factory', () => {
       const envConfig: EnvConfig = {
         LLM_PROVIDER: 'anthropic',
         ANTHROPIC_API_KEY: 'sk-ant-test-key',
+        ANTHROPIC_MODEL: 'claude-3-sonnet-20240229',
+        ANTHROPIC_MAX_TOKENS: 4096,
       };
 
       const provider = createProvider(envConfig);
-      
+
       // Should implement the LLMProvider interface
       expect(provider).toHaveProperty('runPromptStructured');
       expect(typeof provider.runPromptStructured).toBe('function');
@@ -252,6 +261,7 @@ describe('Provider Factory', () => {
         AZURE_OPENAI_API_KEY: 'test-key',
         AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
         AZURE_OPENAI_DEPLOYMENT_NAME: 'test-deployment',
+        AZURE_OPENAI_API_VERSION: '2024-02-15-preview',
         AZURE_OPENAI_TEMPERATURE: 2.0,
       };
 
@@ -259,6 +269,8 @@ describe('Provider Factory', () => {
       const anthropicConfig: EnvConfig = {
         LLM_PROVIDER: 'anthropic',
         ANTHROPIC_API_KEY: 'sk-ant-test-key',
+        ANTHROPIC_MODEL: 'claude-3-sonnet-20240229',
+        ANTHROPIC_MAX_TOKENS: 4096,
         ANTHROPIC_TEMPERATURE: 1.0,
       };
 
@@ -274,6 +286,7 @@ describe('Provider Factory', () => {
         AZURE_OPENAI_API_KEY: 'test-key',
         AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
         AZURE_OPENAI_DEPLOYMENT_NAME: 'test-deployment',
+        AZURE_OPENAI_API_VERSION: '2024-02-15-preview',
       };
 
       expect(() => createProvider(envConfig)).not.toThrow();
@@ -283,6 +296,8 @@ describe('Provider Factory', () => {
       const envConfig: EnvConfig = {
         LLM_PROVIDER: 'anthropic',
         ANTHROPIC_API_KEY: 'sk-ant-test-key',
+        ANTHROPIC_MODEL: 'claude-3-sonnet-20240229',
+        ANTHROPIC_MAX_TOKENS: 4096,
       };
 
       expect(() => createProvider(envConfig, {})).not.toThrow();
@@ -294,6 +309,7 @@ describe('Provider Factory', () => {
         AZURE_OPENAI_API_KEY: 'test-key',
         AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
         AZURE_OPENAI_DEPLOYMENT_NAME: 'test-deployment',
+        AZURE_OPENAI_API_VERSION: '2024-02-15-preview',
       };
 
       expect(() => createProvider(envConfig, { debug: true })).not.toThrow();
@@ -307,11 +323,14 @@ describe('Provider Factory', () => {
         AZURE_OPENAI_API_KEY: 'test-key',
         AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
         AZURE_OPENAI_DEPLOYMENT_NAME: 'test-deployment',
+        AZURE_OPENAI_API_VERSION: '2024-02-15-preview',
       };
 
       const anthropicConfig: EnvConfig = {
         LLM_PROVIDER: 'anthropic',
         ANTHROPIC_API_KEY: 'sk-ant-test-key',
+        ANTHROPIC_MODEL: 'claude-3-sonnet-20240229',
+        ANTHROPIC_MAX_TOKENS: 4096,
       };
 
       const allOptions = {
