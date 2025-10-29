@@ -1,8 +1,5 @@
 import { z } from 'zod';
 
-// Provider type selection
-const PROVIDER_TYPE_SCHEMA = z.enum(['azure-openai', 'anthropic']).default('azure-openai');
-
 // Azure OpenAI configuration schema
 const AZURE_OPENAI_CONFIG_SCHEMA = z.object({
   AZURE_OPENAI_API_KEY: z.string().min(1),
