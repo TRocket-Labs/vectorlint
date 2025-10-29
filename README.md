@@ -58,19 +58,6 @@ ANTHROPIC_MAX_TOKENS=4096
 ANTHROPIC_TEMPERATURE=0.2
 ```
 
-#### Anthropic Model Options
-
-- `claude-3-sonnet-20240229` (default) - Balanced performance and cost
-- `claude-3-haiku-20240307` - Fastest and most cost-effective
-- `claude-3-opus-20240229` - Most capable for complex tasks
-
-#### Anthropic Configuration Parameters
-
-- `ANTHROPIC_API_KEY` (required) - Your Anthropic API key
-- `ANTHROPIC_MODEL` (optional) - Model to use (default: claude-3-sonnet-20240229)
-- `ANTHROPIC_MAX_TOKENS` (optional) - Maximum tokens in response (default: 4096)
-- `ANTHROPIC_TEMPERATURE` (optional) - Controls randomness, 0-1 (default: 0.2)
-
 ### Temperature Recommendations
 
 For consistent evaluation results, it's recommended to use relatively low temperature values (0.1-0.3) to reduce randomness in model responses. This helps ensure more predictable and reproducible quality assessments.
