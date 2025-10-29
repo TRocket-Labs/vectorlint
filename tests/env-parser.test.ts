@@ -101,6 +101,78 @@ describe('Environment Parser', () => {
     });
   });
 
+  describe('OpenAI Configuration', () => {
+    it('parses valid OpenAI environment variables', () => {
+      const env = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o-mini',
+        OPENAI_TEMPERATURE: '0.8',
+      };
+
+      const result = parseEnvironment(env);
+
+      expect(result.LLM_PROVIDER).toBe('openai');
+      if (result.LLM_PROVIDER === 'openai') {
+        expect(result.OPENAI_API_KEY).toBe('sk-test-key');
+        expect(result.OPENAI_MODEL).toBe('gpt-4o-mini');
+        expect(result.OPENAI_TEMPERATURE).toBe(0.8);
+      }
+    });
+
+    it('uses default values for optional OpenAI fields', () => {
+      const env = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+      };
+
+      const result = parseEnvironment(env);
+
+      if (result.LLM_PROVIDER === 'openai') {
+        expect(result.OPENAI_MODEL).toBe('gpt-4o');
+        expect(result.OPENAI_TEMPERATURE).toBeUndefined();
+      }
+    });
+
+    it('throws validation error for missing required OpenAI fields', () => {
+      const env = {
+        LLM_PROVIDER: 'openai',
+        // Missing OPENAI_API_KEY
+      };
+
+      expect(() => parseEnvironment(env)).toThrow(ValidationError);
+      expect(() => parseEnvironment(env)).toThrow(/OpenAI environment variables/);
+    });
+
+    it('validates OpenAI temperature range (0-2)', () => {
+      const validEnv = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_TEMPERATURE: '1.5',
+      };
+
+      expect(() => parseEnvironment(validEnv)).not.toThrow();
+
+      const invalidEnv = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_TEMPERATURE: '2.5', // Above max of 2
+      };
+
+      expect(() => parseEnvironment(invalidEnv)).toThrow(ValidationError);
+    });
+
+    it('validates OpenAI API key format', () => {
+      const invalidEnv = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: '', // Empty string should fail
+      };
+
+      expect(() => parseEnvironment(invalidEnv)).toThrow(ValidationError);
+      expect(() => parseEnvironment(invalidEnv)).toThrow(/Invalid environment variable values.*OPENAI_API_KEY.*String must contain at least 1 character/);
+    });
+  });
+
   describe('Backward Compatibility', () => {
     it('defaults to Azure OpenAI when no LLM_PROVIDER is specified', () => {
       const env = {
@@ -147,7 +219,7 @@ describe('Environment Parser', () => {
       };
 
       expect(() => parseEnvironment(env)).toThrow(ValidationError);
-      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER must be either 'azure-openai' or 'anthropic'/);
+      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER must be either 'azure-openai', 'anthropic', or 'openai'/);
     });
 
     it('provides specific error message for missing Azure OpenAI variables', () => {
@@ -171,6 +243,16 @@ describe('Environment Parser', () => {
       expect(() => parseEnvironment(env)).toThrow(/Missing required Anthropic environment variables.*ANTHROPIC_API_KEY/);
     });
 
+    it('provides specific error message for missing OpenAI variables', () => {
+      const env = {
+        LLM_PROVIDER: 'openai',
+        // Missing OPENAI_API_KEY
+      };
+
+      expect(() => parseEnvironment(env)).toThrow(ValidationError);
+      expect(() => parseEnvironment(env)).toThrow(/Missing required OpenAI environment variables.*OPENAI_API_KEY/);
+    });
+
     it('validates temperature ranges correctly for each provider', () => {
       // Azure OpenAI allows 0-2 range
       const azureEnv = {
@@ -192,6 +274,15 @@ describe('Environment Parser', () => {
 
       expect(() => parseEnvironment(anthropicEnv)).not.toThrow();
 
+      // OpenAI allows 0-2 range
+      const openaiEnv = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_TEMPERATURE: '1.8',
+      };
+
+      expect(() => parseEnvironment(openaiEnv)).not.toThrow();
+
       // Test invalid temperature for Anthropic (> 1)
       const invalidAnthropicEnv = {
         LLM_PROVIDER: 'anthropic',
@@ -200,6 +291,15 @@ describe('Environment Parser', () => {
       };
 
       expect(() => parseEnvironment(invalidAnthropicEnv)).toThrow();
+
+      // Test invalid temperature for OpenAI (> 2)
+      const invalidOpenaiEnv = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_TEMPERATURE: '2.5',
+      };
+
+      expect(() => parseEnvironment(invalidOpenaiEnv)).toThrow();
     });
 
     it('provides specific error message for invalid field values', () => {
