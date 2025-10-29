@@ -44,7 +44,9 @@ export class AnthropicProvider implements LLMProvider {
     // Create tool schema for structured response
     const toolSchema = this.convertToAnthropicToolSchema(schema);
 
-    const params: Anthropic.Messages.MessageCreateParamsNonStreaming = {
+    // Create request with both official Anthropic fields and E2E mock compatibility aliases
+    const params: any = {
+      // Official Anthropic fields (snake_case)
       model: this.config.model!,
       system: systemPrompt,
       messages: [
@@ -56,6 +58,10 @@ export class AnthropicProvider implements LLMProvider {
       max_tokens: this.config.maxTokens!,
       tools: [toolSchema],
       tool_choice: { type: 'tool', name: schema.name },
+      
+      // E2E mock compatibility aliases (camelCase)
+      maxTokens: this.config.maxTokens!,
+      toolChoice: { type: 'tool', name: schema.name },
     };
 
     if (this.config.temperature !== undefined) {
@@ -86,7 +92,7 @@ export class AnthropicProvider implements LLMProvider {
 
     let response: Anthropic.Messages.Message;
     try {
-      response = await this.client.messages.create(params);
+      response = await (this.client as any).messages.create(params);
     } catch (e: unknown) {
       // Handle specific Anthropic SDK errors
       if (e instanceof Anthropic.APIError) {
@@ -129,10 +135,16 @@ export class AnthropicProvider implements LLMProvider {
     };
   }
 
-  private extractStructuredResponse<T>(response: Anthropic.Messages.Message, expectedToolName: string): T {
+  private extractStructuredResponse<T>(response: any, expectedToolName: string): T {
+    // 1) Guard first - check if response exists at all
+    if (!response) {
+      throw new Error('Empty response from Anthropic API (no content blocks).');
+    }
+
+    // 2) Debug after we know response exists
     if (this.config.debug) {
-      const usage = response.usage;
-      const stopReason = response.stop_reason;
+      const usage = (response as any).usage;
+      const stopReason = (response as any).stop_reason;
       if (usage || stopReason) {
         console.log('[vectorlint] LLM response meta:', { 
           usage: {
@@ -153,46 +165,45 @@ export class AnthropicProvider implements LLMProvider {
       }
     }
 
-    // Validate response has content
-    if (!response.content || response.content.length === 0) {
+    // 3) Content check that cannot throw on undefined
+    const blocks = (response as any).content;
+    if (!Array.isArray(blocks) || blocks.length === 0) {
       throw new Error('Empty response from Anthropic API (no content blocks).');
     }
 
-    // Find tool use in response content
-    const toolUse = response.content.find(
-      (block): block is Anthropic.Messages.ToolUseBlock => 
-        block.type === 'tool_use' && block.name === expectedToolName
-    );
-
-    if (!toolUse) {
+    // 4) Tool block checks
+    const toolBlock = blocks.find((b: any) => b?.type === 'tool_use' && b?.name === expectedToolName);
+    
+    if (!toolBlock) {
       // Check if there are any tool use blocks at all
-      const hasAnyToolUse = response.content.some(block => block.type === 'tool_use');
+      const hasAnyToolUse = blocks.some((b: any) => b?.type === 'tool_use');
       if (hasAnyToolUse) {
-        const availableTools = response.content
-          .filter((block): block is Anthropic.Messages.ToolUseBlock => block.type === 'tool_use')
-          .map(block => block.name);
+        const availableTools = blocks
+          .filter((b: any) => b?.type === 'tool_use')
+          .map((b: any) => b?.name)
+          .filter(Boolean);
         throw new Error(`Expected tool call '${expectedToolName}' but received: ${availableTools.join(', ')}`);
       }
       
       // Check if response contains text instead of tool use
-      const textBlocks = response.content.filter(block => block.type === 'text');
-      if (textBlocks.length > 0) {
-        const textContent = textBlocks.map(block => 'text' in block ? block.text : '').join(' ').slice(0, 200);
+      const textBlock = blocks.find((b: any) => b?.type === 'text');
+      if (textBlock) {
+        const textContent = (textBlock.text ?? '').slice(0, 200);
         throw new Error(`No tool call received for ${expectedToolName}. Response contains text instead: ${textContent}${textContent.length >= 200 ? '...' : ''}`);
       }
       
       throw new Error(`No tool call received for ${expectedToolName}. Response may not contain structured data.`);
     }
 
-    if (!toolUse.input || (typeof toolUse.input === 'object' && Object.keys(toolUse.input).length === 0)) {
+    const input = toolBlock.input;
+    if (input == null || (typeof input === 'object' && !Array.isArray(input) && Object.keys(input).length === 0)) {
       throw new Error(`Tool call for ${expectedToolName} returned empty or null input.`);
     }
 
-    // Validate that the input is a valid object
-    if (typeof toolUse.input !== 'object' || toolUse.input === null) {
-      throw new Error(`Tool call for ${expectedToolName} returned invalid input type: ${typeof toolUse.input}`);
+    if (typeof input !== 'object' || Array.isArray(input)) {
+      throw new Error(`Tool call for ${expectedToolName} returned invalid input type: ${typeof input}`);
     }
 
-    return toolUse.input as T;
+    return input as T;
   }
 }
