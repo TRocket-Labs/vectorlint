@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createProvider } from '../src/providers/provider-factory';
 import { AzureOpenAIProvider } from '../src/providers/azure-openai-provider';
 import { AnthropicProvider } from '../src/providers/anthropic-provider';
+import { OpenAIProvider } from '../src/providers/openai-provider';
 import { DefaultRequestBuilder } from '../src/providers/request-builder';
 import type { EnvConfig } from '../src/schemas/env-schemas';
 
@@ -32,6 +33,18 @@ describe('Provider Factory', () => {
       expect(provider).toBeInstanceOf(AnthropicProvider);
     });
 
+    it('creates OpenAI provider when configured', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_TEMPERATURE: 0.2,
+      };
+
+      const provider = createProvider(envConfig, { debug: true });
+      expect(provider).toBeInstanceOf(OpenAIProvider);
+    });
+
     it('creates Azure OpenAI provider with minimal configuration', () => {
       const envConfig: EnvConfig = {
         LLM_PROVIDER: 'azure-openai',
@@ -55,6 +68,17 @@ describe('Provider Factory', () => {
 
       const provider = createProvider(envConfig);
       expect(provider).toBeInstanceOf(AnthropicProvider);
+    });
+
+    it('creates OpenAI provider with minimal configuration', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+
+      const provider = createProvider(envConfig);
+      expect(provider).toBeInstanceOf(OpenAIProvider);
     });
 
     it('creates provider with custom request builder', () => {
@@ -100,6 +124,18 @@ describe('Provider Factory', () => {
       expect(() => createProvider(envConfig)).not.toThrow();
     });
 
+    it('passes OpenAI configuration correctly', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-custom-key',
+        OPENAI_MODEL: 'gpt-4o-mini',
+        OPENAI_TEMPERATURE: 0.8,
+      };
+
+      // Should not throw - configuration should be valid
+      expect(() => createProvider(envConfig)).not.toThrow();
+    });
+
     it('passes debug options to Azure OpenAI provider', () => {
       const envConfig: EnvConfig = {
         LLM_PROVIDER: 'azure-openai',
@@ -138,6 +174,25 @@ describe('Provider Factory', () => {
       // Should not throw - provider creation should work with options
       expect(() => createProvider(envConfig, options)).not.toThrow();
     });
+
+    it('passes debug options to OpenAI provider', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_TEMPERATURE: 0.3,
+      };
+
+      const options = {
+        debug: true,
+        showPrompt: true,
+        showPromptTrunc: false,
+        debugJson: true,
+      };
+
+      // Should not throw - provider creation should work with options
+      expect(() => createProvider(envConfig, options)).not.toThrow();
+    });
   });
 
   describe('Error Handling', () => {
@@ -151,10 +206,10 @@ describe('Provider Factory', () => {
 
     it('throws descriptive error for invalid provider type', () => {
       const envConfig = {
-        LLM_PROVIDER: 'openai', // Not supported, only azure-openai
+        LLM_PROVIDER: 'unsupported-provider', // Not supported
       } as unknown as EnvConfig;
 
-      expect(() => createProvider(envConfig)).toThrow('Unsupported provider type: openai');
+      expect(() => createProvider(envConfig)).toThrow('Unsupported provider type: unsupported-provider');
     });
 
     it('handles missing provider type gracefully', () => {
@@ -195,6 +250,20 @@ describe('Provider Factory', () => {
         ANTHROPIC_API_KEY: 'sk-ant-test-key',
         ANTHROPIC_MODEL: 'claude-3-sonnet-20240229',
         ANTHROPIC_MAX_TOKENS: 4096,
+      };
+
+      const provider = createProvider(envConfig);
+
+      // Should implement the LLMProvider interface
+      expect(provider).toHaveProperty('runPromptStructured');
+      expect(typeof provider.runPromptStructured).toBe('function');
+    });
+
+    it('maintains consistent interface for OpenAI provider', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
       };
 
       const provider = createProvider(envConfig);
@@ -254,6 +323,18 @@ describe('Provider Factory', () => {
       expect(() => createProvider(envConfig)).not.toThrow();
     });
 
+    it('handles OpenAI specific fields correctly', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4-turbo',
+        OPENAI_TEMPERATURE: 1.5,
+      };
+
+      // Should create provider successfully with OpenAI-specific config
+      expect(() => createProvider(envConfig)).not.toThrow();
+    });
+
     it('creates providers with different temperature ranges', () => {
       // Azure OpenAI supports 0-2 temperature range
       const azureConfig: EnvConfig = {
@@ -274,8 +355,17 @@ describe('Provider Factory', () => {
         ANTHROPIC_TEMPERATURE: 1.0,
       };
 
+      // OpenAI supports 0-2 temperature range
+      const openaiConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_TEMPERATURE: 2.0,
+      };
+
       expect(() => createProvider(azureConfig)).not.toThrow();
       expect(() => createProvider(anthropicConfig)).not.toThrow();
+      expect(() => createProvider(openaiConfig)).not.toThrow();
     });
   });
 
@@ -292,12 +382,32 @@ describe('Provider Factory', () => {
       expect(() => createProvider(envConfig)).not.toThrow();
     });
 
+    it('works without options parameter for OpenAI', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+
+      expect(() => createProvider(envConfig)).not.toThrow();
+    });
+
     it('works with empty options object', () => {
       const envConfig: EnvConfig = {
         LLM_PROVIDER: 'anthropic',
         ANTHROPIC_API_KEY: 'sk-ant-test-key',
         ANTHROPIC_MODEL: 'claude-3-sonnet-20240229',
         ANTHROPIC_MAX_TOKENS: 4096,
+      };
+
+      expect(() => createProvider(envConfig, {})).not.toThrow();
+    });
+
+    it('works with empty options object for OpenAI', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
       };
 
       expect(() => createProvider(envConfig, {})).not.toThrow();
@@ -317,7 +427,19 @@ describe('Provider Factory', () => {
       expect(() => createProvider(envConfig, { debugJson: true })).not.toThrow();
     });
 
-    it('handles all debug options for both providers', () => {
+    it('works with partial options for OpenAI', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+
+      expect(() => createProvider(envConfig, { debug: true })).not.toThrow();
+      expect(() => createProvider(envConfig, { showPrompt: true })).not.toThrow();
+      expect(() => createProvider(envConfig, { debugJson: true })).not.toThrow();
+    });
+
+    it('handles all debug options for all providers', () => {
       const azureConfig: EnvConfig = {
         LLM_PROVIDER: 'azure-openai',
         AZURE_OPENAI_API_KEY: 'test-key',
@@ -333,6 +455,12 @@ describe('Provider Factory', () => {
         ANTHROPIC_MAX_TOKENS: 4096,
       };
 
+      const openaiConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+
       const allOptions = {
         debug: true,
         showPrompt: true,
@@ -342,6 +470,131 @@ describe('Provider Factory', () => {
 
       expect(() => createProvider(azureConfig, allOptions)).not.toThrow();
       expect(() => createProvider(anthropicConfig, allOptions)).not.toThrow();
+      expect(() => createProvider(openaiConfig, allOptions)).not.toThrow();
+    });
+  });
+
+  describe('OpenAI Configuration Mapping Integration', () => {
+    it('correctly maps OpenAI environment variables to provider config', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-integration-test-key',
+        OPENAI_MODEL: 'gpt-4o-mini',
+        OPENAI_TEMPERATURE: 0.7,
+      };
+
+      const options = {
+        debug: true,
+        showPrompt: false,
+        showPromptTrunc: true,
+        debugJson: false,
+      };
+
+      // Should create provider without throwing
+      const provider = createProvider(envConfig, options);
+      expect(provider).toBeInstanceOf(OpenAIProvider);
+    });
+
+    it('handles OpenAI configuration with undefined optional fields', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        // OPENAI_TEMPERATURE is undefined
+      };
+
+      const provider = createProvider(envConfig);
+      expect(provider).toBeInstanceOf(OpenAIProvider);
+    });
+
+    it('passes request builder to OpenAI provider correctly', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+
+      const customBuilder = new DefaultRequestBuilder('Custom OpenAI directive');
+      const provider = createProvider(envConfig, {}, customBuilder);
+      expect(provider).toBeInstanceOf(OpenAIProvider);
+    });
+
+    it('correctly handles OpenAI temperature edge values', () => {
+      // Test minimum temperature (0)
+      const minTempConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_TEMPERATURE: 0,
+      };
+
+      expect(() => createProvider(minTempConfig)).not.toThrow();
+
+      // Test maximum temperature (2)
+      const maxTempConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_TEMPERATURE: 2,
+      };
+
+      expect(() => createProvider(maxTempConfig)).not.toThrow();
+    });
+
+    it('creates OpenAI provider with all configuration combinations', () => {
+      // Test with all optional fields present
+      const fullConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-full-config-key',
+        OPENAI_MODEL: 'gpt-4-turbo',
+        OPENAI_TEMPERATURE: 1.2,
+      };
+
+      const fullOptions = {
+        debug: true,
+        showPrompt: true,
+        showPromptTrunc: false,
+        debugJson: true,
+      };
+
+      const provider = createProvider(fullConfig, fullOptions);
+      expect(provider).toBeInstanceOf(OpenAIProvider);
+    });
+
+    it('maintains consistent option passing across provider types', () => {
+      const debugOptions = {
+        debug: true,
+        showPrompt: false,
+        showPromptTrunc: true,
+        debugJson: false,
+      };
+
+      // Test that the same options work for all provider types
+      const azureConfig: EnvConfig = {
+        LLM_PROVIDER: 'azure-openai',
+        AZURE_OPENAI_API_KEY: 'test-key',
+        AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
+        AZURE_OPENAI_DEPLOYMENT_NAME: 'test-deployment',
+        AZURE_OPENAI_API_VERSION: '2024-02-15-preview',
+      };
+
+      const anthropicConfig: EnvConfig = {
+        LLM_PROVIDER: 'anthropic',
+        ANTHROPIC_API_KEY: 'sk-ant-test-key',
+        ANTHROPIC_MODEL: 'claude-3-sonnet-20240229',
+        ANTHROPIC_MAX_TOKENS: 4096,
+      };
+
+      const openaiConfig: EnvConfig = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+
+      // All should create successfully with the same options
+      expect(() => createProvider(azureConfig, debugOptions)).not.toThrow();
+      expect(() => createProvider(anthropicConfig, debugOptions)).not.toThrow();
+      expect(() => createProvider(openaiConfig, debugOptions)).not.toThrow();
     });
   });
 });

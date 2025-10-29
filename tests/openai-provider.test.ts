@@ -446,9 +446,9 @@ describe('OpenAIProvider', () => {
   describe('Error Handling', () => {
     it('mock sanity check', async () => {
       const mod = await import('openai');
-      // @ts-expect-error - Testing mock structure
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(mod.default.APIError).toBe(mod.APIError);
-      // @ts-expect-error - Testing mock structure
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(typeof mod.default.APIError).toBe('function');
       expect(typeof new mod.default().chat.completions.create).toBe('function');
     });
@@ -922,6 +922,95 @@ describe('OpenAIProvider', () => {
 
       warnSpy.mockRestore();
     });
+
+    it('never exposes API keys in debug logs', async () => {
+      const sensitiveApiKey = 'sk-very-secret-api-key-12345';
+      const config = {
+        apiKey: sensitiveApiKey,
+        debug: true,
+        showPrompt: true,
+        debugJson: true,
+      };
+
+      const mockResponse: OpenAIResponse = {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({ result: 'success' }),
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 50,
+          total_tokens: 150,
+        },
+      };
+
+      SHARED_CREATE.mockResolvedValue(mockResponse);
+
+      const provider = new OpenAIProvider(config);
+      const schema = {
+        name: 'test_schema',
+        schema: { properties: { result: { type: 'string' } } },
+      };
+
+      await provider.runPromptStructured('Test content', 'Test prompt', schema);
+
+      // Check all console.log calls to ensure API key is never exposed
+      const allLogCalls = consoleSpy.mock.calls.flat();
+      const allLogContent = allLogCalls.join(' ');
+      
+      expect(allLogContent).not.toContain(sensitiveApiKey);
+      expect(allLogContent).not.toContain('sk-very-secret-api-key');
+      expect(allLogContent).not.toContain('very-secret-api-key');
+    });
+
+    it('never exposes API keys in debug logs even during errors', async () => {
+      const sensitiveApiKey = 'sk-another-secret-key-67890';
+      const config = {
+        apiKey: sensitiveApiKey,
+        debug: true,
+        debugJson: true,
+      };
+
+      const openAI = await import('openai');
+      // @ts-expect-error - Mock constructor signature differs from real SDK
+      SHARED_CREATE.mockRejectedValue(new openAI.APIError({ 
+        message: 'Authentication failed', 
+        status: 401 
+      }));
+
+      const provider = new OpenAIProvider(config);
+      const schema = {
+        name: 'test_schema',
+        schema: { properties: { result: { type: 'string' } } },
+      };
+
+      try {
+        await provider.runPromptStructured('Test content', 'Test prompt', schema);
+      } catch (error: unknown) {
+        // Error handling is expected, we're testing debug logs
+      }
+
+      // Check console logs don't contain API key - this is the main security test
+      const allLogCalls = consoleSpy.mock.calls.flat();
+      const allLogContent = allLogCalls.join(' ');
+      
+      expect(allLogContent).not.toContain(sensitiveApiKey);
+      expect(allLogContent).not.toContain('sk-another-secret-key');
+      expect(allLogContent).not.toContain('another-secret-key');
+      
+      // Verify debug logs were actually called (so test is meaningful)
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[vectorlint] Sending request to OpenAI:',
+        expect.objectContaining({
+          model: 'gpt-4o',
+          temperature: 0.2,
+        })
+      );
+    });
   });
 
   describe('Request Building', () => {
@@ -947,7 +1036,7 @@ describe('OpenAIProvider', () => {
         buildPromptBodyForStructured: vi.fn().mockReturnValue('Built system prompt'),
       };
 
-      // @ts-expect-error - Mock builder for testing
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const provider = new OpenAIProvider(config, mockBuilder);
       const schema = {
         name: 'test_schema',

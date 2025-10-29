@@ -35,7 +35,7 @@ function formatProviderValidationError(zodError: z.ZodError, env: unknown): stri
   );
   
   if (discriminatorIssue) {
-    return `LLM_PROVIDER must be either 'azure-openai' or 'anthropic'. Received: ${providerType ?? 'undefined'}`;
+    return `LLM_PROVIDER must be either 'azure-openai', 'anthropic', or 'openai'. Received: ${providerType ?? 'undefined'}`;
   }
   
   // Check for missing required fields based on provider type
@@ -55,6 +55,13 @@ function formatProviderValidationError(zodError: z.ZodError, env: unknown): stri
       const anthropicFields = missingFields.filter(field => field.startsWith('ANTHROPIC_'));
       if (anthropicFields.length > 0) {
         return `Missing required Anthropic environment variables: ${anthropicFields.join(', ')}. When using LLM_PROVIDER=anthropic, ensure ANTHROPIC_API_KEY is set.`;
+      }
+    }
+    
+    if (providerType === 'openai') {
+      const openaiFields = missingFields.filter(field => field.startsWith('OPENAI_'));
+      if (openaiFields.length > 0) {
+        return `Missing required OpenAI environment variables: ${openaiFields.join(', ')}. When using LLM_PROVIDER=openai, ensure OPENAI_API_KEY is set.`;
       }
     }
   }
