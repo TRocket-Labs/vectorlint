@@ -18,6 +18,63 @@ Install dependencies:
 npm install
 ```
 
+## LLM Provider Configuration
+
+VectorLint supports multiple LLM providers. Choose and configure your preferred provider using environment variables.
+
+### Setup
+
+Copy the example environment file and configure your API credentials:
+
+```bash
+cp .env.example .env
+# Edit .env with your actual API credentials
+```
+
+### Azure OpenAI
+
+Configure Azure OpenAI in your `.env` file:
+
+```bash
+# Azure OpenAI Configuration
+LLM_PROVIDER=azure-openai
+AZURE_OPENAI_API_KEY=your-api-key-here
+AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com
+AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+AZURE_OPENAI_TEMPERATURE=0.2
+```
+
+### Anthropic Claude
+
+Configure Anthropic in your `.env` file:
+
+```bash
+# Anthropic Configuration
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
+ANTHROPIC_MODEL=claude-3-sonnet-20240229
+ANTHROPIC_MAX_TOKENS=4096
+ANTHROPIC_TEMPERATURE=0.2
+```
+
+#### Anthropic Model Options
+
+- `claude-3-sonnet-20240229` (default) - Balanced performance and cost
+- `claude-3-haiku-20240307` - Fastest and most cost-effective
+- `claude-3-opus-20240229` - Most capable for complex tasks
+
+#### Anthropic Configuration Parameters
+
+- `ANTHROPIC_API_KEY` (required) - Your Anthropic API key
+- `ANTHROPIC_MODEL` (optional) - Model to use (default: claude-3-sonnet-20240229)
+- `ANTHROPIC_MAX_TOKENS` (optional) - Maximum tokens in response (default: 4096)
+- `ANTHROPIC_TEMPERATURE` (optional) - Controls randomness, 0-1 (default: 0.2)
+
+### Temperature Recommendations
+
+For consistent evaluation results, it's recommended to use relatively low temperature values (0.1-0.3) to reduce randomness in model responses. This helps ensure more predictable and reproducible quality assessments.
+
 ### Project Config (vectorlint.ini)
 
 Copy the sample and edit for your project:
