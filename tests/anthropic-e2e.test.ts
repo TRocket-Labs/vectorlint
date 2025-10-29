@@ -3,41 +3,48 @@ import { createProvider } from '../src/providers/provider-factory';
 import { parseEnvironment } from '../src/boundaries/env-parser';
 import { AnthropicProvider } from '../src/providers/anthropic-provider';
 import type { AnthropicMessage } from '../src/schemas/api-schemas';
+import type { 
+  MockAPIErrorParams, 
+  MockAuthenticationErrorParams, 
+  MockRateLimitErrorParams,
+  MockBadRequestErrorParams,
+  MockAnthropicClient 
+} from './schemas/mock-schemas';
 
 // Create a shared mock function that all E2E instances will use
-const sharedE2EMockCreate = vi.fn();
+const SHARED_E2E_MOCK_CREATE = vi.fn();
 
 // Mock the Anthropic SDK for E2E tests
 vi.mock('@anthropic-ai/sdk', () => {
   return {
-    default: vi.fn(() => ({
+    default: vi.fn((): MockAnthropicClient => ({
       messages: {
-        create: sharedE2EMockCreate,
+        create: SHARED_E2E_MOCK_CREATE,
       },
     })),
     APIError: class APIError extends Error {
       status: number;
-      constructor(message: string, status?: number, options?: any, body?: any) {
-        super(message);
-        this.status = status || 500;
+      constructor(params: MockAPIErrorParams) {
+        super(params.message);
+        this.status = params.status || 500;
         this.name = 'APIError';
       }
     },
     RateLimitError: class RateLimitError extends Error {
-      constructor(message: string, options?: any, body?: any, headers?: any) {
-        super(message);
+      constructor(params: Partial<MockRateLimitErrorParams> = {}) {
+        super(params.message ?? 'Rate limit exceeded');
         this.name = 'RateLimitError';
       }
     },
     AuthenticationError: class AuthenticationError extends Error {
-      constructor(message: string, options?: any, body?: any, headers?: any) {
-        super(message);
+      constructor(params: Partial<MockAuthenticationErrorParams> = {}) {
+        super(params.message ?? 'Authentication failed');
         this.name = 'AuthenticationError';
       }
     },
     BadRequestError: class BadRequestError extends Error {
-      constructor(message: string, options?: any, body?: any, headers?: any) {
-        super(message);
+      constructor(params: Partial<MockBadRequestErrorParams> = {}) {
+        super(params.message ?? 'Bad request');
         this.name = 'BadRequestError';
       }
     },
@@ -60,7 +67,7 @@ describe('Anthropic End-to-End Integration', () => {
     mockValidateAnthropicResponse = vi.mocked(apiClient.validateAnthropicResponse);
     
     // Default mock behavior - return the response as-is
-    mockValidateAnthropicResponse.mockImplementation((response) => response);
+    mockValidateAnthropicResponse.mockImplementation((response: unknown) => response as AnthropicMessage);
   });
 
   describe('Complete Flow from Environment to Provider', () => {
@@ -112,7 +119,7 @@ describe('Anthropic End-to-End Integration', () => {
         },
       };
 
-      sharedE2EMockCreate.mockResolvedValue(mockResponse);
+      SHARED_E2E_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       // Step 5: Execute structured prompt
       const schema = {
@@ -141,7 +148,7 @@ describe('Anthropic End-to-End Integration', () => {
       });
 
       // Verify API was called with correct parameters
-      expect(sharedE2EMockCreate).toHaveBeenCalledWith(
+      expect(SHARED_E2E_MOCK_CREATE).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'claude-3-sonnet-20240229',
           max_tokens: 4096,
@@ -207,7 +214,7 @@ describe('Anthropic End-to-End Integration', () => {
         },
       };
 
-      sharedE2EMockCreate.mockResolvedValue(mockResponse);
+      SHARED_E2E_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       // Step 5: Execute with defaults
       const schema = {
@@ -227,7 +234,7 @@ describe('Anthropic End-to-End Integration', () => {
       expect(result).toEqual({ result: 'success' });
 
       // Verify defaults were used
-      expect(sharedE2EMockCreate).toHaveBeenCalledWith(
+      expect(SHARED_E2E_MOCK_CREATE).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'claude-3-sonnet-20240229',
           max_tokens: 4096,
@@ -236,7 +243,7 @@ describe('Anthropic End-to-End Integration', () => {
       );
     });
 
-    it('processes backward compatible Azure OpenAI configuration', async () => {
+    it('processes backward compatible Azure OpenAI configuration', () => {
       // Test that existing Azure OpenAI configs still work
       const env = {
         // No LLM_PROVIDER specified - should default to azure-openai
@@ -265,8 +272,11 @@ describe('Anthropic End-to-End Integration', () => {
       const provider = createProvider(envConfig);
 
       // Mock authentication error
-      const Anthropic = await import('@anthropic-ai/sdk');
-      sharedE2EMockCreate.mockRejectedValue(new Anthropic.AuthenticationError('Invalid API key'));
+      const anthropic = await import('@anthropic-ai/sdk');
+      // @ts-expect-error - Mock constructor signature differs from real SDK
+      SHARED_E2E_MOCK_CREATE.mockRejectedValue(new anthropic.AuthenticationError({ 
+        message: 'Invalid API key' 
+      }));
 
       const schema = {
         name: 'test_eval',
@@ -288,8 +298,11 @@ describe('Anthropic End-to-End Integration', () => {
       const provider = createProvider(envConfig);
 
       // Mock rate limit error
-      const Anthropic = await import('@anthropic-ai/sdk');
-      sharedE2EMockCreate.mockRejectedValue(new Anthropic.RateLimitError('Rate limit exceeded'));
+      const anthropic = await import('@anthropic-ai/sdk');
+      // @ts-expect-error - Mock constructor signature differs from real SDK
+      SHARED_E2E_MOCK_CREATE.mockRejectedValue(new anthropic.RateLimitError({ 
+        message: 'Rate limit exceeded' 
+      }));
 
       const schema = {
         name: 'test_eval',
@@ -331,7 +344,7 @@ describe('Anthropic End-to-End Integration', () => {
         usage: { input_tokens: 10, output_tokens: 0 },
       };
 
-      sharedE2EMockCreate.mockResolvedValue(malformedResponse);
+      SHARED_E2E_MOCK_CREATE.mockResolvedValue(malformedResponse);
 
       const schema = {
         name: 'test_eval',
@@ -371,7 +384,7 @@ describe('Anthropic End-to-End Integration', () => {
         usage: { input_tokens: 50, output_tokens: 25 },
       };
 
-      sharedE2EMockCreate.mockResolvedValue(wrongToolResponse);
+      SHARED_E2E_MOCK_CREATE.mockResolvedValue(wrongToolResponse);
 
       const schema = {
         name: 'expected_tool',
@@ -429,7 +442,7 @@ describe('Anthropic End-to-End Integration', () => {
         usage: { input_tokens: 200, output_tokens: 100 },
       };
 
-      sharedE2EMockCreate.mockResolvedValue(complexResponse);
+      SHARED_E2E_MOCK_CREATE.mockResolvedValue(complexResponse);
 
       const schema = {
         name: 'detailed_evaluation',
@@ -521,7 +534,7 @@ describe('Anthropic End-to-End Integration', () => {
         usage: { input_tokens: 80, output_tokens: 40 },
       };
 
-      sharedE2EMockCreate.mockResolvedValue(mixedResponse);
+      SHARED_E2E_MOCK_CREATE.mockResolvedValue(mixedResponse);
 
       const schema = {
         name: 'content_score',
@@ -580,7 +593,7 @@ describe('Anthropic End-to-End Integration', () => {
         usage: { input_tokens: 30, output_tokens: 15 },
       };
 
-      sharedE2EMockCreate.mockResolvedValue(mockResponse);
+      SHARED_E2E_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const schema = {
         name: 'debug_eval',
@@ -635,7 +648,7 @@ describe('Anthropic End-to-End Integration', () => {
         usage: { input_tokens: 40, output_tokens: 20 },
       };
 
-      sharedE2EMockCreate.mockResolvedValue(mockResponse);
+      SHARED_E2E_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const schema = {
         name: 'temp_eval',
@@ -649,7 +662,7 @@ describe('Anthropic End-to-End Integration', () => {
       );
 
       // Verify temperature was passed through
-      expect(sharedE2EMockCreate).toHaveBeenCalledWith(
+      expect(SHARED_E2E_MOCK_CREATE).toHaveBeenCalledWith(
         expect.objectContaining({
           temperature: 0.8,
         })

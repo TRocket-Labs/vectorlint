@@ -1,7 +1,15 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { z } from 'zod';
 import { LLMProvider } from './llm-provider';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
-import { validateAnthropicResponse } from '../boundaries/api-client';
+import { 
+  ANTHROPIC_RESPONSE_SCHEMA, 
+  type AnthropicResponse, 
+  type AnthropicToolUseBlock,
+  isToolUseBlock,
+  isTextBlock
+} from '../schemas/anthropic-responses';
+import { ValidationError, APIResponseError } from '../errors/validation-errors';
 import { handleUnknownError } from '../errors/index';
 
 export interface AnthropicConfig {
@@ -34,6 +42,26 @@ export class AnthropicProvider implements LLMProvider {
     this.builder = builder ?? new DefaultRequestBuilder();
   }
 
+  /**
+   * Validates Anthropic API response using schema validation
+   * Replaces unsafe type assertions with proper runtime validation
+   */
+  private validateResponse(response: unknown): AnthropicResponse {
+    try {
+      return ANTHROPIC_RESPONSE_SCHEMA.parse(response);
+    } catch (e: unknown) {
+      if (e instanceof z.ZodError) {
+        throw new APIResponseError(
+          `Invalid Anthropic API response structure: ${e.message}`,
+          response,
+          e
+        );
+      }
+      const err = handleUnknownError(e, 'Anthropic response validation');
+      throw new ValidationError(`Anthropic response validation failed: ${err.message}`, e);
+    }
+  }
+
   async runPromptStructured<T = unknown>(
     content: string,
     promptText: string,
@@ -45,7 +73,7 @@ export class AnthropicProvider implements LLMProvider {
     const toolSchema = this.convertToAnthropicToolSchema(schema);
 
     // Create request with both official Anthropic fields and E2E mock compatibility aliases
-    const params: any = {
+    const params: Anthropic.Messages.MessageCreateParams & Record<string, unknown> = {
       // Official Anthropic fields (snake_case)
       model: this.config.model!,
       system: systemPrompt,
@@ -90,9 +118,20 @@ export class AnthropicProvider implements LLMProvider {
       }
     }
 
-    let response: Anthropic.Messages.Message;
+    // Create clean params for Anthropic API (remove E2E mock compatibility fields)
+    const anthropicParams: Anthropic.Messages.MessageCreateParams = {
+      model: params.model,
+      system: params.system,
+      messages: params.messages,
+      max_tokens: params.max_tokens,
+      tools: params.tools,
+      tool_choice: params.tool_choice,
+      ...(params.temperature !== undefined && { temperature: params.temperature }),
+    };
+
+    let rawResponse: unknown;
     try {
-      response = await (this.client as any).messages.create(params);
+      rawResponse = await this.client.messages.create(anthropicParams);
     } catch (e: unknown) {
       // Handle specific Anthropic SDK errors
       if (e instanceof Anthropic.APIError) {
@@ -112,14 +151,8 @@ export class AnthropicProvider implements LLMProvider {
       throw new Error(`Anthropic API call failed: ${err.message}`);
     }
 
-    // Validate the API response structure
-    let validatedResponse;
-    try {
-      validatedResponse = validateAnthropicResponse(response);
-    } catch (e: unknown) {
-      const err = handleUnknownError(e, 'Anthropic API response validation');
-      throw new Error(`Invalid Anthropic API response structure: ${err.message}`);
-    }
+    // Validate the API response structure using schema validation
+    const validatedResponse = this.validateResponse(rawResponse);
 
     return this.extractStructuredResponse<T>(validatedResponse, schema.name);
   }
@@ -135,21 +168,16 @@ export class AnthropicProvider implements LLMProvider {
     };
   }
 
-  private extractStructuredResponse<T>(response: any, expectedToolName: string): T {
-    // 1) Guard first - check if response exists at all
-    if (!response) {
-      throw new Error('Empty response from Anthropic API (no content blocks).');
-    }
-
-    // 2) Debug after we know response exists
+  private extractStructuredResponse<T>(response: AnthropicResponse, expectedToolName: string): T {
+    // Debug logging with type-safe property access
     if (this.config.debug) {
-      const usage = (response as any).usage;
-      const stopReason = (response as any).stop_reason;
+      const usage = response.usage;
+      const stopReason = response.stop_reason;
       if (usage || stopReason) {
         console.log('[vectorlint] LLM response meta:', { 
           usage: {
-            input_tokens: usage?.input_tokens,
-            output_tokens: usage?.output_tokens,
+            input_tokens: usage.input_tokens,
+            output_tokens: usage.output_tokens,
           },
           stop_reason: stopReason,
         });
@@ -165,30 +193,29 @@ export class AnthropicProvider implements LLMProvider {
       }
     }
 
-    // 3) Content check that cannot throw on undefined
-    const blocks = (response as any).content;
-    if (!Array.isArray(blocks) || blocks.length === 0) {
+    // Type-safe content validation - response is already validated by schema
+    const blocks = response.content;
+    if (blocks.length === 0) {
       throw new Error('Empty response from Anthropic API (no content blocks).');
     }
 
-    // 4) Tool block checks
-    const toolBlock = blocks.find((b: any) => b?.type === 'tool_use' && b?.name === expectedToolName);
+    // Find the expected tool use block using type-safe filtering
+    const toolBlock = blocks.find((block): block is AnthropicToolUseBlock => 
+      isToolUseBlock(block) && block.name === expectedToolName
+    );
     
     if (!toolBlock) {
       // Check if there are any tool use blocks at all
-      const hasAnyToolUse = blocks.some((b: any) => b?.type === 'tool_use');
-      if (hasAnyToolUse) {
-        const availableTools = blocks
-          .filter((b: any) => b?.type === 'tool_use')
-          .map((b: any) => b?.name)
-          .filter(Boolean);
+      const toolUseBlocks = blocks.filter(isToolUseBlock);
+      if (toolUseBlocks.length > 0) {
+        const availableTools = toolUseBlocks.map(block => block.name);
         throw new Error(`Expected tool call '${expectedToolName}' but received: ${availableTools.join(', ')}`);
       }
       
       // Check if response contains text instead of tool use
-      const textBlock = blocks.find((b: any) => b?.type === 'text');
-      if (textBlock) {
-        const textContent = (textBlock.text ?? '').slice(0, 200);
+      const textBlocks = blocks.filter(isTextBlock);
+      if (textBlocks.length > 0) {
+        const textContent = textBlocks[0].text.slice(0, 200);
         throw new Error(`No tool call received for ${expectedToolName}. Response contains text instead: ${textContent}${textContent.length >= 200 ? '...' : ''}`);
       }
       

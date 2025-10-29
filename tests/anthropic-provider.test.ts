@@ -1,49 +1,55 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AnthropicProvider } from '../src/providers/anthropic-provider';
 import { DefaultRequestBuilder } from '../src/providers/request-builder';
-import { ValidationError } from '../src/errors/index';
 import type { AnthropicMessage } from '../src/schemas/api-schemas';
+import type { 
+  MockAPIErrorParams, 
+  MockAuthenticationErrorParams, 
+  MockRateLimitErrorParams,
+  MockBadRequestErrorParams,
+  MockAnthropicClient 
+} from './schemas/mock-schemas';
 
 // Create a shared mock function that all instances will use
-const sharedMockCreate = vi.fn();
+const SHARED_MOCK_CREATE = vi.fn();
 
 // Mock the Anthropic SDK module
 vi.mock('@anthropic-ai/sdk', () => {
   // Create error classes inside the mock factory
   class APIError extends Error {
     status: number;
-    constructor(message: string, status?: number, options?: any, body?: any) {
-      super(message);
-      this.status = status || 500;
+    constructor(params: MockAPIErrorParams) {
+      super(params.message);
+      this.status = params.status || 500;
       this.name = 'APIError';
     }
   }
 
   class RateLimitError extends Error {
-    constructor(message: string, options?: any, body?: any, headers?: any) {
-      super(message);
+    constructor(params: Partial<MockRateLimitErrorParams> = {}) {
+      super(params.message ?? 'Rate limit exceeded');
       this.name = 'RateLimitError';
     }
   }
 
   class AuthenticationError extends Error {
-    constructor(message: string, options?: any, body?: any, headers?: any) {
-      super(message);
+    constructor(params: Partial<MockAuthenticationErrorParams> = {}) {
+      super(params.message ?? 'Authentication failed');
       this.name = 'AuthenticationError';
     }
   }
 
   class BadRequestError extends Error {
-    constructor(message: string, options?: any, body?: any, headers?: any) {
-      super(message);
+    constructor(params: Partial<MockBadRequestErrorParams> = {}) {
+      super(params.message ?? 'Bad request');
       this.name = 'BadRequestError';
     }
   }
 
   return {
-    default: vi.fn(() => ({
+    default: vi.fn((): MockAnthropicClient => ({
       messages: {
-        create: sharedMockCreate,
+        create: SHARED_MOCK_CREATE,
       },
     })),
     APIError,
@@ -69,7 +75,7 @@ describe('AnthropicProvider', () => {
     mockValidateAnthropicResponse = vi.mocked(apiClient.validateAnthropicResponse);
     
     // Default mock behavior - return the response as-is
-    mockValidateAnthropicResponse.mockImplementation((response) => response);
+    mockValidateAnthropicResponse.mockImplementation((response: unknown) => response as AnthropicMessage);
   });
 
   describe('Constructor', () => {
@@ -146,7 +152,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -198,7 +204,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -213,7 +219,7 @@ describe('AnthropicProvider', () => {
 
       await provider.runPromptStructured('Test content', 'Test prompt', schema);
 
-      expect(sharedMockCreate).toHaveBeenCalledWith(
+      expect(SHARED_MOCK_CREATE).toHaveBeenCalledWith(
         expect.objectContaining({
           tools: [
             {
@@ -260,7 +266,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -270,7 +276,7 @@ describe('AnthropicProvider', () => {
 
       await provider.runPromptStructured('Test content', 'Test prompt', schema);
 
-      expect(sharedMockCreate).toHaveBeenCalledWith(
+      expect(SHARED_MOCK_CREATE).toHaveBeenCalledWith(
         expect.objectContaining({
           temperature: 0.7,
         })
@@ -303,7 +309,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -313,7 +319,7 @@ describe('AnthropicProvider', () => {
 
       await provider.runPromptStructured('Test content', 'Test prompt', schema);
 
-      const callArgs = sharedMockCreate.mock.calls[0]?.[0];
+      const callArgs = SHARED_MOCK_CREATE.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
       expect(callArgs?.temperature).toBe(0.2); // Default temperature
     });
   });
@@ -324,8 +330,11 @@ describe('AnthropicProvider', () => {
         apiKey: 'sk-ant-test-key',
       };
 
-      const Anthropic = await import('@anthropic-ai/sdk');
-      sharedMockCreate.mockRejectedValue(new Anthropic.APIError('Invalid request', 400));
+      const anthropic = await import('@anthropic-ai/sdk');
+      SHARED_MOCK_CREATE.mockRejectedValue(new anthropic.APIError({ 
+        message: 'Invalid request', 
+        status: 400 
+      }));
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -343,8 +352,10 @@ describe('AnthropicProvider', () => {
         apiKey: 'sk-ant-test-key',
       };
 
-      const Anthropic = await import('@anthropic-ai/sdk');
-      sharedMockCreate.mockRejectedValue(new Anthropic.RateLimitError('Rate limit exceeded'));
+      const anthropic = await import('@anthropic-ai/sdk');
+      SHARED_MOCK_CREATE.mockRejectedValue(new anthropic.RateLimitError({ 
+        message: 'Rate limit exceeded' 
+      }));
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -362,8 +373,10 @@ describe('AnthropicProvider', () => {
         apiKey: 'sk-ant-test-key',
       };
 
-      const Anthropic = await import('@anthropic-ai/sdk');
-      sharedMockCreate.mockRejectedValue(new Anthropic.AuthenticationError('Invalid API key'));
+      const anthropic = await import('@anthropic-ai/sdk');
+      SHARED_MOCK_CREATE.mockRejectedValue(new anthropic.AuthenticationError({ 
+        message: 'Invalid API key' 
+      }));
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -381,8 +394,10 @@ describe('AnthropicProvider', () => {
         apiKey: 'sk-ant-test-key',
       };
 
-      const Anthropic = await import('@anthropic-ai/sdk');
-      sharedMockCreate.mockRejectedValue(new Anthropic.BadRequestError('Bad request'));
+      const anthropic = await import('@anthropic-ai/sdk');
+      SHARED_MOCK_CREATE.mockRejectedValue(new anthropic.BadRequestError({ 
+        message: 'Bad request' 
+      }));
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -400,7 +415,7 @@ describe('AnthropicProvider', () => {
         apiKey: 'sk-ant-test-key',
       };
 
-      sharedMockCreate.mockRejectedValue(new Error('Unknown error'));
+      SHARED_MOCK_CREATE.mockRejectedValue(new Error('Unknown error'));
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -418,12 +433,13 @@ describe('AnthropicProvider', () => {
         apiKey: 'sk-ant-test-key',
       };
 
-      // Mock validation to throw an error
-      mockValidateAnthropicResponse.mockImplementation(() => {
-        throw new ValidationError('Invalid response structure');
-      });
+      // Mock an invalid response that will fail schema validation
+      const invalidResponse = {
+        // Missing required fields like 'id', 'type', 'role', 'content', etc.
+        model: 'claude-3-sonnet-20240229',
+      };
 
-      sharedMockCreate.mockResolvedValue({});
+      SHARED_MOCK_CREATE.mockResolvedValue(invalidResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -433,7 +449,7 @@ describe('AnthropicProvider', () => {
 
       await expect(
         provider.runPromptStructured('Test content', 'Test prompt', schema)
-      ).rejects.toThrow('Invalid Anthropic API response structure: Invalid response structure');
+      ).rejects.toThrow('API Response Error: Invalid Anthropic API response structure');
     });
 
     it('throws error when response has no content', async () => {
@@ -455,7 +471,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -492,7 +508,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -531,7 +547,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -570,7 +586,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -609,7 +625,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -661,7 +677,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -720,7 +736,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -763,7 +779,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -809,7 +825,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
@@ -850,7 +866,7 @@ describe('AnthropicProvider', () => {
         },
       };
 
-      sharedMockCreate.mockResolvedValue(mockResponse);
+      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
 
       const provider = new AnthropicProvider(config);
       const schema = {
