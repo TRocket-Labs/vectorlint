@@ -2,7 +2,8 @@
 import { program } from 'commander';
 import { readFileSync, existsSync } from 'fs';
 import * as path from 'path';
-import { createProvider } from './providers/provider-factory';
+import { AzureOpenAIProvider } from './providers/azure-openai-provider';
+import { bingWebSearch } from './providers/bing-search';
 import { loadConfig } from './boundaries/config-loader';
 import { loadPrompts, type PromptFile } from './prompts/prompt-loader';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/schema';
@@ -167,7 +168,12 @@ program
       process.exit(1);
     }
     
-    const provider = createProvider(env, {
+    const provider = new AzureOpenAIProvider({
+      apiKey: env.AZURE_OPENAI_API_KEY,
+      endpoint: env.AZURE_OPENAI_ENDPOINT,
+      deploymentName: env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      apiVersion: env.AZURE_OPENAI_API_VERSION,
+      temperature: env.AZURE_OPENAI_TEMPERATURE,
       debug: cliOptions.verbose,
       showPrompt: cliOptions.showPrompt,
       showPromptTrunc: cliOptions.showPromptTrunc,
@@ -404,10 +410,141 @@ program
                   console.warn(`[vectorlint] Warning: ${err.message}`);
                   hadOperationalErrors = true;
                 }
-                const rowSummary = (v.analysis || '').trim();
-                const suggestion = status !== 'ok' && v.suggestion ? v.suggestion : undefined;
-                const opts = suggestion ? { suggestion } : {};
-                printIssueRow(locStr, status, rowSummary, ruleName, opts);
+    // --- Verification Section (clean + uses shared provider) ---
+    // --- 🔍 VERIFICATION SECTION (Rewritten & Clean) ---
+let verificationStatus = '';
+let verificationJustification = '';
+let verificationLink = '';
+
+try {
+  const apiKey = process.env.BING_SEARCH_API_KEY;
+
+  // --- 1️⃣ Guard: Missing API key ---
+  if (!apiKey) {
+    verificationStatus = 'not verified';
+    verificationJustification = 'BING_SEARCH_API_KEY missing; skipping online verification.';
+  }
+
+  // --- 2️⃣ Guard: No analyzable text ---
+  else if (!v.analysis || v.analysis.trim().length < 6) {
+    verificationStatus = 'not checked';
+    verificationJustification = 'No analyzable factual claim provided.';
+  }
+
+  // --- 3️⃣ Bing search & LLM verification ---
+  else {
+    const claim = v.analysis.trim();
+    const searchRes = await bingWebSearch(claim, apiKey);
+    const snippets = (searchRes.webPages?.value || [])
+      .slice(0, 3)
+      .map((r: any) => ({
+        url: r.url,
+        snippet: r.snippet,
+      }));
+
+    if (snippets.length === 0) {
+      verificationStatus = 'unverifiable';
+      verificationJustification = 'No relevant search results found.';
+    } else {
+      // --- Build verification prompt ---
+      const llmPrompt = `
+You are a **fact verification agent** assisting a hallucination detector.
+
+Task:
+Check whether the following statement is supported, unsupported, or unverifiable
+based on recent web search snippets.
+
+Definitions:
+- supported → credible evidence clearly agrees with the statement.
+- unsupported → evidence contradicts or disproves the statement.
+- unverifiable → no clear evidence either way, or claim is too broad/general.
+
+Special rule:
+If the statement uses absolute terms ("always", "never", "guarantees") or
+makes universal claims without evidence, mark it as "unverifiable".
+
+Statement:
+"${claim}"
+
+Search Snippets:
+${snippets.map((s, i) => `[${i + 1}] ${s.snippet} (${s.url})`).join('\n')}
+
+Respond ONLY in JSON:
+{
+  "status": "supported|unsupported|unverifiable",
+  "justification": "brief reason (max 25 words)",
+  "link": "most relevant supporting or contradicting source if available"
+}
+`;
+
+      // --- Send to shared provider ---
+      const llmRespRaw = await provider.runPromptStructured<any>(
+        llmPrompt,
+        '',
+        {
+          name: 'VerificationSchema',
+          schema: {
+            type: 'object',
+            properties: {
+              status: { type: 'string', enum: ['supported', 'unsupported', 'unverifiable'] },
+              justification: { type: 'string' },
+              link: { type: 'string' },
+            },
+            required: ['status', 'justification'],
+          },
+        }
+      );
+
+      // --- Parse & normalize output ---
+      const llmResp = typeof llmRespRaw === 'string'
+        ? JSON.parse(llmRespRaw)
+        : llmRespRaw || {};
+
+      const statusRaw = (llmResp.status || '').toLowerCase();
+
+if (statusRaw.includes('unsupport')) {
+  verificationStatus = 'unsupported';
+} else if (statusRaw.includes('support')) {
+  verificationStatus = 'supported';
+} else {
+  verificationStatus = 'unverifiable';
+}
+
+
+      verificationJustification = llmResp.justification?.trim() || 'No justification provided.';
+      verificationLink = llmResp.link || snippets[0]?.url || '';
+    }
+  }
+} catch (e: any) {
+  verificationStatus = 'error';
+  verificationJustification = e?.message || String(e);
+  console.error('❌ Verification error:', e);
+}
+
+// --- 🧾 Output summary row ---
+let rowSummary = (v.analysis || '').trim();
+rowSummary += verificationStatus ? ` [${verificationStatus}]` : '';
+if (verificationJustification) rowSummary += ` — ${verificationJustification}`;
+if (verificationLink) rowSummary += ` (${verificationLink})`;
+
+// --- Determine severity for display ---
+let finalStatus = status; // inherited from rule
+if (verificationStatus === 'unsupported') finalStatus = 'error';
+else if (verificationStatus === 'unverifiable') finalStatus = 'warning';
+else if (verificationStatus === 'supported') finalStatus = 'ok';
+
+const suggestionText =
+  verificationStatus === 'unsupported'
+    ? `Correct this claim; evidence contradicts it.${verificationLink ? ` See: ${verificationLink}` : ''}`
+    : verificationStatus === 'unverifiable'
+    ? `Provide or cite a credible source for this statement.${verificationLink ? ` See: ${verificationLink}` : ''}`
+    : verificationStatus === 'error'
+    ? 'Verification failed; check Bing or Azure connectivity.'
+    : '';
+
+printIssueRow(locStr, finalStatus, rowSummary, ruleName, suggestionText ? { suggestion: suggestionText } : {});
+
+
               }
             }
             // Record score for summary list
