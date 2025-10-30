@@ -411,22 +411,29 @@ program
                   hadOperationalErrors = true;
                 }
     // --- Verification Section (clean + uses shared provider) ---
-let verificationLink = '';
+    // --- 🔍 VERIFICATION SECTION (Rewritten & Clean) ---
 let verificationStatus = '';
 let verificationJustification = '';
+let verificationLink = '';
 
 try {
   const apiKey = process.env.BING_SEARCH_API_KEY;
 
-  // --- Guard: Bing key required ---
+  // --- 1️⃣ Guard: Missing API key ---
   if (!apiKey) {
     verificationStatus = 'not verified';
-    verificationJustification = 'BING_SEARCH_API_KEY missing; online verification disabled.';
-  } 
-  // --- Guard: Must have text to verify ---
-  else if (v.analysis && v.analysis.trim().length > 5) {
-    const claim = v.analysis.trim()
-    // --- Bing Search for evidence ---
+    verificationJustification = 'BING_SEARCH_API_KEY missing; skipping online verification.';
+  }
+
+  // --- 2️⃣ Guard: No analyzable text ---
+  else if (!v.analysis || v.analysis.trim().length < 6) {
+    verificationStatus = 'not checked';
+    verificationJustification = 'No analyzable factual claim provided.';
+  }
+
+  // --- 3️⃣ Bing search & LLM verification ---
+  else {
+    const claim = v.analysis.trim();
     const searchRes = await bingWebSearch(claim, apiKey);
     const snippets = (searchRes.webPages?.value || [])
       .slice(0, 3)
@@ -440,69 +447,73 @@ try {
       verificationJustification = 'No relevant search results found.';
     } else {
       // --- Build verification prompt ---
-    // --- Revised Verification Prompt ---
-const llmPrompt = `
-You are a fact verification agent.
+      const llmPrompt = `
+You are a **fact verification agent** assisting a hallucination detector.
 
-Your task:
-Decide if the following claim is SUPPORTED, UNSUPPORTED, or UNVERIFIABLE based on search evidence.
+Task:
+Check whether the following statement is supported, unsupported, or unverifiable
+based on recent web search snippets.
 
 Definitions:
-- "SUPPORTED": credible evidence strongly agrees with the claim.
-- "UNSUPPORTED": evidence suggests the claim is false, exaggerated, or unrealistic.
-- "UNVERIFIABLE": no clear supporting or contradicting evidence exists.
+- supported → credible evidence clearly agrees with the statement.
+- unsupported → evidence contradicts or disproves the statement.
+- unverifiable → no clear evidence either way, or claim is too broad/general.
 
 Special rule:
-If the claim is a general statement (e.g., about "everyone", "always", "never", or broad behavior)
-and cannot reasonably be proven true for all cases, mark it as "UNVERIFIABLE".
+If the statement uses absolute terms ("always", "never", "guarantees") or
+makes universal claims without evidence, mark it as "unverifiable".
 
-Claim:
+Statement:
 "${claim}"
 
-Search Results:
+Search Snippets:
 ${snippets.map((s, i) => `[${i + 1}] ${s.snippet} (${s.url})`).join('\n')}
 
-Respond in strict JSON only:
+Respond ONLY in JSON:
 {
-  "status": "SUPPORTED|UNSUPPORTED|UNVERIFIABLE",
-  "justification": "brief reason (max 30 words)",
+  "status": "supported|unsupported|unverifiable",
+  "justification": "brief reason (max 25 words)",
   "link": "most relevant supporting or contradicting source if available"
 }
 `;
 
-
-
-      // --- Use shared AzureOpenAI provider ---
+      // --- Send to shared provider ---
       const llmRespRaw = await provider.runPromptStructured<any>(
-  llmPrompt,
-  '',
-  {
-    name: 'VerificationSchema',
-    schema: {
-      type: 'object',
-      properties: {
-        status: { type: 'string', enum: ['supported', 'contradicted', 'unverifiable'] },
-        justification: { type: 'string' },
-        link: { type: 'string' },
-      },
-      required: ['status', 'justification'],
-    },
-  }
-);
+        llmPrompt,
+        '',
+        {
+          name: 'VerificationSchema',
+          schema: {
+            type: 'object',
+            properties: {
+              status: { type: 'string', enum: ['supported', 'unsupported', 'unverifiable'] },
+              justification: { type: 'string' },
+              link: { type: 'string' },
+            },
+            required: ['status', 'justification'],
+          },
+        }
+      );
 
-
-      // --- Parse & normalize model output ---
+      // --- Parse & normalize output ---
       const llmResp = typeof llmRespRaw === 'string'
         ? JSON.parse(llmRespRaw)
         : llmRespRaw || {};
 
-      verificationStatus = (llmResp.status || 'unverifiable').toLowerCase();
+      const statusRaw = (llmResp.status || '').toLowerCase();
+
+if (statusRaw.includes('unsupport')) {
+  verificationStatus = 'unsupported';
+} else if (statusRaw.includes('support')) {
+  verificationStatus = 'supported';
+} else {
+  verificationStatus = 'unverifiable';
+}
+
+
       verificationJustification = llmResp.justification?.trim() || 'No justification provided.';
       verificationLink = llmResp.link || snippets[0]?.url || '';
     }
-  } else {
-    verificationStatus = 'not checked';
-    verificationJustification = 'No analyzable claim provided.';
   }
 } catch (e: any) {
   verificationStatus = 'error';
@@ -510,28 +521,29 @@ Respond in strict JSON only:
   console.error('❌ Verification error:', e);
 }
 
-// --- Build output summary ---
+// --- 🧾 Output summary row ---
 let rowSummary = (v.analysis || '').trim();
-if (verificationStatus) rowSummary += ` [${verificationStatus}]`;
-if (verificationJustification) rowSummary += ` Justification: ${verificationJustification}`;
-if (verificationStatus === 'supported' && verificationLink) {
-  rowSummary += ` Source: ${verificationLink}`;
-}
+rowSummary += verificationStatus ? ` [${verificationStatus}]` : '';
+if (verificationJustification) rowSummary += ` — ${verificationJustification}`;
+if (verificationLink) rowSummary += ` (${verificationLink})`;
 
-let suggestionText = '';
-if (verificationStatus === 'contradicted') {
-  suggestionText = 'Correct this claim; evidence contradicts it.';
-  if (verificationLink) suggestionText += ` See: ${verificationLink}`;
-} else if (verificationStatus === 'unverifiable') {
-  suggestionText = 'Provide or cite a credible source for this statement.';
-  if (verificationLink) suggestionText += ` See: ${verificationLink}`;
-} else if (verificationStatus === 'error') {
-  suggestionText = 'Verification failed; check Bing or Azure connectivity.';
-}
+// --- Determine severity for display ---
+let finalStatus = status; // inherited from rule
+if (verificationStatus === 'unsupported') finalStatus = 'error';
+else if (verificationStatus === 'unverifiable') finalStatus = 'warning';
+else if (verificationStatus === 'supported') finalStatus = 'ok';
 
-// --- Output final row ---
-const opts = suggestionText ? { suggestion: suggestionText } : {};
-printIssueRow(locStr, status, rowSummary, ruleName, opts);
+const suggestionText =
+  verificationStatus === 'unsupported'
+    ? `Correct this claim; evidence contradicts it.${verificationLink ? ` See: ${verificationLink}` : ''}`
+    : verificationStatus === 'unverifiable'
+    ? `Provide or cite a credible source for this statement.${verificationLink ? ` See: ${verificationLink}` : ''}`
+    : verificationStatus === 'error'
+    ? 'Verification failed; check Bing or Azure connectivity.'
+    : '';
+
+printIssueRow(locStr, finalStatus, rowSummary, ruleName, suggestionText ? { suggestion: suggestionText } : {});
+
 
               }
             }

@@ -267,7 +267,7 @@ Provide your evaluation using the structure below.
 
 ---
 
- ce unverified elements.
+
 
 **Priority Improvements:**  
 List the 2–3 highest-risk areas to fix first (e.g., “Overuse of absolutes,” “Unverified tool names,” “Unsupported quantitative claims”).

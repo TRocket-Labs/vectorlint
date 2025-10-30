@@ -1,95 +1,109 @@
 import fetch from 'node-fetch';
 
 /**
- * Simulated Bing search used for hallucination verification testing.
- * Returns realistic results for plausible and real tool names.
+ * Mock Bing Web Search provider for hallucination verification.
+ * Returns plausible, humanlike snippets for real and fake tools.
  */
-export async function bingWebSearch(query: string, apiKey: string): Promise<any> {
-  const lower = query.toLowerCase();
-  const make = (...results: { url: string; snippet: string }[]) => ({
-    webPages: { value: results },
+export async function bingWebSearch(query: string, apiKey: string) {
+  const q = query.toLowerCase();
+  const make = (...r: { url: string; snippet: string }[]) => ({
+    webPages: { value: r },
   });
 
-  // --- Real Tools ---
-  if (/\b(vite|turbo\s*pack|esbuild|bun)\b/.test(lower)) {
-    return make(
-      {
-        url: 'https://vitejs.dev/',
-        snippet: 'Vite is a next-generation, lightning-fast frontend build tool.',
-      },
-      {
-        url: 'https://turbo.build/pack',
-        snippet: 'Turbopack is an incremental bundler optimized for JavaScript and Rust-based projects.',
-      },
-      {
-        url: 'https://esbuild.github.io/',
-        snippet: 'esbuild is an extremely fast JavaScript bundler written in Go.',
-      },
-      {
-        url: 'https://bun.sh/',
-        snippet: 'Bun is a fast all-in-one JavaScript runtime, bundler, and package manager.',
-      }
-    );
+  // --- Real, verifiable tools ---
+  if (/\bgithub copilot\b/.test(q)) {
+    return make({
+      url: 'https://github.com/features/copilot',
+      snippet:
+        'GitHub Copilot is an AI pair programmer developed by GitHub and OpenAI, integrated into VS Code and JetBrains IDEs.',
+    });
   }
 
-  // --- Hallucinated / Unverifiable Tools ---
-  if (/\bautodeployx\b/.test(lower)) {
-    return make(
-      {
-        url: 'https://github.com/search?q=AutoDeployX',
-        snippet:
-          'No official repository or documentation found for “AutoDeployX”. Possibly an informal or hypothetical tool.',
-      },
-      {
-        url: 'https://aws.amazon.com/devops/continuous-delivery/',
-        snippet:
-          'AWS and GitHub Actions support CI/CD automation, but no tool named AutoDeployX exists in major registries.',
-      }
-    );
+  if (/\bcodeium\b/.test(q)) {
+    return make({
+      url: 'https://codeium.com/',
+      snippet:
+        'Codeium provides AI-powered code completion and enterprise on-premise deployment options.',
+    });
   }
 
-  if (/\breactqueryplus\b/.test(lower)) {
-    return make(
-      {
-        url: 'https://tanstack.com/query/latest',
-        snippet: 'TanStack Query (React Query) provides caching and fetching utilities for React.',
-      },
-      {
-        url: 'https://www.npmjs.com/search?q=reactqueryplus',
-        snippet: 'No npm package found for “reactqueryplus”.',
-      }
-    );
+  if (/\bjetbrains ai assistant\b/.test(q)) {
+    return make({
+      url: 'https://www.jetbrains.com/ai/',
+      snippet:
+        'JetBrains AI Assistant provides code suggestions and explanations inside IntelliJ and PyCharm.',
+    });
   }
 
-  if (/\binstantlint\b/.test(lower)) {
-    return make(
-      {
-        url: 'https://marketplace.visualstudio.com/',
-        snippet: 'No extension named “InstantLint” appears in the VS Code marketplace.',
-      },
-      {
-        url: 'https://eslint.org/',
-        snippet: 'ESLint is the standard linting tool for JavaScript and TypeScript projects.',
-      }
-    );
+  if (/\bgpt-4 turbo\b/.test(q)) {
+    return make({
+      url: 'https://platform.openai.com/docs/models/gpt-4-turbo',
+      snippet:
+        'GPT-4 Turbo is an OpenAI model optimized for efficiency and conversational tasks.',
+    });
   }
 
-  // --- Sweeping / Absolute Claims ---
-  if (/(always prevents runtime errors|never fail|guaranteed success)/.test(lower)) {
-    return make(
-      {
-        url: 'https://www.typescriptlang.org/',
-        snippet:
-          'TypeScript improves safety at compile time but cannot prevent all runtime errors.',
-      },
-      {
-        url: 'https://stackoverflow.com/questions/why-typescript-doesnt-prevent-runtime-errors',
-        snippet:
-          'TypeScript types are erased at runtime; logic errors can still occur.',
-      }
-    );
+  if (/\bvercel\b/.test(q) || /\bnetlify\b/.test(q)) {
+    return make({
+      url: 'https://vercel.com/',
+      snippet:
+        'Vercel and Netlify provide frontend hosting, serverless functions, and instant preview deployments.',
+    });
+  }
+
+  if (/\brust\b/.test(q)) {
+    return make({
+      url: 'https://survey.stackoverflow.co/2025/',
+      snippet:
+        'Rust ranks among the most loved programming languages in the Stack Overflow 2025 survey.',
+    });
+  }
+
+  if (/\btypescript\b/.test(q)) {
+    return make({
+      url: 'https://www.typescriptlang.org/',
+      snippet:
+        'TypeScript adds static type checking but cannot prevent all runtime errors.',
+    });
+  }
+
+  // --- Unverifiable / likely hallucinated ---
+  if (/\bdeepdeploy\b/.test(q)) {
+    return make({
+      url: 'https://github.com/search?q=DeepDeploy',
+      snippet:
+        'No known deployment automation platform called “DeepDeploy”. No public repositories or documentation found.',
+    });
+  }
+
+  if (/\bstacksynth\b/.test(q)) {
+    return make({
+      url: 'https://github.com/search?q=StackSynth',
+      snippet:
+        'No project or framework called “StackSynth” found on GitHub or npm registries.',
+    });
+  }
+
+  if (/\bcloudlint\b/.test(q)) {
+    return make({
+      url: 'https://marketplace.visualstudio.com/',
+      snippet:
+        'No VS Code extension or public package named “CloudLint” found in official registries.',
+    });
+  }
+
+  // --- Sweeping / absolute language ---
+  if (/(always|never|eliminates all|trust ai-generated)/.test(q)) {
+    return make({
+      url: 'https://stackoverflow.com/questions/why-typescript-doesnt-prevent-runtime-errors',
+      snippet:
+        'Absolute statements like “always trust AI” or “never fail” are unverifiable generalizations and lack evidence.',
+    });
   }
 
   // --- Default fallback ---
-  return { webPages: { value: [] } };
+  return make({
+    url: 'https://example.com/',
+    snippet: 'No relevant search results found for this query.',
+  });
 }
