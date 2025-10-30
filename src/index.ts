@@ -2,7 +2,8 @@
 import { program } from 'commander';
 import { readFileSync, existsSync } from 'fs';
 import * as path from 'path';
-import { createProvider } from './providers/provider-factory';
+import { AzureOpenAIProvider } from './providers/azure-openai-provider';
+import { bingWebSearch } from './providers/bing-search';
 import { loadConfig } from './boundaries/config-loader';
 import { loadPrompts, type PromptFile } from './prompts/prompt-loader';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/schema';
@@ -167,7 +168,12 @@ program
       process.exit(1);
     }
     
-    const provider = createProvider(env, {
+    const provider = new AzureOpenAIProvider({
+      apiKey: env.AZURE_OPENAI_API_KEY,
+      endpoint: env.AZURE_OPENAI_ENDPOINT,
+      deploymentName: env.AZURE_OPENAI_DEPLOYMENT_NAME,
+      apiVersion: env.AZURE_OPENAI_API_VERSION,
+      temperature: env.AZURE_OPENAI_TEMPERATURE,
       debug: cliOptions.verbose,
       showPrompt: cliOptions.showPrompt,
       showPromptTrunc: cliOptions.showPromptTrunc,
@@ -404,10 +410,129 @@ program
                   console.warn(`[vectorlint] Warning: ${err.message}`);
                   hadOperationalErrors = true;
                 }
-                const rowSummary = (v.analysis || '').trim();
-                const suggestion = status !== 'ok' && v.suggestion ? v.suggestion : undefined;
-                const opts = suggestion ? { suggestion } : {};
-                printIssueRow(locStr, status, rowSummary, ruleName, opts);
+    // --- Verification Section (clean + uses shared provider) ---
+let verificationLink = '';
+let verificationStatus = '';
+let verificationJustification = '';
+
+try {
+  const apiKey = process.env.BING_SEARCH_API_KEY;
+
+  // --- Guard: Bing key required ---
+  if (!apiKey) {
+    verificationStatus = 'not verified';
+    verificationJustification = 'BING_SEARCH_API_KEY missing; online verification disabled.';
+  } 
+  // --- Guard: Must have text to verify ---
+  else if (v.analysis && v.analysis.trim().length > 5) {
+    const claim = v.analysis.trim()
+    // --- Bing Search for evidence ---
+    const searchRes = await bingWebSearch(claim, apiKey);
+    const snippets = (searchRes.webPages?.value || [])
+      .slice(0, 3)
+      .map((r: any) => ({
+        url: r.url,
+        snippet: r.snippet,
+      }));
+
+    if (snippets.length === 0) {
+      verificationStatus = 'unverifiable';
+      verificationJustification = 'No relevant search results found.';
+    } else {
+      // --- Build verification prompt ---
+    // --- Revised Verification Prompt ---
+const llmPrompt = `
+You are a fact verification agent.
+
+Your task:
+Decide if the following claim is SUPPORTED, UNSUPPORTED, or UNVERIFIABLE based on search evidence.
+
+Definitions:
+- "SUPPORTED": credible evidence strongly agrees with the claim.
+- "UNSUPPORTED": evidence suggests the claim is false, exaggerated, or unrealistic.
+- "UNVERIFIABLE": no clear supporting or contradicting evidence exists.
+
+Special rule:
+If the claim is a general statement (e.g., about "everyone", "always", "never", or broad behavior)
+and cannot reasonably be proven true for all cases, mark it as "UNVERIFIABLE".
+
+Claim:
+"${claim}"
+
+Search Results:
+${snippets.map((s, i) => `[${i + 1}] ${s.snippet} (${s.url})`).join('\n')}
+
+Respond in strict JSON only:
+{
+  "status": "SUPPORTED|UNSUPPORTED|UNVERIFIABLE",
+  "justification": "brief reason (max 30 words)",
+  "link": "most relevant supporting or contradicting source if available"
+}
+`;
+
+
+
+      // --- Use shared AzureOpenAI provider ---
+      const llmRespRaw = await provider.runPromptStructured<any>(
+  llmPrompt,
+  '',
+  {
+    name: 'VerificationSchema',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['supported', 'contradicted', 'unverifiable'] },
+        justification: { type: 'string' },
+        link: { type: 'string' },
+      },
+      required: ['status', 'justification'],
+    },
+  }
+);
+
+
+      // --- Parse & normalize model output ---
+      const llmResp = typeof llmRespRaw === 'string'
+        ? JSON.parse(llmRespRaw)
+        : llmRespRaw || {};
+
+      verificationStatus = (llmResp.status || 'unverifiable').toLowerCase();
+      verificationJustification = llmResp.justification?.trim() || 'No justification provided.';
+      verificationLink = llmResp.link || snippets[0]?.url || '';
+    }
+  } else {
+    verificationStatus = 'not checked';
+    verificationJustification = 'No analyzable claim provided.';
+  }
+} catch (e: any) {
+  verificationStatus = 'error';
+  verificationJustification = e?.message || String(e);
+  console.error('❌ Verification error:', e);
+}
+
+// --- Build output summary ---
+let rowSummary = (v.analysis || '').trim();
+if (verificationStatus) rowSummary += ` [${verificationStatus}]`;
+if (verificationJustification) rowSummary += ` Justification: ${verificationJustification}`;
+if (verificationStatus === 'supported' && verificationLink) {
+  rowSummary += ` Source: ${verificationLink}`;
+}
+
+let suggestionText = '';
+if (verificationStatus === 'contradicted') {
+  suggestionText = 'Correct this claim; evidence contradicts it.';
+  if (verificationLink) suggestionText += ` See: ${verificationLink}`;
+} else if (verificationStatus === 'unverifiable') {
+  suggestionText = 'Provide or cite a credible source for this statement.';
+  if (verificationLink) suggestionText += ` See: ${verificationLink}`;
+} else if (verificationStatus === 'error') {
+  suggestionText = 'Verification failed; check Bing or Azure connectivity.';
+}
+
+// --- Output final row ---
+const opts = suggestionText ? { suggestion: suggestionText } : {};
+printIssueRow(locStr, status, rowSummary, ruleName, opts);
+
               }
             }
             // Record score for summary list
