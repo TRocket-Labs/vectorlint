@@ -58,6 +58,18 @@ ANTHROPIC_MAX_TOKENS=4096
 ANTHROPIC_TEMPERATURE=0.2
 ```
 
+### Perplexity Search
+
+Configure perplexity in your `.env` file for optional online search for fact verification:
+
+```bash
+# Perplexity Configuration
+
+SEARCH_PROVIDER=perplexity
+PERPLEXITY_API_KEY=pplx-your-api-key-here
+```
+
+
 ### Temperature Recommendations
 
 For consistent evaluation results, it's recommended to use relatively low temperature values (0.1-0.3) to reduce randomness in model responses. This helps ensure more predictable and reproducible quality assessments.
