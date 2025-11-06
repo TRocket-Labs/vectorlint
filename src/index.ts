@@ -17,7 +17,6 @@ import { validateAll } from './prompts/prompt-validator';
 import { readPromptMappingFromIni, resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from './prompts/prompt-mapping';
 import { parseCliOptions, parseValidateOptions, parseEnvironment } from './boundaries/index';
 import { handleUnknownError } from './errors/index';
-import { fa } from 'zod/v4/locales';
 
 // Best-effort .env loader without external deps
 function loadDotEnv(): void {
@@ -458,9 +457,6 @@ program
       - unsupported → evidence contradicts or disproves the statement.
       - unverifiable → no clear evidence either way, or claim is too broad/general.
 
-      Special rule:
-      If the statement uses absolute terms ("always", "never", "guarantees") or
-      makes universal claims without evidence, mark it as "unverifiable".
 
       Statement:
       "${claim}"
