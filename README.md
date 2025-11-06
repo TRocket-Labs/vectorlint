@@ -58,6 +58,23 @@ ANTHROPIC_MAX_TOKENS=4096
 ANTHROPIC_TEMPERATURE=0.2
 ```
 
+### OpenAI
+
+Configure OpenAI in your `.env` file:
+
+```bash
+# OpenAI Configuration
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your-openai-api-key-here
+OPENAI_MODEL=gpt-4o
+OPENAI_TEMPERATURE=0.2
+```
+
+**Model Options:**
+- `gpt-4o`: Best quality for comprehensive assessments (default)
+- `gpt-4o-mini`: Cost-optimized for bulk processing
+- `gpt-4-turbo`: Alternative high-quality option
+
 ### Temperature Recommendations
 
 For consistent evaluation results, it's recommended to use relatively low temperature values (0.1-0.3) to reduce randomness in model responses. This helps ensure more predictable and reproducible quality assessments.
