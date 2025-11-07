@@ -406,7 +406,7 @@ program
                   console.warn(`[vectorlint] Warning: ${err.message}`);
                   hadOperationalErrors = true;
                 }
-                // verification stuff 
+                
       let verificationStatus = '';
       let verificationJustification = '';
       let verificationLink = '';
