@@ -487,19 +487,29 @@ program
             );
 
             // --- Parse & normalize output ---
-            const llmResp = typeof llmRespRaw === 'string'
-              ? JSON.parse(llmRespRaw)
-              : llmRespRaw || {};
+          let llmResp: any;
 
-            const statusRaw = (llmResp.status || '').toLowerCase();
+          if (typeof llmRespRaw === 'string') {
+            try {
+              llmResp = JSON.parse(llmRespRaw);
+            } catch (err) {
+              console.warn('[vectorlint] ⚠️ Failed to parse LLM JSON response:', err);
+              console.warn('[vectorlint] Raw response preview:', llmRespRaw.slice(0, 200));
+              llmResp = { status: 'unverifiable', justification: 'Invalid JSON from LLM', raw: llmRespRaw };
+            }
+          } else {
+            llmResp = llmRespRaw || {};
+          }
+          const statusRaw = (llmResp.status || '').toLowerCase();
 
-      if (statusRaw.includes('unsupport')) {
-        verificationStatus = 'unsupported';
-      } else if (statusRaw.includes('support')) {
-        verificationStatus = 'supported';
-      } else {
-        verificationStatus = 'unverifiable';
-      }
+
+          if (statusRaw.includes('unsupport')) {
+            verificationStatus = 'unsupported';
+          } else if (statusRaw.includes('support')) {
+            verificationStatus = 'supported';
+          } else {
+            verificationStatus = 'unverifiable';
+          }
 
 
             verificationJustification = llmResp.justification?.trim() || 'No justification provided.';
