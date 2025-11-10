@@ -21,12 +21,11 @@ export class PerplexitySearchProvider {
   }
 
   async search(query: string) {
-    if (!query?.trim()) {
-      throw new Error('Search query cannot be empty.');
-    }
+  if (!query?.trim()) throw new Error('Search query cannot be empty.');
 
-    if (this.debug) console.log(`[Perplexity] Searching: "${query}"`);
+  if (this.debug) console.log(`[Perplexity] Searching: "${query}"`);
 
+  try {
     const response = await this.client.search.create({
       query,
       max_results: this.maxResults,
@@ -42,9 +41,13 @@ export class PerplexitySearchProvider {
 
     if (this.debug) {
       console.log(`[Perplexity] Found ${results.length} results`);
-      console.log(results.slice(0, 2)); // preview first 2
+      console.log(results.slice(0, 2));
     }
 
     return results;
+  } catch (err: any) {
+    throw new Error(`Perplexity API call failed: ${err.message}`);
   }
+}
+
 }
