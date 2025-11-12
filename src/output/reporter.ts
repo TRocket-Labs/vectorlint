@@ -143,3 +143,139 @@ export function printValidationRow(level: 'error' | 'warning', message: string) 
   const label = level === 'error' ? chalk.red('error') : chalk.yellow('warning');
   console.log(`  ${label}  ${message}`);
 }
+
+/**
+ * Print a single Vale finding with location, severity, rule, description, and AI suggestion
+ * 
+ * @param loc - Location string in "line:col" format
+ * @param severity - Issue severity: 'error', 'warning', or 'suggestion'
+ * @param rule - Vale rule name (e.g., "write-good.Passive")
+ * @param description - Vale's description of the issue
+ * @param aiSuggestion - Optional AI-generated suggestion
+ */
+export function printValeIssueRow(
+  loc: string,
+  severity: 'error' | 'warning' | 'suggestion',
+  rule: string,
+  description: string,
+  aiSuggestion?: string
+) {
+  const locWidth = 7;
+  const severityWidth = 12;
+  const messageWidth = 66;
+
+  // Format location
+  const locCell = loc.padEnd(locWidth, ' ');
+
+  // Color-code severity
+  let coloredSeverity: string;
+  switch (severity) {
+    case 'error':
+      coloredSeverity = chalk.red('error');
+      break;
+    case 'warning':
+      coloredSeverity = chalk.yellow('warning');
+      break;
+    case 'suggestion':
+      coloredSeverity = chalk.blue('suggestion');
+      break;
+  }
+
+  const visibleLen = stripAnsi(coloredSeverity).length;
+  const pad = Math.max(0, severityWidth - visibleLen);
+  const paddedSeverity = coloredSeverity + ' '.repeat(pad);
+
+  // First line: location + severity + rule
+  console.log(`  ${locCell}${paddedSeverity}${rule}`);
+
+  // Description with word wrapping at ~66 characters
+  const descWords = description.split(/\s+/).filter(Boolean);
+  const descLines: string[] = [];
+  let currentLine = '';
+  for (const word of descWords) {
+    if (stripAnsi(currentLine).length + (currentLine ? 1 : 0) + word.length > messageWidth) {
+      descLines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = currentLine ? `${currentLine} ${word}` : word;
+    }
+  }
+  if (currentLine) descLines.push(currentLine);
+
+  // Print description lines with proper indentation
+  const indent = ' '.repeat(9); // Indent to align with description
+  for (const line of descLines) {
+    console.log(`${indent}${line}`);
+  }
+
+  // AI suggestion with cyan arrow prefix
+  if (aiSuggestion) {
+    const arrow = chalk.cyan('→');
+    const suggWords = aiSuggestion.split(/\s+/).filter(Boolean);
+    const suggLines: string[] = [];
+    let currentSugg = '';
+    for (const word of suggWords) {
+      if (stripAnsi(currentSugg).length + (currentSugg ? 1 : 0) + word.length > messageWidth) {
+        suggLines.push(currentSugg);
+        currentSugg = word;
+      } else {
+        currentSugg = currentSugg ? `${currentSugg} ${word}` : word;
+      }
+    }
+    if (currentSugg) suggLines.push(currentSugg);
+
+    // Print suggestion lines with arrow on first line
+    for (let i = 0; i < suggLines.length; i++) {
+      if (i === 0) {
+        console.log(`${indent}${arrow} ${suggLines[i]}`);
+      } else {
+        console.log(`${indent}  ${suggLines[i]}`); // Extra space to align with text after arrow
+      }
+    }
+  }
+
+  // Blank line after each issue
+  console.log('');
+}
+
+/**
+ * Print summary for a single file showing counts of errors, warnings, and suggestions
+ * 
+ * @param errors - Number of errors found
+ * @param warnings - Number of warnings found
+ * @param suggestions - Number of suggestions found
+ */
+export function printValeFileSummary(errors: number, warnings: number, suggestions: number) {
+  const okMark = errors === 0 ? chalk.green('✓') : chalk.red('✖');
+  const errTxt = errors === 1 ? '1 error' : `${errors} errors`;
+  const warnTxt = warnings === 1 ? '1 warning' : `${warnings} warnings`;
+  const suggTxt = suggestions === 1 ? '1 suggestion' : `${suggestions} suggestions`;
+  
+  const coloredErr = errors > 0 ? chalk.red(errTxt) : errTxt;
+  const coloredWarn = warnings > 0 ? chalk.yellow(warnTxt) : warnTxt;
+  const coloredSugg = suggestions > 0 ? chalk.blue(suggTxt) : suggTxt;
+  
+  console.log(`${okMark} ${coloredErr}, ${coloredWarn}, ${coloredSugg}`);
+}
+
+/**
+ * Print global summary showing total counts across all files
+ * 
+ * @param files - Number of files processed
+ * @param errors - Total number of errors
+ * @param warnings - Total number of warnings
+ * @param suggestions - Total number of suggestions
+ */
+export function printValeGlobalSummary(files: number, errors: number, warnings: number, suggestions: number) {
+  const okMark = errors === 0 ? chalk.green('✓') : chalk.red('✖');
+  const errTxt = errors === 1 ? '1 error' : `${errors} errors`;
+  const warnTxt = warnings === 1 ? '1 warning' : `${warnings} warnings`;
+  const suggTxt = suggestions === 1 ? '1 suggestion' : `${suggestions} suggestions`;
+  const fileTxt = files === 1 ? '1 file' : `${files} files`;
+  
+  const coloredErr = errors > 0 ? chalk.red(errTxt) : errTxt;
+  const coloredWarn = warnings > 0 ? chalk.yellow(warnTxt) : warnTxt;
+  const coloredSugg = suggestions > 0 ? chalk.blue(suggTxt) : suggTxt;
+  
+  console.log(`${okMark} ${coloredErr}, ${coloredWarn}, ${coloredSugg} in ${fileTxt}`);
+}
