@@ -9,33 +9,44 @@
  */
 
 import { readFileSync } from 'fs';
+import { LLMProvider } from '../../providers/llm-provider.js';
 import { ValeRunner } from './vale-runner.js';
+import { SuggestionGenerator } from './suggestion-generator.js';
 import { 
   ValeAIResult, 
   ValeFinding, 
   ValeOutput, 
-  ValeIssue, 
   Context, 
   ValeAIConfig 
 } from './types.js';
 
 export class ValeAIEvaluator {
   private fileContentCache: Map<string, string> = new Map();
+  private suggestionGenerator: SuggestionGenerator;
   
   constructor(
+    private llmProvider: LLMProvider,
     private valeRunner: ValeRunner,
     private config: ValeAIConfig
-  ) {}
+  ) {
+    this.suggestionGenerator = new SuggestionGenerator(llmProvider);
+  }
 
   /**
-   * Evaluate files using Vale CLI
+   * Evaluate files using Vale CLI with AI-enhanced suggestions
    * @param files Optional array of file paths. If not provided, Vale uses its own discovery
    * @returns ValeAIResult with findings and AI suggestions
    */
   async evaluate(files?: string[]): Promise<ValeAIResult> {
+    // Clear cache for fresh evaluation
     this.fileContentCache.clear();
     
-    const valeOutput = await this.valeRunner.run(files);
+    let valeOutput: ValeOutput;
+    try {
+      valeOutput = await this.valeRunner.run(files);
+    } catch (error) {
+      throw error;
+    }
     
     if (Object.keys(valeOutput).length === 0) {
       return { findings: [] };
@@ -45,6 +56,8 @@ export class ValeAIEvaluator {
       this.cacheFileContent(filename);
     }
     
+    // Extract context windows for each finding
+    const contextWindows = new Map<ValeFinding, Context>();
     const findings: ValeFinding[] = [];
     
     for (const [filename, issues] of Object.entries(valeOutput)) {
@@ -55,14 +68,21 @@ export class ValeAIEvaluator {
       }
       
       for (const issue of issues) {
-        const context = this.extractContextWindow(
-          content,
-          issue.Line,
-          issue.Span,
-          this.config.contextWindowSize
-        );
+        // Extract context window with error handling
+        let context: Context;
+        try {
+          context = this.extractContextWindow(
+            content,
+            issue.Line,
+            issue.Span,
+            this.config.contextWindowSize
+          );
+        } catch (error) {
+          console.warn(`[vale-ai] Warning: Failed to extract context for ${filename}:${issue.Line}: ${error}`);
+          context = { before: '', after: '' };
+        }
         
-        // Transform to ValeFinding (without AI suggestion for now)
+        // Create preliminary finding (without AI suggestion yet)
         const finding: ValeFinding = {
           file: filename,
           line: issue.Line,
@@ -71,7 +91,80 @@ export class ValeAIEvaluator {
           rule: issue.Check,
           match: issue.Match,
           description: issue.Description,
-          suggestion: '', // Will be filled by SuggestionGenerator in later task
+          suggestion: '', // Will be filled by AI
+          context
+        };
+        
+        findings.push(finding);
+        contextWindows.set(finding, context);
+      }
+    }
+    
+    // Generate AI suggestions in batch
+    let suggestions: Map<ValeFinding, string>;
+    try {
+      suggestions = await this.suggestionGenerator.generateBatch(findings, contextWindows);
+    } catch (error) {
+      console.warn(`[vale-ai] Warning: Failed to generate AI suggestions: ${error}`);
+      // Use Vale's original descriptions as fallback
+      suggestions = new Map();
+      for (const finding of findings) {
+        suggestions.set(finding, finding.description);
+      }
+    }
+    
+    // Transform to ValeAIResult with AI suggestions
+    return this.transformToValeAIResult(valeOutput, suggestions, contextWindows);
+  }
+
+  /**
+   * Transform Vale output and AI suggestions to ValeAIResult
+   * @param valeOutput Raw Vale CLI output
+   * @param suggestions Map of findings to AI suggestions
+   * @param contextWindows Map of findings to context windows
+   * @returns ValeAIResult with all findings and suggestions
+   */
+  private transformToValeAIResult(
+    valeOutput: ValeOutput,
+    suggestions: Map<ValeFinding, string>,
+    contextWindows: Map<ValeFinding, Context>
+  ): ValeAIResult {
+    const findings: ValeFinding[] = [];
+    
+    // Flatten ValeOutput (file → issues) to array of ValeFinding objects
+    for (const [filename, issues] of Object.entries(valeOutput)) {
+      for (const issue of issues) {
+        // Find the corresponding finding in our suggestions map
+        // We need to create a matching finding to look it up
+        const matchingFinding = Array.from(suggestions.keys()).find(
+          f => f.file === filename && 
+               f.line === issue.Line && 
+               f.column === issue.Span[0] &&
+               f.rule === issue.Check
+        );
+        
+        if (!matchingFinding) {
+          // This shouldn't happen, but handle gracefully
+          console.warn(`[vale-ai] Warning: Could not find suggestion for ${filename}:${issue.Line}`);
+          continue;
+        }
+        
+        // Get AI suggestion (or Vale's description as fallback)
+        const suggestion = suggestions.get(matchingFinding) ?? issue.Description;
+        
+        // Get context window
+        const context = contextWindows.get(matchingFinding) ?? { before: '', after: '' };
+        
+        // Create final ValeFinding with all data
+        const finding: ValeFinding = {
+          file: filename,
+          line: issue.Line,
+          column: issue.Span[0],
+          severity: this.normalizeSeverity(issue.Severity),
+          rule: issue.Check,
+          match: issue.Match,
+          description: issue.Description,
+          suggestion,
           context
         };
         
