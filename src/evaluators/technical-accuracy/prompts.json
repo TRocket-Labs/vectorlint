@@ -1,0 +1,5 @@
+{
+  "extractClaims": "Analyze this content and extract all factual claims that need verification.\n\nFocus on:\n- Technical statements (API behavior, code examples, tool capabilities)\n- Statistical claims (numbers, percentages, benchmarks)\n- Factual assertions (release dates, feature availability, compatibility)\n\nFor each claim, identify:\n- The exact text of the claim\n- The line number where it appears\n- The type of claim (factual, statistical, or technical)\n\nReturn a JSON object with a 'claims' array.\n\nContent:\n{content}",
+  
+  "generateQueries": "For each claim below, generate an optimal search query to verify it.\n\nMake queries:\n- Specific and focused\n- Designed to find current, authoritative information\n- Include relevant technical terms and context\n\nClaims:\n{claims}\n\nReturn a JSON object with a 'queries' array containing objects with 'claim' and 'query' fields."
+}
