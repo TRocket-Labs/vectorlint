@@ -1,15 +1,12 @@
-/**
- * SuggestionGenerator for AI-enhanced Vale suggestions
- * 
- * This module generates context-aware suggestions for Vale findings
- * by batching all findings into a single LLM request for efficiency.
- */
-
 import { LLMProvider } from '../../providers/llm-provider';
 import { ValeFinding, Context } from './types';
 
 /**
  * Structured output schema for batch suggestion generation
+ * 
+ * The LLM returns an array of suggestions, each with:
+ * - findingIndex: Zero-based index matching the input findings array
+ * - suggestion: Context-aware explanation and fix recommendation
  */
 interface BatchSuggestionResponse {
   suggestions: {
@@ -52,16 +49,34 @@ const BATCH_SUGGESTION_SCHEMA = {
 
 /**
  * Generates AI-enhanced suggestions for Vale findings
+ * 
+ * This class uses an LLM to generate context-aware suggestions that
+ * explain why each Vale finding is an issue and how to fix it.
  */
 export class SuggestionGenerator {
+  /**
+   * Create a new SuggestionGenerator
+   * 
+   * @param llmProvider - LLM provider for generating suggestions
+   */
   constructor(private llmProvider: LLMProvider) {}
 
   /**
    * Generate AI suggestions for a batch of Vale findings
    * 
+   * Processes all findings in a single LLM request for efficiency.
+   * Each finding is numbered and the LLM returns suggestions indexed
+   * to match the input array.
+   * 
+   * Error handling:
+   * - LLM failures: Falls back to Vale's original descriptions
+   * - Missing suggestions: Uses Vale's description for that finding
+   * - Malformed responses: Parses available suggestions, uses fallbacks for rest
+   * 
    * @param findings - Array of Vale findings to generate suggestions for
    * @param contextWindows - Map of findings to their context windows
-   * @returns Map of findings to their AI-generated suggestions
+   * @returns Map of findings to their AI-generated suggestions (never empty)
+   *
    */
   async generateBatch(
     findings: ValeFinding[],
@@ -77,8 +92,14 @@ export class SuggestionGenerator {
     try {
       // Call LLM with structured output schema
       const response = await this.llmProvider.runPromptStructured<BatchSuggestionResponse>(
-        '', // No separate content needed, prompt contains everything
-        prompt,
+        prompt, // The findings data as content
+        `You are a writing improvement assistant. For each Vale finding in the input, provide a context-aware suggestion explaining why it's an issue and how to fix it. Be specific and actionable.
+
+Important guidelines:
+- For spelling issues: If the word appears to be spelled correctly (like "APIs" or "JMeter"), suggest adding it to a dictionary or explain that it's a technical term
+- For grammar issues: Explain the specific problem and provide a concrete fix
+- For style issues: Explain why the current phrasing could be improved and suggest alternatives
+- Always consider the context around the flagged text`,
         BATCH_SUGGESTION_SCHEMA
       );
 
@@ -112,9 +133,16 @@ export class SuggestionGenerator {
   /**
    * Build a batch prompt for multiple Vale findings
    * 
+   * Creates a structured prompt that includes:
+   * - Instructions for the LLM
+   * - Numbered findings (for reference in structured output)
+   * - Rule name, matched text, and context for each finding
+   * - Vale's original description
+   * 
    * @param findings - Array of Vale findings
    * @param contexts - Map of findings to their context windows
-   * @returns Formatted prompt string
+   * @returns Formatted prompt string with all findings
+   * 
    */
   private buildBatchPrompt(
     findings: ValeFinding[],
