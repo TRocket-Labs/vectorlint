@@ -8,3 +8,6 @@ coverage/
 *.tsbuildinfo
 vectorlint.ini
 .kiro/
+/.idea
+/npm
+
