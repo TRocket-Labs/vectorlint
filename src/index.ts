@@ -16,6 +16,7 @@ import { validateAll } from './prompts/prompt-validator';
 import { readPromptMappingFromIni, resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from './prompts/prompt-mapping';
 import { parseCliOptions, parseValidateOptions, parseEnvironment } from './boundaries/index';
 import { handleUnknownError } from './errors/index';
+import { createEvaluator } from './evaluators/evaluator-registry';
 
 // Best-effort .env loader without external deps
 function loadDotEnv(): void {
@@ -272,8 +273,6 @@ program
         const relFile = path.relative(process.cwd(), file) || file;
         printFileHeader(relFile);
 
-        // Build schema once
-        const schema = buildCriteriaJsonSchema();
         // Determine applicable prompts for this file
         const toRun: PromptFile[] = (() => {
           if (!mapping || !isMappingConfigured(mapping)) return prompts;
@@ -292,7 +291,16 @@ program
             if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
               throw new Error(`Prompt ${p.filename} has no criteria in frontmatter`);
             }
-            const result = await provider.runPromptStructured<CriteriaResult>(content, p.body, schema);
+            
+            // Get evaluator type from prompt metadata (default to 'base-llm')
+            const evaluatorType = meta.evaluator || 'base-llm';
+            
+            // Create evaluator via registry
+            const evaluator = createEvaluator(evaluatorType, provider, p);
+            
+            // Run evaluation
+            const result = await evaluator.evaluate(relFile, content);
+            
             return { ok: true as const, result };
           } catch (e: unknown) {
             const err = handleUnknownError(e, `Running prompt ${p.filename}`);
