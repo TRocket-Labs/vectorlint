@@ -23,6 +23,43 @@ function isSupportedPattern(p: string): boolean {
   return false;
 }
 
+function parseEvaluatorSection(raw: string): { enabled?: string[]; valeAI?: { contextWindowSize: number } } {
+  const result: { enabled?: string[]; valeAI?: { contextWindowSize: number } } = {};
+  let inEvaluatorsSection = false;
+  let inValeAISection = false;
+
+  for (const rawLine of raw.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#') || line.startsWith(';')) continue;
+
+    // Check for section headers
+    if (line.startsWith('[') && line.endsWith(']')) {
+      const sectionName = line.slice(1, -1).trim();
+      inEvaluatorsSection = sectionName === 'Evaluators';
+      inValeAISection = sectionName === 'Evaluator:vale-ai';
+      continue;
+    }
+
+    // Parse key=value pairs
+    const m = line.match(/^([A-Za-z][A-Za-z0-9]*)\s*=\s*(.*)$/);
+    if (!m || !m[1] || !m[2]) continue;
+
+    const key = m[1];
+    const val = m[2];
+
+    if (inEvaluatorsSection && key === 'enabled') {
+      result.enabled = parseBracketList(val);
+    } else if (inValeAISection && key === 'contextWindowSize') {
+      const n = Number(val.replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
+      if (Number.isFinite(n) && n > 0) {
+        result.valeAI = { contextWindowSize: Math.floor(n) };
+      }
+    }
+  }
+
+  return result;
+}
+
 /**
  * Load and validate configuration from vectorlint.ini file
  */
@@ -36,13 +73,20 @@ export function loadConfig(cwd: string = process.cwd()): Config {
   let promptsPathRaw: string | undefined;
   let scanPathsRaw: string[] | undefined;
   let concurrencyRaw: number | undefined;
+  let evaluatorsConfig: { enabled?: string[]; valeAI?: { contextWindowSize: number } } = {};
 
   try {
     const raw = readFileSync(iniPath, 'utf-8');
     
+    // Parse evaluator sections
+    evaluatorsConfig = parseEvaluatorSection(raw);
+    
     for (const rawLine of raw.split(/\r?\n/)) {
       const line = rawLine.trim();
       if (!line || line.startsWith('#') || line.startsWith(';')) continue;
+      
+      // Skip section headers
+      if (line.startsWith('[') && line.endsWith(']')) continue;
       
       const m = line.match(/^([A-Za-z][A-Za-z0-9]*)\s*=\s*(.*)$/);
       if (!m || !m[1] || !m[2]) continue;
@@ -91,6 +135,10 @@ export function loadConfig(cwd: string = process.cwd()): Config {
     promptsPath,
     scanPaths: scanPathsRaw,
     concurrency,
+    evaluators: evaluatorsConfig.enabled || evaluatorsConfig.valeAI ? {
+      enabled: evaluatorsConfig.enabled,
+      valeAI: evaluatorsConfig.valeAI,
+    } : undefined,
   };
 
   try {

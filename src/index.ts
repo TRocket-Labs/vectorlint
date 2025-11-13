@@ -6,7 +6,7 @@ import { createProvider } from './providers/provider-factory';
 import { loadConfig } from './boundaries/config-loader';
 import { loadPrompts, type PromptFile } from './prompts/prompt-loader';
 import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/schema';
-import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines } from './output/reporter';
+import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines, printValeIssueRow, printValeFileSummary, printValeGlobalSummary } from './output/reporter';
 import { locateEvidence } from './output/location';
 import { DefaultRequestBuilder } from './providers/request-builder';
 import { loadDirective } from './prompts/directive-loader';
@@ -16,6 +16,8 @@ import { validateAll } from './prompts/prompt-validator';
 import { readPromptMappingFromIni, resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from './prompts/prompt-mapping';
 import { parseCliOptions, parseValidateOptions, parseEnvironment } from './boundaries/index';
 import { handleUnknownError } from './errors/index';
+import { ValeRunner } from './evaluators/vale-ai/vale-runner.js';
+import { ValeAIEvaluator } from './evaluators/vale-ai/vale-ai-evaluator.js';
 
 // Best-effort .env loader without external deps
 function loadDotEnv(): void {
@@ -125,7 +127,160 @@ program
     console.log(`${okMark} ${totalErrs} errors, ${totalWarns} warnings in ${prompts.length} prompt(s).`);
     process.exit(totalErrs > 0 ? 1 : 0);
   });
-;
+
+program
+  .command('vale-ai [files...]')
+  .description('Run Vale with AI-enhanced suggestions')
+  .action(async (files: string[] = []) => {
+    // Load environment from .env if present
+    loadDotEnv();
+
+    // Parse and validate environment variables
+    let env;
+    try {
+      env = parseEnvironment();
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'Validating environment variables');
+      console.error(`Error: ${err.message}`);
+      console.error('Please set these in your .env file or environment.');
+      process.exit(1);
+    }
+
+    // Load VectorLint configuration
+    let config;
+    try {
+      config = loadConfig();
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'Loading configuration');
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    }
+
+    // Import Vale AI components
+    const { ValeRunner } = await import('./evaluators/vale-ai/vale-runner.js');
+    const { ValeAIEvaluator } = await import('./evaluators/vale-ai/vale-ai-evaluator.js');
+    const { printFileHeader, printValeIssueRow, printValeFileSummary, printValeGlobalSummary } = await import('./output/reporter.js');
+
+    // Check if Vale is installed
+    const valeRunner = new ValeRunner();
+    if (!valeRunner.isInstalled()) {
+      const platform = process.platform;
+      let instructions = '';
+      
+      if (platform === 'darwin') {
+        instructions = 'macOS:   brew install vale';
+      } else if (platform === 'linux') {
+        instructions = 'Linux:   See https://vale.sh/docs/vale-cli/installation/';
+      } else if (platform === 'win32') {
+        instructions = 'Windows: choco install vale';
+      } else {
+        instructions = 'See https://vale.sh/docs/vale-cli/installation/';
+      }
+      
+      console.error(
+        `Error: Vale is not installed or not in PATH.\n\n` +
+        `Install Vale:\n  ${instructions}\n\n` +
+        `After installation, run: vectorlint vale-ai`
+      );
+      process.exit(1);
+    }
+
+    // Load directive for LLM provider
+    let directive;
+    try {
+      directive = loadDirective();
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'Loading directive');
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    }
+
+    // Create LLM provider
+    const provider = createProvider(env, {
+      debug: false,
+      showPrompt: false,
+      showPromptTrunc: false,
+      debugJson: false,
+    }, new DefaultRequestBuilder(directive));
+
+    // Load vale-ai configuration from vectorlint.ini
+    const valeAIConfig = {
+      contextWindowSize: config.evaluators?.valeAI?.contextWindowSize ?? 100
+    };
+    const evaluator = new ValeAIEvaluator(provider, valeRunner, valeAIConfig);
+
+    // Run evaluation
+    let result;
+    try {
+      result = await evaluator.evaluate(files.length > 0 ? files : undefined);
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'Running Vale AI evaluation');
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    }
+
+    // Report results
+    if (result.findings.length === 0) {
+      console.log('No issues found.');
+      process.exit(0);
+    }
+
+    // Group findings by file
+    const findingsByFile = new Map<string, typeof result.findings>();
+    for (const finding of result.findings) {
+      const fileFindings = findingsByFile.get(finding.file) ?? [];
+      fileFindings.push(finding);
+      findingsByFile.set(finding.file, fileFindings);
+    }
+
+    // Track totals
+    let totalErrors = 0;
+    let totalWarnings = 0;
+    let totalSuggestions = 0;
+
+    // Print findings grouped by file
+    for (const [file, findings] of findingsByFile) {
+      printFileHeader(file);
+
+      let fileErrors = 0;
+      let fileWarnings = 0;
+      let fileSuggestions = 0;
+
+      for (const finding of findings) {
+        const loc = `${finding.line}:${finding.column}`;
+        printValeIssueRow(
+          loc,
+          finding.severity,
+          finding.rule,
+          finding.description,
+          finding.suggestion
+        );
+
+        // Count by severity
+        if (finding.severity === 'error') {
+          fileErrors++;
+          totalErrors++;
+        } else if (finding.severity === 'warning') {
+          fileWarnings++;
+          totalWarnings++;
+        } else {
+          fileSuggestions++;
+          totalSuggestions++;
+        }
+      }
+
+      // Print file summary
+      printValeFileSummary(fileErrors, fileWarnings, fileSuggestions);
+      console.log('');
+    }
+
+    // Print global summary
+    printValeGlobalSummary(findingsByFile.size, totalErrors, totalWarnings, totalSuggestions);
+
+    // Exit with appropriate code
+    process.exit(totalErrors > 0 ? 1 : 0);
+  });
+
 program
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--show-prompt', 'Print full prompt and injected content')
@@ -436,6 +591,104 @@ program
 
     // Global summary
     printGlobalSummary(totalFiles, totalErrors, totalWarnings, requestFailures);
+
+    const enabledEvaluators = config.evaluators?.enabled ?? [];
+    if (enabledEvaluators.includes('vale-ai')) {
+      try {
+
+        // Check if Vale is installed
+        const valeRunner = new ValeRunner();
+        if (!valeRunner.isInstalled()) {
+          console.warn('\n[vectorlint] Warning: vale-ai is enabled but Vale is not installed. Skipping Vale AI evaluation.');
+          console.warn('Install Vale to use this evaluator: https://vale.sh/docs/vale-cli/installation/\n');
+        } else {
+          // Load vale-ai configuration
+          const valeAIConfig = {
+            contextWindowSize: config.evaluators?.valeAI?.contextWindowSize ?? 100
+          };
+
+          // Create ValeAIEvaluator
+          const evaluator = new ValeAIEvaluator(provider, valeRunner, valeAIConfig);
+
+          // Run evaluation on all targets
+          let valeResult;
+          try {
+            valeResult = await evaluator.evaluate(targets);
+          } catch (e: unknown) {
+            const err = handleUnknownError(e, 'Running Vale AI evaluation');
+            console.error(`\n[vectorlint] Vale AI evaluation failed: ${err.message}\n`);
+            hadOperationalErrors = true;
+          }
+
+          // Report Vale AI results if successful
+          if (valeResult && valeResult.findings.length > 0) {
+            console.log('\n=== Vale AI Results ===\n');
+
+            // Group findings by file
+            const findingsByFile = new Map<string, typeof valeResult.findings>();
+            for (const finding of valeResult.findings) {
+              const fileFindings = findingsByFile.get(finding.file) ?? [];
+              fileFindings.push(finding);
+              findingsByFile.set(finding.file, fileFindings);
+            }
+
+            // Track Vale totals
+            let valeErrors = 0;
+            let valeWarnings = 0;
+            let valeSuggestions = 0;
+
+            // Print findings grouped by file
+            for (const [file, findings] of findingsByFile) {
+              const relFile = path.relative(process.cwd(), file) || file;
+              printFileHeader(relFile);
+
+              let fileErrors = 0;
+              let fileWarnings = 0;
+              let fileSuggestions = 0;
+
+              for (const finding of findings) {
+                const loc = `${finding.line}:${finding.column}`;
+                printValeIssueRow(
+                  loc,
+                  finding.severity,
+                  finding.rule,
+                  finding.description,
+                  finding.suggestion
+                );
+
+                // Count by severity
+                if (finding.severity === 'error') {
+                  fileErrors++;
+                  valeErrors++;
+                } else if (finding.severity === 'warning') {
+                  fileWarnings++;
+                  valeWarnings++;
+                } else {
+                  fileSuggestions++;
+                  valeSuggestions++;
+                }
+              }
+
+              // Print file summary
+              printValeFileSummary(fileErrors, fileWarnings, fileSuggestions);
+              console.log('');
+            }
+
+            // Print global summary
+            printValeGlobalSummary(findingsByFile.size, valeErrors, valeWarnings, valeSuggestions);
+
+            // Update error tracking
+            if (valeErrors > 0) {
+              hadSeverityErrors = true;
+            }
+          }
+        }
+      } catch (e: unknown) {
+        const err = handleUnknownError(e, 'Loading Vale AI evaluator');
+        console.error(`\n[vectorlint] Failed to load Vale AI evaluator: ${err.message}\n`);
+        hadOperationalErrors = true;
+      }
+    }
 
     // Exit with 0 unless operational errors or severity errors occurred
     process.exit(hadOperationalErrors || hadSeverityErrors ? 1 : 0);
