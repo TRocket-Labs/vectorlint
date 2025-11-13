@@ -1,16 +1,18 @@
 /**
- * Vale AI type definitions and interfaces
+ * Result from Vale AI evaluation
  * 
- * This module defines the data structures for Vale CLI integration
- * and AI-enhanced suggestion generation.
+ * Contains all findings with AI-enhanced suggestions and context windows.
  */
-
 export interface ValeAIResult {
   findings: ValeFinding[];
 }
 
 /**
  * A single Vale finding with AI-enhanced suggestion
+ * 
+ * Combines Vale's rule-based finding with:
+ * - AI-generated context-aware suggestion
+ * - Context window (text before/after the issue)
  */
 export interface ValeFinding {
   file: string;
@@ -26,6 +28,10 @@ export interface ValeFinding {
 
 /**
  * Context window containing text before and after an issue
+ * 
+ * Used to provide surrounding text to the LLM for generating
+ * context-aware suggestions. The window size is configurable
+ * via ValeAIConfig.contextWindowSize.
  */
 export interface Context {
   before: string;
@@ -45,26 +51,20 @@ export interface ValeOutput {
  * Field names match Vale's JSON format exactly
  */
 export interface ValeIssue {
-  /** Rule name (e.g., "write-good.Passive") */
   Check: string;
   Description: string;
+  Message: string;
   Line: number;
-  /** Start and end column positions [start, end] */
   Span: [number, number];
-  /** The matched text that triggered the rule */
   Match: string;
-  /** Severity level: "error", "warning", or "suggestion" */
   Severity: string;
-  /** Optional action for auto-fix */
+  Link?: string;
   Action?: {
     Name: string;
     Params: string[];
   };
 }
 
-/**
- * Configuration for Vale AI evaluator
- */
 export interface ValeAIConfig {
   contextWindowSize: number;
 }

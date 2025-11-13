@@ -1,45 +1,25 @@
+import { spawn, execSync } from 'child_process';
+import { ValeOutput } from './types';
+
 /**
- * ValeRunner - Spawns Vale CLI and parses JSON output
- * 
- * This class handles Vale CLI integration including:
- * - Checking if Vale is installed
- * - Retrieving Vale version
- * - Running Vale with JSON output
- * - Parsing Vale's JSON output
- * - Error handling for various failure scenarios
+ * Handles Vale CLI execution and output parsing
  */
-
-import { spawn } from 'child_process';
-import { ValeOutput } from './types.js';
-
 export class ValeRunner {
   /**
    * Check if Vale is installed and available in PATH
-   * @returns true if Vale is installed, false otherwise
+   * 
+   * This method attempts to execute Vale with the --version flag
+   * to verify it's accessible in the system PATH.
+   * 
+   * @returns true if Vale is installed and accessible, false otherwise
+   * 
    */
   isInstalled(): boolean {
     try {
-      const result = spawn('vale', ['--version'], { 
-        stdio: 'pipe',
-        shell: true 
+      execSync('vale --version', { 
+        stdio: 'pipe'
       });
-      
-      let found = false;
-      result.on('spawn', () => {
-        found = true;
-      });
-      
-      result.on('error', () => {
-        found = false;
-      });
-      
-      // Wait briefly for spawn event
-      const start = Date.now();
-      while (Date.now() - start < 100) {
-        // Busy wait
-      }
-      
-      return found;
+      return true;
     } catch {
       return false;
     }
@@ -47,13 +27,16 @@ export class ValeRunner {
 
   /**
    * Get Vale version string
+   * 
+   * Executes `vale --version` and parses the version number.
+   * 
    * @returns Vale version (e.g., "2.29.0") or empty string if not installed
+   * 
    */
   async getVersion(): Promise<string> {
     return new Promise((resolve) => {
       const valeProcess = spawn('vale', ['--version'], { 
-        stdio: 'pipe',
-        shell: true 
+        stdio: 'pipe'
       });
       
       let output = '';
@@ -64,7 +47,6 @@ export class ValeRunner {
       
       valeProcess.on('close', (code: number | null) => {
         if (code === 0) {
-          // Vale outputs "vale version X.Y.Z"
           const match = output.match(/vale version ([\d.]+)/i);
           resolve(match?.[1] ?? output.trim());
         } else {
@@ -80,28 +62,40 @@ export class ValeRunner {
 
   /**
    * Run Vale CLI with JSON output
-   * @param files Optional array of file paths to check. If not provided, Vale uses its own file discovery
-   * @returns Parsed Vale output as ValeOutput object
-   * @throws Error if Vale is not installed, configuration error, or JSON parse error
+   * 
+   * Spawns Vale as a subprocess with the --output=JSON flag and parses
+   * the results. Vale's exit codes are:
+   * - 0: No issues found
+   * - 1: Issues found (not an error)
+   * - 2: Execution error (configuration, file not found, etc.)
+   * 
+   * @param files - Optional array of file paths to check. If not provided,
+   *                Vale uses its own file discovery based on .vale.ini
+   * @returns Parsed Vale output as ValeOutput object mapping filenames to issues
+   * 
+   * @throws Error if Vale is not installed (with platform-specific installation instructions)
+   * @throws Error if Vale configuration is invalid (with Vale's error message)
+   * @throws Error if JSON output cannot be parsed (with raw output for debugging)
+   * 
+   * @example
+   * ```typescript
+   * const runner = new ValeRunner();
+   * 
    */
   async run(files?: string[]): Promise<ValeOutput> {
-    // Check if Vale is installed first
     if (!this.isInstalled()) {
       throw this.createValeNotInstalledError();
     }
 
     return new Promise((resolve, reject) => {
-      // Build Vale command arguments
       const args = ['--output=JSON'];
-      
-      // Add files if provided, otherwise Vale will use its own discovery
+    
       if (files && files.length > 0) {
         args.push(...files);
       }
       
       const valeProcess = spawn('vale', args, {
-        stdio: 'pipe',
-        shell: true
+        stdio: 'pipe'
       });
       
       let stdout = '';
@@ -116,26 +110,18 @@ export class ValeRunner {
       });
       
       valeProcess.on('close', (code: number | null) => {
-        // Vale exit codes:
-        // 0 = no issues found
-        // 1 = issues found
-        // 2 = error occurred
-        
+
         if (code === 2) {
-          // Configuration or execution error
           reject(this.createValeConfigError(stderr));
           return;
         }
         
-        // Check for missing .vale.ini warning
         if (stderr.includes('.vale.ini') || stderr.includes('config')) {
           console.warn(this.createMissingConfigWarning());
         }
         
-        // Parse JSON output
         try {
           if (!stdout.trim()) {
-            // No output means no findings
             resolve({});
             return;
           }
@@ -159,6 +145,11 @@ export class ValeRunner {
 
   /**
    * Create error for Vale not installed
+   * 
+   * Generates a helpful error message with platform-specific installation
+   * instructions for macOS, Linux, and Windows.
+   * 
+   * @returns Error with installation instructions
    */
   private createValeNotInstalledError(): Error {
     const platform = process.platform;
@@ -183,6 +174,11 @@ export class ValeRunner {
 
   /**
    * Create error for Vale configuration issues
+   * 
+   * Wraps Vale's stderr output in a user-friendly error message.
+   * 
+   * @param stderr - Vale's error output from stderr
+   * @returns Error with Vale's configuration error message
    */
   private createValeConfigError(stderr: string): Error {
     return new Error(
@@ -194,6 +190,11 @@ export class ValeRunner {
 
   /**
    * Create warning message for missing .vale.ini
+   * 
+   * Generates a warning when Vale cannot find a configuration file,
+   * with instructions on how to create one.
+   * 
+   * @returns Warning message string
    */
   private createMissingConfigWarning(): string {
     return (
@@ -207,6 +208,13 @@ export class ValeRunner {
 
   /**
    * Create error for JSON parse failures
+   * 
+   * Generates an error when Vale's JSON output cannot be parsed,
+   * including the parse error and a preview of the raw output.
+   * 
+   * @param rawOutput - Raw stdout from Vale
+   * @param error - The JSON parse error
+   * @returns Error with parse details and output preview
    */
   private createJsonParseError(rawOutput: string, error: unknown): Error {
     const errorMessage = error instanceof Error ? error.message : String(error);

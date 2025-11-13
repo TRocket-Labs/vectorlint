@@ -25,6 +25,15 @@ export class SuggestionGenerator {
    * - Missing suggestions: Uses Vale's description for that finding
    * - Malformed responses: Parses available suggestions, uses fallbacks for rest
    * 
+   * Processes all findings in a single LLM request for efficiency.
+   * Each finding is numbered and the LLM returns suggestions indexed
+   * to match the input array.
+   * 
+   * Error handling:
+   * - LLM failures: Falls back to Vale's original descriptions
+   * - Missing suggestions: Uses Vale's description for that finding
+   * - Malformed responses: Parses available suggestions, uses fallbacks for rest
+   * 
    * @param findings - Array of Vale findings to generate suggestions for
    * @param contextWindows - Map of findings to their context windows
    * @returns Map of findings to their AI-generated suggestions (never empty)
@@ -48,7 +57,6 @@ export class SuggestionGenerator {
           throw new Error('vale-suggestion-generator.md prompt not found');
         }
       }
-
       const content = this.buildBatchContent(findings, contextWindows);
 
       const response = await this.llmProvider.runPromptStructured<CriteriaResult>(
@@ -79,6 +87,12 @@ export class SuggestionGenerator {
    * 
    * Creates structured content that the VectorLint prompt can evaluate:
    * - Numbered findings for reference
+   * - Rule name, matched text, and context for each finding
+   * - Vale's original description
+   * 
+   * Creates a structured prompt that includes:
+   * - Instructions for the LLM
+   * - Numbered findings (for reference in structured output)
    * - Rule name, matched text, and context for each finding
    * - Vale's original description
    * 
