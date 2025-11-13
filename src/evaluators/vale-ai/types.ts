@@ -51,6 +51,9 @@ export interface ValeIssue {
   Line: number;
   /** Start and end column positions [start, end] */
   Span: [number, number];
+  /** The matched text that triggered the rule */
+  Match: string;
+  /** Severity level: "error", "warning", or "suggestion" */
   Severity: string;
   /** Optional action for auto-fix */
   Action?: {
@@ -65,3 +68,11 @@ export interface ValeIssue {
 export interface ValeAIConfig {
   contextWindowSize: number;
 }
+
+export interface BatchSuggestionResponse {
+  suggestions: {
+    findingIndex: number;
+    suggestion: string;
+  }[];
+}
+
