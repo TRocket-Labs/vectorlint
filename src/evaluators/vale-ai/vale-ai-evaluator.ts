@@ -1,13 +1,3 @@
-/**
- * ValeAIEvaluator - Orchestrates Vale execution and AI enhancement
- * 
- * This class coordinates:
- * - Running Vale CLI via ValeRunner
- * - Extracting context windows around findings
- * - Generating AI suggestions via SuggestionGenerator
- * - Transforming results to ValeAIResult format
- */
-
 import { readFileSync } from 'fs';
 import { ValeRunner } from './vale-runner.js';
 import { 
@@ -116,7 +106,6 @@ export class ValeAIEvaluator {
     windowSize: number
   ): Context {
     try {
-      // Convert line number to character position
       const lines = content.split('\n');
       
       // Validate line number
@@ -130,18 +119,14 @@ export class ValeAIEvaluator {
       for (let i = 0; i < line - 1; i++) {
         charPosition += (lines[i]?.length ?? 0) + 1; // +1 for newline
       }
-      
-      // Add span[0] to get exact match position (span is 1-indexed)
+    
       const matchPosition = charPosition + span[0] - 1;
       
-      // Extract before context (bounded by file start)
       const beforeStart = Math.max(0, matchPosition - windowSize);
       const before = content.substring(beforeStart, matchPosition);
-      
-      // Calculate match end position
+
       const matchEnd = matchPosition + (span[1] - span[0]);
       
-      // Extract after context (bounded by file end)
       const afterEnd = Math.min(content.length, matchEnd + windowSize);
       const after = content.substring(matchEnd, afterEnd);
       
