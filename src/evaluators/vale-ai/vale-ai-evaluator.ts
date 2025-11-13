@@ -1,13 +1,3 @@
-/**
- * ValeAIEvaluator - Orchestrates Vale execution and AI enhancement
- * 
- * This class coordinates:
- * - Running Vale CLI via ValeRunner
- * - Extracting context windows around findings
- * - Generating AI suggestions via SuggestionGenerator
- * - Transforming results to ValeAIResult format
- */
-
 import { readFileSync } from 'fs';
 import { LLMProvider } from '../../providers/llm-provider.js';
 import { ValeRunner } from './vale-runner.js';
@@ -32,13 +22,8 @@ export class ValeAIEvaluator {
     this.suggestionGenerator = new SuggestionGenerator(llmProvider);
   }
 
-  /**
-   * Evaluate files using Vale CLI with AI-enhanced suggestions
-   * @param files Optional array of file paths. If not provided, Vale uses its own discovery
-   * @returns ValeAIResult with findings and AI suggestions
-   */
+
   async evaluate(files?: string[]): Promise<ValeAIResult> {
-    // Clear cache for fresh evaluation
     this.fileContentCache.clear();
     
     let valeOutput: ValeOutput;
@@ -90,7 +75,7 @@ export class ValeAIEvaluator {
           severity: this.normalizeSeverity(issue.Severity),
           rule: issue.Check,
           match: issue.Match,
-          description: issue.Description,
+          description: issue.Description || issue.Message || 'No description available',
           suggestion: '', // Will be filled by AI
           context
         };
@@ -119,10 +104,14 @@ export class ValeAIEvaluator {
 
   /**
    * Transform Vale output and AI suggestions to ValeAIResult
-   * @param valeOutput Raw Vale CLI output
-   * @param suggestions Map of findings to AI suggestions
-   * @param contextWindows Map of findings to context windows
-   * @returns ValeAIResult with all findings and suggestions
+   * 
+   * Flattens Vale's file-grouped output into a single array of findings,
+   * combining Vale's rule-based data with AI suggestions and context windows.
+   * 
+   * @param valeOutput - Raw Vale CLI output (filename → issues)
+   * @param suggestions - Map of findings to AI-generated suggestions
+   * @param contextWindows - Map of findings to context windows
+   * @returns ValeAIResult with all findings, suggestions, and context
    */
   private transformToValeAIResult(
     valeOutput: ValeOutput,
@@ -131,11 +120,8 @@ export class ValeAIEvaluator {
   ): ValeAIResult {
     const findings: ValeFinding[] = [];
     
-    // Flatten ValeOutput (file → issues) to array of ValeFinding objects
     for (const [filename, issues] of Object.entries(valeOutput)) {
       for (const issue of issues) {
-        // Find the corresponding finding in our suggestions map
-        // We need to create a matching finding to look it up
         const matchingFinding = Array.from(suggestions.keys()).find(
           f => f.file === filename && 
                f.line === issue.Line && 
@@ -144,18 +130,14 @@ export class ValeAIEvaluator {
         );
         
         if (!matchingFinding) {
-          // This shouldn't happen, but handle gracefully
           console.warn(`[vale-ai] Warning: Could not find suggestion for ${filename}:${issue.Line}`);
           continue;
         }
         
-        // Get AI suggestion (or Vale's description as fallback)
         const suggestion = suggestions.get(matchingFinding) ?? issue.Description;
         
-        // Get context window
         const context = contextWindows.get(matchingFinding) ?? { before: '', after: '' };
         
-        // Create final ValeFinding with all data
         const finding: ValeFinding = {
           file: filename,
           line: issue.Line,
@@ -177,7 +159,14 @@ export class ValeAIEvaluator {
 
   /**
    * Read and cache file content
-   * @param filename Path to file
+   * 
+   * Reads a file once and stores it in the cache to avoid repeated
+   * file system access when extracting context for multiple findings
+   * in the same file.
+   * 
+   * Error handling: If file read fails, stores empty string and logs warning.
+   * 
+   * @param filename - Path to file to read and cache
    */
   private cacheFileContent(filename: string): void {
     if (this.fileContentCache.has(filename)) {
@@ -189,19 +178,10 @@ export class ValeAIEvaluator {
       this.fileContentCache.set(filename, content);
     } catch (error) {
       console.warn(`[vale-ai] Warning: Failed to read file ${filename}: ${error}`);
-      // Store empty string to avoid repeated read attempts
       this.fileContentCache.set(filename, '');
     }
   }
 
-  /**
-   * Extract context window around a Vale finding
-   * @param content Full file content
-   * @param line Line number (1-indexed)
-   * @param span Column span [start, end] (1-indexed)
-   * @param windowSize Number of characters to extract before and after
-   * @returns Context object with before and after text
-   */
   private extractContextWindow(
     content: string,
     line: number,
@@ -209,10 +189,8 @@ export class ValeAIEvaluator {
     windowSize: number
   ): Context {
     try {
-      // Convert line number to character position
       const lines = content.split('\n');
-      
-      // Validate line number
+
       if (line < 1 || line > lines.length) {
         console.warn(`[vale-ai] Warning: Line ${line} out of range (1-${lines.length})`);
         return { before: '', after: '' };
@@ -230,11 +208,10 @@ export class ValeAIEvaluator {
       // Extract before context (bounded by file start)
       const beforeStart = Math.max(0, matchPosition - windowSize);
       const before = content.substring(beforeStart, matchPosition);
+ 
       
-      // Calculate match end position
       const matchEnd = matchPosition + (span[1] - span[0]);
-      
-      // Extract after context (bounded by file end)
+
       const afterEnd = Math.min(content.length, matchEnd + windowSize);
       const after = content.substring(matchEnd, afterEnd);
       
@@ -247,8 +224,12 @@ export class ValeAIEvaluator {
 
   /**
    * Normalize Vale severity to standard format
-   * @param severity Vale severity string
-   * @returns Normalized severity
+   * 
+   * Converts Vale's severity strings to a consistent format,
+   * defaulting to 'suggestion' for unknown values.
+   * 
+   * @param severity - Vale severity string (case-insensitive)
+   * @returns Normalized severity: 'error', 'warning', or 'suggestion'
    */
   private normalizeSeverity(severity: string): 'error' | 'warning' | 'suggestion' {
     const lower = severity.toLowerCase();
