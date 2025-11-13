@@ -68,3 +68,11 @@ export interface ValeIssue {
 export interface ValeAIConfig {
   contextWindowSize: number;
 }
+
+export interface BatchSuggestionResponse {
+  suggestions: {
+    findingIndex: number;
+    suggestion: string;
+  }[];
+}
+

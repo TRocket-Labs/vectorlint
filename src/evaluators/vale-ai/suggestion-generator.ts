@@ -1,67 +1,33 @@
-/**
- * SuggestionGenerator for AI-enhanced Vale suggestions
- * 
- * This module generates context-aware suggestions for Vale findings
- * by batching all findings into a single LLM request for efficiency.
- */
-
 import { LLMProvider } from '../../providers/llm-provider';
 import { ValeFinding, Context } from './types';
+import { loadPrompts, type PromptFile } from '../../prompts/prompt-loader';
+import { buildCriteriaJsonSchema, CriteriaResult } from '../../prompts/schema';
 
-/**
- * Structured output schema for batch suggestion generation
- */
-interface BatchSuggestionResponse {
-  suggestions: {
-    findingIndex: number;
-    suggestion: string;
-  }[];
-}
-
-/**
- * JSON Schema for batch suggestion structured output
- */
-const BATCH_SUGGESTION_SCHEMA = {
-  name: 'batch_suggestions',
-  schema: {
-    type: 'object',
-    properties: {
-      suggestions: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            findingIndex: {
-              type: 'number',
-              description: 'Zero-based index of the finding this suggestion is for',
-            },
-            suggestion: {
-              type: 'string',
-              description: 'Context-aware explanation and fix recommendation',
-            },
-          },
-          required: ['findingIndex', 'suggestion'],
-          additionalProperties: false,
-        },
-      },
-    },
-    required: ['suggestions'],
-    additionalProperties: false,
-  },
-};
-
-/**
- * Generates AI-enhanced suggestions for Vale findings
- */
 export class SuggestionGenerator {
-  constructor(private llmProvider: LLMProvider) {}
+  private promptsPath: string;
+  private valePrompt: PromptFile | null = null;
+
+  constructor(
+    private llmProvider: LLMProvider,
+    promptsPath: string = 'prompts'
+  ) {
+    this.promptsPath = promptsPath;
+  }
 
   /**
-   * Generate AI suggestions for a batch of Vale findings
+   * Generate AI suggestions for a batch of Vale findings using VectorLint prompts
+   * 
+   * Uses the vale-suggestion-generator.md prompt to evaluate findings and generate
+   * context-aware suggestions through the VectorLint criteria system.
+   * 
+   * Error handling:
+   * - LLM failures: Falls back to Vale's original descriptions
+   * - Missing suggestions: Uses Vale's description for that finding
+   * - Malformed responses: Parses available suggestions, uses fallbacks for rest
    * 
    * @param findings - Array of Vale findings to generate suggestions for
    * @param contextWindows - Map of findings to their context windows
-   * @returns Map of findings to their AI-generated suggestions
+   * @returns Map of findings to their AI-generated suggestions (never empty)
    */
   async generateBatch(
     findings: ValeFinding[],
@@ -71,35 +37,34 @@ export class SuggestionGenerator {
       return new Map();
     }
 
-    const prompt = this.buildBatchPrompt(findings, contextWindows);
     const resultMap = new Map<ValeFinding, string>();
 
     try {
-      // Call LLM with structured output schema
-      const response = await this.llmProvider.runPromptStructured<BatchSuggestionResponse>(
-        '', // No separate content needed, prompt contains everything
-        prompt,
-        BATCH_SUGGESTION_SCHEMA
-      );
-
-      // Map suggestions back to findings by index
-      if (response.suggestions && Array.isArray(response.suggestions)) {
-        for (const item of response.suggestions) {
-          const finding = findings[item.findingIndex];
-          if (finding && item.suggestion) {
-            resultMap.set(finding, item.suggestion);
-          }
+      if (!this.valePrompt) {
+        const { prompts } = loadPrompts(this.promptsPath);
+        this.valePrompt = prompts.find(p => p.filename === 'vale-suggestion-generator.md') || null;
+        
+        if (!this.valePrompt) {
+          throw new Error('vale-suggestion-generator.md prompt not found');
         }
       }
 
-      // For any findings without suggestions, use Vale's original description
+      const content = this.buildBatchContent(findings, contextWindows);
+
+      const response = await this.llmProvider.runPromptStructured<CriteriaResult>(
+        content,
+        this.valePrompt.body,
+        buildCriteriaJsonSchema()
+      );
+
+      this.extractSuggestionsFromCriteria(findings, response, resultMap);
+
       for (const finding of findings) {
         if (!resultMap.has(finding)) {
           resultMap.set(finding, finding.description);
         }
       }
     } catch (error) {
-      // On LLM failure, use Vale's original descriptions for all findings
       console.warn('[vale-ai] Failed to generate AI suggestions:', error);
       for (const finding of findings) {
         resultMap.set(finding, finding.description);
@@ -110,38 +75,88 @@ export class SuggestionGenerator {
   }
 
   /**
-   * Build a batch prompt for multiple Vale findings
+   * Build content for VectorLint evaluation containing all Vale findings
+   * 
+   * Creates structured content that the VectorLint prompt can evaluate:
+   * - Numbered findings for reference
+   * - Rule name, matched text, and context for each finding
+   * - Vale's original description
    * 
    * @param findings - Array of Vale findings
    * @param contexts - Map of findings to their context windows
-   * @returns Formatted prompt string
+   * @returns Formatted content string for VectorLint evaluation
    */
-  private buildBatchPrompt(
+  private buildBatchContent(
     findings: ValeFinding[],
     contexts: Map<ValeFinding, Context>
   ): string {
-    const promptParts = [
-      'You are a writing improvement assistant. For each Vale finding below,',
-      'provide a context-aware suggestion explaining why it\'s an issue and',
-      'how to fix it. Be specific and actionable.\n',
+    const contentParts = [
+      'Vale Findings for Suggestion Generation:\n',
     ];
 
     findings.forEach((finding, index) => {
       const context = contexts.get(finding);
       
-      promptParts.push(`Finding ${index}:`);
-      promptParts.push(`Rule: ${finding.rule}`);
-      promptParts.push(`Match: '${finding.match}'`);
+      contentParts.push(`Finding ${index}:`);
+      contentParts.push(`Rule: ${finding.rule}`);
+      contentParts.push(`Severity: ${finding.severity}`);
+      contentParts.push(`Match: "${finding.match}"`);
       
       if (context) {
         const contextPreview = `${context.before}${finding.match}${context.after}`;
-        promptParts.push(`Context: '${contextPreview}'`);
+        contentParts.push(`Context: "${contextPreview}"`);
       }
       
-      promptParts.push(`Vale says: '${finding.description}'`);
-      promptParts.push(''); // Blank line between findings
+      contentParts.push(`Vale Description: "${finding.description}"`);
+      contentParts.push(`Location: ${finding.file}:${finding.line}:${finding.column}`);
+      contentParts.push(''); // Blank line between findings
     });
 
-    return promptParts.join('\n');
+    return contentParts.join('\n');
+  }
+
+  /**
+   * Extract suggestions from VectorLint criteria results
+   * 
+   * Processes the structured criteria output to extract actionable suggestions
+   * for each Vale finding. Maps suggestions back to findings using the index.
+   * 
+   * @param findings - Original array of Vale findings
+   * @param criteriaResult - VectorLint evaluation result
+   * @param resultMap - Map to populate with finding -> suggestion mappings
+   */
+  private extractSuggestionsFromCriteria(
+    findings: ValeFinding[],
+    criteriaResult: CriteriaResult,
+    resultMap: Map<ValeFinding, string>
+  ): void {
+    // Process violations from all criteria to extract suggestions
+    for (const criterion of criteriaResult.criteria) {
+      for (const violation of criterion.violations) {
+        // Try to match violation to a finding by looking for finding index in the violation text
+        const findingMatch = violation.pre.match(/Finding (\d+):/);
+        if (findingMatch && findingMatch[1]) {
+          const findingIndex = parseInt(findingMatch[1], 10);
+          const finding = findings[findingIndex];
+          
+          if (finding && !resultMap.has(finding)) {
+            const suggestion = violation.suggestion || 
+              `${violation.analysis} ${violation.suggestion}`.trim() ||
+              criterion.summary;
+            
+            resultMap.set(finding, suggestion);
+          }
+        }
+      }
+
+      if (criterion.violations.length === 0 && criterion.summary) {
+        for (const finding of findings) {
+          if (!resultMap.has(finding)) {
+            resultMap.set(finding, criterion.summary);
+            break; // Only apply to first unmatched finding to avoid duplicates
+          }
+        }
+      }
+    }
   }
 }
