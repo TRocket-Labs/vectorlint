@@ -20,6 +20,7 @@ export const PROMPT_CRITERION_SCHEMA = z.object({
 // Prompt metadata schema for YAML frontmatter
 export const PROMPT_META_SCHEMA = z.object({
   specVersion: z.union([z.string(), z.number()]).optional(),
+  evaluator: z.enum(['base-llm', 'technical-accuracy']).optional(),
   id: z.string().optional(),
   name: z.string().optional(),
   threshold: z.number().min(0).optional(),
