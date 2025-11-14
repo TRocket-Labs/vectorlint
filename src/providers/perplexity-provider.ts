@@ -10,14 +10,13 @@ export class PerplexitySearchProvider {
   private client: Perplexity;
   private maxResults: number;
   private maxTokensPerPage: number;
-  private debug?: boolean;
+  private debug: boolean;
 
   constructor(config: PerplexitySearchConfig = {}) {
-    // API key automatically read from process.env.PERPLEXITY_API_KEY
     this.client = new Perplexity();
     this.maxResults = config.maxResults ?? 5;
     this.maxTokensPerPage = config.maxTokensPerPage ?? 1024;
-    this.debug = config.debug;
+    this.debug = config.debug ?? false;
   }
 
   async search(query: string) {

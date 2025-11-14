@@ -168,13 +168,13 @@ program
       process.exit(1);
     }
     
-        const provider = createProvider(env, {
+    const provider = createProvider(env, {
       debug: cliOptions.verbose,
       showPrompt: cliOptions.showPrompt,
       showPromptTrunc: cliOptions.showPromptTrunc,
       debugJson: cliOptions.debugJson,
-    }, new DefaultRequestBuilder(directive));
-    
+    },
+    new DefaultRequestBuilder(directive)); 
     
     if (cliOptions.verbose) {
       const directiveLen = directive ? directive.length : 0;
