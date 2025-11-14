@@ -117,3 +117,38 @@ export function createMockAnthropicClient(createFn: (params: unknown) => Promise
     },
   };
 }
+
+
+/**
+ * Perplexity mock schemas + factory for tests
+ */
+
+export const MOCK_PERPLEXITY_SEARCH_PARAMS_SCHEMA = z.object({
+  query: z.string(),
+  max_results: z.number().optional(),
+  max_tokens_per_page: z.number().optional(),
+});
+
+export type MockPerplexitySearchParams = z.infer<typeof MOCK_PERPLEXITY_SEARCH_PARAMS_SCHEMA>;
+
+export interface MockPerplexityClient {
+  search: {
+    create: (params: MockPerplexitySearchParams) => Promise<unknown>;
+  };
+}
+
+/**
+ * Factory that validates params at runtime and forwards to provided createFn.
+ */
+export function createMockPerplexityClient(
+  createFn: (params: MockPerplexitySearchParams) => Promise<unknown>
+): MockPerplexityClient {
+  return {
+    search: {
+      create: async (params: MockPerplexitySearchParams) => {
+        MOCK_PERPLEXITY_SEARCH_PARAMS_SCHEMA.parse(params);
+        return createFn(params);
+      },
+    },
+  };
+}
