@@ -6,6 +6,7 @@ A command-line tool that evaluates Markdown content using LLMs and provides qual
 ## Features
 
 - **LLM-based** - Uses LLMs to check content quality
+- **Real-time Verification** - Technical accuracy evaluator uses search APIs to verify factual claims
 - **CLI Support** - Run locally or in CI/CD pipelines
 - **Consistent Evaluations** - Write structured evaluation prompts to get consistent evaluation results
 - **Quality Scores & Thresholds** - Set scores and thresholds for your quality standards
@@ -58,16 +59,18 @@ ANTHROPIC_MAX_TOKENS=4096
 ANTHROPIC_TEMPERATURE=0.2
 ```
 
-### Perplexity Search
+### Perplexity Search (Optional)
 
-Configure perplexity in your `.env` file for optional online search for fact verification:
+VectorLint supports real-time fact verification through the Perplexity API. This enables the technical accuracy evaluator to verify claims against current information.
+
+Get your API key from [Perplexity Settings](https://www.perplexity.ai/settings/api), then configure in your `.env` file:
 
 ```bash
-# Perplexity Configuration
-
-SEARCH_PROVIDER=perplexity
+# Perplexity Configuration (optional - required for technical-accuracy evaluator)
 PERPLEXITY_API_KEY=pplx-your-api-key-here
 ```
+
+**Note:** If `PERPLEXITY_API_KEY` is not set, prompts using `evaluator: technical-accuracy` will fail. Standard LLM-based prompts (`evaluator: base-llm`) work without it.
 
 
 ### Temperature Recommendations
@@ -103,6 +106,72 @@ Prompts are markdown files. VectorLint loads all `.md` files from `PromptsPath` 
 - Prompts do not need a placeholder; the file content is injected automatically as a separate message
 - Prompts start with a YAML frontmatter block that defines the evaluation criteria (names, weights, and optional thresholds/severities). Keep the body human‑readable
 - VectorLint enforces a structured JSON response via the API and parses scores automatically - you don't need to specify output format in your prompts
+
+#### Evaluator Types
+
+VectorLint supports two evaluator types, specified in the prompt frontmatter:
+
+**`evaluator: base-llm` (default)**
+- Standard LLM-based evaluation using the model's training data
+- No external dependencies required
+- Best for subjective quality checks (clarity, tone, style)
+
+**`evaluator: technical-accuracy`**
+- Uses real-time search to verify factual claims
+- Requires `PERPLEXITY_API_KEY` environment variable
+- Best for verifying technical facts, API behaviors, version info, etc.
+
+Example frontmatter:
+
+```yaml
+---
+specVersion: 1.0.0
+evaluator: technical-accuracy  # or base-llm (default)
+threshold: 20
+severity: error
+name: Technical Accuracy
+id: TechnicalAccuracy
+criteria:
+  - name: Technical Accuracy
+    id: TechnicalAccuracy
+    weight: 20
+    severity: error
+---
+```
+
+See `prompts/hallucination-detector.md` for a complete technical accuracy example.
+
+## Technical Accuracy Evaluator
+
+The technical accuracy evaluator verifies factual claims in your content using real-time search. This is useful for catching:
+
+- Outdated API behaviors or features
+- Incorrect version numbers or release dates
+- Fabricated tool names or libraries
+- Unsupported technical claims
+
+### How It Works
+
+1. **Extract Claims** - LLM identifies factual, statistical, and technical claims in your content
+2. **Generate Queries** - LLM creates optimized search queries for each claim
+3. **Search** - Perplexity API finds current, authoritative information
+4. **Evaluate** - LLM assesses accuracy by comparing claims against search results
+5. **Report** - Violations include line numbers, analysis, and suggestions
+
+### Example
+
+Given content claiming "React 19 was released in 2023", the evaluator:
+- Extracts the claim
+- Searches for "React 19 release date"
+- Finds that React 19 was released in 2024
+- Reports a violation with the correct information
+
+### Setup
+
+1. Get a Perplexity API key from https://www.perplexity.ai/settings/api
+2. Add to `.env`: `PERPLEXITY_API_KEY=pplx-your-key`
+3. Create a prompt with `evaluator: technical-accuracy`
+4. Run VectorLint on your content
 
 ## Usage
 
