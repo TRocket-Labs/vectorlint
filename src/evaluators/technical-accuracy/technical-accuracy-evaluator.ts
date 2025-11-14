@@ -149,20 +149,32 @@ export class TechnicalAccuracyEvaluator implements Evaluator {
    */
   private async searchClaims(queries: SearchQuery[]): Promise<Map<string, SearchResult>> {
     const results = new Map<string, SearchResult>();
+    let authErrorShown = false;
 
     for (const query of queries) {
       try {
         const searchResult = await this.searchProvider.search(query.query);
         results.set(query.claim, searchResult);
       } catch (error) {
-        // Log warning but continue with other claims
-        console.warn(`[vectorlint] Search failed for claim "${query.claim}": ${error}`);
+        // Extract clean error message
+        const errorMessage = error instanceof Error ? error.message : String(error);
         
-        // Store empty result
+        // For authentication errors, show detailed message once
+        if (errorMessage.includes('authentication failed') && !authErrorShown) {
+          console.error('\n[vectorlint] ❌ Perplexity API authentication failed');
+          console.error('[vectorlint] Please check your .env file and ensure PERPLEXITY_API_KEY is set correctly.');
+          console.error('[vectorlint] Get your API key from: https://www.perplexity.ai/settings/api\n');
+          authErrorShown = true;
+        } else if (!errorMessage.includes('authentication failed')) {
+          // For other errors, show brief warning
+          console.warn(`[vectorlint] Search failed for claim "${query.claim.substring(0, 60)}...": ${errorMessage}`);
+        }
+        
+        // Store empty result so evaluation can continue
         results.set(query.claim, {
           query: query.query,
           sources: [],
-          summary: 'Search failed',
+          summary: 'Search unavailable',
         });
       }
     }

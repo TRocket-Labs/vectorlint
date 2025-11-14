@@ -86,8 +86,36 @@ export class PerplexityProvider implements SearchProvider {
         // Perplexity search API doesn't provide a summary, so we omit it
       };
     } catch (err: unknown) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      throw new Error(`Perplexity API search failed: ${error.message}`);
+      // Parse error for better messaging
+      let errorMessage = 'Unknown error';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        
+        // Check for common API errors
+        if (errorMessage.includes('401')) {
+          throw new Error(
+            'Perplexity API authentication failed (401). ' +
+            'Please check that PERPLEXITY_API_KEY is set correctly in your .env file.'
+          );
+        } else if (errorMessage.includes('429')) {
+          throw new Error(
+            'Perplexity API rate limit exceeded (429). ' +
+            'Please wait a moment and try again.'
+          );
+        } else if (errorMessage.includes('403')) {
+          throw new Error(
+            'Perplexity API access forbidden (403). ' +
+            'Please verify your API key has the required permissions.'
+          );
+        } else if (errorMessage.includes('500') || errorMessage.includes('502') || errorMessage.includes('503')) {
+          throw new Error(
+            'Perplexity API server error. The service may be temporarily unavailable.'
+          );
+        }
+      }
+      
+      throw new Error(`Perplexity API search failed: ${errorMessage}`);
     }
   }
 }

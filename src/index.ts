@@ -6,7 +6,7 @@ import { createProvider } from './providers/provider-factory';
 import { PerplexitySearchProvider } from './providers/perplexity-provider';
 import { loadConfig } from './boundaries/config-loader';
 import { loadPrompts, type PromptFile } from './prompts/prompt-loader';
-import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/schema';
+import type { CriteriaResult } from './prompts/schema';
 import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines } from './output/reporter';
 import { locateEvidence } from './output/location';
 import { DefaultRequestBuilder } from './providers/request-builder';
@@ -18,6 +18,7 @@ import { readPromptMappingFromIni, resolvePromptMapping, aliasForPromptPath, isM
 import { parseCliOptions, parseValidateOptions, parseEnvironment } from './boundaries/index';
 import { handleUnknownError } from './errors/index';
 import { createEvaluator } from './evaluators/evaluator-registry';
+import { PerplexityProvider } from './providers/search-provider';
 
 // Best-effort .env loader without external deps
 function loadDotEnv(): void {
@@ -176,6 +177,22 @@ program
       debugJson: cliOptions.debugJson,
     }, new DefaultRequestBuilder(directive));
     
+    // Create search provider for technical accuracy evaluator (optional)
+    let searchProvider: PerplexityProvider | undefined;
+    try {
+      if (process.env.PERPLEXITY_API_KEY) {
+        searchProvider = new PerplexityProvider(process.env.PERPLEXITY_API_KEY);
+        if (cliOptions.verbose) {
+          console.log('[vectorlint] Search provider (Perplexity) initialized');
+        }
+      } else if (cliOptions.verbose) {
+        console.log('[vectorlint] PERPLEXITY_API_KEY not set; technical-accuracy evaluator unavailable');
+      }
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'Creating search provider');
+      console.warn(`[vectorlint] Warning: ${err.message}`);
+      searchProvider = undefined;
+    }
     
     if (cliOptions.verbose) {
       const directiveLen = directive ? directive.length : 0;
@@ -298,7 +315,7 @@ program
             const evaluatorType = meta.evaluator || 'base-llm';
             
             // Create evaluator via registry
-            const evaluator = createEvaluator(evaluatorType, provider, p);
+            const evaluator = createEvaluator(evaluatorType, provider, p, searchProvider);
             
             // Run evaluation
             const result = await evaluator.evaluate(relFile, content);
@@ -414,144 +431,7 @@ program
                   console.warn(`[vectorlint] Warning: ${err.message}`);
                   hadOperationalErrors = true;
                 }
-                
-      let verificationStatus = '';
-      let verificationJustification = '';
-      let verificationLink = '';
-
-      try {
-        const apiKey = process.env.PERPLEXITY_API_KEY;
-
-        // --- 1️⃣ Guard: Missing API key ---
-        if (!apiKey) {
-          verificationStatus = 'not verified';
-          verificationJustification = 'PERPLEXITY_API_KEY missing; skipping online verification.';
-        }
-
-        // --- 2️⃣ Guard: No analyzable text ---
-        else if (!v.analysis || v.analysis.trim().length < 6) {
-          verificationStatus = 'not checked';
-          verificationJustification = 'No analyzable factual claim provided.';
-        }
-
-        // --- 3️⃣ Bing search & LLM verification ---
-        else {
-          const claim = v.analysis.trim();;
-          const searchClaim = claim.match(/Sentence:\s*(.*?)(?:\s*Issue:|$)/s)?.[1]?.trim() ?? claim;
-
-          const perplexity = new PerplexitySearchProvider({debug: false});
-          const snippets = await perplexity.search(searchClaim);
-
-
-
-          if (snippets.length === 0) {
-            verificationStatus = 'unverifiable';
-            verificationJustification = 'No relevant search results found.';
-          } else {
-            // --- Build verification prompt ---
-            const llmPrompt = `
-      You are a **fact verification agent** assisting a hallucination detector.
-
-      Task:
-      Check whether the following statement is supported, unsupported, or unverifiable
-      based on recent web search snippets.
-
-      Definitions:
-      - supported → credible evidence clearly agrees with the statement.
-      - unsupported → evidence contradicts or disproves the statement.
-      - unverifiable → no clear evidence either way, or claim is too broad/general.
-
-
-      Statement:
-      "${claim}"
-
-      Search Snippets:
-      ${snippets.map((s, i) => `[${i + 1}] ${s.snippet} (${s.url})`).join('\n')}
-
-      Respond ONLY in JSON:
-      {
-        "status": "supported|unsupported|unverifiable",
-        "justification": "brief reason (max 25 words)",
-        "link": "most relevant supporting or contradicting source if available"
-      }
-      `;
-
-            // --- Send to shared provider ---
-            const llmRespRaw = await provider.runPromptStructured<any>(
-              llmPrompt,
-              '',
-              {
-                name: 'VerificationSchema',
-                schema: {
-                  type: 'object',
-                  properties: {
-                    status: { type: 'string', enum: ['supported', 'unsupported', 'unverifiable'] },
-                    justification: { type: 'string' },
-                    link: { type: 'string' },
-                  },
-                  required: ['status', 'justification'],
-                },
-              }
-            );
-
-            // --- Parse & normalize output ---
-          let llmResp: any;
-
-          if (typeof llmRespRaw === 'string') {
-            try {
-              llmResp = JSON.parse(llmRespRaw);
-            } catch (err) {
-              console.warn('[vectorlint] ⚠️ Failed to parse LLM JSON response:', err);
-              console.warn('[vectorlint] Raw response preview:', llmRespRaw.slice(0, 200));
-              llmResp = { status: 'unverifiable', justification: 'Invalid JSON from LLM', raw: llmRespRaw };
-            }
-          } else {
-            llmResp = llmRespRaw || {};
-          }
-          const statusRaw = (llmResp.status || '').toLowerCase();
-
-
-          if (statusRaw.includes('unsupport')) {
-            verificationStatus = 'unsupported';
-          } else if (statusRaw.includes('support')) {
-            verificationStatus = 'supported';
-          } else {
-            verificationStatus = 'unverifiable';
-          }
-
-
-            verificationJustification = llmResp.justification?.trim() || 'No justification provided.';
-            verificationLink = llmResp.link || snippets[0]?.url || '';
-          }
-        }
-      } catch (e: any) {
-        verificationStatus = 'error';
-        verificationJustification = e?.message || String(e);
-        console.error('❌ Verification error:', e);
-      }
-
-      // --- 🧾 Output summary row ---
-      let rowSummary = (v.analysis || '').trim();
-      rowSummary += verificationStatus ? ` [${verificationStatus}]` : '';
-      if (verificationJustification) rowSummary += ` — ${verificationJustification}`;
-      if (verificationLink) rowSummary += ` (${verificationLink})`;
-
-      // --- Determine severity for display ---
-      let finalStatus = status; // inherited from rule
-      if (verificationStatus === 'unsupported') finalStatus = 'error';
-      else if (verificationStatus === 'unverifiable') finalStatus = 'warning';
-      else if (verificationStatus === 'supported') finalStatus = 'ok';
-
-      const suggestionText =
-        verificationStatus === 'unsupported'
-          ? `Correct this claim; evidence contradicts it.${verificationLink ? ` See: ${verificationLink}` : ''}`
-          : verificationStatus === 'unverifiable'
-          ? `Provide or cite a credible source for this statement.${verificationLink ? ` See: ${verificationLink}` : ''}`
-          : verificationStatus === 'error'
-          ? 'Verification failed; check Bing or Azure connectivity.'
-          : '';
-
-      printIssueRow(locStr, finalStatus, rowSummary, ruleName, suggestionText ? { suggestion: suggestionText } : {});
+                printIssueRow(locStr, status, v.analysis, ruleName, { suggestion: v.suggestion });
 
 
               }

@@ -1,15 +1,9 @@
 import type { Evaluator } from './evaluator';
 import type { LLMProvider } from '../providers/llm-provider';
 import type { PromptFile } from '../schemas/prompt-schemas';
+import type { SearchProvider } from '../providers/search-provider';
 import { BaseLLMEvaluator } from './base-llm-evaluator';
-
-/**
- * Search provider interface (placeholder for Phase 2)
- * Will be implemented in src/providers/search-provider.ts
- */
-export interface SearchProvider {
-  search(query: string): Promise<unknown>;
-}
+import { TechnicalAccuracyEvaluator } from './technical-accuracy/technical-accuracy-evaluator';
 
 /**
  * Factory function type for creating evaluators
@@ -75,4 +69,11 @@ export function createEvaluator(
 // Register built-in evaluators
 registerEvaluator('base-llm', (llmProvider, prompt) => {
   return new BaseLLMEvaluator(llmProvider, prompt);
+});
+
+registerEvaluator('technical-accuracy', (llmProvider, prompt, searchProvider) => {
+  if (!searchProvider) {
+    throw new Error('technical-accuracy evaluator requires a search provider');
+  }
+  return new TechnicalAccuracyEvaluator(llmProvider, searchProvider, prompt);
 });
