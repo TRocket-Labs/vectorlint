@@ -1,4 +1,5 @@
 import Perplexity from '@perplexity-ai/perplexity_ai';
+import type { SearchProvider } from '../evaluators/evaluator-registry';
 
 export interface PerplexitySearchConfig {
   maxResults?: number;
@@ -6,7 +7,7 @@ export interface PerplexitySearchConfig {
   debug?: boolean;
 }
 
-export class PerplexitySearchProvider {
+export class PerplexitySearchProvider implements SearchProvider {
   private client: Perplexity;
   private maxResults: number;
   private maxTokensPerPage: number;
@@ -19,34 +20,33 @@ export class PerplexitySearchProvider {
     this.debug = config.debug ?? false;
   }
 
-  async search(query: string) {
-  if (!query?.trim()) throw new Error('Search query cannot be empty.');
+  async search(query: string): Promise<unknown> {
+    if (!query?.trim()) throw new Error('Search query cannot be empty.');
 
-  if (this.debug) console.log(`[Perplexity] Searching: "${query}"`);
+    if (this.debug) console.log(`[Perplexity] Searching: "${query}"`);
 
-  try {
-    const response = await this.client.search.create({
-      query,
-      max_results: this.maxResults,
-      max_tokens_per_page: this.maxTokensPerPage,
-    });
+    try {
+      const response = await this.client.search.create({
+        query,
+        max_results: this.maxResults,
+        max_tokens_per_page: this.maxTokensPerPage,
+      });
 
-    const results = (response?.results ?? []).map((r: any) => ({
-      title: r.title || 'Untitled',
-      snippet: r.snippet || '',
-      url: r.url || '',
-      date: r.date || '',
-    }));
+      const results = (response?.results ?? []).map((r: any) => ({
+        title: r.title || 'Untitled',
+        snippet: r.snippet || '',
+        url: r.url || '',
+        date: r.date || '',
+      }));
 
-    if (this.debug) {
-      console.log(`[Perplexity] Found ${results.length} results`);
-      console.log(results.slice(0, 2));
+      if (this.debug) {
+        console.log(`[Perplexity] Found ${results.length} results`);
+        console.log(results.slice(0, 2));
+      }
+
+      return results;
+    } catch (err: any) {
+      throw new Error(`Perplexity API call failed: ${err.message}`);
     }
-
-    return results;
-  } catch (err: any) {
-    throw new Error(`Perplexity API call failed: ${err.message}`);
   }
-}
-
 }
