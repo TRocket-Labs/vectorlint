@@ -69,6 +69,22 @@ SEARCH_PROVIDER=perplexity
 PERPLEXITY_API_KEY=pplx-your-api-key-here
 ```
 
+### OpenAI
+
+Configure OpenAI in your `.env` file:
+
+```bash
+# OpenAI Configuration
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your-openai-api-key-here
+OPENAI_MODEL=gpt-4o
+OPENAI_TEMPERATURE=0.2
+```
+
+**Model Options:**
+- `gpt-4o`: Best quality for comprehensive assessments (default)
+- `gpt-4o-mini`: Cost-optimized for bulk processing
+- `gpt-4-turbo`: Alternative high-quality option
 
 ### Temperature Recommendations
 
