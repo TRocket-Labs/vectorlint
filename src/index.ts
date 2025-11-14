@@ -292,13 +292,10 @@ program
               throw new Error(`Prompt ${p.filename} has no criteria in frontmatter`);
             }
             
-            // Get evaluator type from prompt metadata (default to 'base-llm')
             const evaluatorType = meta.evaluator || 'base-llm';
             
-            // Create evaluator via registry
             const evaluator = createEvaluator(evaluatorType, provider, p);
             
-            // Run evaluation
             const result = await evaluator.evaluate(relFile, content);
             
             return { ok: true as const, result };
@@ -308,7 +305,6 @@ program
           }
         });
 
-        // Print results in stable order
         for (let idx = 0; idx < toRun.length; idx++) {
           const p = toRun[idx];
           const r = results[idx];
