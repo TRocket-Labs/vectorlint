@@ -1,0 +1,27 @@
+*   [33m381aad2[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mphase-1-evaluator-pattern[m[33m, [m[1;31morigin/phase-1-evaluator-pattern[m[33m)[m Merge remote-tracking branch 'origin/phase-1-evaluator-pattern' into phase-1-evaluator-pattern
+[31m|[m[32m\[m  
+[31m|[m *   [33m845f83f[m Merge branch 'main' into phase-1-evaluator-pattern
+[31m|[m [33m|[m[34m\[m  
+* [33m|[m [34m|[m [33m463deee[m Clean up verbose block comments
+[33m|[m[33m/[m [34m/[m  
+[33m|[m [34m|[m *   [33m5059342[m[33m ([m[1;31morigin/ft/technical-accuracy[m[33m)[m Merge branch 'main' into ft/technical-accuracy
+[33m|[m [34m|[m [35m|[m[34m\[m  
+[33m|[m [34m|[m [35m|[m[34m/[m  
+[33m|[m [34m|[m[34m/[m[35m|[m   
+[33m|[m * [35m|[m   [33m295b09e[m Merge pull request #3 from TRocket-Labs/ft/vale-ai-types
+[33m|[m [1;31m|[m[1;32m\[m [35m\[m  
+[33m|[m [1;31m|[m * [35m|[m [33m0f81eb9[m feat(types): add Vale AI type definitions for CLI integration
+[33m|[m [1;31m|[m[1;31m/[m [35m/[m  
+[33m|[m * [35m|[m [33m99543ed[m docs: add OpenAI config to doc
+[33m|[m [1;32m|[m [35m|[m * [33mf47bd9c[m[33m ([m[1;31morigin/feat/hallucination-detection[m[33m, [m[1;32mfeat/hallucination-detection[m[33m)[m Remove unused imports from index.ts
+[33m|[m [1;32m|[m [35m|[m * [33m85b5e88[m Add technical accuracy evaluator documentation (Phase 5)
+[33m|[m [1;32m|[m [35m|[m * [33maf5c15c[m Improve error handling for search failures
+[33m|[m [1;32m|[m [35m|[m * [33m7cd171f[m Implement technical accuracy evaluator with search verification (Phase 4)
+[33m|[m [1;32m|[m [35m|[m * [33m973d102[m Add claim extraction and query generation (Phase 3)
+[33m|[m [1;32m|[m [35m|[m * [33m0f9e905[m Add search provider interface and Perplexity implementation (Phase 2)
+[33m|[m [1;32m|[m[33m_[m[35m|[m[33m/[m  
+[33m|[m[33m/[m[1;32m|[m [35m|[m   
+* [1;32m|[m [35m|[m [33m5cb504f[m Implement evaluator pattern foundation (Phase 1)
+[35m|[m [1;32m|[m[35m/[m  
+[35m|[m[35m/[m[1;32m|[m   
+* [1;32m|[m [33m495c9eb[m[33m ([m[1;32mft/technical-accuracy[m[33m)[m feat: add tests for the perplexity provider
