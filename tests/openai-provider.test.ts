@@ -446,9 +446,7 @@ describe('OpenAIProvider', () => {
   describe('Error Handling', () => {
     it('mock sanity check', async () => {
       const mod = await import('openai');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(mod.default.APIError).toBe(mod.APIError);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(typeof mod.default.APIError).toBe('function');
       expect(typeof new mod.default().chat.completions.create).toBe('function');
     });
@@ -990,7 +988,7 @@ describe('OpenAIProvider', () => {
 
       try {
         await provider.runPromptStructured('Test content', 'Test prompt', schema);
-      } catch (error: unknown) {
+      } catch {
         // Error handling is expected, we're testing debug logs
       }
 
@@ -1036,7 +1034,6 @@ describe('OpenAIProvider', () => {
         buildPromptBodyForStructured: vi.fn().mockReturnValue('Built system prompt'),
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const provider = new OpenAIProvider(config, mockBuilder);
       const schema = {
         name: 'test_schema',
