@@ -6,7 +6,6 @@ import { createProvider } from './providers/provider-factory';
 import { PerplexitySearchProvider } from './providers/perplexity-provider';
 import { loadConfig } from './boundaries/config-loader';
 import { loadPrompts, type PromptFile } from './prompts/prompt-loader';
-import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/schema';
 import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines } from './output/reporter';
 import { locateEvidence } from './output/location';
 import { DefaultRequestBuilder } from './providers/request-builder';
@@ -17,6 +16,7 @@ import { validateAll } from './prompts/prompt-validator';
 import { readPromptMappingFromIni, resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from './prompts/prompt-mapping';
 import { parseCliOptions, parseValidateOptions, parseEnvironment } from './boundaries/index';
 import { handleUnknownError } from './errors/index';
+import { createEvaluator } from './evaluators/evaluator-registry';
 
 // Best-effort .env loader without external deps
 function loadDotEnv(): void {
@@ -274,8 +274,6 @@ program
         const relFile = path.relative(process.cwd(), file) || file;
         printFileHeader(relFile);
 
-        // Build schema once
-        const schema = buildCriteriaJsonSchema();
         // Determine applicable prompts for this file
         const toRun: PromptFile[] = (() => {
           if (!mapping || !isMappingConfigured(mapping)) return prompts;
@@ -294,7 +292,13 @@ program
             if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
               throw new Error(`Prompt ${p.filename} has no criteria in frontmatter`);
             }
-            const result = await provider.runPromptStructured<CriteriaResult>(content, p.body, schema);
+            
+            const evaluatorType = meta.evaluator || 'base-llm';
+            
+            const evaluator = createEvaluator(evaluatorType, provider, p);
+            
+            const result = await evaluator.evaluate(relFile, content);
+            
             return { ok: true as const, result };
           } catch (e: unknown) {
             const err = handleUnknownError(e, `Running prompt ${p.filename}`);
@@ -302,7 +306,6 @@ program
           }
         });
 
-        // Print results in stable order
         for (let idx = 0; idx < toRun.length; idx++) {
           const p = toRun[idx];
           const r = results[idx];
