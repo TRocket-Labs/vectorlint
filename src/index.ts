@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from 'fs';
 import * as path from 'path';
 import { createProvider } from './providers/provider-factory';
 import { PerplexitySearchProvider } from './providers/perplexity-provider';
+import type { SearchProvider } from './providers/search-provider';
 import { loadConfig } from './boundaries/config-loader';
 import { loadPrompts, type PromptFile } from './prompts/prompt-loader';
 import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines } from './output/reporter';
@@ -18,13 +19,9 @@ import { parseCliOptions, parseValidateOptions, parseEnvironment } from './bound
 import { handleUnknownError } from './errors/index';
 import { createEvaluator } from './evaluators/evaluator-registry';
 
-/*
- * Import types and schemas for verification.
- * SearchSnippet: type for search results from external APIs
- * VERIFICATION_RESPONSE_SCHEMA: validates LLM verification responses at boundary
- */
-import type { VerificationResponse } from './schemas/search-schemas.js';
-import { VERIFICATION_RESPONSE_SCHEMA } from './schemas/search-schemas.js';
+// Import evaluators to trigger self-registration
+import './evaluators/base-llm-evaluator';
+import './evaluators/technical-accuracy-evaluator';
 
 // Best-effort .env loader without external deps
 function loadDotEnv(): void {
@@ -293,6 +290,11 @@ program
           });
         })();
 
+        // Create search provider if API key is available
+        const searchProvider: SearchProvider | undefined = process.env.PERPLEXITY_API_KEY
+          ? new PerplexitySearchProvider({ debug: false })
+          : undefined;
+
         // Run applicable prompts concurrently per config.concurrency
         const results = await runWithConcurrency(toRun, config.concurrency, async (p, _idx) => {
           try {
@@ -303,7 +305,7 @@ program
             
             const evaluatorType = meta.evaluator || 'base-llm';
             
-            const evaluator = createEvaluator(evaluatorType, provider, p);
+            const evaluator = createEvaluator(evaluatorType, provider, p, searchProvider);
             
             const result = await evaluator.evaluate(relFile, content);
             
@@ -403,10 +405,15 @@ program
               const summaryText = limited || 'No findings';
               printIssueRow('—:—', status, summaryText, ruleName, {});
             } else {
-              // Print one row per finding; include score on the first row
+              /*
+               * Print one row per violation.
+               * Note: If using technical-accuracy evaluator, the analysis field
+               * will already contain verification results (status, justification, link).
+               */
               for (let i = 0; i < violations.length; i++) {
                 const v = violations[i];
                 if (!v) continue;
+                
                 let locStr = '—:—';
                 try {
                   const loc = locateEvidence(content, { pre: v.pre, post: v.post });
@@ -417,152 +424,9 @@ program
                   console.warn(`[vectorlint] Warning: ${err.message}`);
                   hadOperationalErrors = true;
                 }
-                
-      let verificationStatus = '';
-      let verificationJustification = '';
-      let verificationLink = '';
 
-      try {
-        const apiKey = process.env.PERPLEXITY_API_KEY;
-
-        // --- 1️⃣ Guard: Missing API key ---
-        if (!apiKey) {
-          verificationStatus = 'not verified';
-          verificationJustification = 'PERPLEXITY_API_KEY missing; skipping online verification.';
-        }
-
-        // --- 2️⃣ Guard: No analyzable text ---
-        else if (!v.analysis || v.analysis.trim().length < 6) {
-          verificationStatus = 'not checked';
-          verificationJustification = 'No analyzable factual claim provided.';
-        }
-
-        // --- 3️⃣ Bing search & LLM verification ---
-        else {
-          const claim = v.analysis.trim();;
-          const searchClaim = claim.match(/Sentence:\s*(.*?)(?:\s*Issue:|$)/s)?.[1]?.trim() ?? claim;
-
-          const perplexity = new PerplexitySearchProvider({debug: false});
-          const snippets: Array<{ snippet: string; url: string; title?: string; date?: string }> = await perplexity.search(searchClaim);
-
-
-
-          if (snippets.length === 0) {
-            verificationStatus = 'unverifiable';
-            verificationJustification = 'No relevant search results found.';
-          } else {
-            // --- Build verification prompt ---
-            const llmPrompt = `
-      You are a **fact verification agent** assisting a hallucination detector.
-
-      Task:
-      Check whether the following statement is supported, unsupported, or unverifiable
-      based on recent web search snippets.
-
-      Definitions:
-      - supported → credible evidence clearly agrees with the statement.
-      - unsupported → evidence contradicts or disproves the statement.
-      - unverifiable → no clear evidence either way, or claim is too broad/general.
-
-
-      Statement:
-      "${claim}"
-
-      Search Snippets:
-      ${snippets.map((s, i) => `[${i + 1}] ${s.snippet} (${s.url})`).join('\n')}
-
-      Respond ONLY in JSON:
-      {
-        "status": "supported|unsupported|unverifiable",
-        "justification": "brief reason (max 25 words)",
-        "link": "most relevant supporting or contradicting source if available"
-      }
-      `;
-
-            /*
-             * Send verification prompt to LLM with structured output.
-             * Response is untrusted external data, so we type it as unknown.
-             */
-            const llmRespRaw: unknown = await provider.runPromptStructured(
-              llmPrompt,
-              '',
-              {
-                name: 'VerificationSchema',
-                schema: {
-                  type: 'object',
-                  properties: {
-                    status: { type: 'string', enum: ['supported', 'unsupported', 'unverifiable'] },
-                    justification: { type: 'string' },
-                    link: { type: 'string' },
-                  },
-                  required: ['status', 'justification'],
-                },
-              }
-            );
-
-            /*
-             * Parse and validate LLM response using schema.
-             * External LLM data is untrusted, so we validate at the boundary.
-             */
-            let llmResp: VerificationResponse;
-
-            try {
-              if (typeof llmRespRaw === 'string') {
-                const parsed: unknown = JSON.parse(llmRespRaw);
-                llmResp = VERIFICATION_RESPONSE_SCHEMA.parse(parsed);
-              } else {
-                llmResp = VERIFICATION_RESPONSE_SCHEMA.parse(llmRespRaw);
-              }
-            } catch (e: unknown) {
-              const err = e instanceof Error ? e : new Error(String(e));
-              console.warn('[vectorlint] ⚠️ Failed to validate LLM response:', err.message);
-              if (typeof llmRespRaw === 'string') {
-                console.warn('[vectorlint] Raw response preview:', llmRespRaw.slice(0, 200));
-              }
-              // Fallback to unverifiable with safe defaults
-              llmResp = {
-                status: 'unverifiable',
-                justification: 'Invalid response from LLM',
-              };
-            }
-
-            // Extract verification results from validated response
-            verificationStatus = llmResp.status;
-            verificationJustification = llmResp.justification;
-            verificationLink = llmResp.link || snippets[0]?.url || '';
-          }
-        }
-      } catch (e: unknown) {
-        const err = e instanceof Error ? e : new Error(String(e));
-        verificationStatus = 'error';
-        verificationJustification = err.message;
-        console.error('❌ Verification error:', err);
-      }
-
-      // --- 🧾 Output summary row ---
-      let rowSummary = (v.analysis || '').trim();
-      rowSummary += verificationStatus ? ` [${verificationStatus}]` : '';
-      if (verificationJustification) rowSummary += ` — ${verificationJustification}`;
-      if (verificationLink) rowSummary += ` (${verificationLink})`;
-
-      // --- Determine severity for display ---
-      let finalStatus = status; // inherited from rule
-      if (verificationStatus === 'unsupported') finalStatus = 'error';
-      else if (verificationStatus === 'unverifiable') finalStatus = 'warning';
-      else if (verificationStatus === 'supported') finalStatus = 'ok';
-
-      const suggestionText =
-        verificationStatus === 'unsupported'
-          ? `Correct this claim; evidence contradicts it.${verificationLink ? ` See: ${verificationLink}` : ''}`
-          : verificationStatus === 'unverifiable'
-          ? `Provide or cite a credible source for this statement.${verificationLink ? ` See: ${verificationLink}` : ''}`
-          : verificationStatus === 'error'
-          ? 'Verification failed; check Bing or Azure connectivity.'
-          : '';
-
-      printIssueRow(locStr, finalStatus, rowSummary, ruleName, suggestionText ? { suggestion: suggestionText } : {});
-
-
+                const rowSummary = (v.analysis || '').trim();
+                printIssueRow(locStr, status, rowSummary, ruleName, {});
               }
             }
             // Record score for summary list
