@@ -1,23 +1,61 @@
 import type { Evaluator } from './evaluator';
 import type { LLMProvider } from '../providers/llm-provider';
+import type { SearchProvider } from '../providers/search-provider';
 import type { PromptFile } from '../schemas/prompt-schemas';
-import { BaseLLMEvaluator } from './base-llm-evaluator';
 
-// Placeholder for Phase 2 - will be implemented in src/providers/search-provider.ts
-export interface SearchProvider {
-  search(query: string): Promise<unknown>;
-}
-
+/*
+ * Factory function signature for creating evaluators.
+ * Evaluators can optionally depend on search providers for fact verification.
+ */
 export type EvaluatorFactory = (
   llmProvider: LLMProvider,
   prompt: PromptFile,
   searchProvider?: SearchProvider
 ) => Evaluator;
 
-const EVALUATOR_REGISTRY = new Map<string, EvaluatorFactory>();
+/*
+ * EvaluatorRegistry manages evaluator type registration and instantiation.
+ * Evaluators self-register by calling registerEvaluator() in their module.
+ */
+class EvaluatorRegistry {
+  private registry = new Map<string, EvaluatorFactory>();
 
+  register(type: string, factory: EvaluatorFactory): void {
+    if (this.registry.has(type)) {
+      throw new Error(`Evaluator type '${type}' is already registered`);
+    }
+    this.registry.set(type, factory);
+  }
+
+  create(
+    type: string,
+    llmProvider: LLMProvider,
+    prompt: PromptFile,
+    searchProvider?: SearchProvider
+  ): Evaluator {
+    const factory = this.registry.get(type);
+    
+    if (!factory) {
+      const available = Array.from(this.registry.keys()).join(', ');
+      throw new Error(
+        `Unknown evaluator type: '${type}'. Available types: ${available || 'none'}`
+      );
+    }
+
+    return factory(llmProvider, prompt, searchProvider);
+  }
+
+  getRegisteredTypes(): string[] {
+    return Array.from(this.registry.keys());
+  }
+}
+
+// Singleton instance
+const REGISTRY = new EvaluatorRegistry();
+
+// Public API
 export function registerEvaluator(type: string, factory: EvaluatorFactory): void {
-  EVALUATOR_REGISTRY.set(type, factory);
+  REGISTRY.register(type, factory);
 }
 
 export function createEvaluator(
@@ -26,25 +64,9 @@ export function createEvaluator(
   prompt: PromptFile,
   searchProvider?: SearchProvider
 ): Evaluator {
-  const factory = EVALUATOR_REGISTRY.get(type);
-  
-  if (!factory) {
-    const available = Array.from(EVALUATOR_REGISTRY.keys()).join(', ');
-    throw new Error(
-      `Unknown evaluator type: '${type}'. Available types: ${available || 'none'}`
-    );
-  }
-
-  // Phase 2 will add 'technical-accuracy' which requires searchProvider
-  if (type === 'technical-accuracy' && !searchProvider) {
-    throw new Error(
-      `Evaluator type '${type}' requires a search provider, but none was provided`
-    );
-  }
-
-  return factory(llmProvider, prompt, searchProvider);
+  return REGISTRY.create(type, llmProvider, prompt, searchProvider);
 }
 
-registerEvaluator('base-llm', (llmProvider, prompt) => {
-  return new BaseLLMEvaluator(llmProvider, prompt);
-});
+export function getRegisteredEvaluatorTypes(): string[] {
+  return REGISTRY.getRegisteredTypes();
+}

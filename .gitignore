@@ -4,6 +4,7 @@ dist/
 *.log
 .DS_Store
 .vscode/
+.idea/
 coverage/
 *.tsbuildinfo
 vectorlint.ini
