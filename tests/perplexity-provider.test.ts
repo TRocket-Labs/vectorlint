@@ -16,7 +16,7 @@ vi.mock('@perplexity-ai/perplexity_ai', () => {
   };
 });
 
-const mockResults = [
+const MOCK_RESULTS = [
   {
     title: 'AI Overview',
     snippet: 'AI tools in 2025 are evolving fast.',
@@ -50,7 +50,7 @@ describe('PerplexitySearchProvider', () => {
 
   describe('Search behavior', () => {
     it('calls the Perplexity API with valid parameters and normalizes results', async () => {
-      SHARED_CREATE.mockResolvedValueOnce({ results: mockResults });
+      SHARED_CREATE.mockResolvedValueOnce({ results: MOCK_RESULTS });
 
       const provider = new PerplexitySearchProvider({ maxResults: 2, maxTokensPerPage: 512 });
       const res = await provider.search('AI tools in 2025');
@@ -61,17 +61,23 @@ describe('PerplexitySearchProvider', () => {
         max_tokens_per_page: 512,
       });
 
-      expect(res).toEqual(mockResults);
+      expect(res).toEqual(MOCK_RESULTS);
     });
 
     it('handles optional max_results and tokens by sending defaults when not specified', async () => {
       // provider default constructor sets maxResults=5 and maxTokensPerPage=1024
-      SHARED_CREATE.mockResolvedValueOnce({ results: mockResults });
+      SHARED_CREATE.mockResolvedValueOnce({ results: MOCK_RESULTS });
 
       const provider = new PerplexitySearchProvider();
       await provider.search('modern LLM architectures');
 
-      const args = SHARED_CREATE.mock.calls[0][0];
+      const args = SHARED_CREATE.mock.calls[0]?.[0] as {
+        query: string;
+        max_results?: number;
+        max_tokens_per_page?: number;
+      } | undefined;
+
+      expect(args).toBeDefined();
       expect(args).toHaveProperty('query', 'modern LLM architectures');
       // provider sets defaults; tests should expect those defaults to be present
       expect(args).toHaveProperty('max_results', 5);
@@ -110,7 +116,7 @@ describe('PerplexitySearchProvider', () => {
 
   describe('Debug logging', () => {
     it('logs debug info when debug is enabled', async () => {
-      SHARED_CREATE.mockResolvedValueOnce({ results: mockResults });
+      SHARED_CREATE.mockResolvedValueOnce({ results: MOCK_RESULTS });
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       const provider = new PerplexitySearchProvider({ debug: true });
 
@@ -126,7 +132,7 @@ describe('PerplexitySearchProvider', () => {
     });
 
     it('does not log when debug is disabled', async () => {
-      SHARED_CREATE.mockResolvedValueOnce({ results: mockResults });
+      SHARED_CREATE.mockResolvedValueOnce({ results: MOCK_RESULTS });
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       const provider = new PerplexitySearchProvider({ debug: false });
 

@@ -1,5 +1,7 @@
+// eslint-disable-next-line import-x/no-unresolved -- External package without published types
 import Perplexity from '@perplexity-ai/perplexity_ai';
 import type { SearchProvider } from '../evaluators/evaluator-registry';
+import { PERPLEXITY_RESPONSE_SCHEMA, type PerplexityResult } from '../schemas/perplexity-responses';
 
 export interface PerplexitySearchConfig {
   maxResults?: number;
@@ -20,24 +22,24 @@ export class PerplexitySearchProvider implements SearchProvider {
     this.debug = config.debug ?? false;
   }
 
-  async search(query: string): Promise<unknown> {
+  async search(query: string): Promise<PerplexityResult[]> {
     if (!query?.trim()) throw new Error('Search query cannot be empty.');
 
     if (this.debug) console.log(`[Perplexity] Searching: "${query}"`);
 
     try {
-      const response = await this.client.search.create({
+      const rawResponse: unknown = await this.client.search.create({
         query,
         max_results: this.maxResults,
         max_tokens_per_page: this.maxTokensPerPage,
       });
 
-      const results = (response?.results ?? []).map((r: any) => ({
-        title: r.title || 'Untitled',
-        snippet: r.snippet || '',
-        url: r.url || '',
-        date: r.date || '',
-      }));
+      /*
+       * Validate response with schema at boundary.
+       * Schema provides defaults for missing fields and ensures type safety.
+       */
+      const validated = PERPLEXITY_RESPONSE_SCHEMA.parse(rawResponse);
+      const results = validated.results;
 
       if (this.debug) {
         console.log(`[Perplexity] Found ${results.length} results`);
@@ -45,7 +47,8 @@ export class PerplexitySearchProvider implements SearchProvider {
       }
 
       return results;
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
       throw new Error(`Perplexity API call failed: ${err.message}`);
     }
   }

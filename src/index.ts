@@ -18,6 +18,14 @@ import { parseCliOptions, parseValidateOptions, parseEnvironment } from './bound
 import { handleUnknownError } from './errors/index';
 import { createEvaluator } from './evaluators/evaluator-registry';
 
+/*
+ * Import types and schemas for verification.
+ * SearchSnippet: type for search results from external APIs
+ * VERIFICATION_RESPONSE_SCHEMA: validates LLM verification responses at boundary
+ */
+import type { VerificationResponse } from './schemas/search-schemas.js';
+import { VERIFICATION_RESPONSE_SCHEMA } from './schemas/search-schemas.js';
+
 // Best-effort .env loader without external deps
 function loadDotEnv(): void {
   const candidates = ['.env', '.env.local'];
@@ -435,7 +443,7 @@ program
           const searchClaim = claim.match(/Sentence:\s*(.*?)(?:\s*Issue:|$)/s)?.[1]?.trim() ?? claim;
 
           const perplexity = new PerplexitySearchProvider({debug: false});
-          const snippets = await perplexity.search(searchClaim);
+          const snippets: Array<{ snippet: string; url: string; title?: string; date?: string }> = await perplexity.search(searchClaim);
 
 
 
@@ -471,8 +479,11 @@ program
       }
       `;
 
-            // --- Send to shared provider ---
-            const llmRespRaw = await provider.runPromptStructured<any>(
+            /*
+             * Send verification prompt to LLM with structured output.
+             * Response is untrusted external data, so we type it as unknown.
+             */
+            const llmRespRaw: unknown = await provider.runPromptStructured(
               llmPrompt,
               '',
               {
@@ -489,40 +500,43 @@ program
               }
             );
 
-            // --- Parse & normalize output ---
-          let llmResp: any;
+            /*
+             * Parse and validate LLM response using schema.
+             * External LLM data is untrusted, so we validate at the boundary.
+             */
+            let llmResp: VerificationResponse;
 
-          if (typeof llmRespRaw === 'string') {
             try {
-              llmResp = JSON.parse(llmRespRaw);
-            } catch (err) {
-              console.warn('[vectorlint] ⚠️ Failed to parse LLM JSON response:', err);
-              console.warn('[vectorlint] Raw response preview:', llmRespRaw.slice(0, 200));
-              llmResp = { status: 'unverifiable', justification: 'Invalid JSON from LLM', raw: llmRespRaw };
+              if (typeof llmRespRaw === 'string') {
+                const parsed: unknown = JSON.parse(llmRespRaw);
+                llmResp = VERIFICATION_RESPONSE_SCHEMA.parse(parsed);
+              } else {
+                llmResp = VERIFICATION_RESPONSE_SCHEMA.parse(llmRespRaw);
+              }
+            } catch (e: unknown) {
+              const err = e instanceof Error ? e : new Error(String(e));
+              console.warn('[vectorlint] ⚠️ Failed to validate LLM response:', err.message);
+              if (typeof llmRespRaw === 'string') {
+                console.warn('[vectorlint] Raw response preview:', llmRespRaw.slice(0, 200));
+              }
+              // Fallback to unverifiable with safe defaults
+              llmResp = {
+                status: 'unverifiable',
+                justification: 'Invalid response from LLM',
+              };
             }
-          } else {
-            llmResp = llmRespRaw || {};
-          }
-          const statusRaw = (llmResp.status || '').toLowerCase();
 
-
-          if (statusRaw.includes('unsupport')) {
-            verificationStatus = 'unsupported';
-          } else if (statusRaw.includes('support')) {
-            verificationStatus = 'supported';
-          } else {
-            verificationStatus = 'unverifiable';
-          }
-
-
-            verificationJustification = llmResp.justification?.trim() || 'No justification provided.';
+            // Extract verification results from validated response
+            verificationStatus = llmResp.status;
+            verificationJustification = llmResp.justification;
             verificationLink = llmResp.link || snippets[0]?.url || '';
           }
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
+        const err = e instanceof Error ? e : new Error(String(e));
         verificationStatus = 'error';
-        verificationJustification = e?.message || String(e);
-        console.error('❌ Verification error:', e);
+        verificationJustification = err.message;
+        console.error('❌ Verification error:', err);
       }
 
       // --- 🧾 Output summary row ---
