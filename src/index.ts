@@ -3,6 +3,8 @@ import { program } from 'commander';
 import { readFileSync, existsSync } from 'fs';
 import * as path from 'path';
 import { createProvider } from './providers/provider-factory';
+import { PerplexitySearchProvider } from './providers/perplexity-provider';
+import type { SearchProvider } from './providers/search-provider';
 import { loadConfig } from './boundaries/config-loader';
 import { loadPrompts, type PromptFile } from './prompts/prompt-loader';
 import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines } from './output/reporter';
@@ -16,6 +18,10 @@ import { readPromptMappingFromIni, resolvePromptMapping, aliasForPromptPath, isM
 import { parseCliOptions, parseValidateOptions, parseEnvironment } from './boundaries/index';
 import { handleUnknownError } from './errors/index';
 import { createEvaluator } from './evaluators/evaluator-registry';
+
+// Import evaluators to trigger self-registration
+import './evaluators/base-llm-evaluator';
+import './evaluators/technical-accuracy-evaluator';
 
 // Best-effort .env loader without external deps
 function loadDotEnv(): void {
@@ -172,7 +178,8 @@ program
       showPrompt: cliOptions.showPrompt,
       showPromptTrunc: cliOptions.showPromptTrunc,
       debugJson: cliOptions.debugJson,
-    }, new DefaultRequestBuilder(directive));
+    },
+    new DefaultRequestBuilder(directive)); 
     
     if (cliOptions.verbose) {
       const directiveLen = directive ? directive.length : 0;
@@ -283,6 +290,11 @@ program
           });
         })();
 
+        // Create search provider if API key is available
+        const searchProvider: SearchProvider | undefined = process.env.PERPLEXITY_API_KEY
+          ? new PerplexitySearchProvider({ debug: false })
+          : undefined;
+
         // Run applicable prompts concurrently per config.concurrency
         const results = await runWithConcurrency(toRun, config.concurrency, async (p, _idx) => {
           try {
@@ -293,7 +305,7 @@ program
             
             const evaluatorType = meta.evaluator || 'base-llm';
             
-            const evaluator = createEvaluator(evaluatorType, provider, p);
+            const evaluator = createEvaluator(evaluatorType, provider, p, searchProvider);
             
             const result = await evaluator.evaluate(relFile, content);
             
@@ -393,10 +405,15 @@ program
               const summaryText = limited || 'No findings';
               printIssueRow('—:—', status, summaryText, ruleName, {});
             } else {
-              // Print one row per finding; include score on the first row
+              /*
+               * Print one row per violation.
+               * Note: If using technical-accuracy evaluator, the analysis field
+               * will already contain verification results (status, justification, link).
+               */
               for (let i = 0; i < violations.length; i++) {
                 const v = violations[i];
                 if (!v) continue;
+                
                 let locStr = '—:—';
                 try {
                   const loc = locateEvidence(content, { pre: v.pre, post: v.post });
@@ -407,10 +424,9 @@ program
                   console.warn(`[vectorlint] Warning: ${err.message}`);
                   hadOperationalErrors = true;
                 }
+
                 const rowSummary = (v.analysis || '').trim();
-                const suggestion = status !== 'ok' && v.suggestion ? v.suggestion : undefined;
-                const opts = suggestion ? { suggestion } : {};
-                printIssueRow(locStr, status, rowSummary, ruleName, opts);
+                printIssueRow(locStr, status, rowSummary, ruleName, {});
               }
             }
             // Record score for summary list
