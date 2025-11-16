@@ -5,7 +5,6 @@ import * as path from 'path';
 import { createProvider } from './providers/provider-factory';
 import { loadConfig } from './boundaries/config-loader';
 import { loadPrompts, type PromptFile } from './prompts/prompt-loader';
-import { buildCriteriaJsonSchema, type CriteriaResult } from './prompts/schema';
 import { printFileHeader, printIssueRow, printGlobalSummary, printPromptOverallLine, printValidationRow, printCriterionScoreLines } from './output/reporter';
 import { locateEvidence } from './output/location';
 import { DefaultRequestBuilder } from './providers/request-builder';
