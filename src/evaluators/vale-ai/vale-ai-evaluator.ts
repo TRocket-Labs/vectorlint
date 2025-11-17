@@ -5,10 +5,10 @@ import { SuggestionGenerator } from './suggestion-generator.js';
 import { 
   ValeAIResult, 
   ValeFinding, 
-  ValeOutput, 
   Context, 
   ValeAIConfig 
 } from './types.js';
+import { ValeOutput } from '../../schemas/vale-responses.js';
 
 export class ValeAIEvaluator {
   private fileContentCache: Map<string, string> = new Map();
@@ -22,16 +22,15 @@ export class ValeAIEvaluator {
     this.suggestionGenerator = new SuggestionGenerator(llmProvider);
   }
 
-
+  /**
+   * Evaluate files using Vale CLI with AI-enhanced suggestions
+   * @param files Optional array of file paths. If not provided, Vale uses its own discovery
+   * @returns ValeAIResult with findings and AI suggestions
+   */
   async evaluate(files?: string[]): Promise<ValeAIResult> {
     this.fileContentCache.clear();
     
-    let valeOutput: ValeOutput;
-    try {
-      valeOutput = await this.valeRunner.run(files);
-    } catch (error) {
-      throw error;
-    }
+    const valeOutput = await this.valeRunner.run(files);
     
     if (Object.keys(valeOutput).length === 0) {
       return { findings: [] };
@@ -98,59 +97,11 @@ export class ValeAIEvaluator {
       }
     }
     
-    // Transform to ValeAIResult with AI suggestions
-    return this.transformToValeAIResult(valeOutput, suggestions, contextWindows);
-  }
-
-  /**
-   * Transform Vale output and AI suggestions to ValeAIResult
-   * 
-   * Flattens Vale's file-grouped output into a single array of findings,
-   * combining Vale's rule-based data with AI suggestions and context windows.
-   * 
-   * @param valeOutput - Raw Vale CLI output (filename → issues)
-   * @param suggestions - Map of findings to AI-generated suggestions
-   * @param contextWindows - Map of findings to context windows
-   * @returns ValeAIResult with all findings, suggestions, and context
-   */
-  private transformToValeAIResult(
-    valeOutput: ValeOutput,
-    suggestions: Map<ValeFinding, string>,
-    contextWindows: Map<ValeFinding, Context>
-  ): ValeAIResult {
-    const findings: ValeFinding[] = [];
-    
-    for (const [filename, issues] of Object.entries(valeOutput)) {
-      for (const issue of issues) {
-        const matchingFinding = Array.from(suggestions.keys()).find(
-          f => f.file === filename && 
-               f.line === issue.Line && 
-               f.column === issue.Span[0] &&
-               f.rule === issue.Check
-        );
-        
-        if (!matchingFinding) {
-          console.warn(`[vale-ai] Warning: Could not find suggestion for ${filename}:${issue.Line}`);
-          continue;
-        }
-        
-        const suggestion = suggestions.get(matchingFinding) ?? issue.Description;
-        
-        const context = contextWindows.get(matchingFinding) ?? { before: '', after: '' };
-        
-        const finding: ValeFinding = {
-          file: filename,
-          line: issue.Line,
-          column: issue.Span[0],
-          severity: this.normalizeSeverity(issue.Severity),
-          rule: issue.Check,
-          match: issue.Match,
-          description: issue.Description,
-          suggestion,
-          context
-        };
-        
-        findings.push(finding);
+    // Apply AI suggestions to findings
+    for (const finding of findings) {
+      const suggestion = suggestions.get(finding);
+      if (suggestion) {
+        finding.suggestion = suggestion;
       }
     }
     
@@ -176,12 +127,27 @@ export class ValeAIEvaluator {
     try {
       const content = readFileSync(filename, 'utf-8');
       this.fileContentCache.set(filename, content);
-    } catch (error) {
-      console.warn(`[vale-ai] Warning: Failed to read file ${filename}: ${error}`);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      console.warn(`[vale-ai] Warning: Failed to read file ${filename}: ${err.message}`);
+      // Store empty string to avoid repeated read attempts
       this.fileContentCache.set(filename, '');
     }
   }
 
+  /**
+   * Extract context window around a Vale finding
+   * 
+   * Uses character-based windows (not line-based) to provide consistent context
+   * regardless of line length. This ensures AI suggestion generators receive
+   * enough surrounding text to understand the issue context.
+   * 
+   * @param content Full file content
+   * @param line Line number (1-indexed from Vale)
+   * @param span Column span [start, end] (1-indexed from Vale)
+   * @param windowSize Number of characters before/after the match
+   * @returns Context object with before and after text
+   */
   private extractContextWindow(
     content: string,
     line: number,
@@ -190,13 +156,15 @@ export class ValeAIEvaluator {
   ): Context {
     try {
       const lines = content.split('\n');
-
+      
+      // Validate line number
       if (line < 1 || line > lines.length) {
         console.warn(`[vale-ai] Warning: Line ${line} out of range (1-${lines.length})`);
         return { before: '', after: '' };
       }
       
       // Calculate character position of the line start
+      // Lines array is validated above, so we know indices are safe
       let charPosition = 0;
       for (let i = 0; i < line - 1; i++) {
         charPosition += (lines[i]?.length ?? 0) + 1; // +1 for newline
@@ -208,16 +176,16 @@ export class ValeAIEvaluator {
       // Extract before context (bounded by file start)
       const beforeStart = Math.max(0, matchPosition - windowSize);
       const before = content.substring(beforeStart, matchPosition);
- 
       
       const matchEnd = matchPosition + (span[1] - span[0]);
-
+      
       const afterEnd = Math.min(content.length, matchEnd + windowSize);
       const after = content.substring(matchEnd, afterEnd);
       
       return { before, after };
-    } catch (error) {
-      console.warn(`[vale-ai] Warning: Failed to extract context: ${error}`);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      console.warn(`[vale-ai] Warning: Failed to extract context: ${err.message}`);
       return { before: '', after: '' };
     }
   }

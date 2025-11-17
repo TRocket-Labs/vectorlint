@@ -1,19 +1,7 @@
-/**
- * Result from Vale AI evaluation
- * 
- * Contains all findings with AI-enhanced suggestions and context windows.
- */
 export interface ValeAIResult {
   findings: ValeFinding[];
 }
 
-/**
- * A single Vale finding with AI-enhanced suggestion
- * 
- * Combines Vale's rule-based finding with:
- * - AI-generated context-aware suggestion
- * - Context window (text before/after the issue)
- */
 export interface ValeFinding {
   file: string;
   line: number;
@@ -26,13 +14,6 @@ export interface ValeFinding {
   context: Context;
 }
 
-/**
- * Context window containing text before and after an issue
- * 
- * Used to provide surrounding text to the LLM for generating
- * context-aware suggestions. The window size is configurable
- * via ValeAIConfig.contextWindowSize.
- */
 export interface Context {
   before: string;
   after: string;

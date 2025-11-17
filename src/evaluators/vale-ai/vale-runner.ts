@@ -1,5 +1,5 @@
 import { spawn, execSync } from 'child_process';
-import { ValeOutput } from './types';
+import { VALE_OUTPUT_SCHEMA, type ValeOutput } from '../../schemas/vale-responses';
 
 /**
  * Handles Vale CLI execution and output parsing
@@ -12,7 +12,6 @@ export class ValeRunner {
    * to verify it's accessible in the system PATH.
    * 
    * @returns true if Vale is installed and accessible, false otherwise
-   * 
    */
   isInstalled(): boolean {
     try {
@@ -31,7 +30,6 @@ export class ValeRunner {
    * Executes `vale --version` and parses the version number.
    * 
    * @returns Vale version (e.g., "2.29.0") or empty string if not installed
-   * 
    */
   async getVersion(): Promise<string> {
     return new Promise((resolve) => {
@@ -76,11 +74,6 @@ export class ValeRunner {
    * @throws Error if Vale is not installed (with platform-specific installation instructions)
    * @throws Error if Vale configuration is invalid (with Vale's error message)
    * @throws Error if JSON output cannot be parsed (with raw output for debugging)
-   * 
-   * @example
-   * ```typescript
-   * const runner = new ValeRunner();
-   * 
    */
   async run(files?: string[]): Promise<ValeOutput> {
     if (!this.isInstalled()) {
@@ -110,12 +103,13 @@ export class ValeRunner {
       });
       
       valeProcess.on('close', (code: number | null) => {
-
+        // Exit code 2 indicates configuration or execution error
         if (code === 2) {
           reject(this.createValeConfigError(stderr));
           return;
         }
         
+        // Warn about missing configuration but continue
         if (stderr.includes('.vale.ini') || stderr.includes('config')) {
           console.warn(this.createMissingConfigWarning());
         }
@@ -126,7 +120,8 @@ export class ValeRunner {
             return;
           }
           
-          const valeOutput: ValeOutput = JSON.parse(stdout);
+          const raw: unknown = JSON.parse(stdout);
+          const valeOutput = VALE_OUTPUT_SCHEMA.parse(raw);
           resolve(valeOutput);
         } catch (error) {
           reject(this.createJsonParseError(stdout, error));
@@ -153,7 +148,7 @@ export class ValeRunner {
    */
   private createValeNotInstalledError(): Error {
     const platform = process.platform;
-    let instructions = '';
+    let instructions = 'See https://vale.sh/docs/vale-cli/installation/';
     
     if (platform === 'darwin') {
       instructions = 'macOS:   brew install vale';
@@ -161,8 +156,6 @@ export class ValeRunner {
       instructions = 'Linux:   See https://vale.sh/docs/vale-cli/installation/';
     } else if (platform === 'win32') {
       instructions = 'Windows: choco install vale';
-    } else {
-      instructions = 'See https://vale.sh/docs/vale-cli/installation/';
     }
     
     return new Error(

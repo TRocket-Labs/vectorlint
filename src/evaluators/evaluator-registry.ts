@@ -1,73 +1,72 @@
-/**
- * Evaluator Registry
- * 
- * Central registry for all evaluator types with factory functions.
- * Evaluators can have different dependencies (LLM providers, runners, etc.)
- */
+import type { Evaluator } from './evaluator';
+import type { LLMProvider } from '../providers/llm-provider';
+import type { SearchProvider } from '../providers/search-provider';
+import type { PromptFile } from '../schemas/prompt-schemas';
 
-import { LLMProvider } from '../providers/llm-provider.js';
-import { ValeRunner } from './vale-ai/vale-runner.js';
-import { ValeAIEvaluator } from './vale-ai/vale-ai-evaluator.js';
-import { ValeAIConfig } from './vale-ai/types.js';
-
-/**
- * Base evaluator interface
- */
-export interface Evaluator {
-  evaluate(files?: string[]): Promise<unknown>;
-}
-
-/**
- * Factory function type for creating evaluators
- * Different evaluators may require different dependencies
+/*
+ * Factory function signature for creating evaluators.
+ * Evaluators can optionally depend on search providers for fact verification.
  */
 export type EvaluatorFactory = (
   llmProvider: LLMProvider,
-  config?: ValeAIConfig,
-  valeRunner?: ValeRunner
+  prompt: PromptFile,
+  searchProvider?: SearchProvider
 ) => Evaluator;
 
-/**
- * Registry of evaluator factories
- * Maps evaluator name to its factory function
+/*
+ * EvaluatorRegistry manages evaluator type registration and instantiation.
+ * Evaluators self-register by calling registerEvaluator() in their module.
  */
-export const EVALUATOR_REGISTRY = new Map<string, EvaluatorFactory>([
-  ['vale-ai', (llmProvider: LLMProvider, config?: ValeAIConfig, valeRunner?: ValeRunner) => {
-    if (!valeRunner) {
-      throw new Error('Vale AI evaluator requires ValeRunner dependency');
+class EvaluatorRegistry {
+  private registry = new Map<string, EvaluatorFactory>();
+
+  register(type: string, factory: EvaluatorFactory): void {
+    if (this.registry.has(type)) {
+      throw new Error(`Evaluator type '${type}' is already registered`);
     }
-    
-    // Use provided config or default
-    const valeConfig: ValeAIConfig = config ?? {
-      contextWindowSize: 100
-    };
-    
-    return new ValeAIEvaluator(llmProvider, valeRunner, valeConfig);
-  }],
-]);
+    this.registry.set(type, factory);
+  }
 
-/**
- * Get an evaluator factory by name
- * @param name Evaluator name (e.g., 'vale-ai')
- * @returns Factory function or undefined if not found
- */
-export function getEvaluatorFactory(name: string): EvaluatorFactory | undefined {
-  return EVALUATOR_REGISTRY.get(name);
+  create(
+    type: string,
+    llmProvider: LLMProvider,
+    prompt: PromptFile,
+    searchProvider?: SearchProvider
+  ): Evaluator {
+    const factory = this.registry.get(type);
+    
+    if (!factory) {
+      const available = Array.from(this.registry.keys()).join(', ');
+      throw new Error(
+        `Unknown evaluator type: '${type}'. Available types: ${available || 'none'}`
+      );
+    }
+
+    return factory(llmProvider, prompt, searchProvider);
+  }
+
+  getRegisteredTypes(): string[] {
+    return Array.from(this.registry.keys());
+  }
 }
 
-/**
- * Check if an evaluator is registered
- * @param name Evaluator name
- * @returns True if evaluator exists in registry
- */
-export function hasEvaluator(name: string): boolean {
-  return EVALUATOR_REGISTRY.has(name);
+// Singleton instance
+const REGISTRY = new EvaluatorRegistry();
+
+// Public API
+export function registerEvaluator(type: string, factory: EvaluatorFactory): void {
+  REGISTRY.register(type, factory);
 }
 
-/**
- * Get list of all registered evaluator names
- * @returns Array of evaluator names
- */
-export function getRegisteredEvaluators(): string[] {
-  return Array.from(EVALUATOR_REGISTRY.keys());
+export function createEvaluator(
+  type: string,
+  llmProvider: LLMProvider,
+  prompt: PromptFile,
+  searchProvider?: SearchProvider
+): Evaluator {
+  return REGISTRY.create(type, llmProvider, prompt, searchProvider);
+}
+
+export function getRegisteredEvaluatorTypes(): string[] {
+  return REGISTRY.getRegisteredTypes();
 }
