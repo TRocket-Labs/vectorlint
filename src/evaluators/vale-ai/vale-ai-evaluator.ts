@@ -3,8 +3,6 @@ import { ValeRunner } from './vale-runner.js';
 import { 
   ValeAIResult, 
   ValeFinding, 
-  ValeOutput, 
-  ValeIssue, 
   Context, 
   ValeAIConfig 
 } from './types.js';
@@ -84,8 +82,9 @@ export class ValeAIEvaluator {
     try {
       const content = readFileSync(filename, 'utf-8');
       this.fileContentCache.set(filename, content);
-    } catch (error) {
-      console.warn(`[vale-ai] Warning: Failed to read file ${filename}: ${error}`);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      console.warn(`[vale-ai] Warning: Failed to read file ${filename}: ${err.message}`);
       // Store empty string to avoid repeated read attempts
       this.fileContentCache.set(filename, '');
     }
@@ -93,10 +92,15 @@ export class ValeAIEvaluator {
 
   /**
    * Extract context window around a Vale finding
+   * 
+   * Uses character-based windows (not line-based) to provide consistent context
+   * regardless of line length. This ensures AI suggestion generators receive
+   * enough surrounding text to understand the issue context.
+   * 
    * @param content Full file content
-   * @param line Line number (1-indexed)
-   * @param span Column span [start, end] (1-indexed)
-   * @param windowSize Number of characters to extract before and after
+   * @param line Line number (1-indexed from Vale)
+   * @param span Column span [start, end] (1-indexed from Vale)
+   * @param windowSize Number of characters before/after the match
    * @returns Context object with before and after text
    */
   private extractContextWindow(
@@ -115,6 +119,7 @@ export class ValeAIEvaluator {
       }
       
       // Calculate character position of the line start
+      // Lines array is validated above, so we know indices are safe
       let charPosition = 0;
       for (let i = 0; i < line - 1; i++) {
         charPosition += (lines[i]?.length ?? 0) + 1; // +1 for newline
@@ -131,8 +136,9 @@ export class ValeAIEvaluator {
       const after = content.substring(matchEnd, afterEnd);
       
       return { before, after };
-    } catch (error) {
-      console.warn(`[vale-ai] Warning: Failed to extract context: ${error}`);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      console.warn(`[vale-ai] Warning: Failed to extract context: ${err.message}`);
       return { before: '', after: '' };
     }
   }
