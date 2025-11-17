@@ -1,8 +1,3 @@
-/**
- * Validation error classes for type-safe error handling
- * These classes provide proper error chaining and detailed error information
- */
-
 export class ValidationError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
     super(message);
@@ -58,9 +53,6 @@ export class MockValidationError extends ValidationError {
   }
 }
 
-/**
- * Utility function to create validation errors with proper cause chaining
- */
 export function createValidationError(
   message: string,
   cause?: unknown,
@@ -84,23 +76,14 @@ export function isValidationError(error: unknown): error is ValidationError {
   return error instanceof ValidationError;
 }
 
-/**
- * Type guard to check if an error is an API response error
- */
 export function isAPIResponseError(error: unknown): error is APIResponseError {
   return error instanceof APIResponseError;
 }
 
-/**
- * Type guard to check if an error is a schema validation error
- */
 export function isSchemaValidationError(error: unknown): error is SchemaValidationError {
   return error instanceof SchemaValidationError;
 }
 
-/**
- * Type guard to check if an error is a mock validation error
- */
 export function isMockValidationError(error: unknown): error is MockValidationError {
   return error instanceof MockValidationError;
 }

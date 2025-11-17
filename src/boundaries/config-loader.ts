@@ -24,7 +24,7 @@ function isSupportedPattern(p: string): boolean {
 }
 
 /**
- * Load and validate configuration from vectorlint.ini file
+ * Load and validate configuration from vectorlint.ini file	
  */
 export function loadConfig(cwd: string = process.cwd()): Config {
   const iniPath = path.resolve(cwd, 'vectorlint.ini');

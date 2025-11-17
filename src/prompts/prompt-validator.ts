@@ -104,4 +104,3 @@ export function validateAll(prompts: PromptFile[]): { errors: Validation[]; warn
   }
   return { errors, warnings };
 }
-

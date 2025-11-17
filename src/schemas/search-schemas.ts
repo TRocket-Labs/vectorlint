@@ -1,9 +1,5 @@
 import { z } from 'zod';
 
-/**
- * Schema for search snippet used in verification.
- * Represents a single search result with required snippet and url.
- */
 export const SEARCH_SNIPPET_SCHEMA = z.object({
   snippet: z.string(),
   url: z.string(),

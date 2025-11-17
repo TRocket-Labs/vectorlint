@@ -1,9 +1,6 @@
 import { CLI_OPTIONS_SCHEMA, VALIDATE_OPTIONS_SCHEMA, type CliOptions, type ValidateOptions } from '../schemas/cli-schemas';
 import { ValidationError, handleUnknownError } from '../errors/index';
 
-/**
- * Parse and validate CLI options from Commander.js
- */
 export function parseCliOptions(raw: unknown): CliOptions {
   try {
     return CLI_OPTIONS_SCHEMA.parse(raw);
@@ -17,9 +14,6 @@ export function parseCliOptions(raw: unknown): CliOptions {
   }
 }
 
-/**
- * Parse and validate validate command options
- */
 export function parseValidateOptions(raw: unknown): ValidateOptions {
   try {
     return VALIDATE_OPTIONS_SCHEMA.parse(raw);

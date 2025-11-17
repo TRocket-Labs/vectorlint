@@ -2,10 +2,6 @@ import { z } from 'zod';
 import { ENV_SCHEMA_WITH_DEFAULTS, type EnvConfig } from '../schemas/env-schemas';
 import { ValidationError, handleUnknownError } from '../errors/index';
 
-/**
- * Parse and validate environment variables using schema validation
- * Supports both Azure OpenAI and Anthropic providers with backward compatibility
- */
 export function parseEnvironment(env: unknown = process.env): EnvConfig {
   try {
     return ENV_SCHEMA_WITH_DEFAULTS.parse(env);
@@ -20,9 +16,6 @@ export function parseEnvironment(env: unknown = process.env): EnvConfig {
   }
 }
 
-/**
- * Format validation error messages to provide clear guidance for provider-specific variables
- */
 function formatProviderValidationError(zodError: z.ZodError, env: unknown): string {
   const issues = zodError.issues;
   const envObj = typeof env === 'object' && env !== null ? env as Record<string, unknown> : {};

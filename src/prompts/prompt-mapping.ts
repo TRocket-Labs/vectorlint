@@ -133,7 +133,6 @@ export function resolvePromptMapping(filePath: string, promptId: string, mapping
   return included && !excluded;
 }
 
-/** Returns true if mapping has any includes configured (defaults, directory, or prompt). */
 export function isMappingConfigured(mapping: PromptMapping): boolean {
   if (mapping.includeDefault?.length) return true;
   for (const k of Object.keys(mapping.includeByDir || {})) {

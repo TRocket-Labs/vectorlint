@@ -1,10 +1,5 @@
 import { z } from 'zod';
 
-/**
- * Anthropic API response schemas for type-safe validation
- * These schemas validate the structure of responses from Anthropic's API
- */
-
 export const ANTHROPIC_TEXT_BLOCK_SCHEMA = z.object({
   type: z.literal('text'),
   text: z.string(),

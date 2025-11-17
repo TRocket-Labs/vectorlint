@@ -6,9 +6,6 @@ import {
 } from '../schemas/api-schemas';
 import { ValidationError, handleUnknownError } from '../errors/index';
 
-/**
- * Validate OpenAI API response using schema validation
- */
 export function validateApiResponse(raw: unknown): OpenAIResponse {
   try {
     return OPENAI_RESPONSE_SCHEMA.parse(raw);
@@ -22,9 +19,6 @@ export function validateApiResponse(raw: unknown): OpenAIResponse {
   }
 }
 
-/**
- * Validate Anthropic API response using schema validation
- */
 export function validateAnthropicResponse(raw: unknown): AnthropicMessage {
   try {
     return ANTHROPIC_MESSAGE_SCHEMA.parse(raw);

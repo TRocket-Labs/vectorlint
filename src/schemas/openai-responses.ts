@@ -1,10 +1,5 @@
 import { z } from 'zod';
 
-/**
- * OpenAI API response schemas for type-safe validation
- * These schemas validate the structure of responses from OpenAI's API
- */
-
 export const OPENAI_MESSAGE_SCHEMA = z.object({
   content: z.string().nullable(),
   role: z.string().optional(),
