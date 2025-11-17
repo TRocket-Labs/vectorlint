@@ -119,6 +119,14 @@ export default defineConfig([
         }
     },
 
+    // CLI command modules can use process.exit
+    {
+        files: ["src/cli/commands.ts", "src/cli/validate-command.ts"],
+        rules: {
+            "n/no-process-exit": "off"
+        }
+    },
+
     // CommonJS override for .cjs / .cts files
     {
         files: ["**/*.{cjs,cts}"],
