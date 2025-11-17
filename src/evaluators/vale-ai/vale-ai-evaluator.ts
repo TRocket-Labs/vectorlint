@@ -57,7 +57,6 @@ export class ValeAIEvaluator {
       }
       
       for (const issue of issues) {
-        // Extract context window with error handling
         let context: Context;
         try {
           context = this.extractContextWindow(
@@ -169,8 +168,7 @@ export class ValeAIEvaluator {
       // Extract before context (bounded by file start)
       const beforeStart = Math.max(0, matchPosition - windowSize);
       const before = content.substring(beforeStart, matchPosition);
- 
-      
+    
       const matchEnd = matchPosition + (span[1] - span[0]);
       
       const afterEnd = Math.min(content.length, matchEnd + windowSize);
