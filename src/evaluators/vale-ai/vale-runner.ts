@@ -107,21 +107,21 @@ export class ValeRunner {
 
   private createValeNotInstalledError(): Error {
     const platform = process.platform;
-    let instructions = '';
-    
+    let valeInstructions = 'See https://vale.sh/docs/vale-cli/installation/';
+    const valeWindowInstructions = 'Windows: choco install vale';
+    const valeLinuxInstructions = 'Linux:   See https://vale.sh/docs/vale-cli/installation/';
+    const valeMacOsInstructions = 'macOS:   brew install vale';
     if (platform === 'darwin') {
-      instructions = 'macOS:   brew install vale';
+      valeInstructions = valeMacOsInstructions
     } else if (platform === 'linux') {
-      instructions = 'Linux:   See https://vale.sh/docs/vale-cli/installation/';
+      valeInstructions = valeLinuxInstructions
     } else if (platform === 'win32') {
-      instructions = 'Windows: choco install vale';
-    } else {
-      instructions = 'See https://vale.sh/docs/vale-cli/installation/';
+      valeInstructions = valeWindowInstructions
     }
     
     return new Error(
       `Vale is not installed or not in PATH.\n\n` +
-      `Install Vale:\n  ${instructions}\n\n` +
+      `Install Vale:\n  ${valeInstructions}\n\n` +
       `After installation, run: vectorlint vale-ai`
     );
   }
