@@ -39,26 +39,7 @@ export class SuggestionGenerator {
     this.promptsPath = promptsPath;
   }
 
-  /**
-   * Generate AI suggestions for a batch of Vale findings using VectorLint prompts
-   * 
-   * Batching strategy: All findings processed in single LLM request for efficiency.
-   * Same total tokens as individual requests, but 1 API call vs N calls.
-   * 
-   * Uses 1-based indexing for findings to match natural language references in LLM output.
-   * Format designed to enable LLM to reference specific findings in structured violations.
-   * 
-   * Error handling:
-   * - LLM failures: Falls back to Vale's original descriptions
-   * - Validation errors: Logs warning, uses Vale descriptions
-   * - Missing suggestions: Uses Vale's description for that finding
-   * - Malformed responses: Parses available suggestions, uses fallbacks for rest
-   * 
-   * @param findings - Array of Vale findings to generate suggestions for
-   * @param contextWindows - Map of findings to their context windows
-   * @returns Map of findings to their AI-generated suggestions (never empty)
-   */
-  async generateBatch(
+async generateBatch(
     findings: ValeFinding[],
     contextWindows: Map<ValeFinding, Context>
   ): Promise<Map<ValeFinding, string>> {
@@ -111,25 +92,7 @@ export class SuggestionGenerator {
     return resultMap;
   }
 
-  /**
-   * Build content for VectorLint evaluation containing all Vale findings
-   * 
-   * Format uses 1-based indexing (Finding 1, Finding 2, ...) to match natural language
-   * references in LLM output. This enables the LLM to reference specific findings in
-   * structured violation output using "Finding N:" prefix.
-   * 
-   * Each finding includes:
-   * - Rule name and severity for context
-   * - Matched text that triggered the rule
-   * - Context window (text before/after) for context-aware suggestions
-   * - Vale's original description as baseline
-   * - Location for reference
-   * 
-   * @param findings - Array of Vale findings
-   * @param contexts - Map of findings to their context windows
-   * @returns Formatted content string for VectorLint evaluation
-   */
-  private buildBatchContent(
+ private buildBatchContent(
     findings: ValeFinding[],
     contexts: Map<ValeFinding, Context>
   ): string {
@@ -159,22 +122,6 @@ export class SuggestionGenerator {
     return contentParts.join('\n');
   }
 
-  /**
-   * Extract suggestions from VectorLint criteria results
-   * 
-   * Maps LLM-generated suggestions back to Vale findings using "Finding N:" references
-   * in violation.pre field. Uses 1-based indexing to match buildBatchContent format.
-   * 
-   * Fallback strategy:
-   * 1. Use violation.suggestion if present
-   * 2. Combine violation.analysis + suggestion if suggestion is empty
-   * 3. Use criterion.summary if no violations match
-   * 4. Caller will use Vale's description if no suggestion found
-   * 
-   * @param findings - Original array of Vale findings (0-indexed)
-   * @param criteriaResult - VectorLint evaluation result (validated)
-   * @param resultMap - Map to populate with finding -> suggestion mappings
-   */
   private extractSuggestionsFromCriteria(
     findings: ValeFinding[],
     criteriaResult: CriteriaResult,

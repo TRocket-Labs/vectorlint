@@ -2,9 +2,6 @@ import * as YAML from 'yaml';
 import { PROMPT_META_SCHEMA, type PromptMeta } from '../schemas/prompt-schemas';
 import { ValidationError, ProcessingError, handleUnknownError } from '../errors/index';
 
-/**
- * Parse and validate YAML frontmatter using schema validation
- */
 export function parseYamlFrontmatter(yamlContent: string): PromptMeta {
   let raw: unknown;
   

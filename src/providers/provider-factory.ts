@@ -12,13 +12,6 @@ export interface ProviderOptions {
   debugJson?: boolean;
 }
 
-/**
- * Creates the appropriate LLM provider based on environment configuration
- * @param envConfig - Validated environment configuration
- * @param options - Debug and display options
- * @param builder - Optional request builder (for dependency injection)
- * @returns Configured LLM provider instance
- */
 export function createProvider(
   envConfig: EnvConfig,
   options: ProviderOptions = {},

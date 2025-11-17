@@ -132,7 +132,6 @@ export function printPromptOverallLine(maxScore: number, threshold?: number, use
   console.log(`  Top: ${top}, Threshold: ${thr}, Score: ${usr}`);
 }
 
-/** Print each criterion's weighted score on its own line: "<id>  x/y" */
 export function printCriterionScoreLines(entries: Array<{ id: string; scoreText: string }>) {
   for (const e of entries) {
     console.log(`  ${e.id}  ${e.scoreText}`);

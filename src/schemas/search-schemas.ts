@@ -1,9 +1,5 @@
 import { z } from 'zod';
 
-/**
- * Schema for search snippet used in verification.
- * Represents a single search result with required snippet and url.
- */
 export const SEARCH_SNIPPET_SCHEMA = z.object({
   snippet: z.string(),
   url: z.string(),
@@ -11,10 +7,6 @@ export const SEARCH_SNIPPET_SCHEMA = z.object({
   date: z.string().optional(),
 });
 
-/**
- * Schema for LLM verification response.
- * Validates the structured output from fact-checking prompts.
- */
 export const VERIFICATION_RESPONSE_SCHEMA = z.object({
   status: z.enum(['supported', 'unsupported', 'unverifiable']),
   justification: z.string(),

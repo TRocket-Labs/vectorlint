@@ -1,9 +1,6 @@
 import { spawn, execSync } from 'child_process';
 import { VALE_OUTPUT_SCHEMA, type ValeOutput } from '../../schemas/vale-responses';
 
-/**
- * Handles Vale CLI execution and output parsing
- */
 export class ValeRunner {
 
   isInstalled(): boolean {
