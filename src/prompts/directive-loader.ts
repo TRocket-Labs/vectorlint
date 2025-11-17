@@ -1,6 +1,13 @@
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 
+/**
+ * Load a directive to append to evaluation prompts.
+ * Precedence:
+ * 1) Project override: .vectorlint/directive.md in current working directory
+ * 2) Built-in: prompts/directive.md shipped with the CLI
+ * Returns empty string if none found or on read error.
+ */
 const DEFAULT_DIRECTIVE = `
 List every finding you detect.
 - If the issue occurs within a sentence, the offending word or short phrase in your evidence (example: "leverage" is an AI buzzword).

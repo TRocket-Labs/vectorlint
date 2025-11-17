@@ -7,6 +7,10 @@ export const SEARCH_SNIPPET_SCHEMA = z.object({
   date: z.string().optional(),
 });
 
+/**
+ * Schema for LLM verification response.
+ * Validates the structured output from fact-checking prompts.
+ */
 export const VERIFICATION_RESPONSE_SCHEMA = z.object({
   status: z.enum(['supported', 'unsupported', 'unverifiable']),
   justification: z.string(),

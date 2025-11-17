@@ -93,6 +93,11 @@ export function readPromptMappingFromIni(iniPath: string): PromptMapping {
   }
 }
 
+/**
+ * Resolve whether a prompt applies to a given file, with precedence:
+ * Prompt: include/exclude → Directory alias: include/exclude → Defaults
+ * Excludes union wins. If no includes exist at any level, returns false.
+ */
 export function resolvePromptMapping(filePath: string, promptId: string, mapping: PromptMapping, aliasHint?: string): boolean {
   const file = filePath.replace(/\\/g, '/');
   // Determine include precedence
@@ -139,6 +144,10 @@ export function isMappingConfigured(mapping: PromptMapping): boolean {
   return false;
 }
 
+/**
+ * Given a prompt file path and [Prompts].paths alias map, return the alias
+ * whose directory contains this prompt. Returns undefined if no match.
+ */
 export function aliasForPromptPath(promptFullPath: string, mapping: PromptMapping, cwd: string = process.cwd()): string | undefined {
   const normPrompt = path.resolve(promptFullPath).replace(/\\/g, '/');
   // Build absolute alias roots once
