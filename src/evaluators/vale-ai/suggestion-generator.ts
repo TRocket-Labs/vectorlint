@@ -120,8 +120,10 @@ export class SuggestionGenerator {
       contentParts.push(`Match: "${finding.match}"`);
       
       if (context) {
-        const contextPreview = `${context.before}${finding.match}${context.after}`;
-        contentParts.push(`Context: "${contextPreview}"`);
+        // Don't reconstruct the match - just show before and after context
+        // The match is already provided separately and Vale's span might not align perfectly
+        contentParts.push(`Context before: "${context.before}"`);
+        contentParts.push(`Context after: "${context.after}"`);
       }
       
       contentParts.push(`Vale says: "${finding.description}"`);
