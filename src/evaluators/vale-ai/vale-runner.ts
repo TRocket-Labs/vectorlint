@@ -88,7 +88,7 @@ export class ValeRunner {
             return;
           }
           
-          const valeOutput: ValeOutput = JSON.parse(stdout);
+          const valeOutput = JSON.parse(stdout) as ValeOutput;
           resolve(valeOutput);
         } catch (error) {
           reject(this.createJsonParseError(stdout, error));
