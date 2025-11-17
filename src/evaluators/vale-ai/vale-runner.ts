@@ -24,14 +24,6 @@ export class ValeRunner {
     }
   }
 
-  /**
-   * Get Vale version string
-   * 
-   * Executes `vale --version` and parses the version number.
-   * 
-   * @returns Vale version (e.g., "2.29.0") or empty string if not installed
-   * 
-   */
   async getVersion(): Promise<string> {
     return new Promise((resolve) => {
       const valeProcess = spawn('vale', ['--version'], { 
@@ -59,31 +51,6 @@ export class ValeRunner {
     });
   }
 
-  /**
-   * Run Vale CLI with JSON output
-   * 
-   * Spawns Vale as a subprocess with the --output=JSON flag and parses
-   * the results. Vale's exit codes are:
-   * - 0: No issues found
-   * - 1: Issues found (not an error)
-   * - 2: Execution error (configuration, file not found, etc.)
-   * 
-   * @param files - Optional array of file paths to check. If not provided,
-   *                Vale uses its own file discovery based on .vale.ini
-   * @returns Parsed Vale output as ValeOutput object mapping filenames to issues
-   * 
-   * @throws Error if Vale is not installed (with platform-specific installation instructions)
-   * @throws Error if Vale configuration is invalid (with Vale's error message)
-   * @throws Error if JSON output cannot be parsed (with raw output for debugging)
-<<<<<<< HEAD
-=======
-   * 
-   * @example
-   * ```typescript
-   * const runner = new ValeRunner();
-   * 
->>>>>>> 066010f576699d1def27cc46d3def7828305df56
-   */
   async run(files?: string[]): Promise<ValeOutput> {
     if (!this.isInstalled()) {
       throw this.createValeNotInstalledError();
@@ -120,7 +87,7 @@ export class ValeRunner {
         
         // Warn about missing configuration but continue
         if (stderr.includes('.vale.ini') || stderr.includes('config')) {
-          console.warn(this.createMissingConfigWarning());
+          console.warn(this.missingConfigWarning());
         }
         
         try {
@@ -157,19 +124,21 @@ export class ValeRunner {
    */
   private createValeNotInstalledError(): Error {
     const platform = process.platform;
-    let instructions = 'See https://vale.sh/docs/vale-cli/installation/';
-    
+    let valeInstructions = 'See https://vale.sh/docs/vale-cli/installation/';
+    const valeWindowInstructions = 'Windows: choco install vale';
+    const valeLinuxInstructions = 'Linux:   See https://vale.sh/docs/vale-cli/installation/';
+    const valeMacOsInstructions = 'macOS:   brew install vale';
     if (platform === 'darwin') {
-      instructions = 'macOS:   brew install vale';
+      valeInstructions = valeMacOsInstructions
     } else if (platform === 'linux') {
-      instructions = 'Linux:   See https://vale.sh/docs/vale-cli/installation/';
+      valeInstructions = valeLinuxInstructions
     } else if (platform === 'win32') {
-      instructions = 'Windows: choco install vale';
+      valeInstructions = valeWindowInstructions
     }
     
     return new Error(
       `Vale is not installed or not in PATH.\n\n` +
-      `Install Vale:\n  ${instructions}\n\n` +
+      `Install Vale:\n  ${valeInstructions}\n\n` +
       `After installation, run: vectorlint vale-ai`
     );
   }
@@ -198,7 +167,7 @@ export class ValeRunner {
    * 
    * @returns Warning message string
    */
-  private createMissingConfigWarning(): string {
+  private missingConfigWarning(): string {
     return (
       `Warning: No .vale.ini found in current directory or parents.\n\n` +
       `Vale will use default configuration. To customize:\n` +

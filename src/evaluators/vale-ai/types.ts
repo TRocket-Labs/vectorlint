@@ -19,8 +19,6 @@ export interface Context {
   after: string;
 }
 
-// Vale CLI types are now imported from schemas/vale-responses.ts
-
 export interface ValeAIConfig {
   contextWindowSize: number;
 }

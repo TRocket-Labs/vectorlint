@@ -50,36 +50,10 @@ const JSON_SCHEMA = {
   },
 };
 
-/**
- * Generates AI-enhanced suggestions for Vale findings
- * 
- * This class uses an LLM to generate context-aware suggestions that
- * explain why each Vale finding is an issue and how to fix it.
- */
 export class SuggestionGenerator {
-  /**
-   * Create a new SuggestionGenerator
-   * 
-   * @param llmProvider - LLM provider for generating suggestions
-   */
+  
   constructor(private llmProvider: LLMProvider) {}
 
-  /**
-   * Generate AI suggestions for a batch of Vale findings
-   * 
-   * Processes all findings in a single LLM request for efficiency.
-   * Each finding is numbered and the LLM returns suggestions indexed
-   * to match the input array.
-   * 
-   * Error handling:
-   * - LLM failures: Falls back to Vale's original descriptions
-   * - Missing suggestions: Uses Vale's description for that finding
-   * - Malformed responses: Parses available suggestions, uses fallbacks for rest
-   * 
-   * @param findings - Array of Vale findings to generate suggestions for
-   * @param contextWindows - Map of findings to their context windows
-   * @returns Map of findings to their AI-generated suggestions (never empty)
-   */
   async generateBatch(
     findings: ValeFinding[],
     contextWindows: Map<ValeFinding, Context>
@@ -131,19 +105,6 @@ export class SuggestionGenerator {
     return resultMap;
   }
 
-  /**
-   * Build content for batch suggestion generation
-   * 
-   * Creates a structured prompt that includes:
-   * - Instructions for the LLM
-   * - Numbered findings (for reference in structured output)
-   * - Rule name, matched text, and context for each finding
-   * - Vale's original description
-   * 
-   * @param findings - Array of Vale findings
-   * @param contexts - Map of findings to their context windows
-   * @returns Formatted content string for LLM evaluation
-   */
   private buildBatchContent(
     findings: ValeFinding[],
     contexts: Map<ValeFinding, Context>

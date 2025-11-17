@@ -113,17 +113,6 @@ export class ValeAIEvaluator {
     return { findings };
   }
 
-  /**
-   * Read and cache file content
-   * 
-   * Reads a file once and stores it in the cache to avoid repeated
-   * file system access when extracting context for multiple findings
-   * in the same file.
-   * 
-   * Error handling: If file read fails, stores empty string and logs warning.
-   * 
-   * @param filename - Path to file to read and cache
-   */
   private cacheFileContent(filename: string): void {
     if (this.fileContentCache.has(filename)) {
       return;
