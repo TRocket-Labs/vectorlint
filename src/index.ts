@@ -57,9 +57,6 @@ program
   .name('vectorlint')
   .description('AI-powered content compliance checker')
   .version('1.0.0');
-// Vale AI command is registered separately
-
-// Options are defined per command to avoid conflicts
 
 // Register commands
 registerValidateCommand(program);

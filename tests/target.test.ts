@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { loadPrompts } from '../src/prompts/prompt-loader.js';
-import { checkTarget } from '../src/prompts/target.js';
+import { loadPrompts } from '../src/prompts/prompt-loader';
+import { checkTarget } from '../src/prompts/target';
 
 function setupPrompt(yaml: string) {
   const root = mkdtempSync(path.join(tmpdir(), 'vlint-'));

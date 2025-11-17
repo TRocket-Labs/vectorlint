@@ -5,14 +5,7 @@ import { VALE_OUTPUT_SCHEMA, type ValeOutput } from '../../schemas/vale-response
  * Handles Vale CLI execution and output parsing
  */
 export class ValeRunner {
-  /**
-   * Check if Vale is installed and available in PATH
-   * 
-   * This method attempts to execute Vale with the --version flag
-   * to verify it's accessible in the system PATH.
-   * 
-   * @returns true if Vale is installed and accessible, false otherwise
-   */
+
   isInstalled(): boolean {
     try {
       execSync('vale --version', { 
@@ -114,14 +107,6 @@ export class ValeRunner {
     });
   }
 
-  /**
-   * Create error for Vale not installed
-   * 
-   * Generates a helpful error message with platform-specific installation
-   * instructions for macOS, Linux, and Windows.
-   * 
-   * @returns Error with installation instructions
-   */
   private createValeNotInstalledError(): Error {
     const platform = process.platform;
     let valeInstructions = 'See https://vale.sh/docs/vale-cli/installation/';
@@ -143,14 +128,6 @@ export class ValeRunner {
     );
   }
 
-  /**
-   * Create error for Vale configuration issues
-   * 
-   * Wraps Vale's stderr output in a user-friendly error message.
-   * 
-   * @param stderr - Vale's error output from stderr
-   * @returns Error with Vale's configuration error message
-   */
   private createValeConfigError(stderr: string): Error {
     return new Error(
       `Vale configuration error\n\n` +
@@ -159,14 +136,6 @@ export class ValeRunner {
     );
   }
 
-  /**
-   * Create warning message for missing .vale.ini
-   * 
-   * Generates a warning when Vale cannot find a configuration file,
-   * with instructions on how to create one.
-   * 
-   * @returns Warning message string
-   */
   private missingConfigWarning(): string {
     return (
       `Warning: No .vale.ini found in current directory or parents.\n\n` +
@@ -177,16 +146,6 @@ export class ValeRunner {
     );
   }
 
-  /**
-   * Create error for JSON parse failures
-   * 
-   * Generates an error when Vale's JSON output cannot be parsed,
-   * including the parse error and a preview of the raw output.
-   * 
-   * @param rawOutput - Raw stdout from Vale
-   * @param error - The JSON parse error
-   * @returns Error with parse details and output preview
-   */
   private createJsonParseError(rawOutput: string, error: unknown): Error {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return new Error(

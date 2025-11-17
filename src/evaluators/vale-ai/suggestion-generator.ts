@@ -51,7 +51,7 @@ const JSON_SCHEMA = {
 };
 
 export class SuggestionGenerator {
-  
+
   constructor(private llmProvider: LLMProvider) {}
 
   async generateBatch(

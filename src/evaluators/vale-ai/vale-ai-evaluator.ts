@@ -1,14 +1,14 @@
 import { readFileSync } from 'fs';
-import { LLMProvider } from '../../providers/llm-provider.js';
-import { ValeRunner } from './vale-runner.js';
-import { SuggestionGenerator } from './suggestion-generator.js';
+import { LLMProvider } from '../../providers/llm-provider';
+import { ValeRunner } from './vale-runner';
+import { SuggestionGenerator } from './suggestion-generator';
 import { 
   ValeAIResult, 
   ValeFinding, 
   Context, 
   ValeAIConfig 
-} from './types.js';
-import { ValeOutput } from '../../schemas/vale-responses.js';
+} from './types';
+import { ValeOutput } from '../../schemas/vale-responses';
 
 export class ValeAIEvaluator {
   private fileContentCache: Map<string, string> = new Map();
