@@ -29,4 +29,3 @@ export interface BatchSuggestionResponse {
     suggestion: string;
   }[];
 }
-
