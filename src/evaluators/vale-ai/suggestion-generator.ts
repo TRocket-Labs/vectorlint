@@ -1,45 +1,59 @@
 import { z } from 'zod';
 import { LLMProvider } from '../../providers/llm-provider';
 import { ValeFinding, Context } from './types';
-import { loadPrompts, type PromptFile } from '../../prompts/prompt-loader';
-import { buildCriteriaJsonSchema, CriteriaResult } from '../../prompts/schema';
 
 /*
  * Schema for validating LLM responses at the boundary.
  * All external data (including LLM outputs) must be validated before use.
  */
-const CRITERIA_RESULT_SCHEMA = z.object({
-  criteria: z.array(
+const SUGGESTION_RESPONSE_SCHEMA = z.object({
+  suggestions: z.array(
     z.object({
-      name: z.string(),
-      weight: z.number(),
-      score: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
-      summary: z.string(),
-      reasoning: z.string(),
-      violations: z.array(
-        z.object({
-          pre: z.string(),
-          post: z.string(),
-          analysis: z.string(),
-          suggestion: z.string(),
-        })
-      ),
+      findingNumber: z.number(),
+      suggestion: z.string(),
     })
   ),
 });
 
+type SuggestionResponse = z.infer<typeof SUGGESTION_RESPONSE_SCHEMA>;
+
+const SYSTEM_PROMPT = `You are a writing improvement assistant. For each Vale linting finding, provide a specific, actionable suggestion that explains the issue and how to fix it.
+
+Consider:
+- The surrounding text context
+- Technical terminology and domain-specific language
+- Whether the finding is legitimate or a false positive
+- Concrete, implementable fixes
+
+For spelling issues with technical terms or acronyms, suggest adding to dictionary rather than changing.
+For grammar issues, provide exact corrections.
+For style issues, explain why and suggest specific alternatives.`;
+
+const JSON_SCHEMA = {
+  name: 'vale_suggestions',
+  schema: {
+    type: 'object',
+    properties: {
+      suggestions: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            findingNumber: { type: 'number' },
+            suggestion: { type: 'string' },
+          },
+          required: ['findingNumber', 'suggestion'],
+        },
+      },
+    },
+    required: ['suggestions'],
+  },
+};
+
 export class SuggestionGenerator {
-  private promptsPath: string;
-  private valePrompt: PromptFile | null = null;
+  constructor(private llmProvider: LLMProvider) {}
 
-  constructor(
-    private llmProvider: LLMProvider,
-    promptsPath: string = 'prompts'
-  ) {
-    this.promptsPath = promptsPath;
-  }
-
-async generateBatch(
+  async generateBatch(
     findings: ValeFinding[],
     contextWindows: Map<ValeFinding, Context>
   ): Promise<Map<ValeFinding, string>> {
@@ -50,30 +64,28 @@ async generateBatch(
     const resultMap = new Map<ValeFinding, string>();
 
     try {
-      if (!this.valePrompt) {
-        const { prompts } = loadPrompts(this.promptsPath);
-        this.valePrompt = prompts.find(p => p.filename === 'vale-suggestion-generator.md') || null;
-        
-        if (!this.valePrompt) {
-          throw new Error('vale-suggestion-generator.md prompt not found');
-        }
-      }
+      const userPrompt = this.buildBatchContent(findings, contextWindows);
 
-      const content = this.buildBatchContent(findings, contextWindows);
-
-      const rawResponse = await this.llmProvider.runPromptStructured<CriteriaResult>(
-        content,
-        this.valePrompt.body,
-        buildCriteriaJsonSchema()
+      const rawResponse = await this.llmProvider.runPromptStructured<SuggestionResponse>(
+        userPrompt,
+        SYSTEM_PROMPT,
+        JSON_SCHEMA
       );
 
       /*
        * Boundary validation: All external data (including LLM responses) must be validated.
        * LLM outputs can be malformed, missing fields, or have unexpected types.
        */
-      const response = CRITERIA_RESULT_SCHEMA.parse(rawResponse);
+      const response = SUGGESTION_RESPONSE_SCHEMA.parse(rawResponse);
 
-      this.extractSuggestionsFromCriteria(findings, response, resultMap);
+      // Map suggestions back to findings
+      for (const { findingNumber, suggestion } of response.suggestions) {
+        const findingIndex = findingNumber - 1; // Convert 1-based to 0-based
+        const finding = findings[findingIndex];
+        if (finding) {
+          resultMap.set(finding, suggestion);
+        }
+      }
 
       // Fallback for any findings without suggestions
       for (const finding of findings) {
@@ -92,18 +104,14 @@ async generateBatch(
     return resultMap;
   }
 
- private buildBatchContent(
+  private buildBatchContent(
     findings: ValeFinding[],
     contexts: Map<ValeFinding, Context>
   ): string {
-    const contentParts = [
-      'Vale Findings for Suggestion Generation:\n',
-    ];
+    const contentParts = ['Provide specific, actionable suggestions for these Vale findings:\n'];
 
     findings.forEach((finding, index) => {
       const context = contexts.get(finding);
-      
-      // Use 1-based indexing to match natural language references
       const findingNumber = index + 1;
       
       contentParts.push(`Finding ${findingNumber}:`);
@@ -116,54 +124,9 @@ async generateBatch(
       }
       
       contentParts.push(`Vale says: "${finding.description}"`);
-      contentParts.push(''); // Blank line between findings
+      contentParts.push('');
     });
 
     return contentParts.join('\n');
-  }
-
-  private extractSuggestionsFromCriteria(
-    findings: ValeFinding[],
-    criteriaResult: CriteriaResult,
-    resultMap: Map<ValeFinding, string>
-  ): void {
-    // Process violations from all criteria to extract suggestions
-    for (const criterion of criteriaResult.criteria) {
-      for (const violation of criterion.violations) {
-        /*
-         * Match violation to finding using "Finding N:" reference in pre field.
-         * Uses 1-based indexing (Finding 1, Finding 2, ...) to match natural language.
-         * Convert to 0-based index for array access.
-         */
-        const findingMatch = violation.pre.match(/Finding (\d+):/);
-        if (findingMatch && findingMatch[1]) {
-          const findingNumber = parseInt(findingMatch[1], 10);
-          const findingIndex = findingNumber - 1; // Convert 1-based to 0-based
-          const finding = findings[findingIndex];
-          
-          if (finding && !resultMap.has(finding)) {
-            // Prefer violation.suggestion, fallback to analysis + suggestion, then summary
-            const suggestion = violation.suggestion || 
-              `${violation.analysis} ${violation.suggestion}`.trim() ||
-              criterion.summary;
-            
-            resultMap.set(finding, suggestion);
-          }
-        }
-      }
-
-      /*
-       * Fallback: If criterion has no violations but has summary, apply to first unmatched finding.
-       * This handles cases where LLM provides general guidance without specific violations.
-       */
-      if (criterion.violations.length === 0 && criterion.summary) {
-        for (const finding of findings) {
-          if (!resultMap.has(finding)) {
-            resultMap.set(finding, criterion.summary);
-            break; // Only apply to first unmatched finding to avoid duplicates
-          }
-        }
-      }
-    }
   }
 }
