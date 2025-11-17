@@ -6,21 +6,28 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
 
 - `src/`
   - `index.ts` — CLI entry; orchestrates config, discovery, evaluation, reporting
-  - `config/Config.ts` — loads `vectorlint.ini` (PromptsPath, ScanPaths, Concurrency)
-  - `prompts/` — YAML frontmatter parsing and JSON schema (`Schema.ts`)
-  - `providers/` — LLM abstractions (`LLMProvider.ts`), Azure provider, `RequestBuilder.ts`
+  - `boundaries/` — external data validation (config, CLI args, env vars, YAML, API responses)
+  - `cli/` — command definitions and CLI orchestration
+  - `config/` — configuration loading and management
+  - `errors/` — custom error types and validation errors
+  - `evaluators/` — evaluation logic (base evaluator, registry, specific evaluators)
+  - `output/` — TTY formatting (reporter, evidence location)
+  - `prompts/` — YAML frontmatter parsing, schema validation, prompt loading and mapping
+  - `providers/` — LLM abstractions (OpenAI, Anthropic, Azure, Perplexity), request builder, provider factory
   - `scan/` — file discovery (fast‑glob) honoring config and exclusions
-  - `locate/` — evidence locator (quote + anchors → line:col)
-  - `output/Reporter.ts` — TTY formatting (colors, columns, summary)
+  - `schemas/` — Zod schemas for all external data (API responses, config, CLI, env)
+  - `types/` — TypeScript type definitions
 - `prompts/` — user prompts (.md with YAML frontmatter)
-- `tests/` — Vitest specs for config, scanning, evaluation
+- `tests/` — Vitest specs for config, scanning, evaluation, providers
 - `vectorlint.example.ini` — template for project config (copy to `vectorlint.ini`)
 
 ## Build, Test, and Development Commands
 
 - `npm run dev -- <paths>` — run CLI with tsx (no build)
-- `npm run build` — TypeScript compile to `dist/`
+- `npm run build` — bundle with tsup (ESM, sourcemaps, type declarations)
 - `npm start <paths>` — run built CLI
+- `npm run lint` — run ESLint
+- `npm run lint:fix` — run ESLint with auto-fix
 - `npm test` — Vitest in watch mode
 - `npm run test:run` — single test run
 - `npm run test:ci` — run with coverage
@@ -58,10 +65,13 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
 
 ## Architecture & Principles
 
-- Dependency inversion: depend on `LLMProvider` interface; keep providers thin (transport only)
+- Boundary validation: all external data (files, CLI, env, APIs) validated at system boundaries using Zod schemas
+- Type safety: strict TypeScript with no `any`; use `unknown` + schema validation for external data
+- Dependency inversion: depend on `LLMProvider` and `SearchProvider` interfaces; keep providers thin (transport only)
 - Dependency injection: inject `RequestBuilder` via provider constructor to avoid coupling
-- Separation of concerns: prompts define rubric; `Schema` enforces outputs; CLI orchestrates; locator is pure
-- Extensibility: add providers by implementing `LLMProvider`; avoid embedding product logic in transports
+- Separation of concerns: prompts define rubric; schemas enforce structure; CLI orchestrates; evaluators process; reporters format
+- Extensibility: add providers by implementing `LLMProvider` or `SearchProvider`; add evaluators via registry pattern
+- Error handling: custom error types with proper inheritance; catch blocks use `unknown` type
 
 ## Directory Creation Principles
 
@@ -76,5 +86,14 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
 ## Security & Configuration Tips
 
 - Copy `vectorlint.example.ini` → `vectorlint.ini`; set `PromptsPath`, `ScanPaths`, `Concurrency`
-- `.env` for Azure: `AZURE_OPENAI_*`; never commit secrets
+- Copy `.env.example` → `.env` for provider credentials (OpenAI, Anthropic, Azure, Perplexity)
+- All environment variables validated via Zod schemas in `src/boundaries/env-parser.ts`
+- Never commit secrets; `.env` is gitignored
 - Prompts must include YAML frontmatter; the tool appends evidence instructions automatically
+
+## Provider Support
+
+- OpenAI: GPT-4 and GPT-3.5 models
+- Anthropic: Claude models (Opus, Sonnet, Haiku)
+- Azure OpenAI: Azure-hosted OpenAI models
+- Perplexity: Sonar models with web search capabilities
