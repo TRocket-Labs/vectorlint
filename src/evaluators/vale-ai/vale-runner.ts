@@ -1,5 +1,5 @@
 import { spawn, execSync } from 'child_process';
-import { ValeOutput } from './types';
+import { VALE_OUTPUT_SCHEMA, type ValeOutput } from '../../schemas/vale-responses';
 
 /**
  * Handles Vale CLI execution and output parsing
@@ -88,7 +88,8 @@ export class ValeRunner {
             return;
           }
           
-          const valeOutput = JSON.parse(stdout) as ValeOutput;
+          const raw: unknown = JSON.parse(stdout);
+          const valeOutput = VALE_OUTPUT_SCHEMA.parse(raw);
           resolve(valeOutput);
         } catch (error) {
           reject(this.createJsonParseError(stdout, error));

@@ -19,26 +19,6 @@ export interface Context {
   after: string;
 }
 
-export interface ValeOutput {
-  [filename: string]: ValeIssue[];
-}
-
-
-export interface ValeIssue {
-  Check: string;
-  Description: string;
-  Message: string;
-  Line: number;
-  Span: [number, number];
-  Match: string;
-  Severity: string;
-  Link?: string;
-  Action?: {
-    Name: string;
-    Params: string[];
-  };
-}
-
 export interface ValeAIConfig {
   contextWindowSize: number;
 }
