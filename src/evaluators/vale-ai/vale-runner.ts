@@ -79,7 +79,7 @@ export class ValeRunner {
         }
         
         if (stderr.includes('.vale.ini') || stderr.includes('config')) {
-          console.warn(this.createMissingConfigWarning());
+          console.warn(this.mssingConfigWarning());
         }
         
         try {
@@ -134,7 +134,7 @@ export class ValeRunner {
     );
   }
 
-  private createMissingConfigWarning(): string {
+  private mssingConfigWarning(): string {
     return (
       `Warning: No .vale.ini found in current directory or parents.\n\n` +
       `Vale will use default configuration. To customize:\n` +
