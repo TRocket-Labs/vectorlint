@@ -10,7 +10,11 @@ import { registerMainCommand } from './cli/commands';
 import './evaluators/base-llm-evaluator';
 import './evaluators/technical-accuracy-evaluator';
 
-// Best-effort .env loader without external deps
+/*
+ * Best-effort .env loader without external dependencies.
+ * Loads environment variables from .env or .env.local files.
+ * Kept inline to avoid external dependencies and maintain simplicity.
+ */
 function loadDotEnv(): void {
   const candidates = ['.env', '.env.local'];
   for (const filename of candidates) {
@@ -44,15 +48,18 @@ function loadDotEnv(): void {
   }
 }
 
+// Load environment variables at startup
+loadDotEnv();
+
+// Set up Commander program
 program
   .name('vectorlint')
   .description('AI-powered content compliance checker')
   .version('1.0.0');
 
-// Register validate command
-registerValidateCommand(program, loadDotEnv);
+// Register commands
+registerValidateCommand(program);
+registerMainCommand(program);
 
-// Register main command
-registerMainCommand(program, loadDotEnv);
-
+// Parse command line arguments
 program.parse();

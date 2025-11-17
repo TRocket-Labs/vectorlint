@@ -19,7 +19,7 @@ import { evaluateFiles } from './orchestrator';
  * Registers the main evaluation command with Commander.
  * This is the default command that runs content evaluations against target files.
  */
-export function registerMainCommand(program: Command, loadDotEnv: () => void): void {
+export function registerMainCommand(program: Command): void {
   program
     .option('-v, --verbose', 'Enable verbose logging')
     .option('--show-prompt', 'Print full prompt and injected content')
@@ -27,8 +27,6 @@ export function registerMainCommand(program: Command, loadDotEnv: () => void): v
     .option('--debug-json', 'Print full JSON response from the API')
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
-      // Load environment from .env if present
-      loadDotEnv();
       
       // Parse and validate CLI options
       let cliOptions;

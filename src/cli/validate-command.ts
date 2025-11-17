@@ -14,17 +14,12 @@ import { printFileHeader, printValidationRow } from '../output/reporter';
  * 
  * Note: process.exit is intentional in CLI commands to set proper exit codes.
  */
-export function registerValidateCommand(
-  program: Command,
-  loadDotEnv: () => void
-): void {
+export function registerValidateCommand(program: Command): void {
   program
     .command('validate')
     .description('Validate prompt configuration files')
     .option('--prompts <dir>', 'override prompts directory')
     .action((rawOpts: unknown) => {
-      // Load environment variables from .env files
-      loadDotEnv();
       // Parse and validate command options
       let validateOptions;
       try {
