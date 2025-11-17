@@ -30,7 +30,12 @@ export class ValeAIEvaluator {
   async evaluate(files?: string[]): Promise<ValeAIResult> {
     this.fileContentCache.clear();
     
-    const valeOutput = await this.valeRunner.run(files);
+    let valeOutput: ValeOutput;
+    try {
+      valeOutput = await this.valeRunner.run(files);
+    } catch (error) {
+      throw error;
+    }
     
     if (Object.keys(valeOutput).length === 0) {
       return { findings: [] };
@@ -156,8 +161,7 @@ export class ValeAIEvaluator {
   ): Context {
     try {
       const lines = content.split('\n');
-      
-      // Validate line number
+
       if (line < 1 || line > lines.length) {
         console.warn(`[vale-ai] Warning: Line ${line} out of range (1-${lines.length})`);
         return { before: '', after: '' };
@@ -176,6 +180,7 @@ export class ValeAIEvaluator {
       // Extract before context (bounded by file start)
       const beforeStart = Math.max(0, matchPosition - windowSize);
       const before = content.substring(beforeStart, matchPosition);
+ 
       
       const matchEnd = matchPosition + (span[1] - span[0]);
       

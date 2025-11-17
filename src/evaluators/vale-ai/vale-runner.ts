@@ -30,6 +30,7 @@ export class ValeRunner {
    * Executes `vale --version` and parses the version number.
    * 
    * @returns Vale version (e.g., "2.29.0") or empty string if not installed
+   * 
    */
   async getVersion(): Promise<string> {
     return new Promise((resolve) => {
@@ -74,6 +75,14 @@ export class ValeRunner {
    * @throws Error if Vale is not installed (with platform-specific installation instructions)
    * @throws Error if Vale configuration is invalid (with Vale's error message)
    * @throws Error if JSON output cannot be parsed (with raw output for debugging)
+<<<<<<< HEAD
+=======
+   * 
+   * @example
+   * ```typescript
+   * const runner = new ValeRunner();
+   * 
+>>>>>>> 066010f576699d1def27cc46d3def7828305df56
    */
   async run(files?: string[]): Promise<ValeOutput> {
     if (!this.isInstalled()) {

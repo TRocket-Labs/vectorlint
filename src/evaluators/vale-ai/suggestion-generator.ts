@@ -50,7 +50,18 @@ const JSON_SCHEMA = {
   },
 };
 
+/**
+ * Generates AI-enhanced suggestions for Vale findings
+ * 
+ * This class uses an LLM to generate context-aware suggestions that
+ * explain why each Vale finding is an issue and how to fix it.
+ */
 export class SuggestionGenerator {
+  /**
+   * Create a new SuggestionGenerator
+   * 
+   * @param llmProvider - LLM provider for generating suggestions
+   */
   constructor(private llmProvider: LLMProvider) {}
 
   /**
