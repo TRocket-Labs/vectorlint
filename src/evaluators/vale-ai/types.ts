@@ -19,32 +19,7 @@ export interface Context {
   after: string;
 }
 
-/**
- * Vale CLI JSON output structure
- * Maps filename to array of issues found in that file
- */
-export interface ValeOutput {
-  [filename: string]: ValeIssue[];
-}
-
-/**
- * A single issue from Vale CLI JSON output
- * Field names match Vale's JSON format exactly
- */
-export interface ValeIssue {
-  Check: string;
-  Description: string;
-  Message: string;
-  Line: number;
-  Span: [number, number];
-  Match: string;
-  Severity: string;
-  Link?: string;
-  Action?: {
-    Name: string;
-    Params: string[];
-  };
-}
+// Vale CLI types are now imported from schemas/vale-responses.ts
 
 export interface ValeAIConfig {
   contextWindowSize: number;

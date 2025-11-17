@@ -5,6 +5,7 @@ import * as path from 'path';
 import { handleUnknownError } from './errors/index';
 import { registerValidateCommand } from './cli/validate-command';
 import { registerMainCommand } from './cli/commands';
+import { registerValeAICommand } from './cli/vale-ai-command';
 
 // Import evaluators to trigger self-registration
 import './evaluators/base-llm-evaluator';
@@ -56,20 +57,14 @@ program
   .name('vectorlint')
   .description('AI-powered content compliance checker')
   .version('1.0.0');
-program
-  .command('vale-ai [files...]')
-  .description('Run Vale with AI-enhanced suggestions');
+// Vale AI command is registered separately
 
-program
-  .option('-v, --verbose', 'Enable verbose logging')
-  .option('--show-prompt', 'Print full prompt and injected content')
-  .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
-  .option('--debug-json', 'Print full JSON response from the API')
-  .argument('[paths...]', 'files or directories to check (optional)');
+// Options are defined per command to avoid conflicts
 
 // Register commands
 registerValidateCommand(program);
 registerMainCommand(program);
+registerValeAICommand(program);
 
 // Parse command line arguments
 program.parse();
