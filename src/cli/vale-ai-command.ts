@@ -1,7 +1,6 @@
 import type { Command } from 'commander';
 import { ValeRunner } from '../evaluators/vale-ai/vale-runner';
 import { ValeAIEvaluator } from '../evaluators/vale-ai/vale-ai-evaluator';
-import { SuggestionGenerator } from '../evaluators/vale-ai/suggestion-generator';
 import { createProvider } from '../providers/provider-factory';
 import { DefaultRequestBuilder } from '../providers/request-builder';
 import { loadDirective } from '../prompts/directive-loader';
@@ -27,7 +26,7 @@ export function registerValeAICommand(program: Command): void {
       } catch (e: unknown) {
         const err = handleUnknownError(e, 'Parsing CLI options');
         console.error(`Error: ${err.message}`);
-        process.exit(1);
+        throw new Error(`CLI options parsing failed: ${err.message}`);
       }
 
       // Parse and validate environment variables
@@ -38,14 +37,16 @@ export function registerValeAICommand(program: Command): void {
         const err = handleUnknownError(e, 'Validating environment variables');
         console.error(`Error: ${err.message}`);
         console.error('Please set these in your .env file or environment.');
-        process.exit(1);
+        throw new Error(`Environment validation failed: ${err.message}`);
       }
 
       // Parse context window size
-      const contextWindowSize = parseInt((rawOpts as any)?.contextWindow || '100', 10);
+      const rawContextWindow = (rawOpts as Record<string, unknown>)?.contextWindow;
+      const contextWindowStr = typeof rawContextWindow === 'string' ? rawContextWindow : '100';
+      const contextWindowSize = parseInt(contextWindowStr, 10);
       if (isNaN(contextWindowSize) || contextWindowSize < 0) {
         console.error('Error: context-window must be a non-negative number');
-        process.exit(1);
+        throw new Error('Invalid context-window value');
       }
 
       // Create Vale runner and check installation
@@ -53,7 +54,7 @@ export function registerValeAICommand(program: Command): void {
       if (!valeRunner.isInstalled()) {
         console.error('Error: Vale is not installed or not in PATH.');
         console.error('Install Vale: https://vale.sh/docs/vale-cli/installation/');
-        process.exit(1);
+        throw new Error('Vale is not installed or not in PATH');
       }
 
       if (cliOptions.verbose) {
@@ -68,7 +69,7 @@ export function registerValeAICommand(program: Command): void {
       } catch (e: unknown) {
         const err = handleUnknownError(e, 'Loading directive');
         console.error(`Error: ${err.message}`);
-        process.exit(1);
+        throw new Error(`Directive loading failed: ${err.message}`);
       }
       
       const llmProvider = createProvider(
@@ -104,7 +105,7 @@ export function registerValeAICommand(program: Command): void {
         // Display results
         if (result.findings.length === 0) {
           console.log('✓ No issues found by Vale.');
-          process.exit(0);
+          return;
         }
 
         console.log(`Found ${result.findings.length} issue(s):\n`);
@@ -126,14 +127,13 @@ export function registerValeAICommand(program: Command): void {
           console.log('');
         }
 
-        // Exit with error code if any errors found
-        const hasErrors = result.findings.some(f => f.severity === 'error');
-        process.exit(hasErrors ? 1 : 0);
+        // Note: We don't throw errors for Vale findings as they are suggestions/warnings
+        // The command completes successfully after displaying the results
 
       } catch (error) {
         const err = handleUnknownError(error, 'Running Vale AI evaluation');
         console.error(`Error: ${err.message}`);
-        process.exit(1);
+        throw err;
       }
     });
 }

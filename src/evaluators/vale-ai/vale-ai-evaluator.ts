@@ -30,12 +30,7 @@ export class ValeAIEvaluator {
   async evaluate(files?: string[]): Promise<ValeAIResult> {
     this.fileContentCache.clear();
     
-    let valeOutput: ValeOutput;
-    try {
-      valeOutput = await this.valeRunner.run(files);
-    } catch (error) {
-      throw error;
-    }
+    const valeOutput: ValeOutput = await this.valeRunner.run(files);
     
     if (Object.keys(valeOutput).length === 0) {
       return { findings: [] };
@@ -66,7 +61,8 @@ export class ValeAIEvaluator {
             this.config.contextWindowSize
           );
         } catch (error) {
-          console.warn(`[vale-ai] Warning: Failed to extract context for ${filename}:${issue.Line}: ${error}`);
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.warn(`[vale-ai] Warning: Failed to extract context for ${filename}:${issue.Line}: ${errorMsg}`);
           context = { before: '', after: '' };
         }
         
@@ -93,7 +89,8 @@ export class ValeAIEvaluator {
     try {
       suggestions = await this.suggestionGenerator.generateBatch(findings, contextWindows);
     } catch (error) {
-      console.warn(`[vale-ai] Warning: Failed to generate AI suggestions: ${error}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.warn(`[vale-ai] Warning: Failed to generate AI suggestions: ${errorMsg}`);
       // Use Vale's original descriptions as fallback
       suggestions = new Map();
       for (const finding of findings) {
