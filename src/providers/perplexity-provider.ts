@@ -1,4 +1,3 @@
-// eslint-disable-next-line import-x/no-unresolved -- External package without published types
 import Perplexity from '@perplexity-ai/perplexity_ai';
 import type { SearchProvider } from './search-provider';
 import { PERPLEXITY_RESPONSE_SCHEMA, type PerplexityResult } from '../schemas/perplexity-responses';
