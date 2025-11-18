@@ -179,15 +179,6 @@ export class ValeAIEvaluator {
     }
   }
 
-  /**
-   * Normalize Vale severity to standard format
-   * 
-   * Converts Vale's severity strings to a consistent format,
-   * defaulting to 'suggestion' for unknown values.
-   * 
-   * @param severity - Vale severity string (case-insensitive)
-   * @returns Normalized severity: 'error', 'warning', or 'suggestion'
-   */
   private normalizeSeverity(severity: string): 'error' | 'warning' | 'suggestion' {
     const lower = severity.toLowerCase();
     if (lower === 'error') return 'error';

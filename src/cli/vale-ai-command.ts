@@ -4,9 +4,12 @@ import { ValeAIEvaluator } from '../evaluators/vale-ai/vale-ai-evaluator';
 import { createProvider } from '../providers/provider-factory';
 import { DefaultRequestBuilder } from '../providers/request-builder';
 import { loadDirective } from '../prompts/directive-loader';
-import { parseCliOptions, parseEnvironment } from '../boundaries/index';
-import { handleUnknownError } from '../errors/index';
+import { parseCliOptions, parseEnvironment } from '../boundaries';
+import { handleUnknownError } from '../errors';
 import type { ValeAIConfig } from '../evaluators/vale-ai/types';
+
+const VALE_NOT_INSTALLED_ERROR = 'Vale is not installed or not in PATH';
+const VALE_INSTALLATION_URL = 'Install Vale: https://vale.sh/docs/vale-cli/installation/';
 
 /*
  * Registers the 'vale-ai' command with Commander.
@@ -17,7 +20,7 @@ export function registerValeAICommand(program: Command): void {
     .command('vale-ai [files...]')
     .description('Run Vale with AI-enhanced suggestions')
     .option('-v, --verbose', 'Enable verbose logging')
-    .option('--context-window <size>', 'Number of characters to extract before/after each issue for AI context', '100')
+    .option('--context-chars <size>', 'Number of characters to extract before/after each issue for AI context', '100')
     .action(async (files: string[] = [], rawOpts: unknown) => {
       // Parse and validate CLI options
       let cliOptions;
@@ -40,21 +43,21 @@ export function registerValeAICommand(program: Command): void {
         throw new Error(`Environment validation failed: ${err.message}`);
       }
 
-      // Parse context window size
-      const rawContextWindow = (rawOpts as Record<string, unknown>)?.contextWindow;
-      const contextWindowStr = typeof rawContextWindow === 'string' ? rawContextWindow : '100';
-      const contextWindowSize = parseInt(contextWindowStr, 10);
-      if (isNaN(contextWindowSize) || contextWindowSize < 0) {
-        console.error('Error: context-window must be a non-negative number');
-        throw new Error('Invalid context-window value');
+      // Parse context characters size
+      const rawContextChars = (rawOpts as Record<string, unknown>)?.contextChars;
+      const contextCharsStr = typeof rawContextChars === 'string' ? rawContextChars : '100';
+      const contextCharsSize = parseInt(contextCharsStr, 10);
+      if (isNaN(contextCharsSize) || contextCharsSize < 0) {
+        console.error('Error: context-chars must be a non-negative number');
+        throw new Error('Invalid context-chars value');
       }
 
       // Create Vale runner and check installation
       const valeRunner = new ValeRunner();
       if (!valeRunner.isInstalled()) {
-        console.error('Error: Vale is not installed or not in PATH.');
-        console.error('Install Vale: https://vale.sh/docs/vale-cli/installation/');
-        throw new Error('Vale is not installed or not in PATH');
+        console.error(`Error: ${VALE_NOT_INSTALLED_ERROR}.`);
+        console.error(VALE_INSTALLATION_URL);
+        throw new Error(VALE_NOT_INSTALLED_ERROR);
       }
 
       if (cliOptions.verbose) {
@@ -85,7 +88,7 @@ export function registerValeAICommand(program: Command): void {
 
       // Create Vale AI evaluator
       const config: ValeAIConfig = {
-        contextWindowSize
+        contextWindowSize: contextCharsSize
       };
 
       const evaluator = new ValeAIEvaluator(
