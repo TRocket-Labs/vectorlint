@@ -129,9 +129,23 @@ export class ValeRunner {
   }
 
   private createValeConfigError(stderr: string): Error {
+    // Try to parse stderr as JSON to extract the error message
+    let errorMessage = stderr.trim();
+    try {
+      const parsed: unknown = JSON.parse(stderr);
+      if (typeof parsed === 'object' && parsed !== null && 'Text' in parsed) {
+        const text = (parsed as { Text: unknown }).Text;
+        if (typeof text === 'string') {
+          errorMessage = text;
+        }
+      }
+    } catch {
+      // If not JSON, use as-is
+    }
+    
     return new Error(
       `Vale configuration error\n\n` +
-      `Vale says:\n  ${stderr.trim()}\n\n` +
+      `Vale says:\n  ${errorMessage}\n\n` +
       `Fix your .vale.ini and try again.`
     );
   }

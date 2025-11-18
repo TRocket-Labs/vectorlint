@@ -133,7 +133,8 @@ export function registerValeAICommand(program: Command): void {
       } catch (error) {
         const err = handleUnknownError(error, 'Running Vale AI evaluation');
         console.error(`Error: ${err.message}`);
-        throw err;
+        // eslint-disable-next-line n/no-process-exit
+        process.exit(1);
       }
     });
 }
