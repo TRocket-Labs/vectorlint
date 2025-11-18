@@ -93,7 +93,6 @@ function displayResults(findings: ValeFinding[]): void {
     return;
   }
 
-  // Group findings by file
   const findingsByFile = new Map<string, ValeFinding[]>();
   for (const finding of findings) {
     const fileFindings = findingsByFile.get(finding.file) || [];

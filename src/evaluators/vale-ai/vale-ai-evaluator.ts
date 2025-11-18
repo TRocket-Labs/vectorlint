@@ -90,19 +90,22 @@ export class ValeAIEvaluator {
       suggestions = await this.suggestionGenerator.generateBatch(findings, contextWindows);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.warn(`[vale-ai] Warning: Failed to generate AI suggestions: ${errorMsg}`);
-      // Use Vale's original descriptions as fallback
+      console.warn(`[vale-ai] Failed to generate AI suggestions: ${errorMsg}`);
+      // Use empty suggestions as fallback to avoid duplication
       suggestions = new Map();
       for (const finding of findings) {
-        suggestions.set(finding, finding.description);
+        suggestions.set(finding, '');
       }
     }
     
     // Apply AI suggestions to findings
     for (const finding of findings) {
       const suggestion = suggestions.get(finding);
-      if (suggestion) {
+      if (suggestion !== undefined) {
         finding.suggestion = suggestion;
+      } else {
+        // Ensure suggestion is empty if not found in map
+        finding.suggestion = '';
       }
     }
     

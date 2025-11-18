@@ -145,7 +145,7 @@ export function printValidationRow(level: 'error' | 'warning', message: string) 
 }
 
 /**
- * Print a single Vale finding in tabular format matching Vale's output style
+ * Print a single Vale finding in tabular format matching Vale's output style with vale-ai suggestion column
  * 
  * @param loc - Location string in "line:col" format
  * @param severity - Issue severity: 'error', 'warning', or 'suggestion'
@@ -162,7 +162,8 @@ export function printValeIssueRow(
 ) {
   const locWidth = 8;
   const severityWidth = 8;
-  const messageWidth = 40;
+  const messageWidth = 35;
+  const ruleWidth = 15;
 
   // Format location with padding
   const locCell = loc.padEnd(locWidth);
@@ -190,40 +191,23 @@ export function printValeIssueRow(
     ? description.substring(0, messageWidth - 3) + '...'
     : description.padEnd(messageWidth);
 
-  // Print main row: location | severity | message | rule
-  const mainRow = `${locCell} ${paddedSeverity} ${truncatedDesc} ${chalk.dim(rule)}`;
-  console.log(mainRow);
+  // Format rule with padding (truncate if too long)
+  const truncatedRule = rule.length > ruleWidth 
+    ? rule.substring(0, ruleWidth - 3) + '...'
+    : rule;
+  const coloredRule = chalk.dim(truncatedRule);
+  const ruleVisibleLen = stripAnsi(coloredRule).length;
+  const rulePad = Math.max(0, ruleWidth - ruleVisibleLen);
+  const ruleCell = coloredRule + ' '.repeat(rulePad);
 
-  // Print AI suggestion on next line if available
-  if (aiSuggestion) {
-    const indent = ' '.repeat(locWidth + severityWidth + 2); // Align with message column
-    const arrow = chalk.cyan('→');
-    
-    // Word wrap the suggestion
-    const words = aiSuggestion.split(/\s+/).filter(Boolean);
-    const lines: string[] = [];
-    let currentLine = '';
-    const maxWidth = 80; // Reasonable line length for suggestions
-    
-    for (const word of words) {
-      if (stripAnsi(currentLine).length + (currentLine ? 1 : 0) + word.length > maxWidth) {
-        lines.push(currentLine);
-        currentLine = word;
-      } else {
-        currentLine = currentLine ? `${currentLine} ${word}` : word;
-      }
-    }
-    if (currentLine) lines.push(currentLine);
+  const suggestionText = aiSuggestion || '';
+  const maxSuggestionWidth = 80;
+  const truncatedSuggestion = suggestionText.length > maxSuggestionWidth
+    ? suggestionText.substring(0, maxSuggestionWidth - 3) + '...'
+    : suggestionText;
 
-    // Print suggestion lines
-    for (let i = 0; i < lines.length; i++) {
-      if (i === 0) {
-        console.log(`${indent}${arrow} ${lines[i]}`);
-      } else {
-        console.log(`${indent}  ${lines[i]}`); // Extra space to align with text after arrow
-      }
-    }
-  }
+  // Print single row: location | severity | message | rule | suggestion
+  console.log(`${locCell} ${paddedSeverity} ${truncatedDesc} ${ruleCell} ${truncatedSuggestion}`);
 }
 
 /**

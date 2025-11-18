@@ -79,7 +79,6 @@ export function loadConfig(cwd: string = process.cwd()): Config {
   try {
     const raw = readFileSync(iniPath, 'utf-8');
     
-    // Parse evaluator sections
     evaluatorsConfig = parseEvaluatorSection(raw);
     
     for (const rawLine of raw.split(/\r?\n/)) {

@@ -91,14 +91,14 @@ export class SuggestionGenerator {
       // Fallback for any findings without suggestions
       for (const finding of findings) {
         if (!resultMap.has(finding)) {
-          resultMap.set(finding, finding.description);
+          resultMap.set(finding, '');
         }
       }
     } catch (error) {
       console.warn('[vale-ai] Failed to generate AI suggestions:', error);
-      // Graceful degradation: Use Vale's original descriptions
+      // Graceful degradation: Use empty suggestions to avoid duplication
       for (const finding of findings) {
-        resultMap.set(finding, finding.description);
+        resultMap.set(finding, '');
       }
     }
 
