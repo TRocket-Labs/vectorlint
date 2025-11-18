@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { CONFIG_SCHEMA, type Config } from '../schemas/config-schemas';
 import { ConfigError, ValidationError, handleUnknownError } from '../errors/index';
+import type { EvaluatorsConfig } from '../evaluators/vale-ai/types';
 
 function parseBracketList(value: string): string[] {
   const v = value.trim();
@@ -23,8 +24,8 @@ function isSupportedPattern(p: string): boolean {
   return false;
 }
 
-function parseEvaluatorSection(raw: string): { enabled?: string[]; valeAI?: { contextWindowSize: number } } {
-  const result: { enabled?: string[]; valeAI?: { contextWindowSize: number } } = {};
+function parseEvaluatorSection(raw: string): EvaluatorsConfig {
+  const result: EvaluatorsConfig = {};
   let inEvaluatorsSection = false;
   let inValeAISection = false;
 
@@ -73,7 +74,7 @@ export function loadConfig(cwd: string = process.cwd()): Config {
   let promptsPathRaw: string | undefined;
   let scanPathsRaw: string[] | undefined;
   let concurrencyRaw: number | undefined;
-  let evaluatorsConfig: { enabled?: string[]; valeAI?: { contextWindowSize: number } } = {};
+  let evaluatorsConfig: EvaluatorsConfig = {};
 
   try {
     const raw = readFileSync(iniPath, 'utf-8');

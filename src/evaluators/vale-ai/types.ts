@@ -29,3 +29,10 @@ export interface BatchSuggestionResponse {
     suggestion: string;
   }[];
 }
+
+export interface EvaluatorsConfig {
+  enabled?: string[];
+  valeAI?: {
+    contextWindowSize: number;
+  };
+}
