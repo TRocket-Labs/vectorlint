@@ -121,6 +121,7 @@ function displayResults(findings: ValeFinding[]): void {
   const totalWarnings = findings.filter(f => f.severity === 'warning').length;
   const totalSuggestions = findings.filter(f => f.severity === 'suggestion').length;
   
+  console.log(''); // Add blank line before summary
   printValeGlobalSummary(findingsByFile.size, totalErrors, totalWarnings, totalSuggestions);
 }
 

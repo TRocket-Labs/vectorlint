@@ -178,7 +178,7 @@ export function printValeIssueRow(
       coloredSeverity = chalk.yellow('warning');
       break;
     case 'suggestion':
-      coloredSeverity = chalk.blue('suggestion');
+      coloredSeverity = chalk.cyan('suggestion');
       break;
   }
 
@@ -223,11 +223,11 @@ export function printValeFileSummary(errors: number, warnings: number, suggestio
   const warnTxt = warnings === 1 ? '1 warning' : `${warnings} warnings`;
   const suggTxt = suggestions === 1 ? '1 suggestion' : `${suggestions} suggestions`;
   
-  const coloredErr = errors > 0 ? chalk.red(errTxt) : errTxt;
-  const coloredWarn = warnings > 0 ? chalk.yellow(warnTxt) : warnTxt;
-  const coloredSugg = suggestions > 0 ? chalk.blue(suggTxt) : suggTxt;
+  const coloredErr = chalk.red(errTxt);
+  const coloredWarn = chalk.yellow(warnTxt);
+  const coloredSugg = chalk.cyan(suggTxt);
   
-  console.log(`${okMark} ${coloredErr}, ${coloredWarn}, ${coloredSugg}`);
+  console.log(`${okMark} ${coloredErr}, ${coloredWarn} and ${coloredSugg}`);
 }
 
 /**
@@ -245,9 +245,9 @@ export function printValeGlobalSummary(files: number, errors: number, warnings: 
   const suggTxt = suggestions === 1 ? '1 suggestion' : `${suggestions} suggestions`;
   const fileTxt = files === 1 ? '1 file' : `${files} files`;
   
-  const coloredErr = errors > 0 ? chalk.red(errTxt) : errTxt;
-  const coloredWarn = warnings > 0 ? chalk.yellow(warnTxt) : warnTxt;
-  const coloredSugg = suggestions > 0 ? chalk.blue(suggTxt) : suggTxt;
+  const coloredErr = chalk.red(errTxt);
+  const coloredWarn = chalk.yellow(warnTxt);
+  const coloredSugg = chalk.cyan(suggTxt);
   
-  console.log(`${okMark} ${coloredErr}, ${coloredWarn}, ${coloredSugg} in ${fileTxt}`);
+  console.log(`${okMark} ${coloredErr}, ${coloredWarn} and ${coloredSugg} in ${fileTxt}`);
 }
