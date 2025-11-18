@@ -6,6 +6,7 @@ export const CLI_OPTIONS_SCHEMA = z.object({
   showPrompt: z.boolean().default(false),
   showPromptTrunc: z.boolean().default(false),
   debugJson: z.boolean().default(false),
+  showUrls: z.boolean().default(false),
   prompts: z.string().optional(),
 });
 

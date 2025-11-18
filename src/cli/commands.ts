@@ -25,6 +25,7 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt', 'Print full prompt and injected content')
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Print full JSON response from the API')
+    .option('--show-urls', 'Show verification source URLs in output')
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
       
@@ -137,6 +138,11 @@ export function registerMainCommand(program: Command): void {
         const err = handleUnknownError(e, 'Loading prompt mapping');
         console.warn(`[vectorlint] Warning: ${err.message}`);
         mapping = undefined;
+      }
+
+      // Set environment variable for showing URLs in verification output
+      if (cliOptions.showUrls) {
+        process.env.SHOW_VERIFICATION_URLS = 'true';
       }
 
       // Create search provider if API key is available

@@ -173,14 +173,35 @@ Respond ONLY in JSON:
   }
 
   private enrichAnalysis(original: string, verification: VerificationResult): string {
-    let enriched = original;
+    // Clean up the analysis format:
+    // Remove "Sentence:" and "Risk:" prefixes, extract just the relevant text
+    let cleaned = original;
+    
+    // Extract just the quoted text if present (e.g., "always prevents downtime")
+    const quotedMatch = cleaned.match(/"([^"]+)"/);
+    if (quotedMatch) {
+      cleaned = `"${quotedMatch[1]}"`;
+    } else {
+      // If no quotes, try to extract the key phrase after "Sentence:" or before "Risk:"
+      const sentenceMatch = cleaned.match(/Sentence:\s*(.+?)(?:\s+Risk:|$)/s);
+      if (sentenceMatch) {
+        cleaned = sentenceMatch[1].trim();
+      }
+    }
+    
+    // Add verification status and justification
+    let enriched = cleaned;
     enriched += ` [${verification.status}]`;
     if (verification.justification) {
       enriched += ` — ${verification.justification}`;
     }
-    if (verification.link) {
+    
+    // Only add URL if --show-urls flag is set (check environment or config)
+    // For now, store it in a way that can be conditionally displayed
+    if (verification.link && process.env.SHOW_VERIFICATION_URLS === 'true') {
       enriched += ` (${verification.link})`;
     }
+    
     return enriched;
   }
 }
