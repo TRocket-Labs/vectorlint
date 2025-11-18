@@ -114,14 +114,6 @@ function displayResults(findings: ValeFinding[]): void {
         finding.suggestion
       );
     }
-
-    // File summary
-    const errors = fileFindings.filter(f => f.severity === 'error').length;
-    const warnings = fileFindings.filter(f => f.severity === 'warning').length;
-    const suggestions = fileFindings.filter(f => f.severity === 'suggestion').length;
-    
-    printValeFileSummary(errors, warnings, suggestions);
-    console.log('');
   }
 
   // Global summary
