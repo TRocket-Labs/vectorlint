@@ -6,7 +6,7 @@ import { DefaultRequestBuilder } from '../providers/request-builder';
 import { loadDirective } from '../prompts/directive-loader';
 import { parseCliOptions, parseEnvironment } from '../boundaries';
 import { handleUnknownError } from '../errors';
-import { printValeIssueRow, printValeFileSummary, printValeGlobalSummary } from '../output/reporter';
+import { printValeIssueRow, printValeGlobalSummary } from '../output/reporter';
 import type { ValeAIConfig, ValeFinding } from '../evaluators/vale-ai/types';
 import type { CliOptions } from '../schemas/cli-schemas';
 import type { EnvConfig } from '../schemas/env-schemas';
