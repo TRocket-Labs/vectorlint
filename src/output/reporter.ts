@@ -145,7 +145,7 @@ export function printValidationRow(level: 'error' | 'warning', message: string) 
 }
 
 /**
- * Print a single Vale finding with location, severity, rule, description, and AI suggestion
+ * Print a single Vale finding in tabular format matching Vale's output style
  * 
  * @param loc - Location string in "line:col" format
  * @param severity - Issue severity: 'error', 'warning', or 'suggestion'
@@ -160,12 +160,12 @@ export function printValeIssueRow(
   description: string,
   aiSuggestion?: string
 ) {
-  const locWidth = 7;
-  const severityWidth = 12;
-  const messageWidth = 66;
+  const locWidth = 8;
+  const severityWidth = 8;
+  const messageWidth = 40;
 
-  // Format location
-  const locCell = loc.padEnd(locWidth, ' ');
+  // Format location with padding
+  const locCell = loc.padEnd(locWidth);
 
   // Color-code severity
   let coloredSeverity: string;
@@ -185,57 +185,45 @@ export function printValeIssueRow(
   const pad = Math.max(0, severityWidth - visibleLen);
   const paddedSeverity = coloredSeverity + ' '.repeat(pad);
 
-  // First line: location + severity + rule
-  console.log(`  ${locCell}${paddedSeverity}${rule}`);
+  // Truncate description to fit message column
+  const truncatedDesc = description.length > messageWidth 
+    ? description.substring(0, messageWidth - 3) + '...'
+    : description.padEnd(messageWidth);
 
-  // Description with word wrapping at ~66 characters
-  const descWords = description.split(/\s+/).filter(Boolean);
-  const descLines: string[] = [];
-  let currentLine = '';
-  for (const word of descWords) {
-    if (stripAnsi(currentLine).length + (currentLine ? 1 : 0) + word.length > messageWidth) {
-      descLines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = currentLine ? `${currentLine} ${word}` : word;
-    }
-  }
-  if (currentLine) descLines.push(currentLine);
+  // Print main row: location | severity | message | rule
+  const mainRow = `${locCell} ${paddedSeverity} ${truncatedDesc} ${chalk.dim(rule)}`;
+  console.log(mainRow);
 
-  // Print description lines with proper indentation
-  const indent = ' '.repeat(9); // Indent to align with description
-  for (const line of descLines) {
-    console.log(`${indent}${line}`);
-  }
-
-  // AI suggestion with cyan arrow prefix
+  // Print AI suggestion on next line if available
   if (aiSuggestion) {
+    const indent = ' '.repeat(locWidth + severityWidth + 2); // Align with message column
     const arrow = chalk.cyan('→');
-    const suggWords = aiSuggestion.split(/\s+/).filter(Boolean);
-    const suggLines: string[] = [];
-    let currentSugg = '';
-    for (const word of suggWords) {
-      if (stripAnsi(currentSugg).length + (currentSugg ? 1 : 0) + word.length > messageWidth) {
-        suggLines.push(currentSugg);
-        currentSugg = word;
+    
+    // Word wrap the suggestion
+    const words = aiSuggestion.split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let currentLine = '';
+    const maxWidth = 80; // Reasonable line length for suggestions
+    
+    for (const word of words) {
+      if (stripAnsi(currentLine).length + (currentLine ? 1 : 0) + word.length > maxWidth) {
+        lines.push(currentLine);
+        currentLine = word;
       } else {
-        currentSugg = currentSugg ? `${currentSugg} ${word}` : word;
+        currentLine = currentLine ? `${currentLine} ${word}` : word;
       }
     }
-    if (currentSugg) suggLines.push(currentSugg);
+    if (currentLine) lines.push(currentLine);
 
-    // Print suggestion lines with arrow on first line
-    for (let i = 0; i < suggLines.length; i++) {
+    // Print suggestion lines
+    for (let i = 0; i < lines.length; i++) {
       if (i === 0) {
-        console.log(`${indent}${arrow} ${suggLines[i]}`);
+        console.log(`${indent}${arrow} ${lines[i]}`);
       } else {
-        console.log(`${indent}  ${suggLines[i]}`); // Extra space to align with text after arrow
+        console.log(`${indent}  ${lines[i]}`); // Extra space to align with text after arrow
       }
     }
   }
-
-  // Blank line after each issue
-  console.log('');
 }
 
 /**

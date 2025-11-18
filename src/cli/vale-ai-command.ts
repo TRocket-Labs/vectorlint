@@ -6,6 +6,7 @@ import { DefaultRequestBuilder } from '../providers/request-builder';
 import { loadDirective } from '../prompts/directive-loader';
 import { parseCliOptions, parseEnvironment } from '../boundaries';
 import { handleUnknownError } from '../errors';
+import { printValeIssueRow, printValeFileSummary, printValeGlobalSummary } from '../output/reporter';
 import type { ValeAIConfig, ValeFinding } from '../evaluators/vale-ai/types';
 import type { CliOptions } from '../schemas/cli-schemas';
 import type { EnvConfig } from '../schemas/env-schemas';
@@ -86,30 +87,50 @@ function createLLMProvider(env: EnvConfig, verbose: boolean) {
   );
 }
 
-function displayResults(findings: ValeFinding[], verbose: boolean): void {
+function displayResults(findings: ValeFinding[]): void {
   if (findings.length === 0) {
     console.log('✓ No issues found by Vale.');
     return;
   }
 
-  console.log(`Found ${findings.length} issue(s):\n`);
-
+  // Group findings by file
+  const findingsByFile = new Map<string, ValeFinding[]>();
   for (const finding of findings) {
-    const severityIcon = finding.severity === 'error' ? '✖' : 
-                        finding.severity === 'warning' ? '⚠' : 'ℹ';
+    const fileFindings = findingsByFile.get(finding.file) || [];
+    fileFindings.push(finding);
+    findingsByFile.set(finding.file, fileFindings);
+  }
+
+  // Display results in Vale's tabular format
+  for (const [file, fileFindings] of findingsByFile) {
+    console.log(file);
     
-    console.log(`${severityIcon} ${finding.file}:${finding.line}:${finding.column}`);
-    console.log(`  Rule: ${finding.rule}`);
-    console.log(`  Match: "${finding.match}"`);
-    console.log(`  Suggestion: ${finding.suggestion}`);
-    
-    if (verbose && finding.context) {
-      const contextPreview = `${finding.context.before}${finding.match}${finding.context.after}`;
-      console.log(`  Context: "${contextPreview.substring(0, 100)}${contextPreview.length > 100 ? '...' : ''}"`);
+    for (const finding of fileFindings) {
+      const location = `${finding.line}:${finding.column}`;
+      printValeIssueRow(
+        location,
+        finding.severity,
+        finding.rule,
+        finding.description,
+        finding.suggestion
+      );
     }
+
+    // File summary
+    const errors = fileFindings.filter(f => f.severity === 'error').length;
+    const warnings = fileFindings.filter(f => f.severity === 'warning').length;
+    const suggestions = fileFindings.filter(f => f.severity === 'suggestion').length;
     
+    printValeFileSummary(errors, warnings, suggestions);
     console.log('');
   }
+
+  // Global summary
+  const totalErrors = findings.filter(f => f.severity === 'error').length;
+  const totalWarnings = findings.filter(f => f.severity === 'warning').length;
+  const totalSuggestions = findings.filter(f => f.severity === 'suggestion').length;
+  
+  printValeGlobalSummary(findingsByFile.size, totalErrors, totalWarnings, totalSuggestions);
 }
 
 async function executeValeAIEvaluation(
@@ -133,7 +154,7 @@ async function executeValeAIEvaluation(
     }
 
     const result = await evaluator.evaluate(files.length > 0 ? files : undefined);
-    displayResults(result.findings, cliOptions.verbose);
+    displayResults(result.findings);
 
     // Note: We don't throw errors for Vale findings as they are suggestions/warnings
     // The command completes successfully after displaying the results
