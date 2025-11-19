@@ -133,6 +133,9 @@ npm run dev -- path/to/article.md
 # See what's being sent to the LLM
 npm run dev -- --verbose path/to/article.md
 
+# Show verification source URLs (for technical accuracy evaluator)
+npm run dev -- --show-urls path/to/article.md
+
 # Debug mode: show prompt and full JSON response
 npm run dev -- --verbose --show-prompt --debug-json path/to/article.md
 ```
