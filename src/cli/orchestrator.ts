@@ -5,7 +5,8 @@ import type { LLMProvider } from '../providers/llm-provider';
 import type { SearchProvider } from '../providers/search-provider';
 import type { PromptMapping } from '../prompts/prompt-mapping';
 import { printFileHeader, printIssueRow, printPromptOverallLine, printCriterionScoreLines } from '../output/reporter';
-import { locateEvidence } from '../output/location';
+import { locateEvidenceWithMatch } from '../output/location';
+import { JsonFormatter, type JsonIssue } from '../output/json-formatter';
 import { checkTarget } from '../prompts/target';
 import { resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from '../prompts/prompt-mapping';
 import { handleUnknownError } from '../errors/index';
@@ -19,6 +20,7 @@ export interface EvaluationOptions {
   concurrency: number;
   verbose: boolean;
   mapping?: PromptMapping;
+  outputFormat?: 'line' | 'JSON';
 }
 
 export interface EvaluationResult {
@@ -64,7 +66,7 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  const { prompts, promptsPath, provider, searchProvider, concurrency, mapping } = options;
+  const { prompts, promptsPath, provider, searchProvider, concurrency, mapping, outputFormat = 'line' } = options;
   
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -72,13 +74,50 @@ export async function evaluateFiles(
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
+  
+  const jsonFormatter = new JsonFormatter();
+
+  // Helper function to report issues in both formats
+  const reportIssue = (
+    file: string,
+    line: number,
+    column: number,
+    status: 'ok' | 'warning' | 'error',
+    summary: string,
+    ruleName: string,
+    suggestion?: string,
+    scoreText?: string,
+    match?: string
+  ) => {
+    if (outputFormat === 'line') {
+      const locStr = `${line}:${column}`;
+      printIssueRow(locStr, status, summary, ruleName, suggestion ? { suggestion } : {});
+    } else {
+      const severity = status === 'error' ? 'error' : status === 'warning' ? 'warning' : 'info';
+      const issue: JsonIssue = {
+        file,
+        line,
+        column,
+        severity,
+        message: summary,
+        rule: ruleName,
+        match: match || '',
+        matchLength: match ? match.length : 0,
+        ...(suggestion !== undefined ? { suggestion } : {}),
+        ...(scoreText !== undefined ? { score: scoreText } : {}),
+      };
+      jsonFormatter.addIssue(issue);
+    }
+  };
 
   for (const file of targets) {
     try {
       const content = readFileSync(file, 'utf-8');
       totalFiles += 1;
       const relFile = path.relative(process.cwd(), file) || file;
-      printFileHeader(relFile);
+      if (outputFormat === 'line') {
+        printFileHeader(relFile);
+      }
 
       // Determine applicable prompts for this file using mapping
       const toRun: PromptFile[] = (() => {
@@ -181,8 +220,7 @@ export async function evaluateFiles(
             promptErrors += 1;
             const summary = 'target not found';
             const suggestion = (targetCheck.suggestion || exp.target?.suggestion || meta.target?.suggestion || 'Add the required target section.');
-            const locStr = '1:1';
-            printIssueRow(locStr, status, summary, ruleName, { suggestion });
+            reportIssue(relFile, 1, 1, status, summary, ruleName, suggestion, 'nil', '');
             criterionScores.push({ id: ruleName, scoreText: 'nil' });
             continue;
           }
@@ -215,7 +253,7 @@ export async function evaluateFiles(
             const words = sum.split(/\s+/).filter(Boolean);
             const limited = words.slice(0, 15).join(' ');
             const summaryText = limited || 'No findings';
-            printIssueRow('—:—', status, summaryText, ruleName, {});
+            reportIssue(relFile, 1, 1, status, summaryText, ruleName, undefined, scoreText, '');
           } else {
             /*
              * Print one row per violation.
@@ -226,19 +264,77 @@ export async function evaluateFiles(
               const v = violations[i];
               if (!v) continue;
               
-              let locStr = '—:—';
+              let line = 1;
+              let column = 1;
+              let matchedText = '';
+              
+              const rowSummary = (v.analysis || '').trim();
+              
+              // Get location from evidence markers
               try {
-                const loc = locateEvidence(content, { pre: v.pre, post: v.post });
-                if (loc) locStr = `${loc.line}:${loc.column}`;
-                else { hadOperationalErrors = true; }
+                const locWithMatch = locateEvidenceWithMatch(content, { pre: v.pre, post: v.post });
+                if (locWithMatch) {
+                  line = locWithMatch.line;
+                  column = locWithMatch.column;
+                  matchedText = locWithMatch.match || '';
+                  
+                  // Extract quoted text from the analysis message (e.g., 'AI-driven', "enterprise-grade")
+                  const quotedMatch = rowSummary.match(/'([^']+)'|"([^"]+)"|`([^`]+)`/);
+                  const quotedText = quotedMatch ? (quotedMatch[1] || quotedMatch[2] || quotedMatch[3]) : '';
+                  
+                  // If we have quoted text in the analysis, try to use it as the match
+                  if (quotedText) {
+                    // Check if the quoted text is in the matched text from pre/post
+                    if (matchedText && matchedText.includes(quotedText)) {
+                      // The quoted text is within the matched region - use just the quoted part
+                      matchedText = quotedText;
+                      // Adjust column to point to the quoted text within the line
+                      const lines = content.split('\n');
+                      if (line >= 1 && line <= lines.length) {
+                        const lineContent = lines[line - 1] || '';
+                        const quotedIndex = lineContent.indexOf(quotedText);
+                        if (quotedIndex !== -1) {
+                          column = quotedIndex + 1; // Convert to 1-based
+                        }
+                      }
+                    } else if (!matchedText || !matchedText.includes(quotedText)) {
+                      // The quoted text is not in the matched region (or match is empty)
+                      // Search for it on the same line
+                      const lines = content.split('\n');
+                      if (line >= 1 && line <= lines.length) {
+                        const lineContent = lines[line - 1] || '';
+                        const quotedIndex = lineContent.indexOf(quotedText);
+                        if (quotedIndex !== -1) {
+                          // Found the quoted text on this line - use it
+                          column = quotedIndex + 1; // Convert to 1-based
+                          matchedText = quotedText;
+                        }
+                      }
+                    }
+                  }
+                  
+                  // If we still don't have a match and the analysis doesn't have quoted text,
+                  // but describes something specific, try to extract key phrases
+                  if (!matchedText && !quotedText) {
+                    // For structural issues like "bullet points", try to extract a meaningful snippet
+                    const lines = content.split('\n');
+                    if (line >= 1 && line <= lines.length) {
+                      const lineContent = lines[line - 1] || '';
+                      // Extract first few words or up to punctuation
+                      const words = lineContent.trim().split(/\s+/).slice(0, 5).join(' ');
+                      matchedText = words.length > 50 ? words.substring(0, 50) : words;
+                    }
+                  }
+                } else { 
+                  hadOperationalErrors = true; 
+                }
               } catch (e: unknown) {
                 const err = handleUnknownError(e, 'Locating evidence');
                 console.warn(`[vectorlint] Warning: ${err.message}`);
                 hadOperationalErrors = true;
               }
-
-              const rowSummary = (v.analysis || '').trim();
-              printIssueRow(locStr, status, rowSummary, ruleName, {});
+              
+              reportIssue(relFile, line, column, status, rowSummary, ruleName, v.suggestion, scoreText, matchedText);
             }
           }
           
@@ -246,12 +342,15 @@ export async function evaluateFiles(
           criterionScores.push({ id: ruleName, scoreText });
         }
         
-        // Print per-criterion scores and overall threshold check
-        printCriterionScoreLines(criterionScores);
-        const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
-        printPromptOverallLine(promptMaxScore, thresholdOverall, promptUserScore);
-        console.log('');
+        // Print per-criterion scores and overall threshold check (line format only)
+        if (outputFormat === 'line') {
+          printCriterionScoreLines(criterionScores);
+          const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
+          printPromptOverallLine(promptMaxScore, thresholdOverall, promptUserScore);
+          console.log('');
+        }
         
+        const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
         if (thresholdOverall !== undefined && promptUserScore < thresholdOverall) {
           const sev = meta.severity || 'error';
           if (sev === 'error') hadSeverityErrors = true;
@@ -262,12 +361,19 @@ export async function evaluateFiles(
         totalWarnings += promptWarnings;
       }
       
-      console.log('');
+      if (outputFormat === 'line') {
+        console.log('');
+      }
     } catch (e: unknown) {
       const err = handleUnknownError(e, `Processing file ${file}`);
       console.error(`Error processing file ${file}: ${err.message}`);
       hadOperationalErrors = true;
     }
+  }
+
+  // Output results based on format
+  if (outputFormat === 'JSON') {
+    console.log(jsonFormatter.toJson());
   }
 
   return {
