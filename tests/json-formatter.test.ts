@@ -4,7 +4,7 @@ import { JsonFormatter } from '../src/output/json-formatter';
 describe('JsonFormatter', () => {
   it('should format issues into Vale-compatible JSON structure', () => {
     const formatter = new JsonFormatter();
-    
+
     formatter.addIssue({
       file: 'test.md',
       line: 1,
@@ -37,12 +37,12 @@ describe('JsonFormatter', () => {
     });
 
     const result = formatter.toValeFormat();
-    
+
     expect(result).toHaveProperty('test.md');
     expect(result).toHaveProperty('another.md');
     expect(result['test.md']).toHaveLength(2);
     expect(result['another.md']).toHaveLength(1);
-    
+
     // Check first issue structure
     const firstIssue = result['test.md']![0]!;
     expect(firstIssue.Check).toBe('TestRule.TestCriterion');
@@ -54,7 +54,7 @@ describe('JsonFormatter', () => {
     expect(firstIssue.Match).toBe('matched text');
     expect(firstIssue.Severity).toBe('error');
     expect(firstIssue.Link).toBe('Fix this issue');
-    
+
     // Check issue without suggestion
     const secondIssue = result['test.md']![1]!;
     expect(secondIssue.Check).toBe('TestRule.AnotherCriterion');
@@ -64,7 +64,7 @@ describe('JsonFormatter', () => {
 
   it('should provide correct summary statistics', () => {
     const formatter = new JsonFormatter();
-    
+
     formatter.addIssue({
       file: 'test1.md',
       line: 1,
@@ -96,7 +96,7 @@ describe('JsonFormatter', () => {
     });
 
     const summary = formatter.getSummary();
-    
+
     expect(summary.files).toBe(2);
     expect(summary.errors).toBe(2);
     expect(summary.warnings).toBe(1);
@@ -105,7 +105,7 @@ describe('JsonFormatter', () => {
 
   it('should produce valid JSON output', () => {
     const formatter = new JsonFormatter();
-    
+
     formatter.addIssue({
       file: 'test.md',
       line: 1,
@@ -117,12 +117,12 @@ describe('JsonFormatter', () => {
     });
 
     const jsonOutput = formatter.toJson();
-    
+
     // Should be valid JSON
     expect(() => {
       JSON.parse(jsonOutput);
     }).not.toThrow();
-    
+
     // Should match expected structure
     const parsed = JSON.parse(jsonOutput) as Record<string, unknown>;
     expect(parsed).toHaveProperty('test.md');

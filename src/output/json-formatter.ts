@@ -36,7 +36,7 @@ export class JsonFormatter {
   addIssue(issue: JsonIssue): void {
     this.issues.push(issue);
     this.files.add(issue.file);
-    
+
     if (issue.severity === 'error') {
       this.errorCount++;
     } else if (issue.severity === 'warning') {
@@ -46,18 +46,18 @@ export class JsonFormatter {
 
   toValeFormat(): ValeOutput {
     const result: ValeOutput = {};
-    
+
     // Group issues by file
     for (const issue of this.issues) {
       if (!result[issue.file]) {
         result[issue.file] = [];
       }
-      
+
       // Calculate span based on match length
       // Span is [start_column, end_column] where both are 1-based positions
       const matchLen = issue.matchLength || issue.match.length;
       const endColumn = issue.column + matchLen;
-      
+
       const valeIssue: ValeIssue = {
         Check: issue.rule,
         Description: '',
@@ -68,10 +68,10 @@ export class JsonFormatter {
         Severity: issue.severity,
         Link: issue.suggestion || '',
       };
-      
+
       result[issue.file]!.push(valeIssue);
     }
-    
+
     return result;
   }
 
