@@ -25,6 +25,7 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt', 'Print full prompt and injected content')
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Print full JSON response from the API')
+    .option('--output <format>', 'Output format: line (default) or JSON', 'line')
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
       
@@ -152,16 +153,19 @@ export function registerMainCommand(program: Command): void {
         ...(searchProvider ? { searchProvider } : {}),
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
+        outputFormat: cliOptions.output,
         ...(mapping ? { mapping } : {}),
       });
 
-      // Print global summary
-      printGlobalSummary(
-        result.totalFiles,
-        result.totalErrors,
-        result.totalWarnings,
-        result.requestFailures
-      );
+      // Print global summary (only for line format)
+      if (cliOptions.output === 'line') {
+        printGlobalSummary(
+          result.totalFiles,
+          result.totalErrors,
+          result.totalWarnings,
+          result.requestFailures
+        );
+      }
 
       // Exit with appropriate code
       process.exit(result.hadOperationalErrors || result.hadSeverityErrors ? 1 : 0);
