@@ -230,7 +230,7 @@ function extractMatchText(params: ExtractMatchTextParams): LocationMatch {
   let finalColumn = 1;
   let finalMatch = matchedText;
   
-  // Extract quoted text from the analysis message (e.g., 'AI-driven', "enterprise-grade")
+  // Extract quoted text from the analysis message
   const quotedMatch = rowSummary.match(/'([^']+)'|"([^"]+)"|`([^`]+)`/);
   const quotedText = quotedMatch ? (quotedMatch[1] || quotedMatch[2] || quotedMatch[3]) : '';
   
@@ -621,7 +621,6 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     ...(mapping !== undefined && { mapping })
   });
   
-  // Run applicable prompts concurrently
   const results = await runWithConcurrency(toRun, concurrency, async (p) => {
     return runPromptEvaluation({ 
       promptFile: p, 

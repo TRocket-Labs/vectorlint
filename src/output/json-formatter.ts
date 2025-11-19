@@ -23,10 +23,6 @@ export interface JsonResult {
   };
 }
 
-/*
- * Converts VectorLint evaluation results to Vale-compatible JSON format.
- * This allows VectorLint to integrate with tools that expect Vale JSON output.
- */
 export class JsonFormatter {
   private issues: JsonIssue[] = [];
   private files = new Set<string>();

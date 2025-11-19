@@ -70,7 +70,6 @@ export function locateEvidence(text: string, ev: Evidence): Location | null {
 
 export function extractTextAtLocation(text: string, line: number, column: number, maxLength: number = 100): string {
   // Extract text from content at the specified line and column
-  // This mimics how Vale extracts the matched text from the source
   const lines = text.split('\n');
   if (line < 1 || line > lines.length) return '';
   
@@ -150,5 +149,3 @@ export function locateEvidenceWithMatch(text: string, ev: Evidence): LocationWit
   }
   return null;
 }
-
-
