@@ -238,7 +238,9 @@ export async function evaluateFiles(
               }
 
               const rowSummary = (v.analysis || '').trim();
-              printIssueRow(locStr, status, rowSummary, ruleName, {});
+              // Hide rule name only for hallucination detector for cleaner output
+              const displayRuleName = promptId === 'Hallucination' ? '' : ruleName;
+              printIssueRow(locStr, status, rowSummary, displayRuleName, {});
             }
           }
           
