@@ -50,7 +50,9 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
           continue; // Skip non-factual violations
         }
 
-        const verification = await this.verifyFact(violation.analysis);
+        // Use the searchQuery provided by the LLM instead of regex extraction
+        const searchQuery = violation.searchQuery || violation.analysis;
+        const verification = await this.verifyFact(searchQuery);
         
         // Enrich violation with verification results
         violation.analysis = this.enrichAnalysis(
@@ -63,13 +65,13 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     return result;
   }
 
-  private async verifyFact(claim: string): Promise<VerificationResult> {
+  private async verifyFact(searchQuery: string): Promise<VerificationResult> {
     try {
-      // Extract searchable claim from analysis text
-      const searchClaim = claim.match(/Sentence:\s*(.*?)(?:\s*Issue:|$)/s)?.[1]?.trim() ?? claim;
+      // Use the optimized search query provided by the LLM
+      // No regex extraction needed - the LLM already generated a clean query
 
       // Boundary: Search for evidence (external API call)
-      const snippetsRaw: unknown = await this.searchProvider.search(searchClaim);
+      const snippetsRaw: unknown = await this.searchProvider.search(searchQuery);
       
       // Validate search results at boundary
       const SEARCH_RESULT_SCHEMA = z.array(z.object({
@@ -88,8 +90,8 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
         };
       }
 
-      // Build verification prompt
-      const verificationPrompt = this.buildVerificationPrompt(claim, snippets);
+      // Build verification prompt using the search query
+      const verificationPrompt = this.buildVerificationPrompt(searchQuery, snippets);
 
       // Boundary: Get LLM verification (external API call)
       const llmRespRaw: unknown = await this.llmProvider.runPromptStructured(
@@ -173,31 +175,15 @@ Respond ONLY in JSON:
   }
 
   private enrichAnalysis(original: string, verification: VerificationResult): string {
-    // Clean up the analysis format:
-    // Remove "Sentence:" and "Risk:" prefixes, extract just the relevant text
-    let cleaned = original;
-    
-    // Extract just the quoted text if present (e.g., "always prevents downtime")
-    const quotedMatch = cleaned.match(/"([^"]+)"/);
-    if (quotedMatch) {
-      cleaned = `"${quotedMatch[1]}"`;
-    } else {
-      // If no quotes, try to extract the key phrase after "Sentence:" or before "Risk:"
-      const sentenceMatch = cleaned.match(/Sentence:\s*(.+?)(?:\s+Risk:|$)/s);
-      if (sentenceMatch) {
-        cleaned = sentenceMatch[1].trim();
-      }
-    }
-    
-    // Add verification status and justification
-    let enriched = cleaned;
+    // The LLM now outputs just the problematic phrase, so no extraction needed
+    // Just add verification status and justification
+    let enriched = original;
     enriched += ` [${verification.status}]`;
     if (verification.justification) {
       enriched += ` — ${verification.justification}`;
     }
     
-    // Only add URL if --show-urls flag is set (check environment or config)
-    // For now, store it in a way that can be conditionally displayed
+    // Only add URL if --show-urls flag is set
     if (verification.link && process.env.SHOW_VERIFICATION_URLS === 'true') {
       enriched += ` (${verification.link})`;
     }
