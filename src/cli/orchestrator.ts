@@ -48,7 +48,7 @@ interface EvaluationContext {
   jsonFormatter: JsonFormatter;
 }
 
-import type { EvaluationResult as PromptEvaluationResult, CriteriaResult, BasicResult } from '../prompts/schema';
+import type { EvaluationResult as PromptEvaluationResult, CriteriaResult } from '../prompts/schema';
 
 interface GetApplicablePromptsParams {
   file: string;
