@@ -119,10 +119,12 @@ describe('JsonFormatter', () => {
     const jsonOutput = formatter.toJson();
     
     // Should be valid JSON
-    expect(() => JSON.parse(jsonOutput)).not.toThrow();
+    expect(() => {
+      JSON.parse(jsonOutput);
+    }).not.toThrow();
     
     // Should match expected structure
-    const parsed = JSON.parse(jsonOutput);
+    const parsed = JSON.parse(jsonOutput) as Record<string, unknown>;
     expect(parsed).toHaveProperty('test.md');
     expect(Array.isArray(parsed['test.md'])).toBe(true);
   });
