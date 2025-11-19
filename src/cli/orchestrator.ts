@@ -4,12 +4,13 @@ import type { PromptFile } from '../prompts/prompt-loader';
 import type { LLMProvider } from '../providers/llm-provider';
 import type { SearchProvider } from '../providers/search-provider';
 import type { PromptMapping } from '../prompts/prompt-mapping';
-import { printFileHeader, printIssueRow, printPromptOverallLine, printCriterionScoreLines } from '../output/reporter';
+import { printFileHeader, printIssueRow, printBasicReport, printAdvancedReport } from '../output/reporter';
 import { locateEvidence } from '../output/location';
 import { checkTarget } from '../prompts/target';
 import { resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from '../prompts/prompt-mapping';
 import { handleUnknownError } from '../errors/index';
 import { createEvaluator } from '../evaluators/evaluator-registry';
+import { isCriteriaResult } from '../prompts/schema';
 
 export interface EvaluationOptions {
   prompts: PromptFile[];
@@ -65,7 +66,7 @@ export async function evaluateFiles(
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
   const { prompts, promptsPath, provider, searchProvider, concurrency, mapping } = options;
-  
+
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
   let totalFiles = 0;
@@ -95,14 +96,16 @@ export async function evaluateFiles(
       const results = await runWithConcurrency(toRun, concurrency, async (p) => {
         try {
           const meta = p.meta;
-          if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
+          const evaluatorType = meta.evaluator || 'base-llm';
+
+          // For basic evaluator, criteria is optional - we'll use a default
+          if (evaluatorType !== 'basic' && (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0)) {
             throw new Error(`Prompt ${p.filename} has no criteria in frontmatter`);
           }
-          
-          const evaluatorType = meta.evaluator || 'base-llm';
+
           const evaluator = createEvaluator(evaluatorType, provider, p, searchProvider);
           const result = await evaluator.evaluate(relFile, content);
-          
+
           return { ok: true as const, result };
         } catch (e: unknown) {
           const err = handleUnknownError(e, `Running prompt ${p.filename}`);
@@ -115,7 +118,7 @@ export async function evaluateFiles(
         const p = toRun[idx];
         const r = results[idx];
         if (!p || !r) continue;
-        
+
         if (r.ok !== true) {
           console.error(`  Prompt failed: ${p.filename}`);
           console.error(r.error);
@@ -123,13 +126,34 @@ export async function evaluateFiles(
           requestFailures += 1;
           continue;
         }
-        
+
         const meta = p.meta;
         const promptId = (meta.id || '').toString();
         const result = r.result;
-        
+
+        // Handle Basic Result
+        if (!isCriteriaResult(result)) {
+          const status = result.status;
+          if (status === 'error') {
+            hadSeverityErrors = true;
+            totalErrors += 1;
+          } else if (status === 'warning') {
+            totalWarnings += 1;
+          }
+
+          // Use prompt name or filename as rule name
+          const ruleName = promptId || p.filename.replace(/\.md$/, '');
+          printBasicReport(result, ruleName);
+          continue;
+        }
+
+        // Handle Advanced Criteria Result
+        const criteriaToProcess = (meta.criteria && meta.criteria.length > 0)
+          ? meta.criteria
+          : result.criteria.map(c => ({ name: c.name, weight: c.weight, id: undefined, target: undefined }));
+
         // Validate criterion completeness
-        const expectedNames = new Set<string>(meta.criteria.map((c) => String(c.name)));
+        const expectedNames = new Set<string>(criteriaToProcess.map((c) => String(c.name)));
         const returnedNames = new Set(result.criteria.map((c: { name: string }) => c.name));
         for (const name of expectedNames) {
           if (!returnedNames.has(name)) {
@@ -142,15 +166,15 @@ export async function evaluateFiles(
             console.warn(`[vectorlint] Extra criterion returned by model (ignored): ${name}`);
           }
         }
-        
+
         let promptErrors = 0;
         let promptWarnings = 0;
         let promptUserScore = 0;
         let promptMaxScore = 0;
         const criterionScores: Array<{ id: string; scoreText: string }> = [];
-        
+
         // Validate scores
-        for (const exp of meta.criteria) {
+        for (const exp of criteriaToProcess) {
           const nameKey = String(exp.name);
           const got = result.criteria.find(c => c.name === nameKey);
           if (!got) continue;
@@ -160,15 +184,16 @@ export async function evaluateFiles(
             hadOperationalErrors = true;
           }
         }
-        
+
         // Process each criterion
-        for (const exp of meta.criteria) {
+        for (const exp of criteriaToProcess) {
           const nameKey = String(exp.name);
-          const criterionId = (exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('') : ''));
+          const criterionId = exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('') : '');
           const ruleName = promptId && criterionId ? `${promptId}.${criterionId}` : (promptId || criterionId || p.filename);
-          
-          // Target gating (deterministic precheck)
-          const targetCheck = checkTarget(content, meta.target, exp.target);
+
+          // Target gating (deterministic precheck) - only check if target exists
+          const expTarget = exp.target;
+          const targetCheck = checkTarget(content, meta.target, expTarget);
           const missingTarget = targetCheck.missing;
 
           // Always add to max score using weight
@@ -180,7 +205,7 @@ export async function evaluateFiles(
             hadSeverityErrors = true;
             promptErrors += 1;
             const summary = 'target not found';
-            const suggestion = (targetCheck.suggestion || exp.target?.suggestion || meta.target?.suggestion || 'Add the required target section.');
+            const suggestion = (targetCheck.suggestion || expTarget?.suggestion || meta.target?.suggestion || 'Add the required target section.');
             const locStr = '1:1';
             printIssueRow(locStr, status, summary, ruleName, { suggestion });
             criterionScores.push({ id: ruleName, scoreText: 'nil' });
@@ -189,7 +214,7 @@ export async function evaluateFiles(
 
           const got = result.criteria.find(c => c.name === nameKey);
           if (!got) continue;
-          
+
           const score = Number(got.score);
           const status: 'ok' | 'warning' | 'error' = score <= 1 ? 'error' : (score === 2 ? 'warning' : 'ok');
           if (status === 'error') {
@@ -198,7 +223,7 @@ export async function evaluateFiles(
           } else if (status === 'warning') {
             promptWarnings += 1;
           }
-          
+
           const violations = got.violations;
 
           // Calculate weighted score
@@ -225,7 +250,7 @@ export async function evaluateFiles(
             for (let i = 0; i < violations.length; i++) {
               const v = violations[i];
               if (!v) continue;
-              
+
               let locStr = '—:—';
               try {
                 const loc = locateEvidence(content, { pre: v.pre, post: v.post });
@@ -241,17 +266,16 @@ export async function evaluateFiles(
               printIssueRow(locStr, status, rowSummary, ruleName, {});
             }
           }
-          
+
           // Record score for summary list
           criterionScores.push({ id: ruleName, scoreText });
         }
-        
+
         // Print per-criterion scores and overall threshold check
-        printCriterionScoreLines(criterionScores);
         const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
-        printPromptOverallLine(promptMaxScore, thresholdOverall, promptUserScore);
+        printAdvancedReport(criterionScores, promptMaxScore, thresholdOverall, promptUserScore);
         console.log('');
-        
+
         if (thresholdOverall !== undefined && promptUserScore < thresholdOverall) {
           const sev = meta.severity || 'error';
           if (sev === 'error') hadSeverityErrors = true;
@@ -261,7 +285,7 @@ export async function evaluateFiles(
         totalErrors += promptErrors;
         totalWarnings += promptWarnings;
       }
-      
+
       console.log('');
     } catch (e: unknown) {
       const err = handleUnknownError(e, `Processing file ${file}`);

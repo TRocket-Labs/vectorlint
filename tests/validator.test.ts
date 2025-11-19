@@ -16,6 +16,8 @@ describe('PromptValidator', () => {
     const promptsDir = path.join(root, 'prompts');
     mkdirSync(promptsDir, { recursive: true });
     const yaml = [
+      'id: TestPrompt',
+      'name: Test Prompt',
       'threshold: 4',
       "severity: error",
       'criteria:',
@@ -37,6 +39,8 @@ describe('PromptValidator', () => {
     const promptsDir = path.join(root, 'prompts');
     mkdirSync(promptsDir, { recursive: true });
     const yaml = [
+      'id: TestPrompt',
+      'name: Test Prompt',
       'threshold: 10',
       'severity: warning',
       'criteria:',
@@ -55,6 +59,8 @@ describe('PromptValidator', () => {
     const promptsDir = path.join(root, 'prompts');
     mkdirSync(promptsDir, { recursive: true });
     const yaml = [
+      'id: TestPrompt',
+      'name: Test Prompt',
       'threshold: 2',
       'severity: error',
       'target:',

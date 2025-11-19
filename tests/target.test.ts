@@ -17,6 +17,8 @@ function setupPrompt(yaml: string) {
 describe('Target gating (regex)', () => {
   it('global target: missing match with required=true yields deterministic error', () => {
     const yaml = [
+      "id: TestPrompt",
+      "name: Test Prompt",
       "target:",
       "  regex: '^#\\s+(.+)$'",
       "  flags: 'mu'",
@@ -38,6 +40,8 @@ describe('Target gating (regex)', () => {
 
   it('global target: present match passes gating', () => {
     const yaml = [
+      "id: TestPrompt",
+      "name: Test Prompt",
       "target:",
       "  regex: '^#\\s+(.+)$'",
       "  flags: 'mu'",
@@ -56,6 +60,8 @@ describe('Target gating (regex)', () => {
 
   it('criterion target overrides global target', () => {
     const yaml = [
+      "id: TestPrompt",
+      "name: Test Prompt",
       "target:",
       "  regex: '^#\\s+(.+)$'",
       "  flags: 'mu'",
@@ -80,6 +86,8 @@ describe('Target gating (regex)', () => {
 
   it('invalid regex with required=true yields missing', () => {
     const yaml = [
+      "id: TestPrompt",
+      "name: Test Prompt",
       "target:",
       "  regex: '[unterminated'",
       "  flags: 'mu'",
