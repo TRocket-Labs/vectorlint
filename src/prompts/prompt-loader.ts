@@ -50,40 +50,99 @@ export function loadPrompts(
           body = raw.slice(end + 4).replace(/^\s*\n/, '');
         }
       }
-      if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
-        warnings.push(`Skipping ${entry}: missing or invalid criteria in frontmatter`);
+      if (!meta) {
+        warnings.push(`Skipping ${entry}: invalid or missing frontmatter`);
         continue;
       }
-      // Helpers
-      const toPascal = (s: string) => s
-        .split(/[^A-Za-z0-9]+/)
-        .filter(Boolean)
-        .map((x) => x.charAt(0).toUpperCase() + x.slice(1))
-        .join('');
 
-      // Basic validation and derive ids/names
-      for (const c of meta.criteria) {
-        if ((!c.name && !c.id) || !c.weight || Number.isNaN(c.weight)) {
-          warnings.push(`Skipping ${entry}: invalid criterion (id/name or weight missing)`);
-          meta = undefined;
-          break;
-        }
-        if (!c.id && c.name) c.id = toPascal(String(c.name));
-        if (!c.name && c.id) c.name = String(c.id);
+      // Validate required fields
+      if (!meta.id) {
+        warnings.push(`Skipping ${entry}: missing required field 'id'`);
+        continue;
       }
-      if (!meta) continue;
-      // Ensure unique criterion ids
-      const ids = new Set<string>();
-      for (const c of meta.criteria) {
-        const cid = String(c.id);
-        if (ids.has(cid)) {
-          warnings.push(`Skipping ${entry}: duplicate criterion id ${cid}`);
-          meta = undefined;
-          break;
-        }
-        ids.add(cid);
+      if (!meta.name) {
+        warnings.push(`Skipping ${entry}: missing required field 'name'`);
+        continue;
       }
-      if (!meta) continue;
+
+      // Basic evaluator validation
+      if (meta.evaluator === 'basic') {
+        if (meta.criteria && meta.criteria.length > 0) {
+          for (const c of meta.criteria) {
+            if (!c.id) {
+              warnings.push(`Skipping ${entry}: criterion missing required field 'id'`);
+              meta = undefined;
+              break;
+            }
+            if (!c.name) {
+              warnings.push(`Skipping ${entry}: criterion missing required field 'name'`);
+              meta = undefined;
+              break;
+            }
+            if (c.weight !== undefined) {
+              warnings.push(`Skipping ${entry}: basic evaluator cannot have 'weight' in criteria`);
+              meta = undefined;
+              break;
+            }
+          }
+          if (!meta) continue;
+
+          // Ensure unique criterion ids
+          const ids = new Set<string>();
+          for (const c of meta.criteria) {
+            const cid = String(c.id);
+            if (ids.has(cid)) {
+              warnings.push(`Skipping ${entry}: duplicate criterion id '${cid}'`);
+              meta = undefined;
+              break;
+            }
+            ids.add(cid);
+          }
+          if (!meta) continue;
+        }
+      }
+
+      // Advanced evaluator validation
+      if (meta.evaluator !== 'basic') {
+        if (!meta.criteria || meta.criteria.length === 0) {
+          warnings.push(`Skipping ${entry}: advanced evaluator requires criteria`);
+          continue;
+        }
+        for (const c of meta.criteria) {
+          if (!c.id) {
+            warnings.push(`Skipping ${entry}: criterion missing required field 'id'`);
+            meta = undefined;
+            break;
+          }
+          if (!c.name) {
+            warnings.push(`Skipping ${entry}: criterion missing required field 'name'`);
+            meta = undefined;
+            break;
+          }
+          if (!c.weight || Number.isNaN(c.weight)) {
+            warnings.push(`Skipping ${entry}: criterion missing required field 'weight'`);
+            meta = undefined;
+            break;
+          }
+        }
+        if (!meta) continue;
+
+        // Ensure unique criterion ids
+        if (meta.criteria) {
+          const ids = new Set<string>();
+          for (const c of meta.criteria) {
+            const cid = String(c.id);
+            if (ids.has(cid)) {
+              warnings.push(`Skipping ${entry}: duplicate criterion id '${cid}'`);
+              meta = undefined;
+              break;
+            }
+            ids.add(cid);
+          }
+          if (!meta) continue;
+        }
+      }
+
       if (meta.severity && meta.severity !== 'warning' && meta.severity !== 'error') {
         warnings.push(`Skipping ${entry}: invalid severity`);
         continue;
@@ -95,15 +154,13 @@ export function loadPrompts(
         }
         // regex/flags are strings if present; no further validation here
       }
-      // Derive prompt id and display name if not provided
-      const baseName = path.basename(full, path.extname(full));
-      const pascal = toPascal(baseName);
 
+      // No auto-generation - use values as-is
       prompts.push({
         id: path.basename(full, path.extname(full)),
         filename: path.basename(full),
         fullPath: full,
-        meta: { ...meta, id: meta.id || pascal, name: meta.name || (pascal.replace(/([A-Z])/g, ' $1').trim()) },
+        meta,
         body,
       });
     } catch (e: unknown) {

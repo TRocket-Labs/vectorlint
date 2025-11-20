@@ -5,13 +5,14 @@ import type { LLMProvider } from '../providers/llm-provider';
 import type { SearchProvider } from '../providers/search-provider';
 import type { PromptMapping } from '../prompts/prompt-mapping';
 import type { PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
-import { printFileHeader, printIssueRow, printPromptOverallLine, printCriterionScoreLines } from '../output/reporter';
+import { printFileHeader, printIssueRow, printAdvancedReport, printBasicReport } from '../output/reporter';
 import { locateEvidenceWithMatch } from '../output/location';
 import { JsonFormatter, type JsonIssue } from '../output/json-formatter';
 import { checkTarget } from '../prompts/target';
 import { resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from '../prompts/prompt-mapping';
 import { handleUnknownError } from '../errors/index';
 import { createEvaluator } from '../evaluators/evaluator-registry';
+import { isCriteriaResult } from '../prompts/schema';
 
 export interface EvaluationOptions {
   prompts: PromptFile[];
@@ -47,14 +48,7 @@ interface EvaluationContext {
   jsonFormatter: JsonFormatter;
 }
 
-interface CriteriaResult {
-  criteria: Array<{ 
-    name: string; 
-    score: number; 
-    summary: string; 
-    violations: Array<unknown>;
-  }>;
-}
+import type { EvaluationResult as PromptEvaluationResult, CriteriaResult } from '../prompts/schema';
 
 interface GetApplicablePromptsParams {
   file: string;
@@ -91,12 +85,12 @@ interface LocationMatch {
 }
 
 interface ProcessViolationsParams extends EvaluationContext {
-  violations: Array<{ 
-    pre?: string; 
-    post?: string; 
-    analysis?: 
-    string; 
-    suggestion?: string 
+  violations: Array<{
+    pre?: string;
+    post?: string;
+    analysis?:
+    string;
+    suggestion?: string
   }>;
   status: 'ok' | 'warning' | 'error';
   ruleName: string;
@@ -124,7 +118,7 @@ interface ValidationParams {
 
 interface ProcessPromptResultParams extends EvaluationContext {
   promptFile: PromptFile;
-  result: CriteriaResult;
+  result: PromptEvaluationResult;
 }
 
 interface RunPromptEvaluationParams {
@@ -135,8 +129,8 @@ interface RunPromptEvaluationParams {
   searchProvider?: SearchProvider;
 }
 
-type RunPromptEvaluationResult = 
-  | { ok: true; result: CriteriaResult }
+type RunPromptEvaluationResult =
+  | { ok: true; result: PromptEvaluationResult }
   | { ok: false; error: Error };
 
 interface EvaluateFileParams {
@@ -179,7 +173,7 @@ async function runWithConcurrency<T, R>(
  */
 function reportIssue(params: ReportIssueParams): void {
   const { file, line, column, status, summary, ruleName, outputFormat, jsonFormatter, suggestion, scoreText, match } = params;
-  
+
   if (outputFormat === 'line') {
     const locStr = `${line}:${column}`;
     printIssueRow(locStr, status, summary, ruleName, suggestion ? { suggestion } : {});
@@ -207,11 +201,11 @@ function reportIssue(params: ReportIssueParams): void {
  */
 function getApplicablePrompts(params: GetApplicablePromptsParams): PromptFile[] {
   const { file, prompts, promptsPath, mapping } = params;
-  
+
   if (!mapping || !isMappingConfigured(mapping)) {
     return prompts;
   }
-  
+
   return prompts.filter((p) => {
     const promptId = String(p.meta.id || p.id);
     const full = p.fullPath || path.resolve(promptsPath, p.filename);
@@ -225,15 +219,15 @@ function getApplicablePrompts(params: GetApplicablePromptsParams): PromptFile[] 
  */
 function extractMatchText(params: ExtractMatchTextParams): LocationMatch {
   const { content, line, matchedText, rowSummary } = params;
-  
+
   const finalLine = line;
   let finalColumn = 1;
   let finalMatch = matchedText;
-  
+
   // Extract quoted text from the analysis message
   const quotedMatch = rowSummary.match(/'([^']+)'|"([^"]+)"|`([^`]+)`/);
   const quotedText = quotedMatch ? (quotedMatch[1] || quotedMatch[2] || quotedMatch[3]) : '';
-  
+
   if (quotedText) {
     // Check if the quoted text is in the matched text from pre/post
     if (matchedText && matchedText.includes(quotedText)) {
@@ -259,7 +253,7 @@ function extractMatchText(params: ExtractMatchTextParams): LocationMatch {
       }
     }
   }
-  
+
   // If still no match, extract a meaningful snippet from the line
   if (!finalMatch && !quotedText) {
     const lines = content.split('\n');
@@ -269,7 +263,7 @@ function extractMatchText(params: ExtractMatchTextParams): LocationMatch {
       finalMatch = words.length > 50 ? words.substring(0, 50) : words;
     }
   }
-  
+
   return { line: finalLine, column: finalColumn, match: finalMatch };
 }
 
@@ -278,24 +272,24 @@ function extractMatchText(params: ExtractMatchTextParams): LocationMatch {
  */
 function processViolations(params: ProcessViolationsParams): { hadOperationalErrors: boolean } {
   const { violations, content, relFile, status, ruleName, scoreText, outputFormat, jsonFormatter } = params;
-  
+
   let hadOperationalErrors = false;
-  
+
   for (const v of violations) {
     if (!v) continue;
-    
+
     let line = 1;
     let column = 1;
     let matchedText = '';
     const rowSummary = (v.analysis || '').trim();
-    
+
     try {
       const locWithMatch = locateEvidenceWithMatch(content, { pre: v.pre || '', post: v.post || '' });
       if (locWithMatch) {
         line = locWithMatch.line;
         column = locWithMatch.column;
         matchedText = locWithMatch.match || '';
-        
+
         const extracted = extractMatchText({ content, line, matchedText, rowSummary });
         line = extracted.line;
         column = extracted.column;
@@ -308,7 +302,7 @@ function processViolations(params: ProcessViolationsParams): { hadOperationalErr
       console.warn(`[vectorlint] Warning: ${err.message}`);
       hadOperationalErrors = true;
     }
-    
+
     reportIssue({
       file: relFile,
       line,
@@ -323,7 +317,7 @@ function processViolations(params: ProcessViolationsParams): { hadOperationalErr
       match: matchedText
     });
   }
-  
+
   return { hadOperationalErrors };
 }
 
@@ -334,20 +328,20 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
   const { exp, result, content, relFile, promptId, promptFilename, meta, outputFormat, jsonFormatter } = params;
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
-  
+
   const nameKey = String(exp.name || exp.id || '');
   const criterionId = (exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('') : ''));
   const ruleName = promptId && criterionId ? `${promptId}.${criterionId}` : (promptId || criterionId || promptFilename);
-  
-  const weightNum = exp.weight;
+
+  const weightNum = exp.weight || 1;
   const maxScore = weightNum;
-  
+
   // Target gating (deterministic precheck)
   const metaTargetSpec = meta.target;
   const expTargetSpec = exp.target;
   const targetCheck = checkTarget(content, metaTargetSpec, expTargetSpec);
   const missingTarget = targetCheck.missing;
-  
+
   if (missingTarget) {
     hadSeverityErrors = true;
     const summary = 'target not found';
@@ -375,7 +369,7 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
       scoreEntry: { id: ruleName, scoreText: 'nil' }
     };
   }
-  
+
   const got = result.criteria.find(c => c.name === nameKey);
   if (!got) {
     return {
@@ -388,27 +382,27 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
       scoreEntry: { id: ruleName, scoreText: '0/0' }
     };
   }
-  
+
   const score = Number(got.score);
   const status: 'ok' | 'warning' | 'error' = score <= 1 ? 'error' : (score === 2 ? 'warning' : 'ok');
-  
+
   let errors = 0;
   let warnings = 0;
-  
+
   if (status === 'error') {
     hadSeverityErrors = true;
     errors = 1;
   } else if (status === 'warning') {
     warnings = 1;
   }
-  
+
   const violations = got.violations;
   const rawWeighted = (score / 4) * weightNum;
   const userScore = rawWeighted;
   const rounded = Math.round(rawWeighted * 100) / 100;
   const weightedStr = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
   const scoreText = `${weightedStr}/${weightNum}`;
-  
+
   if (violations.length === 0) {
     const sum = got.summary.trim();
     const words = sum.split(/\s+/).filter(Boolean);
@@ -439,7 +433,7 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
     });
     hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
   }
-  
+
   return {
     errors,
     warnings,
@@ -457,23 +451,23 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
 function validateCriteriaCompleteness(params: ValidationParams): boolean {
   const { meta, result } = params;
   let hadErrors = false;
-  
-  const expectedNames = new Set<string>(meta.criteria.map((c) => String(c.name || c.id || '')));
+
+  const expectedNames = new Set<string>((meta.criteria || []).map((c) => String(c.name || c.id || '')));
   const returnedNames = new Set(result.criteria.map((c: { name: string }) => c.name));
-  
+
   for (const name of expectedNames) {
     if (!returnedNames.has(name)) {
       console.error(`Missing criterion in model output: ${name}`);
       hadErrors = true;
     }
   }
-  
+
   for (const name of returnedNames) {
     if (!expectedNames.has(name)) {
       console.warn(`[vectorlint] Extra criterion returned by model (ignored): ${name}`);
     }
   }
-  
+
   return hadErrors;
 }
 
@@ -483,19 +477,19 @@ function validateCriteriaCompleteness(params: ValidationParams): boolean {
 function validateScores(params: ValidationParams): boolean {
   const { meta, result } = params;
   let hadErrors = false;
-  
-  for (const exp of meta.criteria) {
+
+  for (const exp of meta.criteria || []) {
     const nameKey = String(exp.name || exp.id || '');
     const got = result.criteria.find(c => c.name === nameKey);
     if (!got) continue;
-    
+
     const score = Number(got.score);
     if (!Number.isFinite(score) || score < 0 || score > 4) {
       console.error(`Invalid score for ${nameKey}: ${score}`);
       hadErrors = true;
     }
   }
-  
+
   return hadErrors;
 }
 
@@ -506,22 +500,61 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
   const { promptFile, result, content, relFile, outputFormat, jsonFormatter } = params;
   const meta = promptFile.meta;
   const promptId = (meta.id || '').toString();
-  
+
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
-  
+  let promptErrors = 0;
+  let promptWarnings = 0;
+
+  // Handle Basic Result
+  if (!isCriteriaResult(result)) {
+    const status = result.status;
+    if (status === 'error') {
+      hadSeverityErrors = true;
+      promptErrors = 1;
+    } else if (status === 'warning') {
+      promptWarnings = 1;
+    }
+
+    // Use prompt name or filename as rule name
+    const ruleName = promptId || promptFile.filename.replace(/\.md$/, '');
+
+    if (outputFormat === 'line') {
+      printBasicReport(result, ruleName);
+    } else {
+      // For JSON format, report the basic result as an issue
+      reportIssue({
+        file: relFile,
+        line: 1,
+        column: 1,
+        status,
+        summary: result.message,
+        ruleName,
+        outputFormat,
+        jsonFormatter,
+        match: ''
+      });
+    }
+
+    return {
+      errors: promptErrors,
+      warnings: promptWarnings,
+      hadOperationalErrors,
+      hadSeverityErrors
+    };
+  }
+
+  // Handle Advanced Criteria Result
   // Validate criterion completeness and scores
   hadOperationalErrors = validateCriteriaCompleteness({ meta, result }) || hadOperationalErrors;
   hadOperationalErrors = validateScores({ meta, result }) || hadOperationalErrors;
-  
-  let promptErrors = 0;
-  let promptWarnings = 0;
+
   let promptUserScore = 0;
   let promptMaxScore = 0;
   const criterionScores: Array<{ id: string; scoreText: string }> = [];
-  
+
   // Process each criterion
-  for (const exp of meta.criteria) {
+  for (const exp of meta.criteria || []) {
     const criterionResult = processCriterion({
       exp,
       result,
@@ -533,7 +566,7 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
       outputFormat,
       jsonFormatter
     });
-    
+
     promptErrors += criterionResult.errors;
     promptWarnings += criterionResult.warnings;
     promptUserScore += criterionResult.userScore;
@@ -542,15 +575,14 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
     hadSeverityErrors = hadSeverityErrors || criterionResult.hadSeverityErrors;
     criterionScores.push(criterionResult.scoreEntry);
   }
-  
+
   // Print per-criterion scores and overall threshold check (line format only)
   if (outputFormat === 'line') {
-    printCriterionScoreLines(criterionScores);
     const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
-    printPromptOverallLine(promptMaxScore, thresholdOverall, promptUserScore);
+    printAdvancedReport(criterionScores, promptMaxScore, thresholdOverall, promptUserScore);
     console.log('');
   }
-  
+
   // Check overall threshold
   const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
   if (thresholdOverall !== undefined && promptUserScore < thresholdOverall) {
@@ -561,7 +593,7 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
       promptWarnings += 1;
     }
   }
-  
+
   return {
     errors: promptErrors,
     warnings: promptWarnings,
@@ -575,17 +607,19 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
  */
 async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<RunPromptEvaluationResult> {
   const { promptFile, relFile, content, provider, searchProvider } = params;
-  
+
   try {
     const meta = promptFile.meta;
-    if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
-      throw new Error(`Prompt ${promptFile.filename} has no criteria in frontmatter`);
-    }
-    
     const evaluatorType = meta.evaluator || 'base-llm';
+
+    if (evaluatorType !== 'basic') {
+      if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
+        throw new Error(`Prompt ${promptFile.filename} has no criteria in frontmatter`);
+      }
+    }
     const evaluator = createEvaluator(evaluatorType, provider, promptFile, searchProvider);
     const result = await evaluator.evaluate(relFile, content);
-    
+
     return { ok: true, result };
   } catch (e: unknown) {
     const err = handleUnknownError(e, `Running prompt ${promptFile.filename}`);
@@ -599,44 +633,44 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
 async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileResult> {
   const { file, options, jsonFormatter } = params;
   const { prompts, promptsPath, provider, searchProvider, concurrency, mapping, outputFormat = 'line' } = options;
-  
+
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
-  
+
   const content = readFileSync(file, 'utf-8');
   const relFile = path.relative(process.cwd(), file) || file;
-  
+
   if (outputFormat === 'line') {
     printFileHeader(relFile);
   }
-  
+
   // Determine applicable prompts for this file
-  const toRun = getApplicablePrompts({ 
-    file: relFile, 
-    prompts, 
-    promptsPath, 
+  const toRun = getApplicablePrompts({
+    file: relFile,
+    prompts,
+    promptsPath,
     ...(mapping !== undefined && { mapping })
   });
-  
+
   const results = await runWithConcurrency(toRun, concurrency, async (p) => {
-    return runPromptEvaluation({ 
-      promptFile: p, 
-      relFile, 
-      content, 
-      provider, 
+    return runPromptEvaluation({
+      promptFile: p,
+      relFile,
+      content,
+      provider,
       ...(searchProvider !== undefined && { searchProvider })
     });
   });
-  
+
   // Process results for each prompt
   for (let idx = 0; idx < toRun.length; idx++) {
     const p = toRun[idx];
     const r = results[idx];
     if (!p || !r) continue;
-    
+
     if (r.ok !== true) {
       console.error(`  Prompt failed: ${p.filename}`);
       console.error(r.error);
@@ -644,7 +678,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
       requestFailures += 1;
       continue;
     }
-    
+
     const promptResult = processPromptResult({
       promptFile: p,
       result: r.result,
@@ -658,11 +692,11 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     hadOperationalErrors = hadOperationalErrors || promptResult.hadOperationalErrors;
     hadSeverityErrors = hadSeverityErrors || promptResult.hadSeverityErrors;
   }
-  
+
   if (outputFormat === 'line') {
     console.log('');
   }
-  
+
   return {
     errors: totalErrors,
     warnings: totalWarnings,
@@ -682,14 +716,14 @@ export async function evaluateFiles(
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
   const { outputFormat = 'line' } = options;
-  
+
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
   let totalFiles = 0;
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
-  
+
   const jsonFormatter = new JsonFormatter();
 
   for (const file of targets) {

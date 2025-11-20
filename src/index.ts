@@ -9,6 +9,7 @@ import { registerMainCommand } from './cli/commands';
 // Import evaluators to trigger self-registration
 import './evaluators/base-llm-evaluator';
 import './evaluators/technical-accuracy-evaluator';
+import './evaluators/basic-evaluator';
 
 /*
  * Best-effort .env loader without external dependencies.

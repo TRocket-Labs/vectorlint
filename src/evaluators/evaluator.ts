@@ -1,8 +1,8 @@
-import type { CriteriaResult } from '../prompts/schema';
+import type { EvaluationResult } from '../prompts/schema';
 import { registerEvaluator, type EvaluatorFactory } from './evaluator-registry';
 
 export interface Evaluator {
-  evaluate(file: string, content: string): Promise<CriteriaResult>;
+  evaluate(file: string, content: string): Promise<EvaluationResult>;
 }
 
 /*
@@ -10,7 +10,7 @@ export interface Evaluator {
  * Subclasses should call register() to make themselves available to the registry.
  */
 export abstract class BaseEvaluator implements Evaluator {
-  abstract evaluate(file: string, content: string): Promise<CriteriaResult>;
+  abstract evaluate(file: string, content: string): Promise<EvaluationResult>;
 
   /*
    * Register an evaluator type with the registry.

@@ -139,10 +139,20 @@ npm run dev -- --verbose --show-prompt --debug-json path/to/article.md
 
 Or make the script executable:
 
-```bash
-chmod +x src/index.ts
-./src/index.ts path/to/article.md
+### Basic Evaluator
+
+Create an eval and set `evaluator` to `basic` and add the required `id` and `name` fields.
+
+```yaml
+---
+evaluator: basic
+id: GrammarChecker
+name: Grammar Checker
+---
+Check the content for grammar issues and ensure professional writing quality.
 ```
+
+Run VectorLint as usual. You can optionally filter to only basic prompts with a `--basic` flag.
 
 ## Prompt Mapping (INI)
 

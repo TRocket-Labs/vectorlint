@@ -43,6 +43,49 @@ export function buildCriteriaJsonSchema() {
   } as const;
 }
 
+export function buildBasicJsonSchema() {
+  return {
+    name: 'vectorlint_basic_result',
+    strict: true,
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        status: { type: 'string', enum: ['ok', 'warning', 'error'] },
+        message: { type: 'string' },
+        violations: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              analysis: { type: 'string' },
+              suggestion: { type: 'string' },
+              pre: { type: 'string' },
+              post: { type: 'string' },
+              criterionName: { type: 'string' },
+            },
+            required: ['analysis', 'suggestion', 'pre', 'post', 'criterionName'],
+          },
+        },
+      },
+      required: ['status', 'message', 'violations'],
+    },
+  } as const;
+}
+
+export type BasicResult = {
+  status: 'ok' | 'warning' | 'error';
+  message: string;
+  violations: Array<{
+    analysis: string;
+    suggestion?: string;
+    pre?: string;
+    post?: string;
+    criterionName?: string;
+  }>;
+};
+
 export type CriteriaResult = {
   criteria: Array<{
     name: string;
@@ -53,3 +96,9 @@ export type CriteriaResult = {
     violations: Array<{ pre: string; post: string; analysis: string; suggestion: string }>;
   }>;
 };
+
+export type EvaluationResult = BasicResult | CriteriaResult;
+
+export function isCriteriaResult(result: EvaluationResult): result is CriteriaResult {
+  return 'criteria' in result;
+}
