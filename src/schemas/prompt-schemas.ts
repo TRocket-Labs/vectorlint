@@ -11,22 +11,22 @@ export const TARGET_SPEC_SCHEMA = z.object({
 
 // Prompt criterion specification schema
 export const PROMPT_CRITERION_SCHEMA = z.object({
-  id: z.string().optional(),
-  name: z.string().optional(),
-  weight: z.number().positive(),
+  id: z.string(),
+  name: z.string(),
+  weight: z.number().positive().optional(),
   target: TARGET_SPEC_SCHEMA.optional(),
 });
 
 // Prompt metadata schema for YAML frontmatter
 export const PROMPT_META_SCHEMA = z.object({
   specVersion: z.union([z.string(), z.number()]).optional(),
-  evaluator: z.enum(['base-llm', 'technical-accuracy']).optional(),
-  id: z.string().optional(),
-  name: z.string().optional(),
+  evaluator: z.enum(['base-llm', 'technical-accuracy', 'basic']).optional(),
+  id: z.string(),
+  name: z.string(),
   threshold: z.number().min(0).optional(),
   severity: z.enum(['warning', 'error']).optional(),
   target: TARGET_SPEC_SCHEMA.optional(),
-  criteria: z.array(PROMPT_CRITERION_SCHEMA),
+  criteria: z.array(PROMPT_CRITERION_SCHEMA).optional(),
 });
 
 // Complete prompt file schema
