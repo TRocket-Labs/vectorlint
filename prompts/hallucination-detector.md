@@ -1,5 +1,6 @@
 ---
 specVersion: 1.0.0
+evaluator: technical-accuracy
 threshold: 12
 severity: error
 name: Hallucination Detector
