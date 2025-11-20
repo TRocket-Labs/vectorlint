@@ -65,7 +65,7 @@ export function buildBasicJsonSchema() {
               post: { type: 'string' },
               criterionName: { type: 'string' },
             },
-            required: ['analysis'],
+            required: ['analysis', 'suggestion', 'pre', 'post', 'criterionName'],
           },
         },
       },
