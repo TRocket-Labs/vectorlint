@@ -213,3 +213,111 @@ export function printValidationRow(level: 'error' | 'warning', message: string) 
   const label = level === 'error' ? chalk.red('error') : chalk.yellow('warning');
   console.log(`  ${label}  ${message}`);
 }
+
+/**
+ * Print a single Vale finding in tabular format matching Vale's output style with vale-ai suggestion column
+ * 
+ * @param loc - Location string in "line:col" format
+ * @param severity - Issue severity: 'error', 'warning', or 'suggestion'
+ * @param rule - Vale rule name (e.g., "write-good.Passive")
+ * @param description - Vale's description of the issue
+ * @param aiSuggestion - Optional AI-generated suggestion
+ */
+export function printValeIssueRow(
+  loc: string,
+  severity: 'error' | 'warning' | 'suggestion',
+  rule: string,
+  description: string,
+  aiSuggestion?: string
+) {
+  const locWidth = 8;
+  const severityWidth = 8;
+  const messageWidth = 35;
+  const ruleWidth = 15;
+
+  // Format location with padding
+  const locCell = loc.padEnd(locWidth);
+
+  // Color-code severity
+  let coloredSeverity: string;
+  switch (severity) {
+    case 'error':
+      coloredSeverity = chalk.red('error');
+      break;
+    case 'warning':
+      coloredSeverity = chalk.yellow('warning');
+      break;
+    case 'suggestion':
+      coloredSeverity = chalk.cyan('suggestion');
+      break;
+  }
+
+  const visibleLen = stripAnsi(coloredSeverity).length;
+  const pad = Math.max(0, severityWidth - visibleLen);
+  const paddedSeverity = coloredSeverity + ' '.repeat(pad);
+
+  // Truncate description to fit message column
+  const truncatedDesc = description.length > messageWidth 
+    ? description.substring(0, messageWidth - 3) + '...'
+    : description.padEnd(messageWidth);
+
+  // Format rule with padding (truncate if too long)
+  const truncatedRule = rule.length > ruleWidth 
+    ? rule.substring(0, ruleWidth - 3) + '...'
+    : rule;
+  const coloredRule = chalk.dim(truncatedRule);
+  const ruleVisibleLen = stripAnsi(coloredRule).length;
+  const rulePad = Math.max(0, ruleWidth - ruleVisibleLen);
+  const ruleCell = coloredRule + ' '.repeat(rulePad);
+
+  const suggestionText = aiSuggestion || '';
+  const maxSuggestionWidth = 80;
+  const truncatedSuggestion = suggestionText.length > maxSuggestionWidth
+    ? suggestionText.substring(0, maxSuggestionWidth - 3) + '...'
+    : suggestionText;
+
+  // Print single row: location | severity | message | rule | suggestion
+  console.log(`${locCell} ${paddedSeverity} ${truncatedDesc} ${ruleCell} ${truncatedSuggestion}`);
+}
+
+/**
+ * Print summary for a single file showing counts of errors, warnings, and suggestions
+ * 
+ * @param errors - Number of errors found
+ * @param warnings - Number of warnings found
+ * @param suggestions - Number of suggestions found
+ */
+export function printValeFileSummary(errors: number, warnings: number, suggestions: number) {
+  const okMark = errors === 0 ? chalk.green('✓') : chalk.red('✖');
+  const errTxt = errors === 1 ? '1 error' : `${errors} errors`;
+  const warnTxt = warnings === 1 ? '1 warning' : `${warnings} warnings`;
+  const suggTxt = suggestions === 1 ? '1 suggestion' : `${suggestions} suggestions`;
+  
+  const coloredErr = chalk.red(errTxt);
+  const coloredWarn = chalk.yellow(warnTxt);
+  const coloredSugg = chalk.cyan(suggTxt);
+  
+  console.log(`${okMark} ${coloredErr}, ${coloredWarn} and ${coloredSugg}`);
+}
+
+/**
+ * Print global summary showing total counts across all files
+ * 
+ * @param files - Number of files processed
+ * @param errors - Total number of errors
+ * @param warnings - Total number of warnings
+ * @param suggestions - Total number of suggestions
+ */
+export function printValeGlobalSummary(files: number, errors: number, warnings: number, suggestions: number) {
+  const okMark = errors === 0 ? chalk.green('✓') : chalk.red('✖');
+  const errTxt = errors === 1 ? '1 error' : `${errors} errors`;
+  const warnTxt = warnings === 1 ? '1 warning' : `${warnings} warnings`;
+  const suggTxt = suggestions === 1 ? '1 suggestion' : `${suggestions} suggestions`;
+  const fileTxt = files === 1 ? '1 file' : `${files} files`;
+  
+  const coloredErr = chalk.red(errTxt);
+  const coloredWarn = chalk.yellow(warnTxt);
+  const coloredSugg = chalk.cyan(suggTxt);
+  
+  console.log(`${okMark} ${coloredErr}, ${coloredWarn} and ${coloredSugg} in ${fileTxt}`);
+}

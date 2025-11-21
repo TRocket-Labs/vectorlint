@@ -51,6 +51,7 @@ const JSON_SCHEMA = {
 };
 
 export class SuggestionGenerator {
+
   constructor(private llmProvider: LLMProvider) {}
 
   async generateBatch(
@@ -90,14 +91,14 @@ export class SuggestionGenerator {
       // Fallback for any findings without suggestions
       for (const finding of findings) {
         if (!resultMap.has(finding)) {
-          resultMap.set(finding, finding.description);
+          resultMap.set(finding, '');
         }
       }
     } catch (error) {
       console.warn('[vale-ai] Failed to generate AI suggestions:', error);
-      // Graceful degradation: Use Vale's original descriptions
+      // Graceful degradation: Use empty suggestions to avoid duplication
       for (const finding of findings) {
-        resultMap.set(finding, finding.description);
+        resultMap.set(finding, '');
       }
     }
 
@@ -119,8 +120,10 @@ export class SuggestionGenerator {
       contentParts.push(`Match: "${finding.match}"`);
       
       if (context) {
-        const contextPreview = `${context.before}${finding.match}${context.after}`;
-        contentParts.push(`Context: "${contextPreview}"`);
+        // Don't reconstruct the match - just show before and after context
+        // The match is already provided separately and Vale's span might not align perfectly
+        contentParts.push(`Context before: "${context.before}"`);
+        contentParts.push(`Context after: "${context.after}"`);
       }
       
       contentParts.push(`Vale says: "${finding.description}"`);

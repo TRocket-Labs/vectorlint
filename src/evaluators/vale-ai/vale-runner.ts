@@ -72,14 +72,15 @@ export class ValeRunner {
       });
       
       valeProcess.on('close', (code: number | null) => {
-
+        // Exit code 2 indicates configuration or execution error
         if (code === 2) {
           reject(this.createValeConfigError(stderr));
           return;
         }
         
+        // Warn about missing configuration but continue
         if (stderr.includes('.vale.ini') || stderr.includes('config')) {
-          console.warn(this.mssingConfigWarning());
+          console.warn(this.missingConfigWarning());
         }
         
         try {
@@ -128,14 +129,28 @@ export class ValeRunner {
   }
 
   private createValeConfigError(stderr: string): Error {
+    // Try to parse stderr as JSON to extract the error message
+    let errorMessage = stderr.trim();
+    try {
+      const parsed: unknown = JSON.parse(stderr);
+      if (typeof parsed === 'object' && parsed !== null && 'Text' in parsed) {
+        const text = (parsed as { Text: unknown }).Text;
+        if (typeof text === 'string') {
+          errorMessage = text;
+        }
+      }
+    } catch {
+      // If not JSON, use as-is
+    }
+    
     return new Error(
       `Vale configuration error\n\n` +
-      `Vale says:\n  ${stderr.trim()}\n\n` +
+      `Vale says:\n  ${errorMessage}\n\n` +
       `Fix your .vale.ini and try again.`
     );
   }
 
-  private mssingConfigWarning(): string {
+  private missingConfigWarning(): string {
     return (
       `Warning: No .vale.ini found in current directory or parents.\n\n` +
       `Vale will use default configuration. To customize:\n` +

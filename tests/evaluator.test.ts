@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { loadPrompts } from '../src/prompts/prompt-loader.js';
+import { loadPrompts } from '../src/prompts/prompt-loader';
 
 // Fake provider implementing LLMProvider
 class FakeProvider {
