@@ -1,4 +1,5 @@
 # VectorLint
+
 A command-line tool that evaluates Markdown content using LLMs and provides quality scores. Think of it like [Vale](https://github.com/errata-ai/vale), but instead of pattern matching, it uses LLMs enabling you to catch subjective issues like clarity, tone, and technical accuracy.
 
 ![VectorLint Screenshot](./assets/VectorLint_screenshot.jpeg)
@@ -10,140 +11,112 @@ A command-line tool that evaluates Markdown content using LLMs and provides qual
 - **Consistent Evaluations** - Write structured evaluation prompts to get consistent evaluation results
 - **Quality Scores & Thresholds** - Set scores and thresholds for your quality standards
 
-## Installation
+## Quick Start
 
-Install dependencies:
+Get up and running in minutes.
 
-```bash
-npm install
-```
+1.  **Clone the repository:**
 
-## LLM Provider Configuration
+    ```bash
+    git clone https://github.com/TinyRocketLabs/vectorlint.git
+    cd vectorlint
+    ```
 
-VectorLint supports multiple LLM providers. Choose and configure your preferred provider using environment variables.
+2.  **Install dependencies & Build:**
 
-### Setup
+    ```bash
+    npm install
+    npm run build
+    ```
 
-Copy the example environment file and configure your API credentials:
+3.  **Configure Environment:**
 
-```bash
-cp .env.example .env
-# Edit .env with your actual API credentials
-```
+    ```bash
+    cp .env.example .env
+    # Edit .env with your API key (e.g., OPENAI_API_KEY)
+    ```
 
-### Azure OpenAI
+4.  **Run a check:**
 
-Configure Azure OpenAI in your `.env` file:
+    ```bash
+    # Run against a local file
+    npm run dev -- path/to/article.md
+    ```
 
-```bash
-# Azure OpenAI Configuration
-LLM_PROVIDER=azure-openai
-AZURE_OPENAI_API_KEY=your-api-key-here
-AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com
-AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
-AZURE_OPENAI_API_VERSION=2024-02-15-preview
-AZURE_OPENAI_TEMPERATURE=0.2
-```
+## Global Installation (Recommended)
 
-### Anthropic Claude
+To run `vectorlint` from anywhere on your machine, use `npm link`.
 
-Configure Anthropic in your `.env` file:
+1.  **Build and Link:**
 
-```bash
-# Anthropic Configuration
-LLM_PROVIDER=anthropic
-ANTHROPIC_API_KEY=your-anthropic-api-key-here
-ANTHROPIC_MODEL=claude-3-sonnet-20240229
-ANTHROPIC_MAX_TOKENS=4096
-ANTHROPIC_TEMPERATURE=0.2
-```
+    ```bash
+    # Inside the vectorlint directory
+    npm run build
+    npm link
+    ```
 
-### Perplexity Search
+2.  **Verify Installation:**
 
-Configure perplexity in your `.env` file for optional online search for fact verification:
+    ```bash
+    vectorlint --help
+    ```
 
-```bash
-# Perplexity Configuration
+3.  **Usage:**
 
-SEARCH_PROVIDER=perplexity
-PERPLEXITY_API_KEY=pplx-your-api-key-here
-```
+    Now you can run `vectorlint` in any project:
 
-### OpenAI
+    ```bash
+    vectorlint check my-article.md
+    ```
 
-Configure OpenAI in your `.env` file:
+## Configuration
 
-```bash
-# OpenAI Configuration
-LLM_PROVIDER=openai
-OPENAI_API_KEY=your-openai-api-key-here
-OPENAI_MODEL=gpt-4o
-OPENAI_TEMPERATURE=0.2
-```
+### LLM Provider
 
-**Model Options:**
-- `gpt-4o`: Best quality for comprehensive assessments (default)
-- `gpt-4o-mini`: Cost-optimized for bulk processing
-- `gpt-4-turbo`: Alternative high-quality option
+VectorLint supports OpenAI, Azure OpenAI, Anthropic, and Perplexity.
 
-### Temperature Recommendations
+**Minimal Setup (OpenAI):**
 
-For consistent evaluation results, it's recommended to use relatively low temperature values (0.1-0.3) to reduce randomness in model responses. This helps ensure more predictable and reproducible quality assessments.
+1.  Copy `.env.example` to `.env`.
+2.  Set `LLM_PROVIDER=openai`.
+3.  Set `OPENAI_API_KEY=your-key`.
+
+For other providers (Azure, Anthropic), see the comments in `.env.example`.
 
 ### Project Config (vectorlint.ini)
 
-Copy the sample and edit for your project:
+To customize which prompts run on which files, use a `vectorlint.ini` file in your project root.
 
 ```bash
 cp vectorlint.example.ini vectorlint.ini
 ```
 
-Keys (PascalCase):
-- `PromptsPath`: directory containing your `.md` prompts
-- `ScanPaths`: bracketed list of file patterns to scan (supports only `.md` and `.txt`)
+**Key Settings:**
+- `PromptsPath`: Directory containing your `.md` prompts.
+- `ScanPaths`: Glob patterns for files to scan (e.g., `[content/**/*.md]`).
 
-Example (vectorlint.example.ini):
+## Usage Guide
 
-```
-PromptsPath=prompts
-ScanPaths=[*.md]
-Concurrency=4
-```
-
-Note: `vectorlint.ini` is git-ignored; commit `vectorlint.example.ini` as the template.
-
-### Prompts
-
-Prompts are markdown files. VectorLint loads all `.md` files from `PromptsPath` and runs each one against your content. The result is an aggregated report with one section per prompt.
-
-- Prompts do not need a placeholder; the file content is injected automatically as a separate message
-- Prompts start with a YAML frontmatter block that defines the evaluation criteria (names, weights, and optional thresholds/severities). Keep the body human‑readable
-- VectorLint enforces a structured JSON response via the API and parses scores automatically - you don't need to specify output format in your prompts
-
-## Usage
-
-### Local Development
-
-Run VectorLint without building:
+### Running Locally
 
 ```bash
-# Basic usage
+# Basic usage (if linked globally)
+vectorlint check path/to/article.md
+
+# Using npm script (if not linked)
 npm run dev -- path/to/article.md
 
-# See what's being sent to the LLM
-npm run dev -- --verbose path/to/article.md
-
-# Debug mode: show prompt and full JSON response
-npm run dev -- --verbose --show-prompt --debug-json path/to/article.md
+# Debug mode (shows prompts and full JSON response)
+vectorlint check --verbose --show-prompt --debug-json path/to/article.md
 ```
 
-Or make the script executable:
+### Creating Prompts
 
-### Basic Evaluator
+Prompts are simple Markdown files with YAML frontmatter.
 
-Create an eval and set `evaluator` to `basic` and add the required `id` and `name` fields.
+**Example (`prompts/grammar.md`):**
 
-```yaml
+```markdown
 ---
 evaluator: basic
 id: GrammarChecker
@@ -152,39 +125,10 @@ name: Grammar Checker
 Check the content for grammar issues and ensure professional writing quality.
 ```
 
-Run VectorLint as usual. You can optionally filter to only basic prompts with a `--basic` flag.
-
-## Prompt Mapping (INI)
-
-Control which prompts apply to which files using INI sections. Precedence: `Prompt:<Id>` → `Directory:<Alias>` → `Defaults`. Excludes are unioned and win over includes.
-
-Example:
-
-```
-[Prompts]
-paths = ["Default:prompts", "Blog:prompts/blog"]
-
-[Defaults]
-include = ["**/*.md"]
-exclude = ["archived/**"]
-
-[Directory:Blog]
-include = ["content/blog/**/*.md"]
-exclude = ["content/blog/drafts/**"]
-
-[Prompt:Headline]
-include = ["content/blog/**/*.md"]
-exclude = ["content/blog/drafts/**"]
-```
-
-Notes:
-- Aliases in `[Prompts].paths` tie a prompt's folder to a logical name
-- The CLI derives a prompt's alias from its actual file path and applies the mapping per scanned file
-
 ## Testing
 
-- Run in watch mode (local dev): `npm test`
-- Single run (no watch): `npm run test:run`
-- CI with coverage: `npm run test:ci`
+- `npm test`: Run tests in watch mode
+- `npm run test:run`: Single run
+- `npm run test:ci`: CI run with coverage
 
 Tests live under `tests/` and use Vitest. They validate config parsing (PromptsPath, ScanPaths), file discovery (including prompts exclusion), prompt/file mapping, and prompt aggregation with a mocked provider.
