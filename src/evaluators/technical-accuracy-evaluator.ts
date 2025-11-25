@@ -166,7 +166,7 @@ ${snippets.map((s, i) => `[${i + 1}] ${s.snippet} (${s.url})`).join('\n')}
 Respond ONLY in JSON:
 {
   "status": "supported|unsupported|unverifiable",
-  "justification": "brief reason (max 25 words)",
+  "justification": "brief reason (max 10 words)",
   "link": "most relevant supporting or contradicting source if available"
 }
 `;
