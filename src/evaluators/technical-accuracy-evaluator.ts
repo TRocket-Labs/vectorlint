@@ -51,7 +51,7 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
         }
 
         const verification = await this.verifyFact(violation.analysis);
-        
+
         // Enrich violation with verification results
         violation.analysis = this.enrichAnalysis(
           violation.analysis,
@@ -70,14 +70,14 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
 
       // Boundary: Search for evidence (external API call)
       const snippetsRaw: unknown = await this.searchProvider.search(searchClaim);
-      
+
       // Validate search results at boundary
       const SEARCH_RESULT_SCHEMA = z.array(z.object({
         snippet: z.string(),
         url: z.string(),
         title: z.string().optional(),
       }));
-      
+
       const snippets = SEARCH_RESULT_SCHEMA.parse(snippetsRaw);
 
       if (snippets.length === 0) {

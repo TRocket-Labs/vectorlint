@@ -120,7 +120,84 @@ export function printGlobalSummary(files: number, errors: number, warnings: numb
   }
 }
 
-export function printPromptOverallLine(maxScore: number, threshold?: number, userScore?: number) {
+export function printBasicReport(
+  result: { status: Status; message: string; violations: Array<{ analysis: string; suggestion?: string; pre?: string; post?: string; criterionName?: string }> },
+  ruleName: string
+) {
+  const status = result.status;
+  const message = result.message;
+
+  // Print main status line
+  const label = statusLabel(status);
+  console.log(`  ${label}  ${message}  ${chalk.dim(ruleName)}`);
+
+  // Print violations
+  if (result.violations && result.violations.length > 0) {
+    // Check if violations have criterionName for grouping
+    const hasCriterionNames = result.violations.some(v => v.criterionName);
+
+    if (hasCriterionNames) {
+      // Group violations by criterionName
+      const groupedViolations = new Map<string, typeof result.violations>();
+      const ungrouped: typeof result.violations = [];
+
+      for (const v of result.violations) {
+        if (v.criterionName) {
+          if (!groupedViolations.has(v.criterionName)) {
+            groupedViolations.set(v.criterionName, []);
+          }
+          groupedViolations.get(v.criterionName)!.push(v);
+        } else {
+          ungrouped.push(v);
+        }
+      }
+
+      // Print grouped violations
+      for (const [criterionName, violations] of groupedViolations) {
+        console.log(`  ${chalk.cyan(criterionName)}:`);
+        for (const v of violations) {
+          console.log(`    - ${v.analysis}`);
+          if (v.suggestion) {
+            console.log(`      Suggestion: ${v.suggestion}`);
+          }
+        }
+      }
+
+      // Print ungrouped violations
+      if (ungrouped.length > 0) {
+        console.log(`  ${chalk.cyan('Other')}:`);
+        for (const v of ungrouped) {
+          console.log(`    - ${v.analysis}`);
+          if (v.suggestion) {
+            console.log(`      Suggestion: ${v.suggestion}`);
+          }
+        }
+      }
+    } else {
+      // No criterionName, print violations flat
+      for (const v of result.violations) {
+        console.log(`    - ${v.analysis}`);
+        if (v.suggestion) {
+          console.log(`      Suggestion: ${v.suggestion}`);
+        }
+      }
+    }
+  }
+  console.log('');
+}
+
+export function printAdvancedReport(
+  entries: Array<{ id: string; scoreText: string }>,
+  maxScore: number,
+  threshold?: number,
+  userScore?: number
+) {
+  // Print criterion scores
+  for (const e of entries) {
+    console.log(`  ${e.id}  ${e.scoreText}`);
+  }
+
+  // Print overall score line
   const fmt = (n: number | undefined) => {
     if (n === undefined || n === null) return '-';
     const r = Math.round(n * 100) / 100;
@@ -130,13 +207,6 @@ export function printPromptOverallLine(maxScore: number, threshold?: number, use
   const thr = threshold !== undefined ? fmt(threshold) : '-';
   const usr = userScore !== undefined ? fmt(userScore) : '-';
   console.log(`  Top: ${top}, Threshold: ${thr}, Score: ${usr}`);
-}
-
-/** Print each criterion's weighted score on its own line: "<id>  x/y" */
-export function printCriterionScoreLines(entries: Array<{ id: string; scoreText: string }>) {
-  for (const e of entries) {
-    console.log(`  ${e.id}  ${e.scoreText}`);
-  }
 }
 
 export function printValidationRow(level: 'error' | 'warning', message: string) {
