@@ -66,7 +66,7 @@ To run `vectorlint` from anywhere on your machine, use `npm link`.
     Now you can run `vectorlint` in any project:
 
     ```bash
-    vectorlint check my-article.md
+    vectorlint my-article.md
     ```
 
 ## Configuration
@@ -101,13 +101,13 @@ cp vectorlint.example.ini vectorlint.ini
 
 ```bash
 # Basic usage (if linked globally)
-vectorlint check path/to/article.md
+vectorlint path/to/article.md
 
 # Using npm script (if not linked)
 npm run dev -- path/to/article.md
 
 # Debug mode (shows prompts and full JSON response)
-vectorlint check --verbose --show-prompt --debug-json path/to/article.md
+vectorlint --verbose --show-prompt --debug-json path/to/article.md
 ```
 
 ### Creating Prompts
