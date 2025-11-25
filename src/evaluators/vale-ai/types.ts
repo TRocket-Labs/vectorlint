@@ -22,3 +22,17 @@ export interface Context {
 export interface ValeAIConfig {
   contextWindowSize: number;
 }
+
+export interface BatchSuggestionResponse {
+  suggestions: {
+    findingIndex: number;
+    suggestion: string;
+  }[];
+}
+
+export interface EvaluatorsConfig {
+  enabled?: string[];
+  valeAI?: {
+    contextWindowSize: number;
+  };
+}

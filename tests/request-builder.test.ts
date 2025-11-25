@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DefaultRequestBuilder } from '../src/providers/request-builder.js';
+import { DefaultRequestBuilder } from '../src/providers/request-builder';
 
 describe('RequestBuilder', () => {
   it('appends directive to structured prompts without extra builder text', () => {

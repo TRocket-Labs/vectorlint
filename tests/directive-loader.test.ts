@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { loadDirective } from '../src/prompts/directive-loader.js';
+import { loadDirective } from '../src/prompts/directive-loader';
 
 describe('DirectiveLoader', () => {
   it('returns override from .vectorlint when present', () => {

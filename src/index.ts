@@ -5,6 +5,7 @@ import * as path from 'path';
 import { handleUnknownError } from './errors/index';
 import { registerValidateCommand } from './cli/validate-command';
 import { registerMainCommand } from './cli/commands';
+import { registerValeAICommand } from './cli/vale-ai-command';
 
 // Import evaluators to trigger self-registration
 import './evaluators/base-llm-evaluator';
@@ -61,6 +62,7 @@ program
 // Register commands
 registerValidateCommand(program);
 registerMainCommand(program);
+registerValeAICommand(program);
 
 // Parse command line arguments
 program.parse();

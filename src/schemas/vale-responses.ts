@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const VALE_ACTION_SCHEMA = z.object({
   Name: z.string(),
-  Params: z.array(z.string()),
+  Params: z.array(z.string()).nullable(),
 });
 
 export const VALE_ISSUE_SCHEMA = z.object({
