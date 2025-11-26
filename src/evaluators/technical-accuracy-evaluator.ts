@@ -36,16 +36,15 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
   async evaluate(_file: string, content: string): Promise<CriteriaResult> {
     // Step 1: Run base LLM evaluation
     const schema = buildCriteriaJsonSchema();
-    const baseResult = await this.llmProvider.runPromptStructured<CriteriaResult>(
+    const result = await this.llmProvider.runPromptStructured<CriteriaResult>(
       content,
       this.prompt.body,
       schema
     );
 
     // Step 2: Verify each violation with web search
-    const verifiedResult = { ...baseResult };
-
-    for (const criterion of verifiedResult.criteria) {
+    // Mutate in place since we're returning this result anyway
+    for (const criterion of result.criteria) {
       for (const violation of criterion.violations) {
         if (!violation.analysis || violation.analysis.trim().length < MIN_CLAIM_LENGTH) {
           continue; // Skip non-factual violations
@@ -61,7 +60,7 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
       }
     }
 
-    return verifiedResult;
+    return result;
   }
 
   private async verifyFact(claim: string): Promise<VerificationResult> {
@@ -167,7 +166,7 @@ ${snippets.map((s, i) => `[${i + 1}] ${s.snippet} (${s.url})`).join('\n')}
 Respond ONLY in JSON:
 {
   "status": "supported|unsupported|unverifiable",
-  "justification": "brief reason (max 25 words)",
+  "justification": "brief reason (max 10 words)",
   "link": "most relevant supporting or contradicting source if available"
 }
 `;
