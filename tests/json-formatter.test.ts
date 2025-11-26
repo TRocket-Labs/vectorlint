@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { JsonFormatter } from '../src/output/json-formatter';
+import { JsonFormatter, type RdJsonResult } from '../src/output/json-formatter';
 
 describe('JsonFormatter', () => {
   it('should format issues into Vale-compatible JSON structure', () => {
@@ -127,5 +127,43 @@ describe('JsonFormatter', () => {
     const parsed = JSON.parse(jsonOutput) as Record<string, unknown>;
     expect(parsed).toHaveProperty('test.md');
     expect(Array.isArray(parsed['test.md'])).toBe(true);
+  });
+  it('should produce valid RDJSON output', () => {
+    const formatter = new JsonFormatter();
+
+    formatter.addIssue({
+      file: 'test.md',
+      line: 1,
+      column: 1,
+      severity: 'error',
+      message: 'Test message',
+      rule: 'TestRule',
+      match: 'match',
+      suggestion: 'fix'
+    });
+
+    const rdjsonOutput = formatter.toJson('rdjson');
+
+    // Should be valid JSON
+    expect(() => {
+      JSON.parse(rdjsonOutput);
+    }).not.toThrow();
+
+    const parsed = JSON.parse(rdjsonOutput) as RdJsonResult;
+    expect(parsed).toHaveProperty('source');
+    expect(parsed.source.name).toBe('vectorlint');
+    expect(parsed).toHaveProperty('diagnostics');
+    expect(parsed.diagnostics).toHaveLength(1);
+
+    const diag = parsed.diagnostics[0]!;
+    expect(diag.message).toBe('Test message');
+    expect(diag.severity).toBe('ERROR');
+    expect(diag.location.path).toBe('test.md');
+    expect(diag.location.range.start.line).toBe(1);
+    expect(diag.location.range.start.column).toBe(1);
+    expect(diag.location.range.end!.column).toBe(6); // 1 + length of 'match' (5)
+
+    expect(diag.suggestions).toHaveLength(1);
+    expect(diag.suggestions![0]!.text).toBe('fix');
   });
 });

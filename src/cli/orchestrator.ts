@@ -22,7 +22,7 @@ export interface EvaluationOptions {
   concurrency: number;
   verbose: boolean;
   mapping?: PromptMapping;
-  outputFormat?: 'line' | 'JSON';
+  outputFormat?: 'line' | 'JSON' | 'rdjson';
 }
 
 export interface EvaluationResult {
@@ -44,7 +44,7 @@ interface ErrorTrackingResult {
 interface EvaluationContext {
   content: string;
   relFile: string;
-  outputFormat: 'line' | 'JSON';
+  outputFormat: 'line' | 'JSON' | 'rdjson';
   jsonFormatter: JsonFormatter;
 }
 
@@ -64,7 +64,7 @@ interface ReportIssueParams {
   status: 'ok' | 'warning' | 'error';
   summary: string;
   ruleName: string;
-  outputFormat: 'line' | 'JSON';
+  outputFormat: 'line' | 'JSON' | 'rdjson';
   jsonFormatter: JsonFormatter;
   suggestion?: string;
   scoreText?: string;
@@ -744,7 +744,9 @@ export async function evaluateFiles(
 
   // Output results based on format
   if (outputFormat === 'JSON') {
-    console.log(jsonFormatter.toJson());
+    console.log(jsonFormatter.toJson('vale'));
+  } else if (outputFormat === 'rdjson') {
+    console.log(jsonFormatter.toJson('rdjson'));
   }
 
   return {

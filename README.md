@@ -110,6 +110,24 @@ npm run dev -- path/to/article.md
 vectorlint --verbose --show-prompt --debug-json path/to/article.md
 ```
 
+### CI/CD Integration (GitHub Actions & reviewdog)
+
+VectorLint supports the `rdjson` format, making it easy to integrate with [reviewdog](https://github.com/reviewdog/reviewdog) for automated code review comments in Pull Requests.
+
+**Example Workflow:**
+
+```yaml
+- name: Run VectorLint with reviewdog
+  env:
+    REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    npx vectorlint --output rdjson . | reviewdog -f=rdjson -name="vectorlint" -reporter=github-pr-review -filter-mode=added -fail-on-error=true
+```
+
+Supported reporters:
+- `github-pr-review`: Posts comments on specific lines in the PR.
+- `github-check`: Creates annotations in the "Checks" tab.
+
 ### Creating Prompts
 
 Prompts are simple Markdown files with YAML frontmatter.

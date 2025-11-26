@@ -23,6 +23,51 @@ export interface JsonResult {
   };
 }
 
+export interface RdJsonResult {
+  source: {
+    name: string;
+    url: string;
+  };
+  diagnostics: RdJsonDiagnostic[];
+}
+
+export interface RdJsonDiagnostic {
+  message: string;
+  location: {
+    path: string;
+    range: {
+      start: {
+        line: number;
+        column: number;
+      };
+      end?: {
+        line: number;
+        column: number;
+      };
+    };
+  };
+  severity: 'ERROR' | 'WARNING' | 'INFO';
+  code?: {
+    value: string;
+    url?: string;
+  };
+  suggestions?: RdJsonSuggestion[];
+}
+
+export interface RdJsonSuggestion {
+  range: {
+    start: {
+      line: number;
+      column: number;
+    };
+    end: {
+      line: number;
+      column: number;
+    };
+  };
+  text: string;
+}
+
 export class JsonFormatter {
   private issues: JsonIssue[] = [];
   private files = new Set<string>();
@@ -71,7 +116,65 @@ export class JsonFormatter {
     return result;
   }
 
-  toJson(): string {
+  toRdJsonFormat(): RdJsonResult {
+    const diagnostics: RdJsonDiagnostic[] = this.issues.map((issue) => {
+      const matchLen = issue.matchLength || issue.match.length;
+
+      const diagnostic: RdJsonDiagnostic = {
+        message: issue.message,
+        location: {
+          path: issue.file,
+          range: {
+            start: {
+              line: issue.line,
+              column: issue.column,
+            },
+            end: {
+              line: issue.line,
+              column: issue.column + matchLen,
+            },
+          },
+        },
+        severity: issue.severity === 'error' ? 'ERROR' : issue.severity === 'warning' ? 'WARNING' : 'INFO',
+        code: {
+          value: issue.rule,
+        },
+      };
+
+      if (issue.suggestion) {
+        diagnostic.suggestions = [
+          {
+            range: {
+              start: {
+                line: issue.line,
+                column: issue.column,
+              },
+              end: {
+                line: issue.line,
+                column: issue.column + matchLen,
+              },
+            },
+            text: issue.suggestion,
+          },
+        ];
+      }
+
+      return diagnostic;
+    });
+
+    return {
+      source: {
+        name: 'vectorlint',
+        url: 'https://github.com/TRocket-Labs/vectorlint',
+      },
+      diagnostics,
+    };
+  }
+
+  toJson(format: 'vale' | 'rdjson' = 'vale'): string {
+    if (format === 'rdjson') {
+      return JSON.stringify(this.toRdJsonFormat(), null, 2);
+    }
     return JSON.stringify(this.toValeFormat(), null, 2);
   }
 
