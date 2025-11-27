@@ -70,13 +70,23 @@ runs:
           exit 1
         fi
         
-        # Install vectorlint from GitHub branch
-        npx github:TRocket-Labs/vectorlint#ft/reviewdog-test --output rdjson ${{ inputs.vectorlint_flags }} . | \
+        # Clone, build, and run vectorlint from branch
+        git clone -b ft/reviewdog-test https://github.com/TRocket-Labs/vectorlint.git .vectorlint-temp
+        cd .vectorlint-temp
+        npm ci
+        npm run build
+        
+        # Run using the built artifact
+        node dist/index.js --output rdjson ${{ inputs.vectorlint_flags }} ../ | \
         reviewdog -f=rdjson \
           -name="vectorlint" \
           -reporter=${{ inputs.reporter }} \
           -filter-mode=${{ inputs.filter_mode }} \
           -fail-on-error=${{ inputs.fail_on_error }}
+          
+        # Cleanup
+        cd ..
+        rm -rf .vectorlint-temp
 
 branding:
   icon: 'check-circle'
