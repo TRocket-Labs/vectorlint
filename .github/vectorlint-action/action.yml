@@ -70,8 +70,8 @@ runs:
           exit 1
         fi
         
-        # Install vectorlint from GitHub
-        npx github:TRocket-Labs/vectorlint --output rdjson ${{ inputs.vectorlint_flags }} . | \
+        # Install vectorlint from GitHub branch
+        npx github:TRocket-Labs/vectorlint#ft/reviewdog-test --output rdjson ${{ inputs.vectorlint_flags }} . | \
         reviewdog -f=rdjson \
           -name="vectorlint" \
           -reporter=${{ inputs.reporter }} \
