@@ -1,0 +1,83 @@
+name: 'VectorLint'
+description: 'Run VectorLint with reviewdog on pull requests'
+author: 'TRocket Labs'
+
+inputs:
+  github_token:
+    description: 'GitHub token for reviewdog'
+    required: false
+    default: ${{ github.token }}
+  
+  openai_api_key:
+    description: 'OpenAI API key'
+    required: false
+  
+  anthropic_api_key:
+    description: 'Anthropic API key'
+    required: false
+  
+  reporter:
+    description: 'Reporter type (github-pr-check, github-pr-review, github-check)'
+    required: false
+    default: 'github-pr-check'
+  
+  filter_mode:
+    description: 'Filter mode (added, diff_context, file, nofilter)'
+    required: false
+    default: 'added'
+  
+  fail_on_error:
+    description: 'Fail if errors are found'
+    required: false
+    default: 'true'
+  
+  vectorlint_flags:
+    description: 'Additional flags to pass to vectorlint'
+    required: false
+    default: ''
+  
+  working_directory:
+    description: 'Working directory'
+    required: false
+    default: '.'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Setup reviewdog
+      uses: reviewdog/action-setup@v1
+      with:
+        reviewdog_version: latest
+    
+    - name: Run VectorLint with reviewdog
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      env:
+        REVIEWDOG_GITHUB_API_TOKEN: ${{ inputs.github_token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+      run: |
+        set -e
+        
+        # Check if API key is provided
+        if [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
+          echo "Error: Either OPENAI_API_KEY or ANTHROPIC_API_KEY must be provided"
+          exit 1
+        fi
+        
+        # Install and run vectorlint
+        npx vectorlint@latest --output rdjson ${{ inputs.vectorlint_flags }} . | \
+        reviewdog -f=rdjson \
+          -name="vectorlint" \
+          -reporter=${{ inputs.reporter }} \
+          -filter-mode=${{ inputs.filter_mode }} \
+          -fail-on-error=${{ inputs.fail_on_error }}
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
