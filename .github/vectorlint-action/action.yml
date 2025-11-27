@@ -64,8 +64,12 @@ runs:
       run: |
         set -e
         
-        # Check if API key is provided
-        if [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
+        # Check if API key is provided and set provider
+        if [ -n "$OPENAI_API_KEY" ]; then
+          export LLM_PROVIDER="openai"
+        elif [ -n "$ANTHROPIC_API_KEY" ]; then
+          export LLM_PROVIDER="anthropic"
+        else
           echo "Error: Either OPENAI_API_KEY or ANTHROPIC_API_KEY must be provided"
           exit 1
         fi
