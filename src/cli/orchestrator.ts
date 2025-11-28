@@ -51,20 +51,9 @@ interface EvaluationContext {
 import type { EvaluationResult as PromptEvaluationResult, CriteriaResult } from '../prompts/schema';
 
 /*
- * Maps legacy evaluator type values to the unified 'base' evaluator.
- * Preserves specialized evaluators like 'technical-accuracy'.
- * 
- * Mapping:
- * - 'basic' → 'base' (basic mode determined by absence of criteria)
- * - 'scored' → 'base' (scored mode determined by presence of criteria)
- * - 'base-llm' → 'base' (legacy name)
- * - undefined → 'base' (default)
- * - 'technical-accuracy' → 'technical-accuracy' (preserved)
+ * Returns the evaluator type, defaulting to 'base' if not specified.
  */
 function resolveEvaluatorType(evaluator: string | undefined): string {
-  if (evaluator === 'basic' || evaluator === 'scored' || evaluator === 'base-llm') {
-    return 'base';
-  }
   return evaluator || 'base';
 }
 

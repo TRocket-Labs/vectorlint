@@ -22,10 +22,10 @@ describe('Prompt Loader Validation', () => {
         }
     });
 
-    describe('Basic Evaluator', () => {
-        it('should load basic prompt with criteria (no weight)', () => {
+    describe('Base Evaluator', () => {
+        it('should load base prompt with criteria (optional weight)', () => {
             createPrompt('test.md', `---
-evaluator: basic
+evaluator: base
 id: Test
 name: Test Evaluator
 criteria:
@@ -37,13 +37,13 @@ Check content.`);
             const { prompts, warnings } = loadPrompts(tmpDir);
             expect(warnings).toHaveLength(0);
             expect(prompts).toHaveLength(1);
-            expect(prompts[0].meta.evaluator).toBe('basic');
+            expect(prompts[0].meta.evaluator).toBe('base');
             expect(prompts[0].meta.criteria).toHaveLength(1);
         });
 
-        it('should load basic prompt without criteria', () => {
+        it('should load base prompt without criteria', () => {
             createPrompt('test.md', `---
-evaluator: basic
+evaluator: base
 id: Test
 name: Test Evaluator
 ---
@@ -54,9 +54,9 @@ Check content.`);
             expect(prompts).toHaveLength(1);
         });
 
-        it('should reject basic prompt with weight in criteria', () => {
+        it('should load base prompt with weight in criteria', () => {
             createPrompt('test.md', `---
-evaluator: basic
+evaluator: base
 id: Test
 name: Test Evaluator
 criteria:
@@ -67,14 +67,14 @@ criteria:
 Check content.`);
 
             const { prompts, warnings } = loadPrompts(tmpDir);
-            expect(prompts).toHaveLength(0);
-            expect(warnings.length).toBeGreaterThan(0);
-            expect(warnings[0]).toContain("cannot have 'weight'");
+            expect(warnings).toHaveLength(0);
+            expect(prompts).toHaveLength(1);
+            expect(prompts[0].meta.criteria![0].weight).toBe(1);
         });
 
-        it('should reject basic prompt missing id', () => {
+        it('should reject base prompt missing id', () => {
             createPrompt('test.md', `---
-evaluator: basic
+evaluator: base
 name: Test Evaluator
 ---
 Check content.`);
@@ -85,9 +85,9 @@ Check content.`);
             expect(warnings[0]).toContain('test.md');
         });
 
-        it('should reject basic prompt missing name', () => {
+        it('should reject base prompt missing name', () => {
             createPrompt('test.md', `---
-evaluator: basic
+evaluator: base
 id: Test
 ---
 Check content.`);
@@ -98,9 +98,9 @@ Check content.`);
             expect(warnings[0]).toContain('test.md');
         });
 
-        it('should reject basic prompt with criterion missing id', () => {
+        it('should reject base prompt with criterion missing id', () => {
             createPrompt('test.md', `---
-evaluator: basic
+evaluator: base
 id: Test
 name: Test Evaluator
 criteria:
@@ -114,9 +114,9 @@ Check content.`);
             expect(warnings[0]).toContain('test.md');
         });
 
-        it('should reject basic prompt with criterion missing name', () => {
+        it('should reject base prompt with criterion missing name', () => {
             createPrompt('test.md', `---
-evaluator: basic
+evaluator: base
 id: Test
 name: Test Evaluator
 criteria:
@@ -128,58 +128,6 @@ Check content.`);
             expect(prompts).toHaveLength(0);
             expect(warnings.length).toBeGreaterThan(0);
             expect(warnings[0]).toContain('test.md');
-        });
-    });
-
-    describe('Advanced Evaluator', () => {
-        it('should reject advanced prompt without criteria', () => {
-            createPrompt('test.md', `---
-evaluator: base-llm
-id: Test
-name: Test Evaluator
----
-Check content.`);
-
-            const { prompts, warnings } = loadPrompts(tmpDir);
-            expect(prompts).toHaveLength(0);
-            expect(warnings.length).toBeGreaterThan(0);
-            expect(warnings[0]).toContain('advanced evaluator requires criteria');
-        });
-
-        it('should reject advanced prompt without weight', () => {
-            createPrompt('test.md', `---
-evaluator: base-llm
-id: Test
-name: Test Evaluator
-criteria:
-  - name: Quality
-    id: QualityCheck
----
-Check content.`);
-
-            const { prompts, warnings } = loadPrompts(tmpDir);
-            expect(prompts).toHaveLength(0);
-            expect(warnings.length).toBeGreaterThan(0);
-            expect(warnings[0]).toContain("criterion missing required field 'weight'");
-        });
-
-        it('should load advanced prompt with valid criteria', () => {
-            createPrompt('test.md', `---
-evaluator: base-llm
-id: Test
-name: Test Evaluator
-criteria:
-  - name: Quality
-    id: QualityCheck
-    weight: 1
----
-Check content.`);
-
-            const { prompts, warnings } = loadPrompts(tmpDir);
-            expect(warnings).toHaveLength(0);
-            expect(prompts).toHaveLength(1);
-            expect(prompts[0].meta.criteria).toHaveLength(1);
-            expect(prompts[0].meta.criteria![0].weight).toBe(1);
         });
     });
 });
