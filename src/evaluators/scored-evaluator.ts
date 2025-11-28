@@ -1,13 +1,16 @@
-import { BaseEvaluator } from './evaluator';
-import type { LLMProvider } from '../providers/llm-provider';
-import type { PromptFile } from '../schemas/prompt-schemas';
-import { buildCriteriaJsonSchema, type CriteriaResult } from '../prompts/schema';
+import { BaseEvaluator } from "./evaluator";
+import type { LLMProvider } from "../providers/llm-provider";
+import type { PromptFile } from "../schemas/prompt-schemas";
+import {
+  buildCriteriaJsonSchema,
+  type CriteriaResult,
+} from "../prompts/schema";
 
 /*
- * Base LLM evaluator using structured output.
+ * Scored evaluator using structured output.
  * Wraps existing single-prompt evaluation logic in the evaluator pattern.
  */
-export class BaseLLMEvaluator extends BaseEvaluator {
+export class ScoredEvaluator extends BaseEvaluator {
   private llmProvider: LLMProvider;
   private prompt: PromptFile;
 
@@ -29,6 +32,6 @@ export class BaseLLMEvaluator extends BaseEvaluator {
 }
 
 // Self-register on module load
-BaseLLMEvaluator.register('base-llm', (llmProvider, prompt) => {
-  return new BaseLLMEvaluator(llmProvider, prompt);
+ScoredEvaluator.register("scored", (llmProvider, prompt) => {
+  return new ScoredEvaluator(llmProvider, prompt);
 });
