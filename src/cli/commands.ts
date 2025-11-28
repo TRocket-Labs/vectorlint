@@ -27,6 +27,7 @@ export function registerMainCommand(program: Command): void {
     .option('--debug-json', 'Print full JSON response from the API')
     .option('--output <format>', 'Output format: line (default), JSON, or rdjson', 'line')
     .option('--output-file <file>', 'Write output to a file instead of stdout')
+    .option('--prompts <path>', 'Path to prompts directory')
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
 
