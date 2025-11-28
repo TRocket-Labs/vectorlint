@@ -7,9 +7,8 @@ import {
   type CriteriaResult,
 } from "../prompts/schema";
 import { renderTemplate } from "../prompts/template-renderer";
-import { loadPrompts } from "../prompts/prompt-loader";
+import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
-import path from "path";
 
 // Schema for claim extraction response
 const CLAIM_EXTRACTION_SCHEMA = z.object({
@@ -27,8 +26,6 @@ type SearchResult = z.infer<typeof SEARCH_RESULT_SCHEMA>;
 
 /**
  * Technical Accuracy Evaluator - Acts as an orchestrator only.
- *
- * Philosophy:
  * - Evaluator (this class): Orchestrates data gathering (claims, search evidence)
  * - Eval (prompt): Contains all evaluation logic via templates
  *
@@ -38,10 +35,10 @@ type SearchResult = z.infer<typeof SEARCH_RESULT_SCHEMA>;
  * 3. Pass content, claims, and evidence to the main eval prompt (via templates)
  * 4. Return the structured evaluation result
  *
- * This evaluator does NOT contain evaluation logic - all evaluation is done by the prompt.
+ * Evaluators should NOT contain evaluation logic - all evaluation is done by the prompt.
  */
 export class TechnicalAccuracyEvaluator extends BaseEvaluator {
-  private claimExtractionPrompt: PromptFile | null = null;
+  private static readonly CLAIM_EXTRACTION_PROMPT_KEY = "claim-extraction";
 
   constructor(
     private llmProvider: LLMProvider,
@@ -49,39 +46,6 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     private searchProvider: SearchProvider
   ) {
     super();
-    this.loadClaimExtractionPrompt();
-  }
-
-  /**
-   * Load the claim extraction prompt from the prompts directory.
-   * This is called during construction to ensure the prompt is available.
-   */
-  private loadClaimExtractionPrompt(): void {
-    try {
-      // Determine prompts directory from the main prompt's path
-      const promptsDir = path.dirname(this.prompt.fullPath);
-
-      // Load all prompts and find claim-extraction
-      const { prompts } = loadPrompts(promptsDir, { verbose: false });
-      const claimPrompt = prompts.find(
-        (p) =>
-          p.id === "claim-extraction" || p.filename === "claim-extraction.md"
-      );
-
-      if (!claimPrompt) {
-        console.warn(
-          `[vectorlint] Claim extraction prompt not found in ${promptsDir}. Technical accuracy evaluator may not work correctly.`
-        );
-        return;
-      }
-
-      this.claimExtractionPrompt = claimPrompt;
-    } catch (e: unknown) {
-      const err = e instanceof Error ? e : new Error(String(e));
-      console.warn(
-        `[vectorlint] Failed to load claim extraction prompt: ${err.message}`
-      );
-    }
   }
 
   async evaluate(_file: string, content: string): Promise<CriteriaResult> {
@@ -123,14 +87,6 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
    * Extract factual claims from content using the claim extraction prompt.
    */
   private async extractClaims(content: string): Promise<string[]> {
-    // If claim extraction prompt is not available, skip extraction
-    if (!this.claimExtractionPrompt) {
-      console.warn(
-        "[vectorlint] Claim extraction prompt not available, skipping claim extraction"
-      );
-      return [];
-    }
-
     try {
       const claimSchema = {
         name: "ClaimExtraction",
@@ -146,10 +102,14 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
         },
       };
 
+      const claimExtractionPrompt = getPrompt(
+        TechnicalAccuracyEvaluator.CLAIM_EXTRACTION_PROMPT_KEY
+      );
+
       const claimResultRaw =
         await this.llmProvider.runPromptStructured<unknown>(
           content,
-          this.getClaimExtractionPromptBody(),
+          claimExtractionPrompt,
           claimSchema
         );
 
@@ -162,17 +122,6 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
       console.warn(`[vectorlint] Claim extraction failed: ${err.message}`);
       return [];
     }
-  }
-
-  /**
-   * Get the claim extraction prompt body, ensuring it's defined.
-   * Throws an error if the prompt is missing or has no body.
-   */
-  private getClaimExtractionPromptBody(): string {
-    if (!this.claimExtractionPrompt || !this.claimExtractionPrompt.body) {
-      throw new Error("Claim extraction prompt body is unavailable");
-    }
-    return this.claimExtractionPrompt.body;
   }
 
   /**
