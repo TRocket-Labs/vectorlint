@@ -655,6 +655,11 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     ...(mapping !== undefined && { mapping })
   });
 
+  if (options.verbose) {
+    console.error(`[vectorlint] File: ${relFile} - Running ${toRun.length} prompt(s)`);
+    toRun.forEach(p => console.error(`  - ${p.filename}`));
+  }
+
   const results = await runWithConcurrency(toRun, concurrency, async (p) => {
     return runPromptEvaluation({
       promptFile: p,
