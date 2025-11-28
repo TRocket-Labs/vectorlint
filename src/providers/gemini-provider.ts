@@ -72,17 +72,17 @@ ${content}
 `;
 
         if (this.config.debug) {
-            console.log('[vectorlint] Sending request to Gemini:', {
+            console.error('[vectorlint] Sending request to Gemini:', {
                 model: this.config.model,
                 temperature: this.config.temperature,
             });
             if (this.config.showPrompt) {
-                console.log('[vectorlint] Full prompt:');
-                console.log(fullPrompt);
+                console.error('[vectorlint] Full prompt:');
+                console.error(fullPrompt);
             } else if (this.config.showPromptTrunc) {
-                console.log('[vectorlint] Prompt preview (first 500 chars):');
-                console.log(fullPrompt.slice(0, 500));
-                if (fullPrompt.length > 500) console.log('... [truncated]');
+                console.error('[vectorlint] Prompt preview (first 500 chars):');
+                console.error(fullPrompt.slice(0, 500));
+                if (fullPrompt.length > 500) console.error('... [truncated]');
             }
         }
 
@@ -92,8 +92,8 @@ ${content}
             const text = response.text();
 
             if (this.config.debug && this.config.debugJson) {
-                console.log('[vectorlint] Full JSON response:');
-                console.log(text);
+                console.error('[vectorlint] Full JSON response:');
+                console.error(text);
             }
 
             return JSON.parse(text) as T;

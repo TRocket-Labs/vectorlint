@@ -89,8 +89,9 @@ runs:
         
         # Run using the built artifact from the repo root
         cd ..
-        node .vectorlint-temp/dist/index.js --output rdjson ${{ inputs.vectorlint_flags }} . | \
-        reviewdog -f=rdjson \
+        node .vectorlint-temp/dist/index.js --output rdjson --output-file vectorlint_result.json ${{ inputs.vectorlint_flags }} .
+        
+        cat vectorlint_result.json | reviewdog -f=rdjson \
           -name="vectorlint" \
           -reporter=${{ inputs.reporter }} \
           -filter-mode=${{ inputs.filter_mode }} \

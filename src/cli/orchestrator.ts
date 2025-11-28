@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import type { PromptFile } from '../prompts/prompt-loader';
 import type { LLMProvider } from '../providers/llm-provider';
@@ -23,6 +23,7 @@ export interface EvaluationOptions {
   verbose: boolean;
   mapping?: PromptMapping;
   outputFormat?: 'line' | 'JSON' | 'rdjson';
+  outputFile?: string;
 }
 
 export interface EvaluationResult {
@@ -464,7 +465,7 @@ function validateCriteriaCompleteness(params: ValidationParams): boolean {
 
   for (const name of returnedNames) {
     if (!expectedNames.has(name)) {
-      console.warn(`[vectorlint] Extra criterion returned by model (ignored): ${name}`);
+      console.error(`[vectorlint] Extra criterion returned by model (ignored): ${name}`);
     }
   }
 
@@ -748,15 +749,22 @@ export async function evaluateFiles(
   }
 
   // Output results based on format
-  if (outputFormat === 'JSON') {
-    console.log(jsonFormatter.toJson('vale'));
-  } else if (outputFormat === 'rdjson') {
-    const jsonStr = jsonFormatter.toJson('rdjson');
-    if (options.verbose) {
-      console.error('[vectorlint] Generated RDJSON:');
-      console.error(jsonStr);
+  // Output results based on format
+  if (outputFormat === 'JSON' || outputFormat === 'rdjson') {
+    const jsonStr = jsonFormatter.toJson(outputFormat === 'JSON' ? 'vale' : 'rdjson');
+
+    if (options.outputFile) {
+      writeFileSync(options.outputFile, jsonStr, 'utf-8');
+      if (options.verbose) {
+        console.error(`[vectorlint] Wrote output to ${options.outputFile}`);
+      }
+    } else {
+      if (outputFormat === 'rdjson' && options.verbose) {
+        console.error('[vectorlint] Generated RDJSON:');
+        console.error(jsonStr);
+      }
+      console.log(jsonStr);
     }
-    console.log(jsonStr);
   }
 
   return {
