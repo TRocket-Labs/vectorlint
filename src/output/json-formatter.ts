@@ -142,22 +142,12 @@ export class JsonFormatter {
       };
 
       if (issue.suggestion) {
-        diagnostic.suggestions = [
-          {
-            range: {
-              start: {
-                line: issue.line,
-                column: issue.column,
-              },
-              end: {
-                line: issue.line,
-                column: issue.column + matchLen,
-              },
-            },
-            text: issue.suggestion,
-          },
-        ];
+        diagnostic.message += `\n\nSuggestion: ${issue.suggestion}`;
       }
+
+      // Note: We do not populate diagnostic.suggestions because vectorlint suggestions
+      // are currently descriptive (e.g. "Change X to Y") rather than exact code replacements.
+      // To support one-click fixes, we would need the LLM to return exact replacement text.
 
       return diagnostic;
     });

@@ -27,7 +27,7 @@ jobs:
         uses: ./.github/vectorlint-action
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          reporter: github-pr-check
+          reporter: github-pr-review
           filter_mode: nofilter
           fail_on_error: true
           vectorlint_flags: '--verbose'
