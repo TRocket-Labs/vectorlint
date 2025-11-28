@@ -109,10 +109,7 @@ runs:
           echo "Scanning changed files: $TARGET_FILES"
         fi
 
-        # Debug prompts existence (temporary)
-        if [ -d "prompts" ]; then echo "Prompts dir exists"; else echo "Prompts dir MISSING"; fi
-
-        node .vectorlint-temp/dist/index.js --output rdjson --output-file vectorlint_result.json ${{ inputs.vectorlint_flags }} $TARGET_FILES
+        node .vectorlint-temp/dist/index.js --output rdjson --output-file vectorlint_result.json --prompts .vectorlint-temp/prompts ${{ inputs.vectorlint_flags }} $TARGET_FILES
         
         cat vectorlint_result.json | reviewdog -f=rdjson \
           -name="vectorlint" \
