@@ -65,49 +65,8 @@ export function loadPrompts(
         continue;
       }
 
-      // Basic evaluator validation
-      if (meta.evaluator === 'basic') {
-        if (meta.criteria && meta.criteria.length > 0) {
-          for (const c of meta.criteria) {
-            if (!c.id) {
-              warnings.push(`Skipping ${entry}: criterion missing required field 'id'`);
-              meta = undefined;
-              break;
-            }
-            if (!c.name) {
-              warnings.push(`Skipping ${entry}: criterion missing required field 'name'`);
-              meta = undefined;
-              break;
-            }
-            if (c.weight !== undefined) {
-              warnings.push(`Skipping ${entry}: basic evaluator cannot have 'weight' in criteria`);
-              meta = undefined;
-              break;
-            }
-          }
-          if (!meta) continue;
-
-          // Ensure unique criterion ids
-          const ids = new Set<string>();
-          for (const c of meta.criteria) {
-            const cid = String(c.id);
-            if (ids.has(cid)) {
-              warnings.push(`Skipping ${entry}: duplicate criterion id '${cid}'`);
-              meta = undefined;
-              break;
-            }
-            ids.add(cid);
-          }
-          if (!meta) continue;
-        }
-      }
-
-      // Advanced evaluator validation
-      if (meta.evaluator !== 'basic') {
-        if (!meta.criteria || meta.criteria.length === 0) {
-          warnings.push(`Skipping ${entry}: advanced evaluator requires criteria`);
-          continue;
-        }
+      // Criteria validation (if present)
+      if (meta.criteria && meta.criteria.length > 0) {
         for (const c of meta.criteria) {
           if (!c.id) {
             warnings.push(`Skipping ${entry}: criterion missing required field 'id'`);
@@ -119,28 +78,21 @@ export function loadPrompts(
             meta = undefined;
             break;
           }
-          if (!c.weight || Number.isNaN(c.weight)) {
-            warnings.push(`Skipping ${entry}: criterion missing required field 'weight'`);
-            meta = undefined;
-            break;
-          }
         }
         if (!meta) continue;
 
         // Ensure unique criterion ids
-        if (meta.criteria) {
-          const ids = new Set<string>();
-          for (const c of meta.criteria) {
-            const cid = String(c.id);
-            if (ids.has(cid)) {
-              warnings.push(`Skipping ${entry}: duplicate criterion id '${cid}'`);
-              meta = undefined;
-              break;
-            }
-            ids.add(cid);
+        const ids = new Set<string>();
+        for (const c of meta.criteria) {
+          const cid = String(c.id);
+          if (ids.has(cid)) {
+            warnings.push(`Skipping ${entry}: duplicate criterion id '${cid}'`);
+            meta = undefined;
+            break;
           }
-          if (!meta) continue;
+          ids.add(cid);
         }
+        if (!meta) continue;
       }
 
       if (meta.severity && meta.severity !== 'warning' && meta.severity !== 'error') {
