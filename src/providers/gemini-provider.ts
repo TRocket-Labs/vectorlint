@@ -23,7 +23,7 @@ export class GeminiProvider implements LLMProvider {
         this.client = new GoogleGenerativeAI(config.apiKey);
         this.config = {
             ...config,
-            model: config.model ?? 'gemini-1.5-pro',
+            model: config.model ?? 'gemini-2.5-flash',
             temperature: config.temperature ?? 0.2,
         };
         this.model = this.client.getGenerativeModel({

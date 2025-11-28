@@ -27,7 +27,7 @@ const OPENAI_CONFIG_SCHEMA = z.object({
 // Gemini configuration schema
 const GEMINI_CONFIG_SCHEMA = z.object({
   GEMINI_API_KEY: z.string().min(1),
-  GEMINI_MODEL: z.string().default('gemini-1.5-pro'),
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
   GEMINI_TEMPERATURE: z.coerce.number().min(0).max(1).optional(),
 });
 
