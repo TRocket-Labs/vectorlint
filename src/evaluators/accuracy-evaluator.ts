@@ -1,11 +1,9 @@
-import { BaseEvaluator } from "./evaluator";
+import { BaseEvaluator } from "./base-evaluator";
+import { registerEvaluator } from "./evaluator-registry";
 import type { LLMProvider } from "../providers/llm-provider";
 import type { SearchProvider } from "../providers/search-provider";
 import type { PromptFile } from "../schemas/prompt-schemas";
-import {
-  buildCriteriaJsonSchema,
-  type CriteriaResult,
-} from "../prompts/schema";
+import type { EvaluationResult } from "../prompts/schema";
 import { renderTemplate } from "../prompts/template-renderer";
 import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
@@ -41,15 +39,15 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
   private static readonly CLAIM_EXTRACTION_PROMPT_KEY = "claim-extraction";
 
   constructor(
-    private llmProvider: LLMProvider,
-    private prompt: PromptFile,
+    llmProvider: LLMProvider,
+    prompt: PromptFile,
     private searchProvider: SearchProvider
   ) {
-    super();
+    super(llmProvider, prompt);
   }
 
-  async evaluate(_file: string, content: string): Promise<CriteriaResult> {
-    //  Step 1: Extract factual claims from the content
+  async evaluate(_file: string, content: string): Promise<EvaluationResult> {
+    // Step 1: Extract factual claims from the content
     const claims = await this.extractClaims(content);
 
     // If no claims found, return success (empty criteria array)
@@ -72,15 +70,15 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     // Step 4: Render the prompt with template variables
     const renderedPrompt = renderTemplate(this.getPromptBody(), templateVars);
 
-    // Step 5: Run the evaluation prompt
-    const schema = buildCriteriaJsonSchema();
-    const result = await this.llmProvider.runPromptStructured<CriteriaResult>(
-      content,
-      renderedPrompt,
-      schema
-    );
+    // Step 5: Create enriched prompt with rendered body and delegate to parent
+    const enrichedPrompt: PromptFile = {
+      ...this.prompt,
+      body: renderedPrompt,
+    };
 
-    return result;
+    // Step 6: Use parent's evaluation logic with enriched prompt
+    const evaluator = new BaseEvaluator(this.llmProvider, enrichedPrompt);
+    return evaluator.evaluate(_file, content);
   }
 
   /**
@@ -204,15 +202,10 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
   }
 }
 
-// Self-register on module load
-TechnicalAccuracyEvaluator.register(
-  "technical-accuracy",
-  (llmProvider, prompt, searchProvider) => {
-    if (!searchProvider) {
-      throw new Error(
-        "technical-accuracy evaluator requires a search provider"
-      );
-    }
-    return new TechnicalAccuracyEvaluator(llmProvider, prompt, searchProvider);
+// Self-register on module load using registerEvaluator directly
+registerEvaluator("technical-accuracy", (llmProvider, prompt, searchProvider) => {
+  if (!searchProvider) {
+    throw new Error("technical-accuracy evaluator requires a search provider");
   }
-);
+  return new TechnicalAccuracyEvaluator(llmProvider, prompt, searchProvider);
+});

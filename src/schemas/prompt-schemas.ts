@@ -20,7 +20,15 @@ export const PROMPT_CRITERION_SCHEMA = z.object({
 // Prompt metadata schema for YAML frontmatter
 export const PROMPT_META_SCHEMA = z.object({
   specVersion: z.union([z.string(), z.number()]).optional(),
-  evaluator: z.enum(['base-llm', 'technical-accuracy', 'basic']).optional(),
+  /*
+   * Evaluator type selection:
+   * - 'base': unified evaluator (auto-detects scored vs basic mode from criteria)
+   * - 'scored': legacy alias → maps to 'base' with scored mode
+   * - 'basic': legacy alias → maps to 'base' with basic mode
+   * - 'base-llm': legacy alias → maps to 'base'
+   * - 'technical-accuracy': specialized evaluator with claim extraction + search
+   */
+  evaluator: z.enum(['base', 'scored', 'base-llm', 'technical-accuracy', 'basic']).optional(),
   id: z.string(),
   name: z.string(),
   threshold: z.number().min(0).optional(),
