@@ -73,7 +73,7 @@ export function registerMainCommand(program: Command): void {
 
       if (cliOptions.verbose) {
         const directiveLen = directive ? directive.length : 0;
-        console.log(`[vectorlint] Directive active: ${directiveLen} char(s)`);
+        console.error(`[vectorlint] Directive active: ${directiveLen} char(s)`);
       }
 
       // Load config and prompts
@@ -122,6 +122,16 @@ export function registerMainCommand(program: Command): void {
       }
 
       if (targets.length === 0) {
+        if (cliOptions.output === 'rdjson') {
+          console.log(JSON.stringify({
+            source: { name: 'vectorlint', url: 'https://github.com/TRocket-Labs/vectorlint' },
+            diagnostics: []
+          }, null, 2));
+          process.exit(0);
+        } else if (cliOptions.output === 'JSON') {
+          console.log('{}');
+          process.exit(0);
+        }
         console.error('Error: no target files found to evaluate.');
         process.exit(1);
       }

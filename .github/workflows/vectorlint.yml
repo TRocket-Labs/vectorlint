@@ -28,5 +28,6 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           reporter: github-pr-check
-          filter_mode: file
+          filter_mode: nofilter
           fail_on_error: true
+          vectorlint_flags: '--verbose'
