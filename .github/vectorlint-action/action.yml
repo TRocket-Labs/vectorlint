@@ -15,6 +15,10 @@ inputs:
   anthropic_api_key:
     description: 'Anthropic API key'
     required: false
+
+  gemini_api_key:
+    description: 'Google Gemini API key'
+    required: false
   
   reporter:
     description: 'Reporter type (github-pr-check, github-pr-review, github-check)'
@@ -61,6 +65,7 @@ runs:
         REVIEWDOG_GITHUB_API_TOKEN: ${{ inputs.github_token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
       run: |
         set -e
         
@@ -69,8 +74,10 @@ runs:
           export LLM_PROVIDER="openai"
         elif [ -n "$ANTHROPIC_API_KEY" ]; then
           export LLM_PROVIDER="anthropic"
+        elif [ -n "$GEMINI_API_KEY" ]; then
+          export LLM_PROVIDER="gemini"
         else
-          echo "Error: Either OPENAI_API_KEY or ANTHROPIC_API_KEY must be provided"
+          echo "Error: An API key (OpenAI, Anthropic, or Gemini) must be provided"
           exit 1
         fi
         
@@ -80,8 +87,9 @@ runs:
         npm ci
         npm run build
         
-        # Run using the built artifact
-        node dist/index.js --output rdjson ${{ inputs.vectorlint_flags }} ../ | \
+        # Run using the built artifact from the repo root
+        cd ..
+        node .vectorlint-temp/dist/index.js --output rdjson ${{ inputs.vectorlint_flags }} . | \
         reviewdog -f=rdjson \
           -name="vectorlint" \
           -reporter=${{ inputs.reporter }} \
@@ -89,7 +97,6 @@ runs:
           -fail-on-error=${{ inputs.fail_on_error }}
           
         # Cleanup
-        cd ..
         rm -rf .vectorlint-temp
 
 branding:
