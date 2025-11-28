@@ -371,7 +371,7 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
     };
   }
 
-  const got = result.criteria.find(c => c.name === nameKey);
+  const got = result.criteria.find(c => c.name === nameKey || c.name.toLowerCase() === nameKey.toLowerCase());
   if (!got) {
     return {
       errors: 0,
@@ -456,15 +456,29 @@ function validateCriteriaCompleteness(params: ValidationParams): boolean {
   const expectedNames = new Set<string>((meta.criteria || []).map((c) => String(c.name || c.id || '')));
   const returnedNames = new Set(result.criteria.map((c: { name: string }) => c.name));
 
+  // Create normalized maps for case-insensitive lookup
+  const expectedNormalized = new Set<string>();
+  const expectedOriginalMap = new Map<string, string>();
   for (const name of expectedNames) {
-    if (!returnedNames.has(name)) {
-      console.error(`Missing criterion in model output: ${name}`);
+    const norm = name.toLowerCase();
+    expectedNormalized.add(norm);
+    expectedOriginalMap.set(norm, name);
+  }
+
+  const returnedNormalized = new Set<string>();
+  for (const name of returnedNames) {
+    returnedNormalized.add(name.toLowerCase());
+  }
+
+  for (const norm of expectedNormalized) {
+    if (!returnedNormalized.has(norm)) {
+      console.error(`Missing criterion in model output: ${expectedOriginalMap.get(norm)}`);
       hadErrors = true;
     }
   }
 
   for (const name of returnedNames) {
-    if (!expectedNames.has(name)) {
+    if (!expectedNormalized.has(name.toLowerCase())) {
       console.error(`[vectorlint] Extra criterion returned by model (ignored): ${name}`);
     }
   }
@@ -481,7 +495,7 @@ function validateScores(params: ValidationParams): boolean {
 
   for (const exp of meta.criteria || []) {
     const nameKey = String(exp.name || exp.id || '');
-    const got = result.criteria.find(c => c.name === nameKey);
+    const got = result.criteria.find(c => c.name === nameKey || c.name.toLowerCase() === nameKey.toLowerCase());
     if (!got) continue;
 
     const score = Number(got.score);

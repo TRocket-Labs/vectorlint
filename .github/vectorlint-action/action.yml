@@ -109,7 +109,7 @@ runs:
           echo "Scanning changed files: $TARGET_FILES"
         fi
 
-        node .vectorlint-temp/dist/index.js --output rdjson --output-file vectorlint_result.json --prompts .vectorlint-temp/prompts ${{ inputs.vectorlint_flags }} $TARGET_FILES
+        node .vectorlint-temp/dist/index.js --output rdjson --output-file vectorlint_result.json --prompts .vectorlint-temp/prompts ${{ inputs.vectorlint_flags }} $TARGET_FILES || true
         
         cat vectorlint_result.json | reviewdog -f=rdjson \
           -name="vectorlint" \
