@@ -1,6 +1,7 @@
 ---
 specVersion: 1.0.0
 evaluator: technical-accuracy
+type: subjective
 id: TechnicalAccuracy
 name: Technical Accuracy
 severity: error

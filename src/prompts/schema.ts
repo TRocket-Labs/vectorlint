@@ -1,6 +1,6 @@
-export function buildCriteriaJsonSchema() {
+export function buildSubjectiveLLMSchema() {
   return {
-    name: 'vectorlint_criteria_result',
+    name: 'vectorlint_subjective_result',
     strict: true,
     schema: {
       type: 'object',
@@ -13,7 +13,6 @@ export function buildCriteriaJsonSchema() {
             additionalProperties: false,
             properties: {
               name: { type: 'string' },
-              weight: { type: 'number' },
               score: { type: 'number', enum: [0, 1, 2, 3, 4] },
               summary: { type: 'string' },
               reasoning: { type: 'string' },
@@ -32,9 +31,7 @@ export function buildCriteriaJsonSchema() {
                 },
               },
             },
-            // Azure strict json_schema requires that `required` include every property key.
-            // We require `summary`, `reasoning`, and `violations` to ensure positive remarks, reasoning, and findings are captured.
-            required: ['name', 'weight', 'score', 'summary', 'reasoning', 'violations'],
+            required: ['name', 'score', 'summary', 'reasoning', 'violations'],
           },
         },
       },
@@ -43,38 +40,86 @@ export function buildCriteriaJsonSchema() {
   } as const;
 }
 
-export function buildBasicJsonSchema() {
+export function buildSemiObjectiveLLMSchema() {
   return {
-    name: 'vectorlint_basic_result',
+    name: 'vectorlint_semi_objective_result',
     strict: true,
     schema: {
       type: 'object',
       additionalProperties: false,
       properties: {
-        status: { type: 'string', enum: ['ok', 'warning', 'error'] },
-        message: { type: 'string' },
-        violations: {
+        items: {
           type: 'array',
           items: {
             type: 'object',
             additionalProperties: false,
             properties: {
+              description: { type: 'string' },
+              passed: { type: 'boolean' },
               analysis: { type: 'string' },
               suggestion: { type: 'string' },
               pre: { type: 'string' },
               post: { type: 'string' },
-              criterionName: { type: 'string' },
             },
-            required: ['analysis', 'suggestion', 'pre', 'post', 'criterionName'],
+            required: ['description', 'passed', 'analysis', 'suggestion', 'pre', 'post'],
           },
         },
       },
-      required: ['status', 'message', 'violations'],
+      required: ['items'],
     },
   } as const;
 }
 
-export type BasicResult = {
+export type SubjectiveLLMResult = {
+  criteria: Array<{
+    name: string;
+    score: 0 | 1 | 2 | 3 | 4;
+    summary: string;
+    reasoning: string;
+    violations: Array<{ pre: string; post: string; analysis: string; suggestion: string }>;
+  }>;
+};
+
+export type SemiObjectiveLLMResult = {
+  items: Array<{
+    description: string;
+    passed: boolean;
+    analysis: string;
+    suggestion?: string;
+    pre?: string;
+    post?: string;
+  }>;
+};
+
+export type SubjectiveResult = {
+  type: 'subjective';
+  final_score: number; // 1-10
+  criteria: Array<{
+    name: string;
+    weight: number;
+    score: 0 | 1 | 2 | 3 | 4;
+    weighted_points: number;
+    summary: string;
+    reasoning: string;
+    violations: Array<{ pre: string; post: string; analysis: string; suggestion: string }>;
+  }>;
+};
+
+export type SemiObjectiveResult = {
+  type: 'semi-objective';
+  final_score: number; // 1-10
+  percentage: number;
+  passed_count: number;
+  total_count: number;
+  items: Array<{
+    description: string;
+    passed: boolean;
+    analysis: string;
+    suggestion?: string;
+    pre?: string;
+    post?: string;
+  }>;
+  // Backward compatibility with old BasicResult
   status: 'ok' | 'warning' | 'error';
   message: string;
   violations: Array<{
@@ -86,19 +131,12 @@ export type BasicResult = {
   }>;
 };
 
-export type CriteriaResult = {
-  criteria: Array<{
-    name: string;
-    weight: number;
-    score: 0 | 1 | 2 | 3 | 4;
-    summary: string;
-    reasoning: string;
-    violations: Array<{ pre: string; post: string; analysis: string; suggestion: string }>;
-  }>;
-};
+export type EvaluationResult = SubjectiveResult | SemiObjectiveResult;
 
-export type EvaluationResult = BasicResult | CriteriaResult;
+export function isSubjectiveResult(result: EvaluationResult): result is SubjectiveResult {
+  return result.type === 'subjective';
+}
 
-export function isCriteriaResult(result: EvaluationResult): result is CriteriaResult {
-  return 'criteria' in result;
+export function isSemiObjectiveResult(result: EvaluationResult): result is SemiObjectiveResult {
+  return result.type === 'semi-objective';
 }

@@ -26,6 +26,12 @@ export const PROMPT_META_SCHEMA = z.object({
    * - 'technical-accuracy': specialized evaluator with claim extraction + search
    */
   evaluator: z.enum(['base', 'technical-accuracy']).optional(),
+  /*
+   * Evaluation type:
+   * - 'subjective': 0-4 scores per criterion, weighted average
+   * - 'semi-objective': count-based pass/fail
+   */
+  type: z.enum(['subjective', 'semi-objective']).optional(),
   id: z.string(),
   name: z.string(),
   threshold: z.number().min(0).optional(),

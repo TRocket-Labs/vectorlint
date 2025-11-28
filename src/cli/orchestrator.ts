@@ -12,7 +12,7 @@ import { checkTarget } from '../prompts/target';
 import { resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from '../prompts/prompt-mapping';
 import { handleUnknownError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
-import { isCriteriaResult } from '../prompts/schema';
+import { isSubjectiveResult } from '../prompts/schema';
 
 export interface EvaluationOptions {
   prompts: PromptFile[];
@@ -48,7 +48,7 @@ interface EvaluationContext {
   jsonFormatter: JsonFormatter;
 }
 
-import type { EvaluationResult as PromptEvaluationResult, CriteriaResult } from '../prompts/schema';
+import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } from '../prompts/schema';
 
 /*
  * Returns the evaluator type, defaulting to 'base' if not specified.
@@ -106,7 +106,7 @@ interface ProcessViolationsParams extends EvaluationContext {
 
 interface ProcessCriterionParams extends EvaluationContext {
   exp: PromptCriterionSpec;
-  result: CriteriaResult;
+  result: SubjectiveResult;
   promptId: string;
   promptFilename: string;
   meta: PromptMeta;
@@ -120,7 +120,7 @@ interface ProcessCriterionResult extends ErrorTrackingResult {
 
 interface ValidationParams {
   meta: PromptMeta;
-  result: CriteriaResult;
+  result: SubjectiveResult;
 }
 
 interface ProcessPromptResultParams extends EvaluationContext {
@@ -513,8 +513,8 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
   let promptErrors = 0;
   let promptWarnings = 0;
 
-  // Handle Basic Result
-  if (!isCriteriaResult(result)) {
+  // Handle Semi-Objective Result
+  if (!isSubjectiveResult(result)) {
     const status = result.status;
     if (status === 'error') {
       hadSeverityErrors = true;
@@ -551,7 +551,7 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
     };
   }
 
-  // Handle Advanced Criteria Result
+  // Handle Subjective Result
   // Validate criterion completeness and scores
   hadOperationalErrors = validateCriteriaCompleteness({ meta, result }) || hadOperationalErrors;
   hadOperationalErrors = validateScores({ meta, result }) || hadOperationalErrors;

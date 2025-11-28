@@ -1,5 +1,6 @@
 ---
 specVersion: 1.0.0
+type: subjective
 threshold: 80
 severity: warning
 name: AI Pattern Detector

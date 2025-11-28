@@ -50,10 +50,19 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     // Step 1: Extract factual claims from the content
     const claims = await this.extractClaims(content);
 
-    // If no claims found, return success (empty criteria array)
+    // If no claims found, return success (empty items array, perfect score)
     if (claims.length === 0) {
       return {
-        criteria: [],
+        type: 'semi-objective',
+        final_score: 10,
+        percentage: 100,
+        passed_count: 0,
+        total_count: 0,
+        items: [],
+        // Backward compatibility
+        status: 'ok',
+        message: 'No claims found to verify',
+        violations: [],
       };
     }
 
@@ -74,6 +83,10 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     const enrichedPrompt: PromptFile = {
       ...this.prompt,
       body: renderedPrompt,
+      meta: {
+        ...this.prompt.meta,
+        type: 'semi-objective', // Enforce semi-objective type
+      },
     };
 
     // Step 6: Use parent's evaluation logic with enriched prompt
