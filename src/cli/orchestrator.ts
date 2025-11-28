@@ -746,7 +746,12 @@ export async function evaluateFiles(
   if (outputFormat === 'JSON') {
     console.log(jsonFormatter.toJson('vale'));
   } else if (outputFormat === 'rdjson') {
-    console.log(jsonFormatter.toJson('rdjson'));
+    const jsonStr = jsonFormatter.toJson('rdjson');
+    if (options.verbose) {
+      console.error('[vectorlint] Generated RDJSON:');
+      console.error(jsonStr);
+    }
+    console.log(jsonStr);
   }
 
   return {

@@ -156,6 +156,11 @@ export function registerMainCommand(program: Command): void {
         : undefined;
 
       // Run evaluations via orchestrator
+      if (cliOptions.verbose) {
+        console.error(`[vectorlint] Resolving targets... Found ${targets.length} file(s):`);
+        targets.forEach(t => console.error(`  - ${t}`));
+      }
+
       const result = await evaluateFiles(targets, {
         prompts,
         promptsPath,
