@@ -28,34 +28,42 @@ export function renderTemplate(
   // Match {{variableName}} patterns
   const templatePattern = /\{\{(\s*[\w.]+\s*)\}\}/g;
 
-  return template.replace(templatePattern, (match, variableName) => {
-    const trimmedName = variableName.trim();
+  return template.replace(
+    templatePattern,
+    (_match: string, variableName: string) => {
+      const trimmedName = variableName.trim();
 
-    if (!(trimmedName in variables)) {
-      throw new Error(
-        `Template variable '${trimmedName}' is not defined. Available variables: ${Object.keys(
-          variables
-        ).join(", ")}`
-      );
+      if (!(trimmedName in variables)) {
+        throw new Error(
+          `Template variable '${trimmedName}' is not defined. Available variables: ${Object.keys(
+            variables
+          ).join(", ")}`
+        );
+      }
+
+      const value = variables[trimmedName] as
+        | string
+        | string[]
+        | object
+        | number
+        | boolean;
+
+      // Handle different value types
+      if (Array.isArray(value)) {
+        return value.join("\n");
+      }
+
+      if (typeof value === "object" && value !== null) {
+        return JSON.stringify(value, null, 2);
+      }
+
+      if (value === null || value === undefined) {
+        return "";
+      }
+
+      return String(value);
     }
-
-    const value = variables[trimmedName];
-
-    // Handle different value types
-    if (Array.isArray(value)) {
-      return value.join("\n");
-    }
-
-    if (typeof value === "object" && value !== null) {
-      return JSON.stringify(value, null, 2);
-    }
-
-    if (value === null || value === undefined) {
-      return "";
-    }
-
-    return String(value);
-  });
+  );
 }
 
 /**

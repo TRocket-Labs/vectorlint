@@ -16,8 +16,6 @@ const CLAIM_EXTRACTION_SCHEMA = z.object({
   claims: z.array(z.string()),
 });
 
-type ClaimExtractionResult = z.infer<typeof CLAIM_EXTRACTION_SCHEMA>;
-
 // Schema for search result
 const SEARCH_RESULT_SCHEMA = z.object({
   snippet: z.string(),
@@ -148,12 +146,15 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
         },
       };
 
-      const claimResult =
-        await this.llmProvider.runPromptStructured<ClaimExtractionResult>(
+      const claimResultRaw =
+        await this.llmProvider.runPromptStructured<unknown>(
           content,
           this.getClaimExtractionPromptBody(),
           claimSchema
         );
+
+      // Validate the response with Zod schema
+      const claimResult = CLAIM_EXTRACTION_SCHEMA.parse(claimResultRaw);
 
       return claimResult.claims;
     } catch (e: unknown) {
