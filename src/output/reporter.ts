@@ -36,7 +36,15 @@ export function printIssueRow(
   // Columns: loc (fixed), severity (fixed), message (fixed wrap), score (fixed), rule/id (unbounded)
   const locWidth = opts.locWidth ?? 7;
   const severityWidth = opts.severityWidth ?? 8;
-  const messageWidth = opts.messageWidth ?? 66; // widened since score column removed
+
+  // Dynamic width calculation to prevent wrapping while maintaining columns
+  // Reserve space for: prefix (~19 chars) + rule column (~30 chars buffer)
+  const termCols = process.stdout.columns || 100;
+  const prefixOverhead = locWidth + severityWidth + 4; // 4 chars for padding spaces
+  const ruleColumnBuffer = 35; // Reserve space for rule name
+  const availableForMessage = Math.max(40, termCols - prefixOverhead - ruleColumnBuffer);
+
+  const messageWidth = opts.messageWidth ?? availableForMessage;
 
   const locCell = (loc || '').padEnd(locWidth, ' ');
   const colored = statusLabel(status);

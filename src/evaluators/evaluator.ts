@@ -1,22 +1,9 @@
 import type { EvaluationResult } from '../prompts/schema';
-import { registerEvaluator, type EvaluatorFactory } from './evaluator-registry';
-
-export interface Evaluator {
-  evaluate(file: string, content: string): Promise<EvaluationResult>;
-}
 
 /*
- * Base class for evaluators with self-registration support.
- * Subclasses should call register() to make themselves available to the registry.
+ * Core evaluator interface for content evaluation.
+ * Implementations receive a file path and content, returning structured evaluation results.
  */
-export abstract class BaseEvaluator implements Evaluator {
-  abstract evaluate(file: string, content: string): Promise<EvaluationResult>;
-
-  /*
-   * Register an evaluator type with the registry.
-   * Should be called once per evaluator class, typically at module load.
-   */
-  public static register(type: string, factory: EvaluatorFactory): void {
-    registerEvaluator(type, factory);
-  }
+export interface Evaluator {
+  evaluate(file: string, content: string): Promise<EvaluationResult>;
 }

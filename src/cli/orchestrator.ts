@@ -11,7 +11,7 @@ import { JsonFormatter, type JsonIssue } from '../output/json-formatter';
 import { checkTarget } from '../prompts/target';
 import { resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from '../prompts/prompt-mapping';
 import { handleUnknownError } from '../errors/index';
-import { createEvaluator } from '../evaluators/evaluator-registry';
+import { createEvaluator } from '../evaluators/index';
 import { isCriteriaResult } from '../prompts/schema';
 
 export interface EvaluationOptions {
@@ -49,6 +49,13 @@ interface EvaluationContext {
 }
 
 import type { EvaluationResult as PromptEvaluationResult, CriteriaResult } from '../prompts/schema';
+
+/*
+ * Returns the evaluator type, defaulting to 'base' if not specified.
+ */
+function resolveEvaluatorType(evaluator: string | undefined): string {
+  return evaluator || 'base';
+}
 
 interface GetApplicablePromptsParams {
   file: string;
@@ -604,15 +611,20 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
 
 /*
  * Runs a single prompt evaluation.
+ * BaseEvaluator auto-detects mode from criteria presence:
+ * - criteria defined → scored mode
+ * - no criteria → basic mode
  */
 async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<RunPromptEvaluationResult> {
   const { promptFile, relFile, content, provider, searchProvider } = params;
 
   try {
     const meta = promptFile.meta;
-    const evaluatorType = meta.evaluator || 'base-llm';
+    const evaluatorType = resolveEvaluatorType(meta.evaluator);
 
-    if (evaluatorType !== 'basic') {
+    // Specialized evaluators (e.g., technical-accuracy) require criteria
+    // BaseEvaluator handles both modes: scored (with criteria) and basic (without)
+    if (evaluatorType !== 'base') {
       if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
         throw new Error(`Prompt ${promptFile.filename} has no criteria in frontmatter`);
       }
