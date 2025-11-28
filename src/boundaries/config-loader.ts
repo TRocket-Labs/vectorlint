@@ -28,7 +28,7 @@ function isSupportedPattern(p: string): boolean {
  */
 export function loadConfig(cwd: string = process.cwd()): Config {
   const iniPath = path.resolve(cwd, 'vectorlint.ini');
-  
+
   if (!existsSync(iniPath)) {
     throw new ConfigError('Missing vectorlint.ini in project root. Please create one with PromptsPath and ScanPaths.');
   }
@@ -39,19 +39,19 @@ export function loadConfig(cwd: string = process.cwd()): Config {
 
   try {
     const raw = readFileSync(iniPath, 'utf-8');
-    
+
     for (const rawLine of raw.split(/\r?\n/)) {
       const line = rawLine.trim();
       if (!line || line.startsWith('#') || line.startsWith(';')) continue;
-      
+
       const m = line.match(/^([A-Za-z][A-Za-z0-9]*)\s*=\s*(.*)$/);
       if (!m || !m[1] || !m[2]) continue;
-      
+
       const key = m[1];
       const val = m[2];
-      
+
       if (key === 'PromptsPath') {
-        promptsPathRaw = val.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+        promptsPathRaw = val.trim().replace(/^"|"$/g, '').replace(/^'|'$/g, '');
       } else if (key === 'ScanPaths') {
         scanPathsRaw = parseBracketList(val);
       } else if (key === 'Concurrency') {

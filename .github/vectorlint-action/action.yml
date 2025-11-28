@@ -89,7 +89,30 @@ runs:
         
         # Run using the built artifact from the repo root
         cd ..
-        node .vectorlint-temp/dist/index.js --output rdjson --output-file vectorlint_result.json ${{ inputs.vectorlint_flags }} .
+        
+        # Determine target files (only changed files for PRs)
+        TARGET_FILES="."
+        if [ -n "${{ github.base_ref }}" ]; then
+          echo "Detected PR, calculating changed files against ${{ github.base_ref }}..."
+          git fetch origin ${{ github.base_ref }} --depth=1
+          # Find changed .md files
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }} HEAD | grep '\.md$' || true)
+          
+          if [ -z "$CHANGED" ]; then
+            echo "No markdown files changed in this PR. Skipping analysis."
+            echo '{"source": {"name": "vectorlint", "url": "https://github.com/TRocket-Labs/vectorlint"}, "diagnostics": []}' > vectorlint_result.json
+            exit 0
+          fi
+          
+          # Use changed files as targets
+          TARGET_FILES=$(echo "$CHANGED" | tr '\n' ' ')
+          echo "Scanning changed files: $TARGET_FILES"
+        fi
+
+        # Debug prompts existence (temporary)
+        if [ -d "prompts" ]; then echo "Prompts dir exists"; else echo "Prompts dir MISSING"; fi
+
+        node .vectorlint-temp/dist/index.js --output rdjson --output-file vectorlint_result.json ${{ inputs.vectorlint_flags }} $TARGET_FILES
         
         cat vectorlint_result.json | reviewdog -f=rdjson \
           -name="vectorlint" \
