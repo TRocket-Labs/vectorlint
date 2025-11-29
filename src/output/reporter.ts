@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
 
-export type Status = 'ok' | 'warning' | 'error';
+export type Status = 'warning' | 'error' | undefined;
 
 function statusLabel(status: Status): string {
   switch (status) {
@@ -9,8 +9,8 @@ function statusLabel(status: Status): string {
       return chalk.red('error');
     case 'warning':
       return chalk.yellow('warning');
-    default:
-      return chalk.green('ok');
+    case undefined:
+      return '';
   }
 }
 
@@ -80,7 +80,7 @@ export function printIssueRow(
     console.log(`${contPrefix}${lines[i]}`);
   }
   // Suggestion for warnings/errors (one cell, next line)
-  if (status !== 'ok' && opts.suggestion) {
+  if (status !== undefined && opts.suggestion) {
     const words = opts.suggestion.split(/\s+/).filter(Boolean);
     const suggPrefix = `${contPrefix}`;
     let curr = 'suggestion: ';
@@ -129,9 +129,14 @@ export function printGlobalSummary(files: number, errors: number, warnings: numb
 }
 
 export function printBasicReport(
-  result: { status: Status; message: string; violations: Array<{ analysis: string; suggestion?: string; pre?: string; post?: string; criterionName?: string }> },
+  result: { status?: Status; message: string; violations: Array<{ analysis: string; suggestion?: string; pre?: string; post?: string; criterionName?: string }> },
   ruleName: string
 ) {
+  // Skip output entirely if no violations (undefined status)
+  if (result.status === undefined) {
+    return;
+  }
+
   const status = result.status;
   const message = result.message;
 

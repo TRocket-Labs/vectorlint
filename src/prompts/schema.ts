@@ -48,24 +48,23 @@ export function buildSemiObjectiveLLMSchema() {
       type: 'object',
       additionalProperties: false,
       properties: {
-        items: {
+        violations: {
           type: 'array',
           items: {
             type: 'object',
             additionalProperties: false,
             properties: {
               description: { type: 'string' },
-              passed: { type: 'boolean' },
               analysis: { type: 'string' },
               suggestion: { type: 'string' },
               pre: { type: 'string' },
               post: { type: 'string' },
             },
-            required: ['description', 'passed', 'analysis', 'suggestion', 'pre', 'post'],
+            required: ['description', 'analysis', 'suggestion', 'pre', 'post'],
           },
         },
       },
-      required: ['items'],
+      required: ['violations'],
     },
   } as const;
 }
@@ -81,9 +80,8 @@ export type SubjectiveLLMResult = {
 };
 
 export type SemiObjectiveLLMResult = {
-  items: Array<{
+  violations: Array<{
     description: string;
-    passed: boolean;
     analysis: string;
     suggestion?: string;
     pre?: string;
@@ -105,22 +103,23 @@ export type SubjectiveResult = {
   }>;
 };
 
+export type SemiObjectiveItem = {
+  description: string;
+  analysis: string;
+  suggestion?: string;
+  pre?: string;
+  post?: string;
+};
+
 export type SemiObjectiveResult = {
   type: 'semi-objective';
   final_score: number; // 1-10
   percentage: number;
   passed_count: number;
   total_count: number;
-  items: Array<{
-    description: string;
-    passed: boolean;
-    analysis: string;
-    suggestion?: string;
-    pre?: string;
-    post?: string;
-  }>;
+  items: Array<SemiObjectiveItem>;
   // Backward compatibility with old BasicResult
-  status: 'ok' | 'warning' | 'error';
+  status?: 'warning' | 'error';
   message: string;
   violations: Array<{
     analysis: string;

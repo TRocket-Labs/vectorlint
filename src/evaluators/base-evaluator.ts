@@ -8,9 +8,11 @@ import {
   type SubjectiveResult,
   type SemiObjectiveResult,
   type EvaluationResult,
+  type SemiObjectiveItem,
 } from '../prompts/schema';
 import { registerEvaluator } from './evaluator-registry';
 import type { Evaluator } from './evaluator';
+import { Type } from './types';
 
 /*
  * Core LLM-based evaluator that handles Subjective and Semi-Objective evaluation modes.
@@ -100,14 +102,13 @@ export class BaseEvaluator implements Evaluator {
 
   /*
    * Runs semi-objective evaluation:
-   * 1. LLM lists items/judgments.
-   * 2. We count passed/total and calculate percentage.
-   * 3. Map percentage to 1-10 scale.
+   * 1. LLM lists violations only.
+   * 2. We count violations and calculate score.
    */
   protected async runSemiObjectiveEvaluation(content: string): Promise<SemiObjectiveResult> {
     const schema = buildSemiObjectiveLLMSchema();
 
-    // Step 1: Get list of items from LLM
+    // Step 1: Get list of violations from LLM
     const llmResult = await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
       content,
       this.prompt.body,
@@ -115,41 +116,41 @@ export class BaseEvaluator implements Evaluator {
     );
 
     // Step 2: Calculate scores locally
-    const items = llmResult.items;
-    const totalCount = items.length;
-    const passedCount = items.filter(item => item.passed).length;
+    return this.calculateSemiObjectiveResult(llmResult.violations);
+  }
 
-    const percentage = totalCount > 0 ? (passedCount / totalCount) * 100 : 0;
-    const finalScore = percentage / 10;
+  /*
+   * Centralized scoring logic for semi-objective evaluations.
+   * Calculates score based on violation count and determines status.
+   */
+  protected calculateSemiObjectiveResult(items: SemiObjectiveItem[]): SemiObjectiveResult {
+    // items is already violations (LLM only returns failures)
+    const violations = items.map(item => ({
+      analysis: item.analysis,
+      ...(item.suggestion && { suggestion: item.suggestion }),
+      ...(item.pre && { pre: item.pre }),
+      ...(item.post && { post: item.post }),
+      criterionName: item.description,
+    }));
 
-    // Step 3: Backward compatibility - map items to violations format
-    // Only include failed items as violations
-    const violations = items
-      .filter(item => !item.passed)
-      .map(item => ({
-        analysis: item.analysis,
-        ...(item.suggestion && { suggestion: item.suggestion }),
-        ...(item.pre && { pre: item.pre }),
-        ...(item.post && { post: item.post }),
-        criterionName: item.description,
-      }));
+    // Score calculation based on violation count
+    const violationCount = violations.length;
+    const finalScore = violationCount === 0 ? 10 : Math.max(1, 10 - violationCount);
+    const percentage = (finalScore / 10) * 100;
 
-    // Step 4: Determine status and message
-    // Status comes from severity level (set in prompt meta), not from score
-    // For now, we default to 'ok' if no violations, otherwise we'll let orchestrator handle it
-    const status: 'ok' | 'warning' | 'error' = violations.length > 0 ? 'warning' : 'ok';
+    // Determine status: undefined if no violations (no output)
+    const status: 'warning' | 'error' | undefined = violations.length > 0 ? 'warning' : undefined;
     const message = violations.length > 0
       ? `Found ${violations.length} issue${violations.length > 1 ? 's' : ''}`
       : 'No issues found';
 
     return {
       type: 'semi-objective',
-      final_score: Number(finalScore.toFixed(1)), // Round to 1 decimal
+      final_score: Number(finalScore.toFixed(1)),
       percentage: Number(percentage.toFixed(1)),
-      passed_count: passedCount,
-      total_count: totalCount,
+      passed_count: 0,  // No longer meaningful
+      total_count: violationCount,
       items: items,
-      // Backward compatibility
       status,
       message,
       violations,
@@ -158,4 +159,4 @@ export class BaseEvaluator implements Evaluator {
 }
 
 // Register as default evaluator for base type
-registerEvaluator('base', (llmProvider, prompt) => new BaseEvaluator(llmProvider, prompt));
+registerEvaluator(Type.BASE, (llmProvider, prompt) => new BaseEvaluator(llmProvider, prompt));

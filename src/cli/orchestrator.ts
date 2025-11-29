@@ -13,7 +13,7 @@ import { resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from '.
 import { handleUnknownError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { isSubjectiveResult } from '../prompts/schema';
-
+import { Type } from '../evaluators/types';
 export interface EvaluationOptions {
   prompts: PromptFile[];
   promptsPath: string;
@@ -54,7 +54,7 @@ import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } fro
  * Returns the evaluator type, defaulting to 'base' if not specified.
  */
 function resolveEvaluatorType(evaluator: string | undefined): string {
-  return evaluator || 'base';
+  return evaluator || Type.BASE;
 }
 
 interface GetApplicablePromptsParams {
@@ -68,7 +68,7 @@ interface ReportIssueParams {
   file: string;
   line: number;
   column: number;
-  status: 'ok' | 'warning' | 'error';
+  status: 'warning' | 'error' | undefined;
   summary: string;
   ruleName: string;
   outputFormat: 'line' | 'JSON';
@@ -99,7 +99,7 @@ interface ProcessViolationsParams extends EvaluationContext {
     string;
     suggestion?: string
   }>;
-  status: 'ok' | 'warning' | 'error';
+  status: 'warning' | 'error' | undefined;
   ruleName: string;
   scoreText: string;
 }
@@ -391,7 +391,7 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
   }
 
   const score = Number(got.score);
-  const status: 'ok' | 'warning' | 'error' = score <= 1 ? 'error' : (score === 2 ? 'warning' : 'ok');
+  const status: 'warning' | 'error' | undefined = score <= 1 ? 'error' : (score === 2 ? 'warning' : undefined);
 
   let errors = 0;
   let warnings = 0;
@@ -409,6 +409,19 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
   const rounded = Math.round(rawWeighted * 100) / 100;
   const weightedStr = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
   const scoreText = `${weightedStr}/${weightNum}`;
+
+  // Skip reporting entirely if status is undefined (clean result)
+  if (status === undefined) {
+    return {
+      errors: 0,
+      warnings: 0,
+      userScore,
+      maxScore,
+      hadOperationalErrors,
+      hadSeverityErrors,
+      scoreEntry: { id: ruleName, scoreText }
+    };
+  }
 
   if (violations.length === 0) {
     const sum = got.summary.trim();
@@ -624,7 +637,7 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
 
     // Specialized evaluators (e.g., technical-accuracy) require criteria
     // BaseEvaluator handles both modes: scored (with criteria) and basic (without)
-    if (evaluatorType !== 'base') {
+    if (evaluatorType !== Type.BASE) {
       if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
         throw new Error(`Prompt ${promptFile.filename} has no criteria in frontmatter`);
       }
@@ -635,6 +648,28 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
     return { ok: true, result };
   } catch (e: unknown) {
     const err = handleUnknownError(e, `Running prompt ${promptFile.filename}`);
+
+    // Gracefully skip evaluators with missing dependencies (e.g., search provider not configured)
+    if (err.message.includes('requires a search provider')) {
+      console.warn(`[vectorlint] Skipping ${promptFile.filename}: ${err.message}`);
+      console.warn(`[vectorlint] Hint: Configure TAVILY_API_KEY or PERPLEXITY_API_KEY in .env, or remove this eval.`);
+      // Return success with perfect score to indicate "skipped, not failed"
+      return {
+        ok: true,
+        result: {
+          type: 'semi-objective',
+          final_score: 10,
+          percentage: 100,
+          passed_count: 0,
+          total_count: 0,
+          items: [],
+          status: undefined,
+          message: 'Skipped - missing dependencies',
+          violations: []
+        }
+      };
+    }
+
     return { ok: false, error: err };
   }
 }

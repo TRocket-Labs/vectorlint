@@ -7,6 +7,7 @@ import type { EvaluationResult } from "../prompts/schema";
 import { renderTemplate } from "../prompts/template-renderer";
 import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
+import { Type } from "./types";
 
 // Schema for claim extraction response
 const CLAIM_EXTRACTION_SCHEMA = z.object({
@@ -51,19 +52,10 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     const claims = await this.extractClaims(content);
 
     // If no claims found, return success (empty items array, perfect score)
+    // If no claims found, return success (empty items array, perfect score)
+    // We delegate to the base evaluator's centralized scoring logic
     if (claims.length === 0) {
-      return {
-        type: 'semi-objective',
-        final_score: 10,
-        percentage: 100,
-        passed_count: 0,
-        total_count: 0,
-        items: [],
-        // Backward compatibility
-        status: 'ok',
-        message: 'No claims found to verify',
-        violations: [],
-      };
+      return this.calculateSemiObjectiveResult([]);
     }
 
     // Step 2: Search for evidence for each claim
@@ -79,14 +71,11 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     // Step 4: Render the prompt with template variables
     const renderedPrompt = renderTemplate(this.getPromptBody(), templateVars);
 
-    // Step 5: Create enriched prompt with rendered body and delegate to parent
+    // Step 5: Create enriched prompt with rendered body
+    // We do NOT override the type here; we respect the prompt's configuration
     const enrichedPrompt: PromptFile = {
       ...this.prompt,
       body: renderedPrompt,
-      meta: {
-        ...this.prompt.meta,
-        type: 'semi-objective', // Enforce semi-objective type
-      },
     };
 
     // Step 6: Use parent's evaluation logic with enriched prompt
@@ -216,7 +205,7 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
 }
 
 // Self-register on module load using registerEvaluator directly
-registerEvaluator("technical-accuracy", (llmProvider, prompt, searchProvider) => {
+registerEvaluator(Type.TECHNICAL_ACCURACY, (llmProvider, prompt, searchProvider) => {
   if (!searchProvider) {
     throw new Error("technical-accuracy evaluator requires a search provider");
   }
