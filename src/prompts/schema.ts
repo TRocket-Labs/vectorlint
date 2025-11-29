@@ -119,7 +119,7 @@ export type SemiObjectiveResult = {
   total_count: number;
   items: Array<SemiObjectiveItem>;
   // Backward compatibility with old BasicResult
-  status?: 'warning' | 'error';
+  status?: 'warning' | 'error' | undefined;
   message: string;
   violations: Array<{
     analysis: string;
