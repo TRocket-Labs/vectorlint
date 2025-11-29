@@ -12,13 +12,13 @@ import {
 } from '../prompts/schema';
 import { registerEvaluator } from './evaluator-registry';
 import type { Evaluator } from './evaluator';
-import { Type } from './types';
+import { Type, Severity, EvaluationType } from './types';
 
 /*
  * Core LLM-based evaluator that handles Subjective and Semi-Objective evaluation modes.
  * Mode is determined by prompt frontmatter 'type' field:
- * - 'subjective': Weighted average of 0-4 scores per criterion.
- * - 'semi-objective': Percentage of passed items.
+ * - 'subjective': Weighted average of 1-4 scores per criterion, normalized to 1-10.
+ * - 'semi-objective': Density-based scoring (errors per 100 words).
  *
  * Subclasses can override protected methods to customize evaluation behavior
  * while reusing the core evaluation logic.
@@ -26,13 +26,14 @@ import { Type } from './types';
 export class BaseEvaluator implements Evaluator {
   constructor(
     protected llmProvider: LLMProvider,
-    protected prompt: PromptFile
+    protected prompt: PromptFile,
+    protected defaultSeverity?: Severity
   ) { }
 
   async evaluate(_file: string, content: string): Promise<EvaluationResult> {
     const type = this.getEvaluationType();
 
-    if (type === 'subjective') {
+    if (type === EvaluationType.SUBJECTIVE) {
       return this.runSubjectiveEvaluation(content);
     } else {
       return this.runSemiObjectiveEvaluation(content);
@@ -43,14 +44,15 @@ export class BaseEvaluator implements Evaluator {
    * Determines the evaluation type.
    * Defaults to 'semi-objective' if not specified, for backward compatibility.
    */
-  protected getEvaluationType(): 'subjective' | 'semi-objective' {
-    return this.prompt.meta.type || 'semi-objective';
+  protected getEvaluationType(): typeof EvaluationType.SUBJECTIVE | typeof EvaluationType.SEMI_OBJECTIVE {
+    return this.prompt.meta.type === 'subjective' ? EvaluationType.SUBJECTIVE : EvaluationType.SEMI_OBJECTIVE;
   }
 
   /*
    * Runs subjective evaluation:
-   * 1. LLM scores each criterion 0-4.
-   * 2. We calculate weighted average and map to 1-10 scale.
+   * 1. LLM scores each criterion 1-4.
+   * 2. We normalize to 1-10 scale using linear interpolation.
+   * 3. Calculate weighted average.
    */
   protected async runSubjectiveEvaluation(content: string): Promise<SubjectiveResult> {
     const schema = buildSubjectiveLLMSchema();
@@ -71,11 +73,11 @@ export class BaseEvaluator implements Evaluator {
       const definedCriterion = this.prompt.meta.criteria?.find((dc) => dc.name === c.name);
       const weight = definedCriterion?.weight || 1; // Default to weight 1 if missing
 
-      // Calculate weighted points for this criterion
-      // Score is 0-4. Percentage is (score/4)*100.
-      // Weighted points = percentage * weight
-      const percentage = (c.score / 4) * 100;
-      const weightedPoints = percentage * weight;
+      // Normalize 1-4 score to 1-10 scale
+
+      const normalizedScore = 1 + ((c.score - 1) / 3) * 9;
+
+      const weightedPoints = normalizedScore * weight;
 
       totalWeightedScore += weightedPoints;
       totalWeight += weight;
@@ -83,18 +85,15 @@ export class BaseEvaluator implements Evaluator {
       return {
         ...c,
         weight,
-        weighted_points: weightedPoints,
+        weighted_points: Number(weightedPoints.toFixed(2)),
       };
     });
 
-    // Calculate final weighted average percentage
-    const finalPercentage = totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
 
-    // Map percentage to 1-10 scale
-    const finalScore = finalPercentage / 10;
+    const finalScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 1;
 
     return {
-      type: 'subjective',
+      type: EvaluationType.SUBJECTIVE,
       final_score: Number(finalScore.toFixed(1)), // Round to 1 decimal
       criteria: criteriaWithCalculations,
     };
@@ -103,7 +102,7 @@ export class BaseEvaluator implements Evaluator {
   /*
    * Runs semi-objective evaluation:
    * 1. LLM lists violations only.
-   * 2. We count violations and calculate score.
+   * 2. We calculate score based on violation density (per 100 words).
    */
   protected async runSemiObjectiveEvaluation(content: string): Promise<SemiObjectiveResult> {
     const schema = buildSemiObjectiveLLMSchema();
@@ -115,15 +114,18 @@ export class BaseEvaluator implements Evaluator {
       schema
     );
 
-    // Step 2: Calculate scores locally
-    return this.calculateSemiObjectiveResult(llmResult.violations);
+    // Step 2: Calculate scores based on violation density
+    // Estimate word count (simple whitespace split)
+    const wordCount = content.trim().split(/\s+/).length || 1;
+
+    return this.calculateSemiObjectiveResult(llmResult.violations, wordCount);
   }
 
   /*
    * Centralized scoring logic for semi-objective evaluations.
-   * Calculates score based on violation count and determines status.
+   * Calculates score based on violation density.
    */
-  protected calculateSemiObjectiveResult(items: SemiObjectiveItem[]): SemiObjectiveResult {
+  protected calculateSemiObjectiveResult(items: SemiObjectiveItem[], wordCount: number): SemiObjectiveResult {
     // items is already violations (LLM only returns failures)
     const violations = items.map(item => ({
       analysis: item.analysis,
@@ -133,30 +135,72 @@ export class BaseEvaluator implements Evaluator {
       criterionName: item.description,
     }));
 
-    // Score calculation based on violation count
-    const violationCount = violations.length;
-    const finalScore = violationCount === 0 ? 10 : Math.max(1, 10 - violationCount);
-    const percentage = (finalScore / 10) * 100;
+    // Density Calculation
+    // Density = Violations per 100 words
+    const density = (violations.length / wordCount) * 100;
 
-    // Determine status: undefined if no violations (no output)
-    const status: 'warning' | 'error' | undefined = violations.length > 0 ? 'warning' : undefined;
+    // Strictness Factor (Default 10)
+    let strictness = 10;
+    const strictnessConfig = this.prompt.meta.strictness;
+
+    if (typeof strictnessConfig === 'number') {
+      strictness = strictnessConfig;
+    } else if (strictnessConfig === 'lenient') {
+      strictness = 5;
+    } else if (strictnessConfig === 'strict') {
+      strictness = 20;
+    } else if (strictnessConfig === 'standard') {
+      strictness = 10;
+    }
+
+    // Score Calculation
+    // Score = 100 - (Density * Strictness)
+    // Clamped between 0 and 100
+    const rawScore = Math.max(0, Math.min(100, 100 - (density * strictness)));
+
+    // Final Score on 1-10 scale
+    const finalScore = rawScore / 10;
+
+    // Determine status
+    let status: typeof Severity.WARNING | typeof Severity.ERROR | undefined;
+
+    if (finalScore < 10) {
+      // Priority: Prompt Meta > Config Default > Warning (Fallback)
+      if (this.prompt.meta.severity) {
+        status = this.prompt.meta.severity === 'error' ? Severity.ERROR : Severity.WARNING;
+      } else if (this.defaultSeverity) {
+        status = this.defaultSeverity;
+      } else {
+        status = Severity.WARNING;
+      }
+    }
+
     const message = violations.length > 0
       ? `Found ${violations.length} issue${violations.length > 1 ? 's' : ''}`
       : 'No issues found';
 
-    return {
-      type: 'semi-objective',
+    const result: SemiObjectiveResult = {
+      type: EvaluationType.SEMI_OBJECTIVE,
       final_score: Number(finalScore.toFixed(1)),
-      percentage: Number(percentage.toFixed(1)),
+      percentage: Number(rawScore.toFixed(1)),
       passed_count: 0,  // No longer meaningful
-      total_count: violationCount,
+      total_count: violations.length,
       items: items,
-      status,
       message,
       violations,
     };
+
+    // Only add status if it's defined (to satisfy exactOptionalPropertyTypes)
+    if (status) {
+      result.status = status;
+    }
+
+    return result;
   }
 }
 
 // Register as default evaluator for base type
-registerEvaluator(Type.BASE, (llmProvider, prompt) => new BaseEvaluator(llmProvider, prompt));
+// Note: EvaluatorFactory signature is (llmProvider, prompt, searchProvider?, defaultSeverity?)
+registerEvaluator(Type.BASE, (llmProvider, prompt, _searchProvider, defaultSeverity) => {
+  return new BaseEvaluator(llmProvider, prompt, defaultSeverity);
+});

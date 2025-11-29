@@ -23,12 +23,19 @@ function isSupportedPattern(p: string): boolean {
   return false;
 }
 
+enum ConfigKey {
+  PROMPTS_PATH = 'PromptsPath',
+  SCAN_PATHS = 'ScanPaths',
+  CONCURRENCY = 'Concurrency',
+  DEFAULT_SEVERITY = 'DefaultSeverity',
+}
+
 /**
  * Load and validate configuration from vectorlint.ini file	
  */
 export function loadConfig(cwd: string = process.cwd()): Config {
   const iniPath = path.resolve(cwd, 'vectorlint.ini');
-  
+
   if (!existsSync(iniPath)) {
     throw new ConfigError('Missing vectorlint.ini in project root. Please create one with PromptsPath and ScanPaths.');
   }
@@ -36,27 +43,35 @@ export function loadConfig(cwd: string = process.cwd()): Config {
   let promptsPathRaw: string | undefined;
   let scanPathsRaw: string[] | undefined;
   let concurrencyRaw: number | undefined;
+  let defaultSeverityRaw: string | undefined;
 
   try {
     const raw = readFileSync(iniPath, 'utf-8');
-    
+
     for (const rawLine of raw.split(/\r?\n/)) {
       const line = rawLine.trim();
       if (!line || line.startsWith('#') || line.startsWith(';')) continue;
-      
+
       const m = line.match(/^([A-Za-z][A-Za-z0-9]*)\s*=\s*(.*)$/);
       if (!m || !m[1] || !m[2]) continue;
-      
+
       const key = m[1];
       const val = m[2];
-      
-      if (key === 'PromptsPath') {
-        promptsPathRaw = val.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
-      } else if (key === 'ScanPaths') {
-        scanPathsRaw = parseBracketList(val);
-      } else if (key === 'Concurrency') {
-        const n = Number(val.replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
-        if (Number.isFinite(n) && n > 0) concurrencyRaw = Math.floor(n);
+
+      switch (key) {
+        case ConfigKey.PROMPTS_PATH:
+          promptsPathRaw = val.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+          break;
+        case ConfigKey.SCAN_PATHS:
+          scanPathsRaw = parseBracketList(val);
+          break;
+        case ConfigKey.CONCURRENCY:
+          const n = Number(val.replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
+          if (Number.isFinite(n) && n > 0) concurrencyRaw = Math.floor(n);
+          break;
+        case ConfigKey.DEFAULT_SEVERITY:
+          defaultSeverityRaw = val.replace(/^"|"$/g, '').replace(/^'|'$/g, '').toLowerCase();
+          break;
       }
     }
   } catch (e: unknown) {
@@ -91,6 +106,7 @@ export function loadConfig(cwd: string = process.cwd()): Config {
     promptsPath,
     scanPaths: scanPathsRaw,
     concurrency,
+    defaultSeverity: defaultSeverityRaw,
   };
 
   try {

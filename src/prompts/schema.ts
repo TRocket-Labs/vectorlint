@@ -1,3 +1,5 @@
+import { EvaluationType, Severity } from '../evaluators/types';
+
 export function buildSubjectiveLLMSchema() {
   return {
     name: 'vectorlint_subjective_result',
@@ -13,7 +15,7 @@ export function buildSubjectiveLLMSchema() {
             additionalProperties: false,
             properties: {
               name: { type: 'string' },
-              score: { type: 'number', enum: [0, 1, 2, 3, 4] },
+              score: { type: 'number', enum: [1, 2, 3, 4] },
               summary: { type: 'string' },
               reasoning: { type: 'string' },
               violations: {
@@ -72,7 +74,7 @@ export function buildSemiObjectiveLLMSchema() {
 export type SubjectiveLLMResult = {
   criteria: Array<{
     name: string;
-    score: 0 | 1 | 2 | 3 | 4;
+    score: 1 | 2 | 3 | 4;
     summary: string;
     reasoning: string;
     violations: Array<{ pre: string; post: string; analysis: string; suggestion: string }>;
@@ -90,12 +92,12 @@ export type SemiObjectiveLLMResult = {
 };
 
 export type SubjectiveResult = {
-  type: 'subjective';
+  type: typeof EvaluationType.SUBJECTIVE;
   final_score: number; // 1-10
   criteria: Array<{
     name: string;
     weight: number;
-    score: 0 | 1 | 2 | 3 | 4;
+    score: 1 | 2 | 3 | 4;
     weighted_points: number;
     summary: string;
     reasoning: string;
@@ -112,14 +114,14 @@ export type SemiObjectiveItem = {
 };
 
 export type SemiObjectiveResult = {
-  type: 'semi-objective';
+  type: typeof EvaluationType.SEMI_OBJECTIVE;
   final_score: number; // 1-10
   percentage: number;
   passed_count: number;
   total_count: number;
   items: Array<SemiObjectiveItem>;
   // Backward compatibility with old BasicResult
-  status?: 'warning' | 'error' | undefined;
+  status?: typeof Severity.WARNING | typeof Severity.ERROR;
   message: string;
   violations: Array<{
     analysis: string;
@@ -133,9 +135,9 @@ export type SemiObjectiveResult = {
 export type EvaluationResult = SubjectiveResult | SemiObjectiveResult;
 
 export function isSubjectiveResult(result: EvaluationResult): result is SubjectiveResult {
-  return result.type === 'subjective';
+  return result.type === EvaluationType.SUBJECTIVE;
 }
 
 export function isSemiObjectiveResult(result: EvaluationResult): result is SemiObjectiveResult {
-  return result.type === 'semi-objective';
+  return result.type === EvaluationType.SEMI_OBJECTIVE;
 }

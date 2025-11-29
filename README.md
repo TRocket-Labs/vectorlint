@@ -11,6 +11,13 @@ A command-line tool that evaluates Markdown content using LLMs and provides qual
 - **Consistent Evaluations** - Write structured evaluation prompts to get consistent evaluation results
 - **Quality Scores & Thresholds** - Set scores and thresholds for your quality standards
 
+## Scoring System
+
+VectorLint uses a fair, density-based scoring system:
+
+*   **Semi-Objective (Density-Based):** Scores are calculated based on **errors per 100 words**. This ensures that a 1000-word article isn't penalized more than a 100-word paragraph for the same error rate. You can configure **Strictness** (Standard, Strict, Lenient) to control penalties.
+*   **Subjective (Normalized):** LLM ratings (1-4) are normalized to a **1-10 scale** using weighted averages, providing granular quality assessment.
+
 ## Quick Start
 
 Get up and running in minutes.
@@ -118,7 +125,7 @@ Prompts are simple Markdown files with YAML frontmatter.
 
 ```markdown
 ---
-evaluator: basic
+evaluator: base
 id: GrammarChecker
 name: Grammar Checker
 ---

@@ -1,9 +1,17 @@
 /**
  * Evaluator type constants to avoid magic strings.
  */
-export const Type = {
-    BASE: 'base',
-    TECHNICAL_ACCURACY: 'technical-accuracy',
-} as const;
+export enum Type {
+    BASE = 'base',
+    TECHNICAL_ACCURACY = 'technical-accuracy',
+}
 
-export type TypeName = typeof Type[keyof typeof Type];
+export enum Severity {
+    ERROR = 'error',
+    WARNING = 'warning',
+}
+
+export enum EvaluationType {
+    SUBJECTIVE = 'subjective',
+    SEMI_OBJECTIVE = 'semi-objective',
+}
