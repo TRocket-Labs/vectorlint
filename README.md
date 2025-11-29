@@ -9,7 +9,7 @@ A command-line tool that evaluates Markdown content using LLMs and provides qual
 - **LLM-based** - Uses LLMs to check content quality
 - **CLI Support** - Run locally or in CI/CD pipelines
 - **Consistent Evaluations** - Write structured evaluation prompts to get consistent evaluation results
-- **Quality Scores & Thresholds** - Set scores and thresholds for your quality standards
+- **Quality Scores** - Set scores for your quality standards
 
 ## Scoring System
 
@@ -126,10 +126,12 @@ Prompts are simple Markdown files with YAML frontmatter.
 ```markdown
 ---
 evaluator: base
-id: GrammarChecker
-name: Grammar Checker
----
-Check the content for grammar issues and ensure professional writing quality.
+type: subjective
+id: tone-check
+name: Tone and Style Check
+severity: error
+criteria:
+  - id: friendlinessure professional writing quality.
 ```
 
 ## Testing

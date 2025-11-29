@@ -5,7 +5,7 @@ type: subjective
 id: TechnicalAccuracy
 name: Technical Accuracy
 severity: error
-threshold: 16
+
 criteria:
   - name: Accuracy Ratio
     id: AccuracyRatio
@@ -141,7 +141,7 @@ For each inaccurate claim, include:
 
 - score: 1
 - summary: 1 of 2 claims accurate (50%)
-- reasoning: Claim about Microsoft is correct, but claim about zero runtime errors is contradicted by official documentation. 50% accuracy fails threshold.
+- reasoning: Claim about Microsoft is correct, but claim about zero runtime errors is contradicted by official documentation.
 - violations: [
   {
   "pre": "created by Microsoft. ",
@@ -165,9 +165,7 @@ For each inaccurate claim, include:
 **Total Score:**
 
 - Accuracy Ratio score (0-4) × 20 = 0-80 points
-- **Threshold: 16 points minimum (80% accuracy required)**
 
-**Threshold Failure Occurs When:**
 
 - Accuracy ratio < 80% (score < 3)
 - Multiple significant technical inaccuracies present

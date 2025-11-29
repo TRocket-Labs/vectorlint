@@ -56,13 +56,13 @@ describe('Scoring Types', () => {
             if (result.type !== 'subjective') throw new Error('Wrong result type');
 
             // Calculation:
-            // C1: 100% * 50 = 5000
-            // C2: 50% * 50 = 2500
-            // Total: 7500 / 100 = 75%
-            // Final Score: 7.5
-            expect(result.final_score).toBe(7.5);
-            expect(result.criteria?.[0].weighted_points).toBe(5000);
-            expect(result.criteria?.[1].weighted_points).toBe(2500);
+            // C1: 10 (score 4) * 50 = 500
+            // C2: 4 (score 2) * 50 = 200
+            // Total: 700 / 100 = 7
+            // Final Score: 7.0
+            expect(result.final_score).toBe(7.0);
+            expect(result.criteria?.[0].weighted_points).toBe(500);
+            expect(result.criteria?.[1].weighted_points).toBe(200);
         });
     });
 
@@ -92,7 +92,8 @@ describe('Scoring Types', () => {
 
             vi.mocked(mockLlmProvider.runPromptStructured).mockResolvedValueOnce(mockLlmResponse);
 
-            const result = await evaluator.evaluate('file.md', 'content');
+            const content = new Array(100).fill('word').join(' ');
+            const result = await evaluator.evaluate('file.md', content);
 
             if (result.type !== 'semi-objective') throw new Error('Wrong result type');
 

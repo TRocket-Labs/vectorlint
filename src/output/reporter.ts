@@ -202,7 +202,6 @@ export function printBasicReport(
 export function printAdvancedReport(
   entries: Array<{ id: string; scoreText: string }>,
   maxScore: number,
-  threshold?: number,
   userScore?: number
 ) {
   // Print criterion scores
@@ -217,9 +216,8 @@ export function printAdvancedReport(
     return Number.isInteger(r) ? String(r) : r.toFixed(2);
   };
   const top = fmt(maxScore);
-  const thr = threshold !== undefined ? fmt(threshold) : '-';
   const usr = userScore !== undefined ? fmt(userScore) : '-';
-  console.log(`  Top: ${top}, Threshold: ${thr}, Score: ${usr}`);
+  console.log(`  Top: ${top}, Score: ${usr}`);
 }
 
 export function printValidationRow(level: 'error' | 'warning', message: string) {

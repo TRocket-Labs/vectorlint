@@ -13,7 +13,7 @@ import { resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from '.
 import { handleUnknownError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { isSubjectiveResult } from '../prompts/schema';
-import { Type } from '../evaluators/types';
+import { Type, EvaluationType } from '../evaluators/types';
 export interface EvaluationOptions {
   prompts: PromptFile[];
   promptsPath: string;
@@ -596,23 +596,13 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
     criterionScores.push(criterionResult.scoreEntry);
   }
 
-  // Print per-criterion scores and overall threshold check (line format only)
+  // Print per-criterion scores (line format only)
   if (outputFormat === 'line') {
-    const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
-    printAdvancedReport(criterionScores, promptMaxScore, thresholdOverall, promptUserScore);
+    printAdvancedReport(criterionScores, promptMaxScore, promptUserScore);
     console.log('');
   }
 
-  // Check overall threshold
-  const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
-  if (thresholdOverall !== undefined && promptUserScore < thresholdOverall) {
-    const sev = meta.severity || 'error';
-    if (sev === 'error') {
-      hadSeverityErrors = true;
-    } else {
-      promptWarnings += 1;
-    }
-  }
+
 
   return {
     errors: promptErrors,
@@ -657,13 +647,12 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
       return {
         ok: true,
         result: {
-          type: 'semi-objective',
+          type: EvaluationType.SEMI_OBJECTIVE,
           final_score: 10,
           percentage: 100,
           passed_count: 0,
           total_count: 0,
           items: [],
-          status: undefined,
           message: 'Skipped - missing dependencies',
           violations: []
         }

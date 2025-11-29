@@ -37,7 +37,6 @@ export const PROMPT_META_SCHEMA = z.object({
   type: z.enum(['subjective', 'semi-objective']).optional(),
   id: z.string(),
   name: z.string(),
-  threshold: z.number().min(0).optional(),
   severity: z.enum(['warning', 'error']).optional(),
   strictness: z.union([
     z.number().positive(),

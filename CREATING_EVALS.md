@@ -25,7 +25,7 @@ VectorLint evaluations (evals) are Markdown files with YAML frontmatter that def
 - **Eval = Prompt file** (`.md` file in your `prompts/` directory)
 - **Criteria** = Individual quality checks within an eval
 - **Score** = LLM-assigned rating (0-4 scale for subjective, pass/fail for semi-objective)
-- **Threshold** = Minimum required score to pass
+
 - **Severity** = How failures are reported (`error` or `warning`)
 
 ---
@@ -140,7 +140,7 @@ evaluator: base
 type: subjective
 id: HeadlineEvaluator
 name: Headline Evaluator
-threshold: 8.0
+
 severity: error
 criteria:
   - name: Value Communication
@@ -187,14 +187,7 @@ VectorLint uses a **1-4 scale** for all subjective criteria, which is then norma
 - Rating: 3 (Good) -> Normalized: 7.0
 - Weighted Points: 7.0 * 12 = 84 points
 
-### Threshold Logic
 
-The `threshold` sets the minimum final score (0-10) required to pass:
-
-```yaml
-threshold: 8.0  # Must score at least 8.0/10 total
-severity: error  # Violations are errors
-```
 
 ---
 
@@ -239,7 +232,7 @@ target:
 | `type` | string | No | Mode: `subjective` or `semi-objective` (default: `semi-objective`) |
 | `id` | string | **Yes** | Unique identifier (used in error reporting) |
 | `name` | string | **Yes** | Human-readable name |
-| `threshold` | number | No | Minimum score (0-10) to pass (Subjective evals only) |
+
 | `severity` | string | No | `error` or `warning` (default: `warning`) |
 | `target` | object | No | Content matching specification |
 | `criteria` | array | **Yes*** | List of evaluation criteria (*required for subjective) |
@@ -330,7 +323,7 @@ evaluator: base
 type: subjective
 id: Headline
 name: Headline Evaluator
-threshold: 7.0
+
 severity: error
 target:
   regex: '^#\s+(.+)$'
@@ -371,7 +364,7 @@ evaluator: base
 type: subjective
 id: AIPatterns
 name: AI Pattern Detector
-threshold: 8.0
+
 severity: warning
 criteria:
   - name: Language Authenticity

@@ -65,15 +65,6 @@ export function validatePrompt(p: PromptFile): Validation[] {
 
   const dups = uniqueIds(meta.criteria);
   for (const id of dups) out.push({ file: p.filename, level: 'error', message: `Duplicate criterion id: ${id}` });
-
-  if (meta.threshold !== undefined) {
-    const t = Number(meta.threshold);
-    if (!Number.isFinite(t) || t < 0) {
-      out.push({ file: p.filename, level: 'error', message: 'threshold must be a non-negative number' });
-    } else if (sumWeights > 0 && t > sumWeights) {
-      out.push({ file: p.filename, level: 'warning', message: `threshold (${t}) exceeds sum of weights (${sumWeights})` });
-    }
-  }
   if (meta.severity !== undefined && meta.severity !== 'warning' && meta.severity !== 'error') {
     out.push({ file: p.filename, level: 'error', message: 'severity must be "warning" or "error"' });
   }
