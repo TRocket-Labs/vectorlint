@@ -1,5 +1,11 @@
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
+import path from 'path';
+
+export interface EvaluationSummary {
+  id: string;
+  scoreText: string;
+}
 
 export type Status = 'warning' | 'error' | undefined;
 
@@ -15,7 +21,11 @@ function statusLabel(status: Status): string {
 }
 
 export function printFileHeader(fileRelPath: string) {
-  console.log(chalk.underline(fileRelPath));
+  const cwd = process.cwd();
+  const absPath = path.resolve(cwd, fileRelPath);
+  // OSC 8 hyperlink
+  const link = `\u001B]8;;file://${absPath}\u0007${fileRelPath}\u001B]8;;\u0007`;
+  console.log(chalk.underline(link));
 }
 
 export function printPromptHeader(promptName: string) {
@@ -38,10 +48,10 @@ export function printIssueRow(
   const severityWidth = opts.severityWidth ?? 8;
 
   // Dynamic width calculation to prevent wrapping while maintaining columns
-  // Reserve space for: prefix (~19 chars) + rule column (~30 chars buffer)
+  // Reserve space for: prefix (~19 chars) + rule column (~25 chars buffer)
   const termCols = process.stdout.columns || 100;
   const prefixOverhead = locWidth + severityWidth + 4; // 4 chars for padding spaces
-  const ruleColumnBuffer = 35; // Reserve space for rule name
+  const ruleColumnBuffer = 25; // Reduced buffer to avoid excessive gaps
   const availableForMessage = Math.max(40, termCols - prefixOverhead - ruleColumnBuffer);
 
   const messageWidth = opts.messageWidth ?? availableForMessage;
@@ -117,14 +127,37 @@ export function printGlobalSummary(files: number, errors: number, warnings: numb
   const okMark = errors === 0 ? chalk.green('✓') : chalk.red('✖');
   const errTxt = errors === 1 ? '1 error' : `${errors} errors`;
   const warnTxt = warnings === 1 ? '1 warning' : `${warnings} warnings`;
-  const suggestionTxt = '0 suggestions';
   const fileTxt = files === 1 ? '1 file' : `${files} files`;
+
   const coloredErr = errors > 0 ? chalk.red(errTxt) : chalk.green(errTxt);
   const coloredWarn = warnings > 0 ? chalk.yellow(warnTxt) : chalk.green(warnTxt);
-  console.log(`${okMark} ${coloredErr}, ${coloredWarn} and ${suggestionTxt} in ${fileTxt}.`);
+
+  // "X errors and Y warnings in Z files."
+  console.log(`${okMark} ${coloredErr} and ${coloredWarn} in ${fileTxt}.`);
+
   if (failures > 0) {
     const failTxt = failures === 1 ? '1 request failure' : `${failures} request failures`;
     console.log(chalk.red(`✖ ${failTxt}`));
+  }
+}
+
+export function printEvaluationSummaries(
+  summaries: Map<string, EvaluationSummary[]>
+) {
+  if (summaries.size === 0) return;
+
+  console.log('');
+  console.log(chalk.bold('Evaluation Scores:'));
+
+  for (const [evalName, items] of summaries) {
+    console.log(`  ${chalk.cyan(evalName)}:`);
+    // Find max ID length for alignment
+    const maxIdLen = Math.max(...items.map(i => i.id.length));
+
+    for (const item of items) {
+      const paddedId = item.id.padEnd(maxIdLen + 2, ' ');
+      console.log(`    ${paddedId}${item.scoreText}`);
+    }
   }
 }
 
