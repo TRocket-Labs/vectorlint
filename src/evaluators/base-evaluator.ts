@@ -85,6 +85,7 @@ export class BaseEvaluator implements Evaluator {
       return {
         ...c,
         weight,
+        normalized_score: Number(normalizedScore.toFixed(2)),
         weighted_points: Number(weightedPoints.toFixed(2)),
       };
     });

@@ -116,13 +116,6 @@ export function printPromptSummary(errors: number, warnings: number) {
   console.log(`  ${okMark} ${errTxt}, ${warnTxt} in prompt`);
 }
 
-export function printFileSummary(errors: number, warnings: number) {
-  const okMark = errors === 0 ? chalk.green('✓') : chalk.red('✖');
-  const errTxt = errors > 0 ? chalk.red(`${errors} error${errors !== 1 ? 's' : ''}`) : '0 errors';
-  const warnTxt = warnings > 0 ? chalk.yellow(`${warnings} warning${warnings !== 1 ? 's' : ''}`) : '0 warnings';
-  console.log(`${okMark} ${errTxt}, ${warnTxt} in file`);
-}
-
 export function printGlobalSummary(files: number, errors: number, warnings: number, failures: number = 0) {
   const okMark = errors === 0 ? chalk.green('✓') : chalk.red('✖');
   const errTxt = errors === 1 ? '1 error' : `${errors} errors`;
@@ -130,7 +123,7 @@ export function printGlobalSummary(files: number, errors: number, warnings: numb
   const fileTxt = files === 1 ? '1 file' : `${files} files`;
 
   const coloredErr = errors > 0 ? chalk.red(errTxt) : chalk.green(errTxt);
-  const coloredWarn = warnings > 0 ? chalk.yellow(warnTxt) : chalk.green(warnTxt);
+  const coloredWarn = chalk.yellow(warnTxt);
 
   // "X errors and Y warnings in Z files."
   console.log(`${okMark} ${coloredErr} and ${coloredWarn} in ${fileTxt}.`);

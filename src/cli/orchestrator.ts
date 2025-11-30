@@ -391,7 +391,7 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
       maxScore,
       hadOperationalErrors,
       hadSeverityErrors,
-      scoreEntry: { id: ruleName, scoreText: `0/${weightNum}` },
+      scoreEntry: { id: ruleName, scoreText: '0.0/10' },
       scoreComponent: {
         criterion: nameKey,
         rawScore: 0,
@@ -440,11 +440,13 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
   }
 
   const violations = got.violations;
-  const rawWeighted = (score / 4) * weightNum;
+  // Use pre-calculated values from evaluator
+  const rawWeighted = got.weighted_points;
+  const normalizedScore = got.normalized_score;
   const userScore = rawWeighted;
-  const rounded = Math.round(rawWeighted * 100) / 100;
-  const weightedStr = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
-  const scoreText = `${weightedStr}/${weightNum}`;
+
+  // Display normalized score (1-10) in CLI output
+  const scoreText = `${normalizedScore.toFixed(1)}/10`;
 
   // Skip reporting entirely if status is undefined (clean result)
   if (status === undefined) {
@@ -504,7 +506,7 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
       maxScore: 4,
       weightedScore: rawWeighted,
       weightedMaxScore: weightNum,
-      normalizedScore: (rawWeighted / weightNum) * 10,
+      normalizedScore: normalizedScore,
       normalizedMaxScore: 10
     }
   };
@@ -796,6 +798,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   }
 
   if (outputFormat === 'line') {
+
     printEvaluationSummaries(allScores);
     console.log('');
   }

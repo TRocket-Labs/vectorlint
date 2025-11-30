@@ -98,6 +98,7 @@ export type SubjectiveResult = {
     name: string;
     weight: number;
     score: 1 | 2 | 3 | 4;
+    normalized_score: number;
     weighted_points: number;
     summary: string;
     reasoning: string;
