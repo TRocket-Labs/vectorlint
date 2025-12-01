@@ -25,7 +25,7 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt', 'Print full prompt and injected content')
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Print full JSON response from the API')
-    .option('--output <format>', 'Output format: line (default), JSON, or rdjson', 'line')
+    .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
     .option('--output-file <file>', 'Write output to a file instead of stdout')
     .option('--prompts <path>', 'Path to prompts directory')
     .argument('[paths...]', 'files or directories to check (optional)')
@@ -147,6 +147,8 @@ export function registerMainCommand(program: Command): void {
         ? new PerplexitySearchProvider({ debug: false })
         : undefined;
 
+      const outputFormat = cliOptions.output === 'json' ? 'json' : cliOptions.output;
+
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
         prompts,
@@ -155,8 +157,7 @@ export function registerMainCommand(program: Command): void {
         ...(searchProvider ? { searchProvider } : {}),
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
-        outputFormat: cliOptions.output,
-        ...(cliOptions.outputFile ? { outputFile: cliOptions.outputFile } : {}),
+        outputFormat: outputFormat,
         ...(mapping ? { mapping } : {}),
       });
 

@@ -5,15 +5,16 @@ import type { LLMProvider } from '../providers/llm-provider';
 import type { SearchProvider } from '../providers/search-provider';
 import type { PromptMapping } from '../prompts/prompt-mapping';
 import type { PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
-import { printFileHeader, printIssueRow, printAdvancedReport, printBasicReport } from '../output/reporter';
+import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
 import { locateEvidenceWithMatch } from '../output/location';
-import { JsonFormatter, type JsonIssue } from '../output/json-formatter';
+import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
+import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
 import { checkTarget } from '../prompts/target';
 import { resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from '../prompts/prompt-mapping';
 import { handleUnknownError } from '../errors/index';
-import { createEvaluator } from '../evaluators/evaluator-registry';
-import { isCriteriaResult } from '../prompts/schema';
-
+import { createEvaluator } from '../evaluators/index';
+import { isSubjectiveResult } from '../prompts/schema';
+import { Type, EvaluationType, Severity } from '../evaluators/types';
 export interface EvaluationOptions {
   prompts: PromptFile[];
   promptsPath: string;
@@ -22,7 +23,7 @@ export interface EvaluationOptions {
   concurrency: number;
   verbose: boolean;
   mapping?: PromptMapping;
-  outputFormat?: 'line' | 'JSON' | 'rdjson';
+  outputFormat?: 'line' | 'json' | 'vale-json' | 'rdjson';
   outputFile?: string;
 }
 
@@ -40,16 +41,24 @@ interface ErrorTrackingResult {
   warnings: number;
   hadOperationalErrors: boolean;
   hadSeverityErrors: boolean;
+  scoreEntries?: EvaluationSummary[];
 }
 
 interface EvaluationContext {
   content: string;
   relFile: string;
-  outputFormat: 'line' | 'JSON' | 'rdjson';
-  jsonFormatter: JsonFormatter;
+  outputFormat: 'line' | 'json' | 'vale-json' | 'rdjson';
+  jsonFormatter: ValeJsonFormatter | JsonFormatter;
 }
 
-import type { EvaluationResult as PromptEvaluationResult, CriteriaResult } from '../prompts/schema';
+import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } from '../prompts/schema';
+
+/*
+ * Returns the evaluator type, defaulting to 'base' if not specified.
+ */
+function resolveEvaluatorType(evaluator: string | undefined): string {
+  return evaluator || Type.BASE;
+}
 
 interface GetApplicablePromptsParams {
   file: string;
@@ -62,11 +71,11 @@ interface ReportIssueParams {
   file: string;
   line: number;
   column: number;
-  status: 'ok' | 'warning' | 'error';
+  status: 'warning' | 'error' | undefined;
   summary: string;
   ruleName: string;
-  outputFormat: 'line' | 'JSON' | 'rdjson';
-  jsonFormatter: JsonFormatter;
+  outputFormat: 'line' | 'json' | 'vale-json' | 'rdjson';
+  jsonFormatter: ValeJsonFormatter | JsonFormatter;
   suggestion?: string;
   scoreText?: string;
   match?: string;
@@ -93,14 +102,14 @@ interface ProcessViolationsParams extends EvaluationContext {
     string;
     suggestion?: string
   }>;
-  status: 'ok' | 'warning' | 'error';
+  status: 'warning' | 'error' | undefined;
   ruleName: string;
   scoreText: string;
 }
 
 interface ProcessCriterionParams extends EvaluationContext {
   exp: PromptCriterionSpec;
-  result: CriteriaResult;
+  result: SubjectiveResult;
   promptId: string;
   promptFilename: string;
   meta: PromptMeta;
@@ -109,12 +118,13 @@ interface ProcessCriterionParams extends EvaluationContext {
 interface ProcessCriterionResult extends ErrorTrackingResult {
   userScore: number;
   maxScore: number;
-  scoreEntry: { id: string; scoreText: string };
+  scoreEntry: { id: string; scoreText: string; score?: number };
+  scoreComponent?: ScoreComponent;
 }
 
 interface ValidationParams {
   meta: PromptMeta;
-  result: CriteriaResult;
+  result: SubjectiveResult;
 }
 
 interface ProcessPromptResultParams extends EvaluationContext {
@@ -137,7 +147,7 @@ type RunPromptEvaluationResult =
 interface EvaluateFileParams {
   file: string;
   options: EvaluationOptions;
-  jsonFormatter: JsonFormatter;
+  jsonFormatter: ValeJsonFormatter | JsonFormatter;
 }
 
 interface EvaluateFileResult extends ErrorTrackingResult {
@@ -178,7 +188,7 @@ function reportIssue(params: ReportIssueParams): void {
   if (outputFormat === 'line') {
     const locStr = `${line}:${column}`;
     printIssueRow(locStr, status, summary, ruleName, suggestion ? { suggestion } : {});
-  } else {
+  } else if (outputFormat === 'vale-json') {
     const severity = status === 'error' ? 'error' : status === 'warning' ? 'warning' : 'info';
     const issue: JsonIssue = {
       file,
@@ -192,7 +202,22 @@ function reportIssue(params: ReportIssueParams): void {
       ...(suggestion !== undefined ? { suggestion } : {}),
       ...(scoreText !== undefined ? { score: scoreText } : {}),
     };
-    jsonFormatter.addIssue(issue);
+    (jsonFormatter as ValeJsonFormatter).addIssue(issue);
+  } else if (outputFormat === 'json') {
+    const severity = status === 'error' ? 'error' : status === 'warning' ? 'warning' : 'info';
+    const matchLen = match ? match.length : 0;
+    const endColumn = column + matchLen;
+    const issue: Issue = {
+      line,
+      column,
+      span: [column, endColumn],
+      severity,
+      message: summary,
+      eval: ruleName,
+      match: match || '',
+      ...(suggestion ? { suggestion } : {})
+    };
+    (jsonFormatter as JsonFormatter).addIssue(file, issue);
   }
 }
 
@@ -367,7 +392,16 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
       maxScore,
       hadOperationalErrors,
       hadSeverityErrors,
-      scoreEntry: { id: ruleName, scoreText: 'nil' }
+      scoreEntry: { id: ruleName, scoreText: '0.0/10', score: 0.0 },
+      scoreComponent: {
+        criterion: nameKey,
+        rawScore: 0,
+        maxScore: 4,
+        weightedScore: 0,
+        weightedMaxScore: weightNum,
+        normalizedScore: 0,
+        normalizedMaxScore: 10
+      }
     };
   }
 
@@ -380,12 +414,21 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
       maxScore,
       hadOperationalErrors,
       hadSeverityErrors,
-      scoreEntry: { id: ruleName, scoreText: '0/0' }
+      scoreEntry: { id: ruleName, scoreText: '-', score: 0.0 },
+      scoreComponent: {
+        criterion: nameKey,
+        rawScore: 0,
+        maxScore: 4,
+        weightedScore: 0,
+        weightedMaxScore: weightNum,
+        normalizedScore: 0,
+        normalizedMaxScore: 10
+      }
     };
   }
 
   const score = Number(got.score);
-  const status: 'ok' | 'warning' | 'error' = score <= 1 ? 'error' : (score === 2 ? 'warning' : 'ok');
+  const status: 'warning' | 'error' | undefined = score <= 1 ? 'error' : (score === 2 ? 'warning' : undefined);
 
   let errors = 0;
   let warnings = 0;
@@ -398,11 +441,26 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
   }
 
   const violations = got.violations;
-  const rawWeighted = (score / 4) * weightNum;
+  // Use pre-calculated values from evaluator
+  const rawWeighted = got.weighted_points;
+  const normalizedScore = got.normalized_score;
   const userScore = rawWeighted;
-  const rounded = Math.round(rawWeighted * 100) / 100;
-  const weightedStr = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
-  const scoreText = `${weightedStr}/${weightNum}`;
+
+  // Display normalized score (1-10) in CLI output
+  const scoreText = `${normalizedScore.toFixed(1)}/10`;
+
+  // Skip reporting entirely if status is undefined (clean result)
+  if (status === undefined) {
+    return {
+      errors: 0,
+      warnings: 0,
+      userScore,
+      maxScore,
+      hadOperationalErrors,
+      hadSeverityErrors,
+      scoreEntry: { id: ruleName, scoreText, score: normalizedScore }
+    };
+  }
 
   if (violations.length === 0) {
     const sum = got.summary.trim();
@@ -442,7 +500,16 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
     maxScore,
     hadOperationalErrors,
     hadSeverityErrors,
-    scoreEntry: { id: ruleName, scoreText }
+    scoreEntry: { id: ruleName, scoreText, score: normalizedScore },
+    scoreComponent: {
+      criterion: nameKey,
+      rawScore: score,
+      maxScore: 4,
+      weightedScore: rawWeighted,
+      weightedMaxScore: weightNum,
+      normalizedScore: normalizedScore,
+      normalizedMaxScore: 10
+    }
   };
 }
 
@@ -525,23 +592,33 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
   let promptErrors = 0;
   let promptWarnings = 0;
 
-  // Handle Basic Result
-  if (!isCriteriaResult(result)) {
+  // Handle Semi-Objective Result
+  if (!isSubjectiveResult(result)) {
     const status = result.status;
-    if (status === 'error') {
+    if (status === Severity.ERROR) {
       hadSeverityErrors = true;
       promptErrors = 1;
-    } else if (status === 'warning') {
+    } else if (status === Severity.WARNING) {
       promptWarnings = 1;
     }
 
     // Use prompt name or filename as rule name
     const ruleName = promptId || promptFile.filename.replace(/\.md$/, '');
 
-    if (outputFormat === 'line') {
-      printBasicReport(result, ruleName);
-    } else {
-      // For JSON format, report the basic result as an issue
+    if (result.violations.length > 0) {
+      const violationResult = processViolations({
+        violations: result.violations,
+        content,
+        relFile,
+        status,
+        ruleName,
+        scoreText: '',
+        outputFormat,
+        jsonFormatter
+      });
+      hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
+    } else if ((outputFormat === 'json' || outputFormat === 'vale-json') && result.message) {
+      // For JSON, if there's a message but no violations, report it as a general issue
       reportIssue({
         file: relFile,
         line: 1,
@@ -559,18 +636,21 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
       errors: promptErrors,
       warnings: promptWarnings,
       hadOperationalErrors,
-      hadSeverityErrors
+      hadSeverityErrors,
+      scoreEntries: []
     };
   }
 
-  // Handle Advanced Criteria Result
+  // Handle Subjective Result
   // Validate criterion completeness and scores
   hadOperationalErrors = validateCriteriaCompleteness({ meta, result }) || hadOperationalErrors;
   hadOperationalErrors = validateScores({ meta, result }) || hadOperationalErrors;
 
-  let promptUserScore = 0;
-  let promptMaxScore = 0;
-  const criterionScores: Array<{ id: string; scoreText: string }> = [];
+  // Reset promptErrors and promptWarnings for subjective results
+  promptErrors = 0;
+  promptWarnings = 0;
+  const criterionScores: EvaluationSummary[] = [];
+  const scoreComponents: ScoreComponent[] = [];
 
   // Process each criterion
   for (const exp of meta.criteria || []) {
@@ -588,50 +668,47 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
 
     promptErrors += criterionResult.errors;
     promptWarnings += criterionResult.warnings;
-    promptUserScore += criterionResult.userScore;
-    promptMaxScore += criterionResult.maxScore;
     hadOperationalErrors = hadOperationalErrors || criterionResult.hadOperationalErrors;
     hadSeverityErrors = hadSeverityErrors || criterionResult.hadSeverityErrors;
     criterionScores.push(criterionResult.scoreEntry);
-  }
 
-  // Print per-criterion scores and overall threshold check (line format only)
-  if (outputFormat === 'line') {
-    const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
-    printAdvancedReport(criterionScores, promptMaxScore, thresholdOverall, promptUserScore);
-    console.log('');
-  }
-
-  // Check overall threshold
-  const thresholdOverall = meta.threshold !== undefined ? Number(meta.threshold) : undefined;
-  if (thresholdOverall !== undefined && promptUserScore < thresholdOverall) {
-    const sev = meta.severity || 'error';
-    if (sev === 'error') {
-      hadSeverityErrors = true;
-    } else {
-      promptWarnings += 1;
+    if (criterionResult.scoreComponent) {
+      scoreComponents.push(criterionResult.scoreComponent);
     }
+  }
+
+  if (outputFormat === 'json' && scoreComponents.length > 0) {
+    (jsonFormatter as JsonFormatter).addEvaluationScore(relFile, {
+      id: promptId || promptFile.filename.replace(/\.md$/, ''),
+      scores: scoreComponents
+    });
   }
 
   return {
     errors: promptErrors,
     warnings: promptWarnings,
     hadOperationalErrors,
-    hadSeverityErrors
+    hadSeverityErrors,
+    scoreEntries: criterionScores
   };
 }
 
 /*
  * Runs a single prompt evaluation.
+ * BaseEvaluator auto-detects mode from criteria presence:
+ * - criteria defined → scored mode
+ * - no criteria → basic mode
  */
 async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<RunPromptEvaluationResult> {
   const { promptFile, relFile, content, provider, searchProvider } = params;
 
   try {
     const meta = promptFile.meta;
-    const evaluatorType = meta.evaluator || 'base-llm';
+    const evaluatorType = resolveEvaluatorType(meta.evaluator);
 
-    if (evaluatorType !== 'basic') {
+    // Specialized evaluators (e.g., technical-accuracy) require criteria
+    // BaseEvaluator handles both modes: scored (with criteria) and basic (without)
+    if (evaluatorType !== (Type.BASE as string)) {
       if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
         throw new Error(`Prompt ${promptFile.filename} has no criteria in frontmatter`);
       }
@@ -642,6 +719,27 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
     return { ok: true, result };
   } catch (e: unknown) {
     const err = handleUnknownError(e, `Running prompt ${promptFile.filename}`);
+
+    // Gracefully skip evaluators with missing dependencies (e.g., search provider not configured)
+    if (err.message.includes('requires a search provider')) {
+      console.warn(`[vectorlint] Skipping ${promptFile.filename}: ${err.message}`);
+      console.warn(`[vectorlint] Hint: Configure TAVILY_API_KEY or PERPLEXITY_API_KEY in .env, or remove this eval.`);
+      // Return success with perfect score to indicate "skipped, not failed"
+      return {
+        ok: true,
+        result: {
+          type: EvaluationType.SEMI_OBJECTIVE,
+          final_score: 10,
+          percentage: 100,
+          passed_count: 0,
+          total_count: 0,
+          items: [],
+          message: 'Skipped - missing dependencies',
+          violations: []
+        }
+      };
+    }
+
     return { ok: false, error: err };
   }
 }
@@ -658,6 +756,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
+  const allScores = new Map<string, EvaluationSummary[]>();
 
   const content = readFileSync(file, 'utf-8');
   const relFile = path.relative(process.cwd(), file) || file;
@@ -710,9 +809,16 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     totalWarnings += promptResult.warnings;
     hadOperationalErrors = hadOperationalErrors || promptResult.hadOperationalErrors;
     hadSeverityErrors = hadSeverityErrors || promptResult.hadSeverityErrors;
+
+    if (promptResult.scoreEntries && promptResult.scoreEntries.length > 0) {
+      const ruleName = (p.meta.id || p.filename).toString();
+      allScores.set(ruleName, promptResult.scoreEntries);
+    }
   }
 
   if (outputFormat === 'line') {
+
+    printEvaluationSummaries(allScores);
     console.log('');
   }
 
@@ -743,7 +849,12 @@ export async function evaluateFiles(
   let totalWarnings = 0;
   let requestFailures = 0;
 
-  const jsonFormatter = new JsonFormatter();
+  let jsonFormatter: ValeJsonFormatter | JsonFormatter;
+  if (outputFormat === 'json') {
+    jsonFormatter = new JsonFormatter();
+  } else {
+    jsonFormatter = new ValeJsonFormatter();
+  }
 
   for (const file of targets) {
     try {
@@ -762,8 +873,15 @@ export async function evaluateFiles(
   }
 
   // Output results based on format
-  if (outputFormat === 'JSON' || outputFormat === 'rdjson') {
-    const jsonStr = jsonFormatter.toJson(outputFormat === 'JSON' ? 'vale' : 'rdjson');
+  if (outputFormat === 'json' || outputFormat === 'vale-json' || outputFormat === 'rdjson') {
+    let jsonStr: string;
+    if (outputFormat === 'vale-json') {
+      jsonStr = jsonFormatter.toJson();
+    } else if (outputFormat === 'rdjson') {
+      jsonStr = (jsonFormatter as JsonFormatter).toJson('rdjson');
+    } else {
+      jsonStr = (jsonFormatter as JsonFormatter).toJson();
+    }
 
     if (options.outputFile) {
       writeFileSync(options.outputFile, jsonStr, 'utf-8');

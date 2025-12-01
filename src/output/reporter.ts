@@ -1,7 +1,14 @@
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
+import path from 'path';
 
-export type Status = 'ok' | 'warning' | 'error';
+export interface EvaluationSummary {
+  id: string;
+  scoreText: string;
+  score?: number;
+}
+
+export type Status = 'warning' | 'error' | undefined;
 
 function statusLabel(status: Status): string {
   switch (status) {
@@ -9,13 +16,17 @@ function statusLabel(status: Status): string {
       return chalk.red('error');
     case 'warning':
       return chalk.yellow('warning');
-    default:
-      return chalk.green('ok');
+    case undefined:
+      return '';
   }
 }
 
 export function printFileHeader(fileRelPath: string) {
-  console.log(chalk.underline(fileRelPath));
+  const cwd = process.cwd();
+  const absPath = path.resolve(cwd, fileRelPath);
+  // OSC 8 hyperlink
+  const link = `\u001B]8;;file://${absPath}\u0007${fileRelPath}\u001B]8;;\u0007`;
+  console.log(chalk.underline(link));
 }
 
 export function printPromptHeader(promptName: string) {
@@ -36,7 +47,15 @@ export function printIssueRow(
   // Columns: loc (fixed), severity (fixed), message (fixed wrap), score (fixed), rule/id (unbounded)
   const locWidth = opts.locWidth ?? 7;
   const severityWidth = opts.severityWidth ?? 8;
-  const messageWidth = opts.messageWidth ?? 66; // widened since score column removed
+
+  // Dynamic width calculation to prevent wrapping while maintaining columns
+  // Reserve space for: prefix (~19 chars) + rule column (~25 chars buffer)
+  const termCols = process.stdout.columns || 100;
+  const prefixOverhead = locWidth + severityWidth + 4; // 4 chars for padding spaces
+  const ruleColumnBuffer = 25; // Reduced buffer to avoid excessive gaps
+  const availableForMessage = Math.max(40, termCols - prefixOverhead - ruleColumnBuffer);
+
+  const messageWidth = opts.messageWidth ?? availableForMessage;
 
   const locCell = (loc || '').padEnd(locWidth, ' ');
   const colored = statusLabel(status);
@@ -72,7 +91,7 @@ export function printIssueRow(
     console.log(`${contPrefix}${lines[i]}`);
   }
   // Suggestion for warnings/errors (one cell, next line)
-  if (status !== 'ok' && opts.suggestion) {
+  if (status !== undefined && opts.suggestion) {
     const words = opts.suggestion.split(/\s+/).filter(Boolean);
     const suggPrefix = `${contPrefix}`;
     let curr = 'suggestion: ';
@@ -98,32 +117,72 @@ export function printPromptSummary(errors: number, warnings: number) {
   console.log(`  ${okMark} ${errTxt}, ${warnTxt} in prompt`);
 }
 
-export function printFileSummary(errors: number, warnings: number) {
-  const okMark = errors === 0 ? chalk.green('✓') : chalk.red('✖');
-  const errTxt = errors > 0 ? chalk.red(`${errors} error${errors !== 1 ? 's' : ''}`) : '0 errors';
-  const warnTxt = warnings > 0 ? chalk.yellow(`${warnings} warning${warnings !== 1 ? 's' : ''}`) : '0 warnings';
-  console.log(`${okMark} ${errTxt}, ${warnTxt} in file`);
-}
-
 export function printGlobalSummary(files: number, errors: number, warnings: number, failures: number = 0) {
   const okMark = errors === 0 ? chalk.green('✓') : chalk.red('✖');
   const errTxt = errors === 1 ? '1 error' : `${errors} errors`;
   const warnTxt = warnings === 1 ? '1 warning' : `${warnings} warnings`;
-  const suggestionTxt = '0 suggestions';
   const fileTxt = files === 1 ? '1 file' : `${files} files`;
+
   const coloredErr = errors > 0 ? chalk.red(errTxt) : chalk.green(errTxt);
-  const coloredWarn = warnings > 0 ? chalk.yellow(warnTxt) : chalk.green(warnTxt);
-  console.log(`${okMark} ${coloredErr}, ${coloredWarn} and ${suggestionTxt} in ${fileTxt}.`);
+  const coloredWarn = chalk.yellow(warnTxt);
+
+  // "X errors and Y warnings in Z files."
+  console.log(`${okMark} ${coloredErr} and ${coloredWarn} in ${fileTxt}.`);
+
   if (failures > 0) {
     const failTxt = failures === 1 ? '1 request failure' : `${failures} request failures`;
     console.log(chalk.red(`✖ ${failTxt}`));
   }
 }
 
+export function printEvaluationSummaries(
+  summaries: Map<string, EvaluationSummary[]>
+) {
+  if (summaries.size === 0) return;
+
+  console.log('');
+  console.log(chalk.bold('\nQuality Scores:'));
+
+  for (const [evalName, items] of summaries) {
+    console.log(`  ${chalk.cyan(evalName)}:`);
+    // Find max ID length for alignment
+    const maxIdLen = Math.max(...items.map(i => i.id.length));
+
+    for (const item of items) {
+      const paddedId = item.id.split('.').pop()!.padEnd(maxIdLen + 2, ' ');
+      let coloredScoreText = item.scoreText;
+      if (item.score !== undefined) {
+        const scoreVal = item.score;
+        const scoreStr = scoreVal.toFixed(1);
+        let coloredScore: string;
+
+        if (scoreVal >= 9.0) {
+          coloredScore = chalk.greenBright(scoreStr);
+        } else if (scoreVal >= 7.0) {
+          coloredScore = chalk.green(scoreStr);
+        } else if (scoreVal >= 5.0) {
+          coloredScore = chalk.yellow(scoreStr);
+        } else {
+          coloredScore = chalk.red(scoreStr);
+        }
+
+        // Reconstruct the score text with color, assuming format "X.X/10"
+        coloredScoreText = `${coloredScore}/10`;
+      }
+      console.log(`    ${paddedId}${coloredScoreText}`);
+    }
+  }
+}
+
 export function printBasicReport(
-  result: { status: Status; message: string; violations: Array<{ analysis: string; suggestion?: string; pre?: string; post?: string; criterionName?: string }> },
+  result: { status?: Status; message: string; violations: Array<{ analysis: string; suggestion?: string; pre?: string; post?: string; criterionName?: string }> },
   ruleName: string
 ) {
+  // Skip output entirely if no violations (undefined status)
+  if (result.status === undefined) {
+    return;
+  }
+
   const status = result.status;
   const message = result.message;
 
@@ -189,7 +248,6 @@ export function printBasicReport(
 export function printAdvancedReport(
   entries: Array<{ id: string; scoreText: string }>,
   maxScore: number,
-  threshold?: number,
   userScore?: number
 ) {
   // Print criterion scores
@@ -204,9 +262,8 @@ export function printAdvancedReport(
     return Number.isInteger(r) ? String(r) : r.toFixed(2);
   };
   const top = fmt(maxScore);
-  const thr = threshold !== undefined ? fmt(threshold) : '-';
   const usr = userScore !== undefined ? fmt(userScore) : '-';
-  console.log(`  Top: ${top}, Threshold: ${thr}, Score: ${usr}`);
+  console.log(`  Top: ${top}, Score: ${usr}`);
 }
 
 export function printValidationRow(level: 'error' | 'warning', message: string) {
