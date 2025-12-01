@@ -5,6 +5,7 @@ import path from 'path';
 export interface EvaluationSummary {
   id: string;
   scoreText: string;
+  score?: number;
 }
 
 export type Status = 'warning' | 'error' | undefined;
@@ -140,7 +141,7 @@ export function printEvaluationSummaries(
   if (summaries.size === 0) return;
 
   console.log('');
-  console.log(chalk.bold('Evaluation Scores:'));
+  console.log(chalk.bold('\nQuality Scores:'));
 
   for (const [evalName, items] of summaries) {
     console.log(`  ${chalk.cyan(evalName)}:`);
@@ -149,7 +150,26 @@ export function printEvaluationSummaries(
 
     for (const item of items) {
       const paddedId = item.id.padEnd(maxIdLen + 2, ' ');
-      console.log(`    ${paddedId}${item.scoreText}`);
+      let coloredScoreText = item.scoreText;
+      if (item.score !== undefined) {
+        const scoreVal = item.score;
+        const scoreStr = scoreVal.toFixed(1);
+        let coloredScore: string;
+
+        if (scoreVal >= 9.0) {
+          coloredScore = chalk.greenBright(scoreStr);
+        } else if (scoreVal >= 7.0) {
+          coloredScore = chalk.green(scoreStr);
+        } else if (scoreVal >= 5.0) {
+          coloredScore = chalk.yellow(scoreStr);
+        } else {
+          coloredScore = chalk.red(scoreStr);
+        }
+
+        // Reconstruct the score text with color, assuming format "X.X/10"
+        coloredScoreText = `${coloredScore}/10`;
+      }
+      console.log(`    ${paddedId}${coloredScoreText}`);
     }
   }
 }

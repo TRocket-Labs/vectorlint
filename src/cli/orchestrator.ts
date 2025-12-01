@@ -117,7 +117,7 @@ interface ProcessCriterionParams extends EvaluationContext {
 interface ProcessCriterionResult extends ErrorTrackingResult {
   userScore: number;
   maxScore: number;
-  scoreEntry: { id: string; scoreText: string };
+  scoreEntry: { id: string; scoreText: string; score?: number };
   scoreComponent?: ScoreComponent;
 }
 
@@ -391,7 +391,7 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
       maxScore,
       hadOperationalErrors,
       hadSeverityErrors,
-      scoreEntry: { id: ruleName, scoreText: '0.0/10' },
+      scoreEntry: { id: ruleName, scoreText: '0.0/10', score: 0.0 },
       scoreComponent: {
         criterion: nameKey,
         rawScore: 0,
@@ -413,7 +413,7 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
       maxScore,
       hadOperationalErrors,
       hadSeverityErrors,
-      scoreEntry: { id: ruleName, scoreText: '-' },
+      scoreEntry: { id: ruleName, scoreText: '-', score: 0.0 },
       scoreComponent: {
         criterion: nameKey,
         rawScore: 0,
@@ -457,7 +457,7 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
       maxScore,
       hadOperationalErrors,
       hadSeverityErrors,
-      scoreEntry: { id: ruleName, scoreText }
+      scoreEntry: { id: ruleName, scoreText, score: normalizedScore }
     };
   }
 
@@ -499,7 +499,7 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
     maxScore,
     hadOperationalErrors,
     hadSeverityErrors,
-    scoreEntry: { id: ruleName, scoreText },
+    scoreEntry: { id: ruleName, scoreText, score: normalizedScore },
     scoreComponent: {
       criterion: nameKey,
       rawScore: score,
@@ -652,7 +652,10 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
     promptMaxScore += criterionResult.maxScore;
     hadOperationalErrors = hadOperationalErrors || criterionResult.hadOperationalErrors;
     hadSeverityErrors = hadSeverityErrors || criterionResult.hadSeverityErrors;
+    promptUserScore += criterionResult.userScore;
+    promptMaxScore += criterionResult.maxScore;
     criterionScores.push(criterionResult.scoreEntry);
+
     if (criterionResult.scoreComponent) {
       scoreComponents.push(criterionResult.scoreComponent);
     }
