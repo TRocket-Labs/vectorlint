@@ -14,6 +14,7 @@ import { readPromptMappingFromIni } from '../prompts/prompt-mapping';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
+import { DEFAULT_CONFIG_FILENAME } from '../config/constants';
 
 /*
  * Registers the main evaluation command with Commander.
@@ -26,9 +27,10 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Print full JSON response from the API')
     .option('--output <format>', 'Output format: line (default) or JSON', 'line')
+    .option('--config <path>', 'Path to custom vectorlint.ini config file')
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
-      
+
       // Parse and validate CLI options
       let cliOptions;
       try {
@@ -59,7 +61,7 @@ export function registerMainCommand(program: Command): void {
         console.error(`Error: ${err.message}`);
         process.exit(1);
       }
-      
+
       const provider = createProvider(
         env,
         {
@@ -70,7 +72,7 @@ export function registerMainCommand(program: Command): void {
         },
         new DefaultRequestBuilder(directive)
       );
-      
+
       if (cliOptions.verbose) {
         const directiveLen = directive ? directive.length : 0;
         console.log(`[vectorlint] Directive active: ${directiveLen} char(s)`);
@@ -79,19 +81,19 @@ export function registerMainCommand(program: Command): void {
       // Load config and prompts
       let config;
       try {
-        config = loadConfig();
+        config = loadConfig(process.cwd(), cliOptions.config);
       } catch (e: unknown) {
         const err = handleUnknownError(e, 'Loading configuration');
         console.error(`Error: ${err.message}`);
         process.exit(1);
       }
-      
+
       const { promptsPath } = config;
       if (!existsSync(promptsPath)) {
         console.error(`Error: prompts path does not exist: ${promptsPath}`);
         process.exit(1);
       }
-      
+
       let prompts: PromptFile[];
       try {
         const loaded = loadPrompts(promptsPath, { verbose: cliOptions.verbose });
@@ -120,14 +122,16 @@ export function registerMainCommand(program: Command): void {
         console.error(`Error: failed to resolve target files: ${err.message}`);
         process.exit(1);
       }
-      
+
       if (targets.length === 0) {
         console.error('Error: no target files found to evaluate.');
         process.exit(1);
       }
 
       // Load prompt/file mapping from INI (optional)
-      const iniPath = path.resolve(process.cwd(), 'vectorlint.ini');
+      const iniPath = cliOptions.config
+        ? path.resolve(process.cwd(), cliOptions.config)
+        : path.resolve(process.cwd(), DEFAULT_CONFIG_FILENAME);
       let mapping: ReturnType<typeof readPromptMappingFromIni> | undefined;
       try {
         if (existsSync(iniPath)) {

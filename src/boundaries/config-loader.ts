@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { CONFIG_SCHEMA, type Config } from '../schemas/config-schemas';
 import { ConfigError, ValidationError, handleUnknownError } from '../errors/index';
+import { DEFAULT_CONFIG_FILENAME } from '../config/constants';
 
 function parseBracketList(value: string): string[] {
   const v = value.trim();
@@ -26,12 +27,16 @@ function isSupportedPattern(p: string): boolean {
 /**
  * Load and validate configuration from vectorlint.ini file	
  */
-export function loadConfig(cwd: string = process.cwd()): Config {
-  const iniPath = path.resolve(cwd, 'vectorlint.ini');
-  
+export function loadConfig(cwd: string = process.cwd(), configPath?: string): Config {
+  const iniPath = configPath
+    ? path.resolve(cwd, configPath)
+    : path.resolve(cwd, DEFAULT_CONFIG_FILENAME);
+
   if (!existsSync(iniPath)) {
-    throw new ConfigError('Missing vectorlint.ini in project root. Please create one with PromptsPath and ScanPaths.');
+    throw new ConfigError(`Missing configuration file at ${iniPath}`);
   }
+
+  const configDir = path.dirname(iniPath);
 
   let promptsPathRaw: string | undefined;
   let scanPathsRaw: string[] | undefined;
@@ -39,17 +44,17 @@ export function loadConfig(cwd: string = process.cwd()): Config {
 
   try {
     const raw = readFileSync(iniPath, 'utf-8');
-    
+
     for (const rawLine of raw.split(/\r?\n/)) {
       const line = rawLine.trim();
       if (!line || line.startsWith('#') || line.startsWith(';')) continue;
-      
+
       const m = line.match(/^([A-Za-z][A-Za-z0-9]*)\s*=\s*(.*)$/);
       if (!m || !m[1] || !m[2]) continue;
-      
+
       const key = m[1];
       const val = m[2];
-      
+
       if (key === 'PromptsPath') {
         promptsPathRaw = val.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
       } else if (key === 'ScanPaths') {
@@ -61,15 +66,15 @@ export function loadConfig(cwd: string = process.cwd()): Config {
     }
   } catch (e: unknown) {
     const err = handleUnknownError(e, 'Reading config file');
-    throw new ConfigError(`Failed to read vectorlint.ini: ${err.message}`);
+    throw new ConfigError(`Failed to read config file: ${err.message}`);
   }
 
   // Validate required fields
   if (!promptsPathRaw) {
-    throw new ConfigError('PromptsPath is required in vectorlint.ini');
+    throw new ConfigError('PromptsPath is required in config file');
   }
   if (!scanPathsRaw || scanPathsRaw.length === 0) {
-    throw new ConfigError('ScanPaths is required in vectorlint.ini');
+    throw new ConfigError('ScanPaths is required in config file');
   }
 
   // Validate scan path patterns
@@ -82,7 +87,7 @@ export function loadConfig(cwd: string = process.cwd()): Config {
   // Resolve paths
   const promptsPath = path.isAbsolute(promptsPathRaw)
     ? promptsPathRaw
-    : path.resolve(cwd, promptsPathRaw);
+    : path.resolve(configDir, promptsPathRaw);
 
   const concurrency = concurrencyRaw ?? 4;
 

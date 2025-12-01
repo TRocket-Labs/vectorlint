@@ -8,6 +8,7 @@ export const CLI_OPTIONS_SCHEMA = z.object({
   debugJson: z.boolean().default(false),
   output: z.enum(['line', 'JSON']).default('line'),
   prompts: z.string().optional(),
+  config: z.string().optional(),
 });
 
 // Validate command options schema

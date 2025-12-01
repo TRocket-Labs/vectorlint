@@ -1,4 +1,4 @@
-PromptsPath=evals
+PromptsPath=.github/evals   
 ScanPaths=[*.md]
 Concurrency=4
 
