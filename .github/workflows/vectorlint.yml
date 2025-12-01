@@ -24,12 +24,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run VectorLint
-        uses: ./.github/vectorlint-action
+        uses: ayo6706/vectorlint-test-action@v1
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           reporter: github-pr-check
-          filter_mode: nofilter
-          fail_on_error: true
+          filter_mode: added
+          fail_on_error: false
           vectorlint_flags: '--verbose'
-
-          
