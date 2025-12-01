@@ -7,10 +7,17 @@ import type { PromptFile } from '../schemas/prompt-schemas';
  * Factory function signature for creating evaluators.
  * Evaluators can optionally depend on search providers for fact verification.
  */
+import type { Severity } from './types';
+
+/*
+ * Factory function signature for creating evaluators.
+ * Evaluators can optionally depend on search providers for fact verification.
+ */
 export type EvaluatorFactory = (
   llmProvider: LLMProvider,
   prompt: PromptFile,
-  searchProvider?: SearchProvider
+  searchProvider?: SearchProvider,
+  defaultSeverity?: Severity
 ) => Evaluator;
 
 /*
@@ -31,10 +38,11 @@ class EvaluatorRegistry {
     type: string,
     llmProvider: LLMProvider,
     prompt: PromptFile,
-    searchProvider?: SearchProvider
+    searchProvider?: SearchProvider,
+    defaultSeverity?: Severity
   ): Evaluator {
     const factory = this.registry.get(type);
-    
+
     if (!factory) {
       const available = Array.from(this.registry.keys()).join(', ');
       throw new Error(
@@ -42,7 +50,7 @@ class EvaluatorRegistry {
       );
     }
 
-    return factory(llmProvider, prompt, searchProvider);
+    return factory(llmProvider, prompt, searchProvider, defaultSeverity);
   }
 
   getRegisteredTypes(): string[] {
@@ -62,9 +70,10 @@ export function createEvaluator(
   type: string,
   llmProvider: LLMProvider,
   prompt: PromptFile,
-  searchProvider?: SearchProvider
+  searchProvider?: SearchProvider,
+  defaultSeverity?: Severity
 ): Evaluator {
-  return REGISTRY.create(type, llmProvider, prompt, searchProvider);
+  return REGISTRY.create(type, llmProvider, prompt, searchProvider, defaultSeverity);
 }
 
 export function getRegisteredEvaluatorTypes(): string[] {

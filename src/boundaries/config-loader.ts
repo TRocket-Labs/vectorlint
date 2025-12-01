@@ -24,6 +24,13 @@ function isSupportedPattern(p: string): boolean {
   return false;
 }
 
+enum ConfigKey {
+  PROMPTS_PATH = 'PromptsPath',
+  SCAN_PATHS = 'ScanPaths',
+  CONCURRENCY = 'Concurrency',
+  DEFAULT_SEVERITY = 'DefaultSeverity',
+}
+
 /**
  * Load and validate configuration from vectorlint.ini file	
  */
@@ -41,6 +48,7 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
   let promptsPathRaw: string | undefined;
   let scanPathsRaw: string[] | undefined;
   let concurrencyRaw: number | undefined;
+  let defaultSeverityRaw: string | undefined;
 
   try {
     const raw = readFileSync(iniPath, 'utf-8');
@@ -55,13 +63,25 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
       const key = m[1];
       const val = m[2];
 
-      if (key === 'PromptsPath') {
-        promptsPathRaw = val.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
-      } else if (key === 'ScanPaths') {
-        scanPathsRaw = parseBracketList(val);
-      } else if (key === 'Concurrency') {
-        const n = Number(val.replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
-        if (Number.isFinite(n) && n > 0) concurrencyRaw = Math.floor(n);
+      // Utility function to strip surrounding quotes (both single and double)
+      const stripQuotes = (str: string): string =>
+        str.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+
+      switch (key) {
+        case ConfigKey.PROMPTS_PATH as string:
+          promptsPathRaw = stripQuotes(val);
+          break;
+        case ConfigKey.SCAN_PATHS as string:
+          scanPathsRaw = parseBracketList(val);
+          break;
+        case ConfigKey.CONCURRENCY as string: {
+          const n = Number(stripQuotes(val));
+          if (Number.isFinite(n) && n > 0) concurrencyRaw = Math.floor(n);
+          break;
+        }
+        case ConfigKey.DEFAULT_SEVERITY as string:
+          defaultSeverityRaw = stripQuotes(val).toLowerCase();
+          break;
       }
     }
   } catch (e: unknown) {
@@ -97,6 +117,7 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
     scanPaths: scanPathsRaw,
     concurrency,
     configDir,
+    defaultSeverity: defaultSeverityRaw,
   };
 
   try {

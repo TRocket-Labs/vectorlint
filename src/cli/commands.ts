@@ -26,7 +26,7 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt', 'Print full prompt and injected content')
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Print full JSON response from the API')
-    .option('--output <format>', 'Output format: line (default) or JSON', 'line')
+    .option('--output <format>', 'Output format: line (default), json, or vale-json', 'line')
     .option('--config <path>', 'Path to custom vectorlint.ini config file')
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
@@ -150,6 +150,8 @@ export function registerMainCommand(program: Command): void {
         ? new PerplexitySearchProvider({ debug: false })
         : undefined;
 
+      const outputFormat = cliOptions.output === 'JSON' ? 'json' : cliOptions.output;
+
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
         prompts,
@@ -158,7 +160,7 @@ export function registerMainCommand(program: Command): void {
         ...(searchProvider ? { searchProvider } : {}),
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
-        outputFormat: cliOptions.output,
+        outputFormat: outputFormat,
         ...(mapping ? { mapping } : {}),
       });
 

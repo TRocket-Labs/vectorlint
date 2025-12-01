@@ -1,6 +1,7 @@
 ---
 specVersion: 1.0.0
-threshold: 16
+type: subjective
+
 severity: error
 name: Headline Evaluator
 id: Headline
