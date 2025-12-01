@@ -1,0 +1,35 @@
+name: VectorLint
+
+on:
+  pull_request:
+    paths:
+      - '**/*.md'
+      - '**/*.mdx'
+      - 'vectorlint.ini'
+      - 'prompts/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+concurrency:
+  group: vectorlint-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run VectorLint
+        uses: ./.github/vectorlint-action
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          reporter: github-pr-check
+          filter_mode: nofilter
+          fail_on_error: true
+          vectorlint_flags: '--verbose'
+
+          
