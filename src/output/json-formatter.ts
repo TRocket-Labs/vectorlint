@@ -1,3 +1,4 @@
+
 export interface ScoreComponent {
     criterion?: string;
     rawScore: number;
@@ -66,6 +67,7 @@ export class JsonFormatter {
         }
         this.files[file].evaluationScores.push(score);
     }
+
 
     toJson(): string {
         const result: Result = {

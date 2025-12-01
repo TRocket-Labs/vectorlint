@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { BaseEvaluator } from '../src/evaluators/base-evaluator';
+import { EvaluationType } from '../src/evaluators/types';
 import type { LLMProvider } from '../src/providers/llm-provider';
 import type { PromptFile } from '../src/schemas/prompt-schemas';
 import type { SubjectiveLLMResult, SemiObjectiveLLMResult } from '../src/prompts/schema';
+import type { SearchProvider } from '../src/providers/search-provider';
 
 describe('Scoring Types', () => {
     const mockLlmProvider = {
@@ -49,11 +51,13 @@ describe('Scoring Types', () => {
                 ],
             };
 
-            vi.mocked(mockLlmProvider.runPromptStructured).mockResolvedValueOnce(mockLlmResponse);
+            // eslint-disable-next-line @typescript-eslint/unbound-method
+            const mockFn = vi.mocked(mockLlmProvider.runPromptStructured);
+            mockFn.mockResolvedValueOnce(mockLlmResponse);
 
             const result = await evaluator.evaluate('file.md', 'content');
 
-            if (result.type !== 'subjective') throw new Error('Wrong result type');
+            if (result.type !== EvaluationType.SUBJECTIVE) throw new Error('Wrong result type');
 
             // Calculation:
             // C1: 10 (score 4) * 50 = 500
@@ -61,8 +65,8 @@ describe('Scoring Types', () => {
             // Total: 700 / 100 = 7
             // Final Score: 7.0
             expect(result.final_score).toBe(7.0);
-            expect(result.criteria?.[0].weighted_points).toBe(500);
-            expect(result.criteria?.[1].weighted_points).toBe(200);
+            expect(result.criteria[0].weighted_points).toBe(500);
+            expect(result.criteria[1].weighted_points).toBe(200);
         });
     });
 
@@ -90,12 +94,14 @@ describe('Scoring Types', () => {
                 ],
             };
 
-            vi.mocked(mockLlmProvider.runPromptStructured).mockResolvedValueOnce(mockLlmResponse);
+            // eslint-disable-next-line @typescript-eslint/unbound-method
+            const mockFn = vi.mocked(mockLlmProvider.runPromptStructured);
+            mockFn.mockResolvedValueOnce(mockLlmResponse);
 
             const content = new Array(100).fill('word').join(' ');
             const result = await evaluator.evaluate('file.md', content);
 
-            if (result.type !== 'semi-objective') throw new Error('Wrong result type');
+            if (result.type !== EvaluationType.SEMI_OBJECTIVE) throw new Error('Wrong result type');
 
             // Calculation: 2 violations = score of 8 (10 - 2)
             expect(result.final_score).toBe(8.0);
@@ -111,11 +117,13 @@ describe('Scoring Types', () => {
                 violations: [],
             };
 
-            vi.mocked(mockLlmProvider.runPromptStructured).mockResolvedValueOnce(mockLlmResponse);
+            // eslint-disable-next-line @typescript-eslint/unbound-method
+            const mockFn = vi.mocked(mockLlmProvider.runPromptStructured);
+            mockFn.mockResolvedValueOnce(mockLlmResponse);
 
             const result = await evaluator.evaluate('file.md', 'content');
 
-            if (result.type !== 'semi-objective') throw new Error('Wrong result type');
+            if (result.type !== EvaluationType.SEMI_OBJECTIVE) throw new Error('Wrong result type');
 
             // No violations = perfect score
             expect(result.final_score).toBe(10);
@@ -137,9 +145,9 @@ describe('Scoring Types', () => {
 
             const { TechnicalAccuracyEvaluator } = await import('../src/evaluators/accuracy-evaluator');
 
-            const mockSearchProvider = {
-                search: vi.fn(),
-            } as any;
+            const mockSearchProvider: SearchProvider = {
+                search: vi.fn().mockResolvedValue({ results: [] })
+            };
 
             const prompt: PromptFile = {
                 id: 'tech-acc',
@@ -152,11 +160,13 @@ describe('Scoring Types', () => {
             const evaluator = new TechnicalAccuracyEvaluator(mockLlmProvider, prompt, mockSearchProvider);
 
             // Mock claim extraction to return empty list
-            vi.mocked(mockLlmProvider.runPromptStructured).mockResolvedValueOnce({ claims: [] });
+            // eslint-disable-next-line @typescript-eslint/unbound-method
+            const mockFn = vi.mocked(mockLlmProvider.runPromptStructured);
+            mockFn.mockResolvedValueOnce({ claims: [] });
 
             const result = await evaluator.evaluate('file.md', 'content');
 
-            if (result.type !== 'semi-objective') throw new Error('Wrong result type');
+            if (result.type !== EvaluationType.SEMI_OBJECTIVE) throw new Error('Wrong result type');
             expect(result.final_score).toBe(10);
             expect(result.items).toEqual([]);
         });

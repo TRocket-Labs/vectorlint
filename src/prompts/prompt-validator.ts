@@ -34,7 +34,6 @@ export function validatePrompt(p: PromptFile): Validation[] {
     return out;
   }
 
-  let sumWeights = 0;
   for (const c of meta.criteria) {
     if (!c.id && !c.name) {
       out.push({ file: p.filename, level: 'error', message: 'Criterion missing id/name' });
@@ -42,8 +41,6 @@ export function validatePrompt(p: PromptFile): Validation[] {
     const w = Number(c.weight);
     if (!Number.isFinite(w) || w <= 0) {
       out.push({ file: p.filename, level: 'error', message: `Invalid weight for ${c.name || c.id}` });
-    } else {
-      sumWeights += w;
     }
     if (c.target) {
       if (!validateFlags(c.target.flags)) {

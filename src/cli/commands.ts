@@ -155,7 +155,7 @@ export function registerMainCommand(program: Command): void {
         ...(searchProvider ? { searchProvider } : {}),
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
-        outputFormat: outputFormat as 'line' | 'json' | 'vale-json',
+        outputFormat: outputFormat,
         ...(mapping ? { mapping } : {}),
       });
 

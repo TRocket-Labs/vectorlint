@@ -8,13 +8,13 @@ import type { PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas'
 import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
 import { locateEvidenceWithMatch } from '../output/location';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
-import { JsonFormatter, type Issue, type EvaluationScore, type ScoreComponent } from '../output/json-formatter';
+import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
 import { checkTarget } from '../prompts/target';
 import { resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from '../prompts/prompt-mapping';
 import { handleUnknownError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { isSubjectiveResult } from '../prompts/schema';
-import { Type, EvaluationType } from '../evaluators/types';
+import { Type, EvaluationType, Severity } from '../evaluators/types';
 export interface EvaluationOptions {
   prompts: PromptFile[];
   promptsPath: string;
@@ -576,10 +576,10 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
   // Handle Semi-Objective Result
   if (!isSubjectiveResult(result)) {
     const status = result.status;
-    if (status === 'error') {
+    if (status === Severity.ERROR) {
       hadSeverityErrors = true;
       promptErrors = 1;
-    } else if (status === 'warning') {
+    } else if (status === Severity.WARNING) {
       promptWarnings = 1;
     }
 
@@ -627,8 +627,9 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
   hadOperationalErrors = validateCriteriaCompleteness({ meta, result }) || hadOperationalErrors;
   hadOperationalErrors = validateScores({ meta, result }) || hadOperationalErrors;
 
-  let promptUserScore = 0;
-  let promptMaxScore = 0;
+  // Reset promptErrors and promptWarnings for subjective results
+  promptErrors = 0;
+  promptWarnings = 0;
   const criterionScores: EvaluationSummary[] = [];
   const scoreComponents: ScoreComponent[] = [];
 
@@ -648,12 +649,8 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
 
     promptErrors += criterionResult.errors;
     promptWarnings += criterionResult.warnings;
-    promptUserScore += criterionResult.userScore;
-    promptMaxScore += criterionResult.maxScore;
     hadOperationalErrors = hadOperationalErrors || criterionResult.hadOperationalErrors;
     hadSeverityErrors = hadSeverityErrors || criterionResult.hadSeverityErrors;
-    promptUserScore += criterionResult.userScore;
-    promptMaxScore += criterionResult.maxScore;
     criterionScores.push(criterionResult.scoreEntry);
 
     if (criterionResult.scoreComponent) {
@@ -692,7 +689,7 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
 
     // Specialized evaluators (e.g., technical-accuracy) require criteria
     // BaseEvaluator handles both modes: scored (with criteria) and basic (without)
-    if (evaluatorType !== Type.BASE) {
+    if (evaluatorType !== (Type.BASE as string)) {
       if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
         throw new Error(`Prompt ${promptFile.filename} has no criteria in frontmatter`);
       }

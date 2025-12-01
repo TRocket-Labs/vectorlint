@@ -58,19 +58,24 @@ export function loadConfig(cwd: string = process.cwd()): Config {
       const key = m[1];
       const val = m[2];
 
+      // Utility function to strip surrounding quotes (both single and double)
+      const stripQuotes = (str: string): string =>
+        str.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+
       switch (key) {
-        case ConfigKey.PROMPTS_PATH:
-          promptsPathRaw = val.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+        case ConfigKey.PROMPTS_PATH as string:
+          promptsPathRaw = stripQuotes(val);
           break;
-        case ConfigKey.SCAN_PATHS:
+        case ConfigKey.SCAN_PATHS as string:
           scanPathsRaw = parseBracketList(val);
           break;
-        case ConfigKey.CONCURRENCY:
-          const n = Number(val.replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
+        case ConfigKey.CONCURRENCY as string: {
+          const n = Number(stripQuotes(val));
           if (Number.isFinite(n) && n > 0) concurrencyRaw = Math.floor(n);
           break;
-        case ConfigKey.DEFAULT_SEVERITY:
-          defaultSeverityRaw = val.replace(/^"|"$/g, '').replace(/^'|'$/g, '').toLowerCase();
+        }
+        case ConfigKey.DEFAULT_SEVERITY as string:
+          defaultSeverityRaw = stripQuotes(val).toLowerCase();
           break;
       }
     }
