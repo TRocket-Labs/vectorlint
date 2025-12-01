@@ -3,12 +3,12 @@ import { createProvider } from '../src/providers/provider-factory';
 import { parseEnvironment } from '../src/boundaries/env-parser';
 import { AnthropicProvider } from '../src/providers/anthropic-provider';
 import type { AnthropicMessage } from '../src/schemas/api-schemas';
-import type { 
-  MockAPIErrorParams, 
-  MockAuthenticationErrorParams, 
+import type {
+  MockAPIErrorParams,
+  MockAuthenticationErrorParams,
   MockRateLimitErrorParams,
   MockBadRequestErrorParams,
-  MockAnthropicClient 
+  MockAnthropicClient
 } from './schemas/mock-schemas';
 
 // Create a shared mock function that all E2E instances will use
@@ -61,11 +61,11 @@ describe('Anthropic End-to-End Integration', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    
+
     // Get reference to the mocked validation function
     const apiClient = await import('../src/boundaries/api-client');
     mockValidateAnthropicResponse = vi.mocked(apiClient.validateAnthropicResponse);
-    
+
     // Default mock behavior - return the response as-is
     mockValidateAnthropicResponse.mockImplementation((response: unknown) => response as AnthropicMessage);
   });
@@ -242,24 +242,13 @@ describe('Anthropic End-to-End Integration', () => {
         })
       );
     });
-
-    it('processes backward compatible Azure OpenAI configuration', () => {
-      // Test that existing Azure OpenAI configs still work
-      const env = {
-        // No LLM_PROVIDER specified - should default to azure-openai
-        AZURE_OPENAI_API_KEY: 'legacy-key',
-        AZURE_OPENAI_ENDPOINT: 'https://legacy.openai.azure.com',
-        AZURE_OPENAI_DEPLOYMENT_NAME: 'legacy-deployment',
-      };
-
-      const envConfig = parseEnvironment(env);
-      expect(envConfig.LLM_PROVIDER).toBe('azure-openai');
-
-      const provider = createProvider(envConfig);
-      // Should create Azure OpenAI provider, not Anthropic
-      expect(provider).not.toBeInstanceOf(AnthropicProvider);
-    });
   });
+  // This closing brace was missing for the 'describe('Anthropic End-to-End Integration', () => {' block
+  // The 'describe('Error Scenarios and Recovery', () => {' block should be at the same level as 'describe('Complete Flow from Environment to Provider', () => {'
+  // and both should be nested within 'describe('Anthropic End-to-End Integration', () => {'
+  // The original code had an extra '});' after the 'it' block, and then another '});' for the 'describe' block.
+  // This structure implies that 'Error Scenarios and Recovery' was outside the main 'Anthropic End-to-End Integration' describe block.
+  // By adding this brace here, 'Error Scenarios and Recovery' is now correctly nested within the main describe block.
 
   describe('Error Scenarios and Recovery', () => {
     it('handles Anthropic API authentication errors end-to-end', async () => {
@@ -274,8 +263,8 @@ describe('Anthropic End-to-End Integration', () => {
       // Mock authentication error
       const anthropic = await import('@anthropic-ai/sdk');
       // @ts-expect-error - Mock constructor signature differs from real SDK
-      SHARED_E2E_MOCK_CREATE.mockRejectedValue(new anthropic.AuthenticationError({ 
-        message: 'Invalid API key' 
+      SHARED_E2E_MOCK_CREATE.mockRejectedValue(new anthropic.AuthenticationError({
+        message: 'Invalid API key'
       }));
 
       const schema = {
@@ -300,8 +289,8 @@ describe('Anthropic End-to-End Integration', () => {
       // Mock rate limit error
       const anthropic = await import('@anthropic-ai/sdk');
       // @ts-expect-error - Mock constructor signature differs from real SDK
-      SHARED_E2E_MOCK_CREATE.mockRejectedValue(new anthropic.RateLimitError({ 
-        message: 'Rate limit exceeded' 
+      SHARED_E2E_MOCK_CREATE.mockRejectedValue(new anthropic.RateLimitError({
+        message: 'Rate limit exceeded'
       }));
 
       const schema = {
@@ -601,7 +590,7 @@ describe('Anthropic End-to-End Integration', () => {
       };
 
       // Mock console.log to verify debug output
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
 
       const result = await provider.runPromptStructured(
         'Debug test content',

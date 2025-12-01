@@ -174,22 +174,17 @@ describe('Environment Parser', () => {
   });
 
   describe('Backward Compatibility', () => {
-    it('defaults to Azure OpenAI when no LLM_PROVIDER is specified', () => {
+    it('requires LLM_PROVIDER to be explicitly specified', () => {
       const env = {
         AZURE_OPENAI_API_KEY: 'test-key',
         AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
         AZURE_OPENAI_DEPLOYMENT_NAME: 'test-deployment',
       };
 
-      const result = parseEnvironment(env);
-
-      expect(result.LLM_PROVIDER).toBe('azure-openai');
-      if (result.LLM_PROVIDER === 'azure-openai') {
-        expect(result.AZURE_OPENAI_API_KEY).toBe('test-key');
-      }
+      expect(() => parseEnvironment(env)).toThrow(ValidationError);
+      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER is required/);
     });
-
-    it('maintains existing Azure OpenAI configurations without changes', () => {
+    it('requires LLM_PROVIDER even when Azure config is present', () => {
       const env = {
         AZURE_OPENAI_API_KEY: 'existing-key',
         AZURE_OPENAI_ENDPOINT: 'https://existing.openai.azure.com',
@@ -198,16 +193,8 @@ describe('Environment Parser', () => {
         AZURE_OPENAI_TEMPERATURE: '1.0',
       };
 
-      const result = parseEnvironment(env);
-
-      expect(result.LLM_PROVIDER).toBe('azure-openai');
-      if (result.LLM_PROVIDER === 'azure-openai') {
-        expect(result.AZURE_OPENAI_API_KEY).toBe('existing-key');
-        expect(result.AZURE_OPENAI_ENDPOINT).toBe('https://existing.openai.azure.com');
-        expect(result.AZURE_OPENAI_DEPLOYMENT_NAME).toBe('existing-deployment');
-        expect(result.AZURE_OPENAI_API_VERSION).toBe('2023-12-01-preview');
-        expect(result.AZURE_OPENAI_TEMPERATURE).toBe(1.0);
-      }
+      expect(() => parseEnvironment(env)).toThrow(ValidationError);
+      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER is required/);
     });
   });
 
@@ -219,7 +206,7 @@ describe('Environment Parser', () => {
       };
 
       expect(() => parseEnvironment(env)).toThrow(ValidationError);
-      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER must be either 'azure-openai', 'anthropic', or 'openai'/);
+      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER is required and must be either 'azure-openai', 'anthropic', or 'openai'/);
     });
 
     it('provides specific error message for missing Azure OpenAI variables', () => {
