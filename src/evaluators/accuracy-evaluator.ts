@@ -7,6 +7,7 @@ import type { EvaluationResult } from "../prompts/schema";
 import { renderTemplate } from "../prompts/template-renderer";
 import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
+import { Type, type Severity } from "./types";
 
 // Schema for claim extraction response
 const CLAIM_EXTRACTION_SCHEMA = z.object({
@@ -41,20 +42,21 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
   constructor(
     llmProvider: LLMProvider,
     prompt: PromptFile,
-    private searchProvider: SearchProvider
+    private searchProvider: SearchProvider,
+    defaultSeverity?: Severity
   ) {
-    super(llmProvider, prompt);
+    super(llmProvider, prompt, defaultSeverity);
   }
 
   async evaluate(_file: string, content: string): Promise<EvaluationResult> {
     // Step 1: Extract factual claims from the content
     const claims = await this.extractClaims(content);
 
-    // If no claims found, return success (empty criteria array)
+    // If no claims found, return success (empty items array, perfect score)
+    // We delegate to the base evaluator's centralized scoring logic
     if (claims.length === 0) {
-      return {
-        criteria: [],
-      };
+      const wordCount = content.trim().split(/\s+/).length || 1;
+      return this.calculateSemiObjectiveResult([], wordCount);
     }
 
     // Step 2: Search for evidence for each claim
@@ -70,14 +72,15 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     // Step 4: Render the prompt with template variables
     const renderedPrompt = renderTemplate(this.getPromptBody(), templateVars);
 
-    // Step 5: Create enriched prompt with rendered body and delegate to parent
+    // Step 5: Create enriched prompt with rendered body
+    // We do NOT override the type here; we respect the prompt's configuration
     const enrichedPrompt: PromptFile = {
       ...this.prompt,
       body: renderedPrompt,
     };
 
     // Step 6: Use parent's evaluation logic with enriched prompt
-    const evaluator = new BaseEvaluator(this.llmProvider, enrichedPrompt);
+    const evaluator = new BaseEvaluator(this.llmProvider, enrichedPrompt, this.defaultSeverity);
     return evaluator.evaluate(_file, content);
   }
 
@@ -203,9 +206,9 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
 }
 
 // Self-register on module load using registerEvaluator directly
-registerEvaluator("technical-accuracy", (llmProvider, prompt, searchProvider) => {
+registerEvaluator(Type.TECHNICAL_ACCURACY, (llmProvider, prompt, searchProvider, defaultSeverity) => {
   if (!searchProvider) {
     throw new Error("technical-accuracy evaluator requires a search provider");
   }
-  return new TechnicalAccuracyEvaluator(llmProvider, prompt, searchProvider);
+  return new TechnicalAccuracyEvaluator(llmProvider, prompt, searchProvider, defaultSeverity);
 });
