@@ -4,6 +4,7 @@ import { AnthropicProvider, type AnthropicConfig } from './anthropic-provider';
 import { OpenAIProvider, type OpenAIConfig } from './openai-provider';
 import { RequestBuilder } from './request-builder';
 import type { EnvConfig } from '../schemas/env-schemas';
+import { GeminiConfig, GeminiProvider } from './gemini-provider';
 
 export interface ProviderOptions {
   debug?: boolean;
@@ -65,6 +66,19 @@ export function createProvider(
         ...(options.debugJson !== undefined && { debugJson: options.debugJson }),
       };
       return new OpenAIProvider(openaiConfig, builder);
+    }
+
+    case 'gemini': {
+      const geminiConfig: GeminiConfig = {
+        apiKey: envConfig.GEMINI_API_KEY,
+        model: envConfig.GEMINI_MODEL,
+        ...(envConfig.GEMINI_TEMPERATURE !== undefined && { temperature: envConfig.GEMINI_TEMPERATURE }),
+        ...(options.debug !== undefined && { debug: options.debug }),
+        ...(options.showPrompt !== undefined && { showPrompt: options.showPrompt }),
+        ...(options.showPromptTrunc !== undefined && { showPromptTrunc: options.showPromptTrunc }),
+        ...(options.debugJson !== undefined && { debugJson: options.debugJson }),
+      };
+      return new GeminiProvider(geminiConfig, builder);
     }
 
     default:

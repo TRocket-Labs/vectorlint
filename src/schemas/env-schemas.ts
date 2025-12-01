@@ -24,11 +24,19 @@ const OPENAI_CONFIG_SCHEMA = z.object({
   OPENAI_TEMPERATURE: z.coerce.number().min(0).max(2).optional(),
 });
 
+// Gemini configuration schema
+const GEMINI_CONFIG_SCHEMA = z.object({
+  GEMINI_API_KEY: z.string().min(1),
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
+  GEMINI_TEMPERATURE: z.coerce.number().min(0).max(1).optional(),
+});
+
 // Discriminated union based on provider type
 export const ENV_SCHEMA = z.discriminatedUnion('LLM_PROVIDER', [
   z.object({ LLM_PROVIDER: z.literal('azure-openai') }).merge(AZURE_OPENAI_CONFIG_SCHEMA),
   z.object({ LLM_PROVIDER: z.literal('anthropic') }).merge(ANTHROPIC_CONFIG_SCHEMA),
   z.object({ LLM_PROVIDER: z.literal('openai') }).merge(OPENAI_CONFIG_SCHEMA),
+  z.object({ LLM_PROVIDER: z.literal('gemini') }).merge(GEMINI_CONFIG_SCHEMA),
 ]);
 
 // Backward compatibility: if no LLM_PROVIDER is specified, default to azure-openai
@@ -47,3 +55,4 @@ export type EnvConfig = z.infer<typeof ENV_SCHEMA>;
 export type AzureOpenAIConfig = z.infer<typeof AZURE_OPENAI_CONFIG_SCHEMA>;
 export type AnthropicConfig = z.infer<typeof ANTHROPIC_CONFIG_SCHEMA>;
 export type OpenAIConfig = z.infer<typeof OPENAI_CONFIG_SCHEMA>;
+export type GeminiConfig = z.infer<typeof GEMINI_CONFIG_SCHEMA>;
