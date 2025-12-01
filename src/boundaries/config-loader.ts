@@ -3,6 +3,7 @@ import * as path from 'path';
 import { CONFIG_SCHEMA, type Config } from '../schemas/config-schemas';
 import { ConfigError, ValidationError, handleUnknownError } from '../errors/index';
 import { DEFAULT_CONFIG_FILENAME } from '../config/constants';
+import { FileSectionParser } from './file-section-parser';
 
 function parseBracketList(value: string): string[] {
   const v = value.trim();
@@ -49,39 +50,59 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
   let scanPathsRaw: string[] | undefined;
   let concurrencyRaw: number | undefined;
   let defaultSeverityRaw: string | undefined;
+  let rawConfigObj: Record<string, any> = {};
+
+  // Utility function to strip surrounding quotes (both single and double)
+  const stripQuotes = (str: string): string =>
+    str.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
 
   try {
     const raw = readFileSync(iniPath, 'utf-8');
+    let currentSection: string | null = null;
 
     for (const rawLine of raw.split(/\r?\n/)) {
       const line = rawLine.trim();
       if (!line || line.startsWith('#') || line.startsWith(';')) continue;
 
-      const m = line.match(/^([A-Za-z][A-Za-z0-9]*)\s*=\s*(.*)$/);
+      // Section header
+      const sectionMatch = line.match(/^\[(.*)\]$/);
+      if (sectionMatch && sectionMatch[1]) {
+        currentSection = sectionMatch[1];
+        if (!rawConfigObj[currentSection]) {
+          rawConfigObj[currentSection] = {};
+        }
+        continue;
+      }
+
+      const m = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.*)$/);
       if (!m || !m[1] || !m[2]) continue;
 
       const key = m[1];
       const val = m[2];
-
-      // Utility function to strip surrounding quotes (both single and double)
       const stripQuotes = (str: string): string =>
         str.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
 
-      switch (key) {
-        case ConfigKey.PROMPTS_PATH as string:
-          promptsPathRaw = stripQuotes(val);
-          break;
-        case ConfigKey.SCAN_PATHS as string:
-          scanPathsRaw = parseBracketList(val);
-          break;
-        case ConfigKey.CONCURRENCY as string: {
-          const n = Number(stripQuotes(val));
-          if (Number.isFinite(n) && n > 0) concurrencyRaw = Math.floor(n);
-          break;
+      if (currentSection) {
+        // It's a property in a section
+        rawConfigObj[currentSection][key] = stripQuotes(val);
+      } else {
+        // Global property - process config keys
+        switch (key) {
+          case ConfigKey.PROMPTS_PATH as string:
+            promptsPathRaw = stripQuotes(val);
+            break;
+          case ConfigKey.SCAN_PATHS as string:
+            scanPathsRaw = parseBracketList(val);
+            break;
+          case ConfigKey.CONCURRENCY as string: {
+            const n = Number(stripQuotes(val));
+            if (Number.isFinite(n) && n > 0) concurrencyRaw = Math.floor(n);
+            break;
+          }
+          case ConfigKey.DEFAULT_SEVERITY as string:
+            defaultSeverityRaw = stripQuotes(val).toLowerCase();
+            break;
         }
-        case ConfigKey.DEFAULT_SEVERITY as string:
-          defaultSeverityRaw = stripQuotes(val).toLowerCase();
-          break;
       }
     }
   } catch (e: unknown) {
@@ -118,6 +139,7 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
     concurrency,
     configDir,
     defaultSeverity: defaultSeverityRaw,
+    fileSections: new FileSectionParser().parseSections(rawConfigObj),
   };
 
   try {

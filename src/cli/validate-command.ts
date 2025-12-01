@@ -1,9 +1,11 @@
 import type { Command } from 'commander';
 import { existsSync } from 'fs';
 import { loadConfig } from '../boundaries/config-loader';
-import { loadPrompts } from '../prompts/prompt-loader';
+import { loadPromptFile, type PromptFile } from '../prompts/prompt-loader';
+import { EvalPackLoader } from '../boundaries/eval-pack-loader';
 import { validateAll } from '../prompts/prompt-validator';
 import { parseValidateOptions } from '../boundaries/index';
+import * as path from 'path';
 import { handleUnknownError } from '../errors/index';
 import { printFileHeader, printValidationRow } from '../output/reporter';
 
@@ -19,7 +21,7 @@ export function registerValidateCommand(program: Command): void {
     .command('validate')
     .description('Validate prompt configuration files')
     .option('--prompts <dir>', 'override prompts directory')
-    .action((rawOpts: unknown) => {
+    .action(async (rawOpts: unknown) => {
       // Parse and validate command options
       let validateOptions;
       try {
@@ -49,16 +51,40 @@ export function registerValidateCommand(program: Command): void {
       }
 
       // Load prompts with verbose output
-      let loaded;
+      let prompts: PromptFile[] = [];
+      let warnings: string[] = [];
       try {
-        loaded = loadPrompts(promptsPath, { verbose: true });
+        const loader = new EvalPackLoader();
+        const packs = await loader.findAllPacks(promptsPath);
+
+        if (packs.length === 0) {
+          console.warn(`[vectorlint] Warning: No eval packs (subdirectories) found in ${promptsPath}.`);
+        }
+
+        for (const packName of packs) {
+          const packRoot = path.join(promptsPath, packName);
+          const evalPaths = await loader.findEvalFiles(packRoot);
+
+          for (const filePath of evalPaths) {
+            const result = loadPromptFile(filePath, packName);
+            if (result.warning) {
+              warnings.push(result.warning);
+            }
+            if (result.prompt) {
+              prompts.push(result.prompt);
+            }
+          }
+        }
+
+        if (prompts.length === 0) {
+          console.error(`Error: no .md prompts found in any packs in ${promptsPath}`);
+          process.exit(1);
+        }
       } catch (e: unknown) {
         const err = handleUnknownError(e, 'Loading prompts');
         console.error(`Error: ${err.message}`);
         process.exit(1);
       }
-
-      const { prompts, warnings } = loaded;
 
       // Display loader warnings
       if (warnings.length) {
