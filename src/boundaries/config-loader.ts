@@ -96,6 +96,7 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
     promptsPath,
     scanPaths: scanPathsRaw,
     concurrency,
+    configDir,
   };
 
   try {

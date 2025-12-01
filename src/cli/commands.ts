@@ -116,6 +116,7 @@ export function registerMainCommand(program: Command): void {
           cwd: process.cwd(),
           promptsPath,
           scanPaths: config.scanPaths,
+          configDir: config.configDir,
         });
       } catch (e: unknown) {
         const err = handleUnknownError(e, 'Resolving target files');
