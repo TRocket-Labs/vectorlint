@@ -149,7 +149,7 @@ export function printEvaluationSummaries(
     const maxIdLen = Math.max(...items.map(i => i.id.length));
 
     for (const item of items) {
-      const paddedId = item.id.padEnd(maxIdLen + 2, ' ');
+      const paddedId = item.id.split('.').pop()!.padEnd(maxIdLen + 2, ' ');
       let coloredScoreText = item.scoreText;
       if (item.score !== undefined) {
         const scoreVal = item.score;
