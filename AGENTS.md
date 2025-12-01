@@ -54,7 +54,7 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
 ### Commit Message Style
 
 - Subject: imperative mood, ≤72 chars, single theme
-  - Example: `Add overall { threshold, severity } to prompt YAML`
+  - Example: `Add overall { severity } to prompt YAML`
 - Body: concise bullet points for what/why/impact
   - Focus on actionable specifics and user‑visible behaviors
   - Prefer lists over paragraphs for scanability

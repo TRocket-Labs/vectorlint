@@ -25,10 +25,10 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt', 'Print full prompt and injected content')
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Print full JSON response from the API')
-    .option('--output <format>', 'Output format: line (default) or JSON', 'line')
+    .option('--output <format>', 'Output format: line (default), json, or vale-json', 'line')
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
-      
+
       // Parse and validate CLI options
       let cliOptions;
       try {
@@ -59,7 +59,7 @@ export function registerMainCommand(program: Command): void {
         console.error(`Error: ${err.message}`);
         process.exit(1);
       }
-      
+
       const provider = createProvider(
         env,
         {
@@ -70,7 +70,7 @@ export function registerMainCommand(program: Command): void {
         },
         new DefaultRequestBuilder(directive)
       );
-      
+
       if (cliOptions.verbose) {
         const directiveLen = directive ? directive.length : 0;
         console.log(`[vectorlint] Directive active: ${directiveLen} char(s)`);
@@ -85,13 +85,13 @@ export function registerMainCommand(program: Command): void {
         console.error(`Error: ${err.message}`);
         process.exit(1);
       }
-      
+
       const { promptsPath } = config;
       if (!existsSync(promptsPath)) {
         console.error(`Error: prompts path does not exist: ${promptsPath}`);
         process.exit(1);
       }
-      
+
       let prompts: PromptFile[];
       try {
         const loaded = loadPrompts(promptsPath, { verbose: cliOptions.verbose });
@@ -120,7 +120,7 @@ export function registerMainCommand(program: Command): void {
         console.error(`Error: failed to resolve target files: ${err.message}`);
         process.exit(1);
       }
-      
+
       if (targets.length === 0) {
         console.error('Error: no target files found to evaluate.');
         process.exit(1);
@@ -145,6 +145,8 @@ export function registerMainCommand(program: Command): void {
         ? new PerplexitySearchProvider({ debug: false })
         : undefined;
 
+      const outputFormat = cliOptions.output === 'JSON' ? 'json' : cliOptions.output;
+
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
         prompts,
@@ -153,7 +155,7 @@ export function registerMainCommand(program: Command): void {
         ...(searchProvider ? { searchProvider } : {}),
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
-        outputFormat: cliOptions.output,
+        outputFormat: outputFormat,
         ...(mapping ? { mapping } : {}),
       });
 

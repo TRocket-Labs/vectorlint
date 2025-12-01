@@ -6,7 +6,7 @@ export const CLI_OPTIONS_SCHEMA = z.object({
   showPrompt: z.boolean().default(false),
   showPromptTrunc: z.boolean().default(false),
   debugJson: z.boolean().default(false),
-  output: z.enum(['line', 'JSON']).default('line'),
+  output: z.enum(['line', 'json', 'vale-json', 'JSON']).default('line'),
   prompts: z.string().optional(),
 });
 

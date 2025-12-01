@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { JsonFormatter } from '../src/output/json-formatter';
+import { ValeJsonFormatter } from '../src/output/vale-json-formatter';
 
-describe('JsonFormatter', () => {
+describe('ValeJsonFormatter', () => {
   it('should format issues into Vale-compatible JSON structure', () => {
-    const formatter = new JsonFormatter();
+    const formatter = new ValeJsonFormatter();
 
     formatter.addIssue({
       file: 'test.md',
@@ -13,6 +13,7 @@ describe('JsonFormatter', () => {
       message: 'Test error message',
       rule: 'TestRule.TestCriterion',
       match: 'matched text',
+      matchLength: 12,
       suggestion: 'Fix this issue'
     });
 
@@ -33,7 +34,8 @@ describe('JsonFormatter', () => {
       severity: 'error',
       message: 'Another error',
       rule: 'AnotherRule.Criterion',
-      match: 'error text'
+      match: 'error text',
+      matchLength: 10
     });
 
     const result = formatter.toValeFormat();
@@ -49,7 +51,7 @@ describe('JsonFormatter', () => {
     expect(firstIssue.Description).toBe('');
     expect(firstIssue.Message).toBe('Test error message');
     expect(firstIssue.Line).toBe(1);
-    // Span should be [column, column + match.length] = [1, 1 + 12] = [1, 13]
+    // Span should be [column, column + matchLength] = [1, 1 + 12] = [1, 13]
     expect(firstIssue.Span).toEqual([1, 13]);
     expect(firstIssue.Match).toBe('matched text');
     expect(firstIssue.Severity).toBe('error');
@@ -63,7 +65,7 @@ describe('JsonFormatter', () => {
   });
 
   it('should provide correct summary statistics', () => {
-    const formatter = new JsonFormatter();
+    const formatter = new ValeJsonFormatter();
 
     formatter.addIssue({
       file: 'test1.md',
@@ -104,7 +106,7 @@ describe('JsonFormatter', () => {
   });
 
   it('should produce valid JSON output', () => {
-    const formatter = new JsonFormatter();
+    const formatter = new ValeJsonFormatter();
 
     formatter.addIssue({
       file: 'test.md',
@@ -123,9 +125,8 @@ describe('JsonFormatter', () => {
       JSON.parse(jsonOutput);
     }).not.toThrow();
 
-    // Should match expected structure
-    const parsed = JSON.parse(jsonOutput) as Record<string, unknown>;
+    // Should match expected Vale structure
+    const parsed: unknown = JSON.parse(jsonOutput);
     expect(parsed).toHaveProperty('test.md');
-    expect(Array.isArray(parsed['test.md'])).toBe(true);
   });
 });

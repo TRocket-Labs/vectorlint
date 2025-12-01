@@ -18,7 +18,6 @@ describe('PromptValidator', () => {
     const yaml = [
       'id: TestPrompt',
       'name: Test Prompt',
-      'threshold: 4',
       "severity: error",
       'criteria:',
       '  - name: A',
@@ -34,26 +33,6 @@ describe('PromptValidator', () => {
     expect(res.errors.length).toBe(0);
   });
 
-  it('warns when threshold exceeds sum of weights', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'vlint-'));
-    const promptsDir = path.join(root, 'prompts');
-    mkdirSync(promptsDir, { recursive: true });
-    const yaml = [
-      'id: TestPrompt',
-      'name: Test Prompt',
-      'threshold: 10',
-      'severity: warning',
-      'criteria:',
-      '  - name: A',
-      '    id: A',
-      '    weight: 2',
-    ].join('\n');
-    writePrompt(promptsDir, 'thr.md', yaml);
-    const { prompts } = loadPrompts(promptsDir);
-    const res = validateAll(prompts);
-    expect(res.warnings.length).toBeGreaterThanOrEqual(1);
-  });
-
   it('errors on invalid flags/regex', () => {
     const root = mkdtempSync(path.join(tmpdir(), 'vlint-'));
     const promptsDir = path.join(root, 'prompts');
@@ -61,7 +40,6 @@ describe('PromptValidator', () => {
     const yaml = [
       'id: TestPrompt',
       'name: Test Prompt',
-      'threshold: 2',
       'severity: error',
       'target:',
       "  regex: '[unterminated'", // invalid regex

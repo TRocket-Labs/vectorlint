@@ -34,7 +34,6 @@ export function validatePrompt(p: PromptFile): Validation[] {
     return out;
   }
 
-  let sumWeights = 0;
   for (const c of meta.criteria) {
     if (!c.id && !c.name) {
       out.push({ file: p.filename, level: 'error', message: 'Criterion missing id/name' });
@@ -42,8 +41,6 @@ export function validatePrompt(p: PromptFile): Validation[] {
     const w = Number(c.weight);
     if (!Number.isFinite(w) || w <= 0) {
       out.push({ file: p.filename, level: 'error', message: `Invalid weight for ${c.name || c.id}` });
-    } else {
-      sumWeights += w;
     }
     if (c.target) {
       if (!validateFlags(c.target.flags)) {
@@ -65,15 +62,6 @@ export function validatePrompt(p: PromptFile): Validation[] {
 
   const dups = uniqueIds(meta.criteria);
   for (const id of dups) out.push({ file: p.filename, level: 'error', message: `Duplicate criterion id: ${id}` });
-
-  if (meta.threshold !== undefined) {
-    const t = Number(meta.threshold);
-    if (!Number.isFinite(t) || t < 0) {
-      out.push({ file: p.filename, level: 'error', message: 'threshold must be a non-negative number' });
-    } else if (sumWeights > 0 && t > sumWeights) {
-      out.push({ file: p.filename, level: 'warning', message: `threshold (${t}) exceeds sum of weights (${sumWeights})` });
-    }
-  }
   if (meta.severity !== undefined && meta.severity !== 'warning' && meta.severity !== 'error') {
     out.push({ file: p.filename, level: 'error', message: 'severity must be "warning" or "error"' });
   }
