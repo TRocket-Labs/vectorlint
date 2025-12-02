@@ -160,6 +160,7 @@ export function registerMainCommand(program: Command): void {
         verbose: cliOptions.verbose,
         outputFormat: outputFormat,
         ...(mapping ? { mapping } : {}),
+        ...(cliOptions.outputFile ? { outputFile: cliOptions.outputFile } : {}),
       });
 
       // Print global summary (only for line format)
