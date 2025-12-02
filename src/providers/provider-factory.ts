@@ -13,6 +13,13 @@ export interface ProviderOptions {
   debugJson?: boolean;
 }
 
+export enum ProviderType {
+  AzureOpenAI = 'azure-openai',
+  Anthropic = 'anthropic',
+  OpenAI = 'openai',
+  Gemini = 'gemini',
+}
+
 /**
  * Creates the appropriate LLM provider based on environment configuration
  * @param envConfig - Validated environment configuration
@@ -26,7 +33,7 @@ export function createProvider(
   builder?: RequestBuilder
 ): LLMProvider {
   switch (envConfig.LLM_PROVIDER) {
-    case 'azure-openai': {
+    case ProviderType.AzureOpenAI: {
       const azureConfig: AzureOpenAIConfig = {
         apiKey: envConfig.AZURE_OPENAI_API_KEY,
         endpoint: envConfig.AZURE_OPENAI_ENDPOINT,
@@ -41,7 +48,7 @@ export function createProvider(
       return new AzureOpenAIProvider(azureConfig, builder);
     }
 
-    case 'anthropic': {
+    case ProviderType.Anthropic: {
       const anthropicConfig: AnthropicConfig = {
         apiKey: envConfig.ANTHROPIC_API_KEY,
         model: envConfig.ANTHROPIC_MODEL,
@@ -55,7 +62,7 @@ export function createProvider(
       return new AnthropicProvider(anthropicConfig, builder);
     }
 
-    case 'openai': {
+    case ProviderType.OpenAI: {
       const openaiConfig: OpenAIConfig = {
         apiKey: envConfig.OPENAI_API_KEY,
         model: envConfig.OPENAI_MODEL,
@@ -68,7 +75,7 @@ export function createProvider(
       return new OpenAIProvider(openaiConfig, builder);
     }
 
-    case 'gemini': {
+    case ProviderType.Gemini: {
       const geminiConfig: GeminiConfig = {
         apiKey: envConfig.GEMINI_API_KEY,
         model: envConfig.GEMINI_MODEL,

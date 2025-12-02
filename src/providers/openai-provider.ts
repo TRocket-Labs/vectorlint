@@ -16,6 +16,11 @@ export interface OpenAIConfig {
   debugJson?: boolean;
 }
 
+export const OpenAIDefaultConfig = {
+  model: 'gpt-4o',
+  temperature: 0.2,
+};
+
 export class OpenAIProvider implements LLMProvider {
   private client: OpenAI;
   private config: OpenAIConfig;
@@ -28,8 +33,8 @@ export class OpenAIProvider implements LLMProvider {
     });
     this.config = {
       ...config,
-      model: config.model ?? 'gpt-4o',
-      temperature: config.temperature ?? 0.2,
+      model: config.model ?? OpenAIDefaultConfig.model,
+      temperature: config.temperature ?? OpenAIDefaultConfig.temperature,
     };
     this.builder = builder ?? new DefaultRequestBuilder();
   }
@@ -85,7 +90,7 @@ export class OpenAIProvider implements LLMProvider {
         model: this.config.model,
         temperature: this.config.temperature,
       });
-      
+
       if (this.config.showPrompt) {
         console.log('[vectorlint] System prompt (full):');
         console.log(systemPrompt);
@@ -116,7 +121,7 @@ export class OpenAIProvider implements LLMProvider {
       if (e instanceof OpenAI.APIError) {
         throw new Error(`OpenAI API error (${e.status}): ${e.message}`);
       }
-      
+
       const err = handleUnknownError(e, 'OpenAI API call');
       throw new Error(`OpenAI API call failed: ${err.message}`);
     }
@@ -129,7 +134,7 @@ export class OpenAIProvider implements LLMProvider {
       const usage = validatedResponse.usage;
       const firstChoice = validatedResponse.choices[0];
       if (usage || firstChoice) {
-        console.log('[vectorlint] LLM response meta:', { 
+        console.log('[vectorlint] LLM response meta:', {
           usage: usage ? {
             prompt_tokens: usage.prompt_tokens,
             completion_tokens: usage.completion_tokens,
