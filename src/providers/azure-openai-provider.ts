@@ -16,6 +16,11 @@ export interface AzureOpenAIConfig {
   debugJson?: boolean | undefined;
 }
 
+export const AZURE_OPENAI_DEFAULT_CONFIG = {
+  apiVersion: '2024-02-15-preview',
+  temperature: 0.2,
+};
+
 export class AzureOpenAIProvider implements LLMProvider {
   private client: AzureOpenAI;
   private deploymentName: string;
@@ -31,7 +36,7 @@ export class AzureOpenAIProvider implements LLMProvider {
     this.client = new AzureOpenAI({
       apiKey: config.apiKey,
       endpoint: config.endpoint,
-      apiVersion: config.apiVersion || '2024-02-15-preview',
+      apiVersion: config.apiVersion || AZURE_OPENAI_DEFAULT_CONFIG.apiVersion,
     });
     this.deploymentName = config.deploymentName;
     this.temperature = config.temperature;
@@ -64,7 +69,7 @@ export class AzureOpenAIProvider implements LLMProvider {
     if (this.debug) {
       console.log('[vectorlint] Sending request to Azure OpenAI:', {
         model: this.deploymentName,
-        apiVersion: this.apiVersion || '2024-02-15-preview',
+        apiVersion: this.apiVersion || AZURE_OPENAI_DEFAULT_CONFIG.apiVersion,
         temperature: this.temperature,
       });
       if (this.showPrompt) {

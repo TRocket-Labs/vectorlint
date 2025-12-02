@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createProvider } from '../src/providers/provider-factory';
+import { createProvider, ProviderType } from '../src/providers/provider-factory';
 import { parseEnvironment } from '../src/boundaries/env-parser';
-import { AnthropicProvider } from '../src/providers/anthropic-provider';
+import { ANTHROPIC_DEFAULT_CONFIG, AnthropicProvider } from '../src/providers/anthropic-provider';
 import type { AnthropicMessage } from '../src/schemas/api-schemas';
-import type { 
-  MockAPIErrorParams, 
-  MockAuthenticationErrorParams, 
+import type {
+  MockAPIErrorParams,
+  MockAuthenticationErrorParams,
   MockRateLimitErrorParams,
   MockBadRequestErrorParams,
-  MockAnthropicClient 
+  MockAnthropicClient
 } from './schemas/mock-schemas';
 
 // Create a shared mock function that all E2E instances will use
@@ -61,11 +61,11 @@ describe('Anthropic End-to-End Integration', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    
+
     // Get reference to the mocked validation function
     const apiClient = await import('../src/boundaries/api-client');
     mockValidateAnthropicResponse = vi.mocked(apiClient.validateAnthropicResponse);
-    
+
     // Default mock behavior - return the response as-is
     mockValidateAnthropicResponse.mockImplementation((response: unknown) => response as AnthropicMessage);
   });
@@ -182,10 +182,10 @@ describe('Anthropic End-to-End Integration', () => {
 
       // Step 2: Parse environment (should apply defaults)
       const envConfig = parseEnvironment(env);
-      expect(envConfig.LLM_PROVIDER).toBe('anthropic');
-      if (envConfig.LLM_PROVIDER === 'anthropic') {
-        expect(envConfig.ANTHROPIC_MODEL).toBe('claude-3-sonnet-20240229');
-        expect(envConfig.ANTHROPIC_MAX_TOKENS).toBe(4096);
+      expect(envConfig.LLM_PROVIDER).toBe(ProviderType.Anthropic);
+      if (envConfig.LLM_PROVIDER === ProviderType.Anthropic) {
+        expect(envConfig.ANTHROPIC_MODEL).toBe(ANTHROPIC_DEFAULT_CONFIG.model);
+        expect(envConfig.ANTHROPIC_MAX_TOKENS).toBe(ANTHROPIC_DEFAULT_CONFIG.maxTokens);
       }
 
       // Step 3: Create provider
@@ -274,8 +274,8 @@ describe('Anthropic End-to-End Integration', () => {
       // Mock authentication error
       const anthropic = await import('@anthropic-ai/sdk');
       // @ts-expect-error - Mock constructor signature differs from real SDK
-      SHARED_E2E_MOCK_CREATE.mockRejectedValue(new anthropic.AuthenticationError({ 
-        message: 'Invalid API key' 
+      SHARED_E2E_MOCK_CREATE.mockRejectedValue(new anthropic.AuthenticationError({
+        message: 'Invalid API key'
       }));
 
       const schema = {
@@ -300,8 +300,8 @@ describe('Anthropic End-to-End Integration', () => {
       // Mock rate limit error
       const anthropic = await import('@anthropic-ai/sdk');
       // @ts-expect-error - Mock constructor signature differs from real SDK
-      SHARED_E2E_MOCK_CREATE.mockRejectedValue(new anthropic.RateLimitError({ 
-        message: 'Rate limit exceeded' 
+      SHARED_E2E_MOCK_CREATE.mockRejectedValue(new anthropic.RateLimitError({
+        message: 'Rate limit exceeded'
       }));
 
       const schema = {
@@ -601,7 +601,7 @@ describe('Anthropic End-to-End Integration', () => {
       };
 
       // Mock console.log to verify debug output
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
 
       const result = await provider.runPromptStructured(
         'Debug test content',
