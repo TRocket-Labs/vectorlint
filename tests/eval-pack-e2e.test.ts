@@ -52,7 +52,7 @@ describe('Eval Pack System End-to-End', () => {
 
         // 2. Create config file
         const iniContent = `
-PromptsPath = ${promptsDir}
+EvalsPath = ${promptsDir}
 ScanPaths = ["**/*.md"]
 
 [docs/**/*.md]
@@ -69,7 +69,7 @@ readability.severity = error
         const config = loadConfig(tempDir);
 
         expect(config.fileSections).toHaveLength(2);
-        expect(config.promptsPath).toBe(promptsDir);
+        expect(config.evalsPath).toBe(promptsDir);
 
         // 4. Discover eval packs
         const loader = new EvalPackLoader();
@@ -127,7 +127,7 @@ readability.severity = error
 
         // 2. Config references non-existent pack
         const iniContent = `
-PromptsPath = ${promptsDir}
+EvalsPath = ${promptsDir}
 ScanPaths = ["**/*.md"]
 
 [docs/**/*.md]

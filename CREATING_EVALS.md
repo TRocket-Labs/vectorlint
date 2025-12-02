@@ -50,11 +50,11 @@ Your detailed instructions for the LLM go here...
 
 ### File Location
 
-Place eval files in your `prompts/` directory (or the path specified in `vectorlint.ini`):
+Place eval files in your `evals/` directory (or the path specified in `vectorlint.ini`):
 
 ```
 project/
-├── prompts/
+├── evals/
 │   ├── grammar-checker.md
 │   ├── headline-evaluator.md
 │   └── your-custom-eval.md

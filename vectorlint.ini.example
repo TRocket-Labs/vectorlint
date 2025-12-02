@@ -1,11 +1,11 @@
-PromptsPath=.github/evals   
+EvalsPath=.github/evals   
 ScanPaths=[*.md]
 Concurrency=4
 DefaultSeverity=warning
 
 # Optional: map prompts to files
 [Prompts]
-paths=["Default:prompts", "Blog:prompts/blog"]
+paths=["Default:evals", "Blog:evals/blog"]
 
 [Defaults]
 include=["**/*.md"]

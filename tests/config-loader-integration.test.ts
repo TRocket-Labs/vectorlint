@@ -19,7 +19,7 @@ describe('Config Loader Integration', () => {
 
     it('loads config with file sections', () => {
         const iniContent = `
-PromptsPath = ./prompts
+EvalsPath = ./prompts
 ScanPaths = ["**/*.md"]
 
 [docs/**/*.md]
@@ -34,7 +34,7 @@ readability.severity = error
 
         const config = loadConfig(tempDir);
 
-        expect(config.promptsPath).toContain('prompts');
+        expect(config.evalsPath).toContain('prompts');
         expect(config.scanPaths).toEqual(['**/*.md']);
         expect(config.fileSections).toHaveLength(2);
 
@@ -55,7 +55,7 @@ readability.severity = error
 
     it('loads config with multiple file sections and various overrides', () => {
         const iniContent = `
-PromptsPath = ./prompts
+EvalsPath = ./prompts
 ScanPaths = ["**/*.md"]
 
 [content/**/*.md]
@@ -82,7 +82,7 @@ RunEvals =
 
     it('loads config without file sections (defaults to empty array)', () => {
         const iniContent = `
-PromptsPath = ./prompts
+EvalsPath = ./prompts
 ScanPaths = ["**/*.md"]
 `;
         writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
@@ -94,7 +94,7 @@ ScanPaths = ["**/*.md"]
 
     it('handles config with concurrency and default severity', () => {
         const iniContent = `
-PromptsPath = ./prompts
+EvalsPath = ./prompts
 ScanPaths = ["**/*.md"]
 Concurrency = 8
 DefaultSeverity = error
@@ -113,7 +113,7 @@ RunEvals = VectorLint
 
     it('preserves order of file sections', () => {
         const iniContent = `
-PromptsPath = ./prompts
+EvalsPath = ./prompts
 ScanPaths = ["**/*.md"]
 
 [first/**/*.md]

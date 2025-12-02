@@ -27,7 +27,7 @@ function isSupportedPattern(p: string): boolean {
 }
 
 enum ConfigKey {
-  PROMPTS_PATH = 'PromptsPath',
+  EVALS_PATH = 'EvalsPath',
   SCAN_PATHS = 'ScanPaths',
   CONCURRENCY = 'Concurrency',
   DEFAULT_SEVERITY = 'DefaultSeverity',
@@ -47,7 +47,7 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
 
   const configDir = path.dirname(iniPath);
 
-  let promptsPathRaw: string | undefined;
+  let evalsPathRaw: string | undefined;
   let scanPathsRaw: string[] | undefined;
   let concurrencyRaw: number | undefined;
   let defaultSeverityRaw: string | undefined;
@@ -88,8 +88,8 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
       } else {
         // Global property - process config keys
         switch (key) {
-          case ConfigKey.PROMPTS_PATH as string:
-            promptsPathRaw = stripQuotes(val);
+          case ConfigKey.EVALS_PATH as string:
+            evalsPathRaw = stripQuotes(val);
             break;
           case ConfigKey.SCAN_PATHS as string:
             scanPathsRaw = parseBracketList(val);
@@ -111,8 +111,8 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
   }
 
   // Validate required fields
-  if (!promptsPathRaw) {
-    throw new ConfigError('PromptsPath is required in config file');
+  if (!evalsPathRaw) {
+    throw new ConfigError('EvalsPath is required in config file');
   }
   if (!scanPathsRaw || scanPathsRaw.length === 0) {
     throw new ConfigError('ScanPaths is required in config file');
@@ -126,15 +126,15 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
   }
 
   // Resolve paths
-  const promptsPath = path.isAbsolute(promptsPathRaw)
-    ? promptsPathRaw
-    : path.resolve(configDir, promptsPathRaw);
+  const evalsPath = path.isAbsolute(evalsPathRaw)
+    ? evalsPathRaw
+    : path.resolve(configDir, evalsPathRaw);
 
   const concurrency = concurrencyRaw ?? 4;
 
   // Create config object and validate with schema
   const configData = {
-    promptsPath,
+    evalsPath,
     scanPaths: scanPathsRaw,
     concurrency,
     configDir,

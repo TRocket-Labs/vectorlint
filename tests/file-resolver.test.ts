@@ -25,7 +25,7 @@ describe('FileResolver', () => {
     const res = resolveTargets({
       cliArgs: [],
       cwd: root,
-      promptsPath: path.join(root, 'prompts'),
+      evalsPath: path.join(root, 'prompts'),
       scanPaths: ['**/*.md'],
       configDir: root,
     });
@@ -46,7 +46,7 @@ describe('FileResolver', () => {
     const res = resolveTargets({
       cliArgs: [path.join(root, 'articles')],
       cwd: root,
-      promptsPath: path.join(root, 'prompts'),
+      evalsPath: path.join(root, 'prompts'),
       scanPaths: ['*.md'],
       configDir: root,
     });
@@ -67,7 +67,7 @@ describe('FileResolver', () => {
     const res = resolveTargets({
       cliArgs: [],
       cwd: root,
-      promptsPath: path.join(root, 'prompts'),
+      evalsPath: path.join(root, 'prompts'),
       scanPaths: ['docs/*md', 'docs/*.txt'],
       configDir: root,
     });

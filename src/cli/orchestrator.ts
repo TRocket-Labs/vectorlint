@@ -17,7 +17,7 @@ import { isSubjectiveResult } from '../prompts/schema';
 import { Type, EvaluationType, Severity } from '../evaluators/types';
 export interface EvaluationOptions {
   prompts: PromptFile[];
-  promptsPath: string;
+  evalsPath: string;
   provider: LLMProvider;
   searchProvider?: SearchProvider;
   concurrency: number;

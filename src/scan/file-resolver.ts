@@ -12,15 +12,15 @@ function isUnder(child: string, parent: string): boolean {
 export function resolveTargets(args: {
   cliArgs: string[];
   cwd: string;
-  promptsPath: string;
+  evalsPath: string;
   scanPaths: string[];
   configDir: string;
 }): string[] {
-  const { cliArgs, cwd, promptsPath, scanPaths, configDir } = args;
+  const { cliArgs, cwd, evalsPath, scanPaths, configDir } = args;
   const exclude = [] as string[];
-  // Exclude prompts subtree in globbing
-  const promptsRel = path.relative(cwd, promptsPath) || promptsPath;
-  exclude.push(`${promptsRel.replace(/\\/g, '/')}/**`);
+  // Exclude evals subtree in globbing
+  const evalsRel = path.relative(cwd, evalsPath) || evalsPath;
+  exclude.push(`${evalsRel.replace(/\\/g, '/')}/**`);
 
   const files: string[] = [];
   if (cliArgs.length > 0) {
@@ -44,12 +44,12 @@ export function resolveTargets(args: {
     files.push(...found);
   }
 
-  // Filter out anything under promptsPath and non-allowed extensions just in case
+  // Filter out anything under evalsPath and non-allowed extensions just in case
   const dedup = new Set<string>();
   for (const f of files) {
     const ext = path.extname(f).toLowerCase();
     if (!ALLOWED_EXTS.has(ext)) continue;
-    if (isUnder(f, promptsPath)) continue;
+    if (isUnder(f, evalsPath)) continue;
     dedup.add(path.resolve(f));
   }
   return Array.from(dedup);
