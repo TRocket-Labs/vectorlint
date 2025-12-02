@@ -26,6 +26,7 @@ jobs:
       - name: Run VectorLint
         uses: ayo6706/vectorlint-test-action@v1
         with:
+          llm_provider: ${{ secrets.LLM_PROVIDER }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           reporter: github-pr-check
           filter_mode: added
