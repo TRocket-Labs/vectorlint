@@ -17,9 +17,10 @@ function parseBracketList(value: string): string[] {
 
 function isSupportedPattern(p: string): boolean {
   const last = p.split(/[\\/]/).pop() || p;
-  if (/\.(md|txt)$/i.test(last)) return true;
+  if (/\.(md|txt|mdx)$/i.test(last)) return true;
   if (/(^|\*)md$/i.test(last)) return true;
   if (/(^|\*)txt$/i.test(last)) return true;
+  if (/(^|\*)mdx$/i.test(last)) return true;
   return false;
 }
 
@@ -95,7 +96,7 @@ export function loadConfig(cwd: string = process.cwd()): Config {
   // Validate scan path patterns
   for (const pattern of scanPathsRaw) {
     if (!isSupportedPattern(pattern)) {
-      throw new ConfigError(`Only .md and .txt are supported in ScanPaths. Invalid pattern: ${pattern}`);
+      throw new ConfigError(`Only .md, .txt, and .mdx are supported in ScanPaths. Invalid pattern: ${pattern}`);
     }
   }
 

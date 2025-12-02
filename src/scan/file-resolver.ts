@@ -2,7 +2,7 @@ import fg from 'fast-glob';
 import path from 'path';
 import { statSync } from 'fs';
 
-const ALLOWED_EXTS = new Set(['.md', '.txt']);
+const ALLOWED_EXTS = new Set(['.md', '.txt', '.mdx']);
 
 function isUnder(child: string, parent: string): boolean {
   const rel = path.relative(parent, child);
