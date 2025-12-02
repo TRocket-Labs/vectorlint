@@ -53,6 +53,7 @@ export const PROMPT_FILE_SCHEMA = z.object({
   fullPath: z.string(),
   meta: PROMPT_META_SCHEMA,
   body: z.string(),
+  pack: z.string().optional(),
 });
 
 // Inferred types

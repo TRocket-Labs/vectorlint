@@ -27,6 +27,7 @@ describe('FileResolver', () => {
       cwd: root,
       promptsPath: path.join(root, 'prompts'),
       scanPaths: ['**/*.md'],
+      configDir: root,
     });
     expect(res.sort()).toEqual([
       path.join(root, 'docs/one.md'),
@@ -47,6 +48,7 @@ describe('FileResolver', () => {
       cwd: root,
       promptsPath: path.join(root, 'prompts'),
       scanPaths: ['*.md'],
+      configDir: root,
     });
     expect(res.sort()).toEqual([
       path.join(root, 'articles/a.md'),
@@ -67,6 +69,7 @@ describe('FileResolver', () => {
       cwd: root,
       promptsPath: path.join(root, 'prompts'),
       scanPaths: ['docs/*md', 'docs/*.txt'],
+      configDir: root,
     });
     expect(res.sort()).toEqual([
       path.join(root, 'docs/one.md'),
