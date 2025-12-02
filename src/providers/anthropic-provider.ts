@@ -23,7 +23,7 @@ export interface AnthropicConfig {
   debugJson?: boolean;
 }
 
-export const AnthropicDefaultConfig = {
+export const ANTHROPIC_DEFAULT_CONFIG = {
   model: 'claude-3-sonnet-20240229',
   maxTokens: 4096,
   temperature: 0.2,
@@ -41,9 +41,9 @@ export class AnthropicProvider implements LLMProvider {
     });
     this.config = {
       ...config,
-      model: config.model ?? AnthropicDefaultConfig.model,
-      maxTokens: config.maxTokens ?? AnthropicDefaultConfig.maxTokens,
-      temperature: config.temperature ?? AnthropicDefaultConfig.temperature,
+      model: config.model ?? ANTHROPIC_DEFAULT_CONFIG.model,
+      maxTokens: config.maxTokens ?? ANTHROPIC_DEFAULT_CONFIG.maxTokens,
+      temperature: config.temperature ?? ANTHROPIC_DEFAULT_CONFIG.temperature,
     };
     this.builder = builder ?? new DefaultRequestBuilder();
   }

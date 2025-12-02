@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, GenerativeModel, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { LLMProvider } from './llm-provider';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import { handleUnknownError } from '../errors/index';
@@ -13,7 +13,7 @@ export interface GeminiConfig {
     debugJson?: boolean;
 }
 
-export const GeminiDefaultConfig = {
+export const GEMINI_DEFAULT_CONFIG = {
     model: 'gemini-2.5-flash',
     temperature: 0.2,
 };
@@ -28,8 +28,8 @@ export class GeminiProvider implements LLMProvider {
         this.client = new GoogleGenerativeAI(config.apiKey);
         this.config = {
             ...config,
-            model: config.model ?? GeminiDefaultConfig.model,
-            temperature: config.temperature ?? GeminiDefaultConfig.temperature,
+            model: config.model ?? GEMINI_DEFAULT_CONFIG.model,
+            temperature: config.temperature ?? GEMINI_DEFAULT_CONFIG.temperature,
         };
         this.model = this.client.getGenerativeModel({
             model: this.config.model!,

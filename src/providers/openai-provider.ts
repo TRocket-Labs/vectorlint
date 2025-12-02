@@ -16,7 +16,7 @@ export interface OpenAIConfig {
   debugJson?: boolean;
 }
 
-export const OpenAIDefaultConfig = {
+export const OPENAI_DEFAULT_CONFIG = {
   model: 'gpt-4o',
   temperature: 0.2,
 };
@@ -33,8 +33,8 @@ export class OpenAIProvider implements LLMProvider {
     });
     this.config = {
       ...config,
-      model: config.model ?? OpenAIDefaultConfig.model,
-      temperature: config.temperature ?? OpenAIDefaultConfig.temperature,
+      model: config.model ?? OPENAI_DEFAULT_CONFIG.model,
+      temperature: config.temperature ?? OPENAI_DEFAULT_CONFIG.temperature,
     };
     this.builder = builder ?? new DefaultRequestBuilder();
   }
