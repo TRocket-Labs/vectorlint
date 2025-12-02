@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createProvider } from '../src/providers/provider-factory';
+import { createProvider, ProviderType } from '../src/providers/provider-factory';
 import { parseEnvironment } from '../src/boundaries/env-parser';
-import { AnthropicProvider } from '../src/providers/anthropic-provider';
+import { ANTHROPIC_DEFAULT_CONFIG, AnthropicProvider } from '../src/providers/anthropic-provider';
 import type { AnthropicMessage } from '../src/schemas/api-schemas';
 import type {
   MockAPIErrorParams,
@@ -182,10 +182,10 @@ describe('Anthropic End-to-End Integration', () => {
 
       // Step 2: Parse environment (should apply defaults)
       const envConfig = parseEnvironment(env);
-      expect(envConfig.LLM_PROVIDER).toBe('anthropic');
-      if (envConfig.LLM_PROVIDER === 'anthropic') {
-        expect(envConfig.ANTHROPIC_MODEL).toBe('claude-3-sonnet-20240229');
-        expect(envConfig.ANTHROPIC_MAX_TOKENS).toBe(4096);
+      expect(envConfig.LLM_PROVIDER).toBe(ProviderType.Anthropic);
+      if (envConfig.LLM_PROVIDER === ProviderType.Anthropic) {
+        expect(envConfig.ANTHROPIC_MODEL).toBe(ANTHROPIC_DEFAULT_CONFIG.model);
+        expect(envConfig.ANTHROPIC_MAX_TOKENS).toBe(ANTHROPIC_DEFAULT_CONFIG.maxTokens);
       }
 
       // Step 3: Create provider
