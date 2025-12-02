@@ -51,8 +51,8 @@ export function registerValidateCommand(program: Command): void {
       }
 
       // Load prompts with verbose output
-      let prompts: PromptFile[] = [];
-      let warnings: string[] = [];
+      const prompts: PromptFile[] = [];
+      const warnings: string[] = [];
       try {
         const loader = new EvalPackLoader();
         const packs = await loader.findAllPacks(promptsPath);

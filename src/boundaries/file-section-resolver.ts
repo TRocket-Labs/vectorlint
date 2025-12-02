@@ -1,9 +1,9 @@
-import micromatch from 'micromatch';
+import { isMatch } from 'micromatch';
 import { FilePatternConfig } from './file-section-parser';
 
 export interface FileResolution {
     packs: string[];
-    overrides: Record<string, any>;
+    overrides: Record<string, unknown>;
 }
 
 export class FileSectionResolver {
@@ -19,11 +19,11 @@ export class FileSectionResolver {
         sections: FilePatternConfig[],
         availablePacks: string[] = []
     ): FileResolution {
-        let activePacks: Set<string> = new Set();
-        let mergedOverrides: Record<string, any> = {};
+        const activePacks: Set<string> = new Set();
+        let mergedOverrides: Record<string, unknown> = {};
 
         for (const section of sections) {
-            if (micromatch.isMatch(filePath, section.pattern)) {
+            if ((isMatch as (filePath: string, pattern: string) => boolean)(filePath, section.pattern)) {
                 // Handle RunEvals
                 if (section.runEvals.length === 0) {
                     // Explicit exclusion: clear active packs

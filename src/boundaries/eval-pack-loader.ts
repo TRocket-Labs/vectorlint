@@ -10,7 +10,7 @@ export class EvalPackLoader {
     async findAllPacks(promptsPath: string): Promise<string[]> {
         try {
             await fs.access(promptsPath);
-        } catch (error) {
+        } catch {
             throw new Error(`Prompts path not accessible: ${promptsPath}`);
         }
 
@@ -30,7 +30,7 @@ export class EvalPackLoader {
 
         try {
             await fs.access(packRoot);
-        } catch (error) {
+        } catch {
             throw new Error(`Pack directory not accessible: ${packRoot}`);
         }
 

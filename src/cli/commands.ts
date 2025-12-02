@@ -14,7 +14,6 @@ import { resolveTargets } from '../scan/file-resolver';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
-import { DEFAULT_CONFIG_FILENAME } from '../config/constants';
 
 /*
  * Registers the main evaluation command with Commander.
@@ -94,7 +93,7 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
-      let prompts: PromptFile[] = [];
+      const prompts: PromptFile[] = [];
       try {
         const loader = new EvalPackLoader();
         const packs = await loader.findAllPacks(promptsPath);

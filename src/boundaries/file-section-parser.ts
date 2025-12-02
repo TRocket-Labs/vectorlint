@@ -2,7 +2,7 @@
 export interface FilePatternConfig {
     pattern: string;
     runEvals: string[]; // List of pack names to run
-    overrides: Record<string, any>;
+    overrides: Record<string, unknown>;
 }
 
 export class FileSectionParser {
@@ -12,13 +12,13 @@ export class FileSectionParser {
      * @param rawConfig The raw configuration object parsed from INI/JSON
      * @returns A list of parsed file pattern configurations
      */
-    parseSections(rawConfig: Record<string, any>): FilePatternConfig[] {
+    parseSections(rawConfig: Record<string, unknown>): FilePatternConfig[] {
         const sections: FilePatternConfig[] = [];
 
         for (const [key, value] of Object.entries(rawConfig)) {
             if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                 const pattern = key;
-                const sectionConfig = value as Record<string, any>;
+                const sectionConfig = value as Record<string, unknown>;
 
                 const runEvalsRaw = sectionConfig['RunEvals'];
                 let runEvals: string[] = [];
@@ -31,7 +31,7 @@ export class FileSectionParser {
                     }
                 }
 
-                const overrides: Record<string, any> = {};
+                const overrides: Record<string, unknown> = {};
                 for (const [propKey, propValue] of Object.entries(sectionConfig)) {
                     if (propKey !== 'RunEvals') {
                         overrides[propKey] = propValue;

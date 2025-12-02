@@ -51,11 +51,7 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
   let scanPathsRaw: string[] | undefined;
   let concurrencyRaw: number | undefined;
   let defaultSeverityRaw: string | undefined;
-  let rawConfigObj: Record<string, any> = {};
-
-  // Utility function to strip surrounding quotes (both single and double)
-  const stripQuotes = (str: string): string =>
-    str.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+  const rawConfigObj: Record<string, unknown> = {};
 
   try {
     const raw = readFileSync(iniPath, 'utf-8');
@@ -85,7 +81,10 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
 
       if (currentSection) {
         // It's a property in a section
-        rawConfigObj[currentSection][key] = stripQuotes(val);
+        const section = rawConfigObj[currentSection];
+        if (typeof section === 'object' && section !== null && !Array.isArray(section)) {
+          (section as Record<string, unknown>)[key] = stripQuotes(val);
+        }
       } else {
         // Global property - process config keys
         switch (key) {

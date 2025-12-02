@@ -1,19 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'fs';
-import path from 'path';
-import { tmpdir } from 'os';
 import { FileSectionParser, type FilePatternConfig } from '../src/boundaries/file-section-parser.js';
 import { FileSectionResolver } from '../src/boundaries/file-section-resolver.js';
-
-function createTempDir(): string {
-    return mkdtempSync(path.join(tmpdir(), 'vlint-'));
-}
-
-function writeIni(dir: string, content: string): string {
-    const p = path.join(dir, 'vectorlint.ini');
-    writeFileSync(p, content);
-    return p;
-}
 
 describe('File-centric configuration (File Sections)', () => {
     const parser = new FileSectionParser();

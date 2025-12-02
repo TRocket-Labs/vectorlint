@@ -132,7 +132,7 @@ interface RunPromptEvaluationParams {
   content: string;
   provider: LLMProvider;
   searchProvider?: SearchProvider;
-  overrides?: Record<string, any>;
+  overrides?: Record<string, unknown>;
 }
 
 type RunPromptEvaluationResult =
@@ -672,7 +672,7 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
         // If the key is "strictness", we update meta.strictness?
         // Or is it a specific property of the evaluator?
         // Let's assume it maps to meta properties.
-        (meta as any)[key] = value;
+        (meta as Record<string, unknown>)[key] = value;
       }
     }
 
@@ -721,7 +721,7 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
  */
 async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileResult> {
   const { file, options, jsonFormatter } = params;
-  const { prompts, promptsPath, provider, searchProvider, concurrency, fileSections, outputFormat = 'line' } = options;
+  const { prompts, provider, searchProvider, concurrency, fileSections, outputFormat = 'line' } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -738,8 +738,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   }
 
   // Determine applicable prompts for this file
-  // Determine applicable prompts for this file
-  let toRun: Array<{ prompt: PromptFile; overrides: Record<string, any> }> = [];
+  const toRun: Array<{ prompt: PromptFile; overrides: Record<string, unknown> }> = [];
 
   if (fileSections && fileSections.length > 0) {
     // Use new FileSectionResolver
@@ -753,7 +752,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     const activePrompts = prompts.filter(p => p.pack && resolution.packs.includes(p.pack));
 
     // Pre-process overrides into a map for O(1) lookup
-    const overrideMap = new Map<string, Record<string, any>>();
+    const overrideMap = new Map<string, Record<string, unknown>>();
     for (const [key, value] of Object.entries(resolution.overrides)) {
       const dotIndex = key.indexOf('.');
       if (dotIndex > 0) {
