@@ -3,14 +3,14 @@ import * as path from 'path';
 import type { PromptFile } from '../prompts/prompt-loader';
 import type { LLMProvider } from '../providers/llm-provider';
 import type { SearchProvider } from '../providers/search-provider';
-import type { PromptMapping } from '../prompts/prompt-mapping';
 import type { PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
+import { FileSectionResolver } from '../boundaries/file-section-resolver';
+import type { FilePatternConfig } from '../boundaries/file-section-parser';
 import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
 import { locateEvidenceWithMatch } from '../output/location';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
 import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
 import { checkTarget } from '../prompts/target';
-import { resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from '../prompts/prompt-mapping';
 import { handleUnknownError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { isSubjectiveResult } from '../prompts/schema';
@@ -22,7 +22,7 @@ export interface EvaluationOptions {
   searchProvider?: SearchProvider;
   concurrency: number;
   verbose: boolean;
-  mapping?: PromptMapping;
+  fileSections?: FilePatternConfig[];
   outputFormat?: 'line' | 'json' | 'vale-json';
 }
 
@@ -59,12 +59,7 @@ function resolveEvaluatorType(evaluator: string | undefined): string {
   return evaluator || Type.BASE;
 }
 
-interface GetApplicablePromptsParams {
-  file: string;
-  prompts: PromptFile[];
-  promptsPath: string;
-  mapping?: PromptMapping;
-}
+
 
 interface ReportIssueParams {
   file: string;
@@ -137,6 +132,7 @@ interface RunPromptEvaluationParams {
   content: string;
   provider: LLMProvider;
   searchProvider?: SearchProvider;
+  overrides?: Record<string, unknown>;
 }
 
 type RunPromptEvaluationResult =
@@ -220,24 +216,6 @@ function reportIssue(params: ReportIssueParams): void {
   }
 }
 
-
-/*
- * Determines which prompts should run for a given file based on mapping configuration.
- */
-function getApplicablePrompts(params: GetApplicablePromptsParams): PromptFile[] {
-  const { file, prompts, promptsPath, mapping } = params;
-
-  if (!mapping || !isMappingConfigured(mapping)) {
-    return prompts;
-  }
-
-  return prompts.filter((p) => {
-    const promptId = String(p.meta.id || p.id);
-    const full = p.fullPath || path.resolve(promptsPath, p.filename);
-    const alias = aliasForPromptPath(full, mapping, process.cwd());
-    return resolvePromptMapping(file, promptId, mapping, alias);
-  });
-}
 
 /*
  * Extracts the best match text from evidence markers and analysis message.
@@ -681,10 +659,23 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
  * - no criteria → basic mode
  */
 async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<RunPromptEvaluationResult> {
-  const { promptFile, relFile, content, provider, searchProvider } = params;
+  const { promptFile, relFile, content, provider, searchProvider, overrides } = params;
 
   try {
-    const meta = promptFile.meta;
+    const meta = { ...promptFile.meta };
+
+    // Apply overrides
+    if (overrides) {
+      for (const [key, value] of Object.entries(overrides)) {
+        // Handle nested properties like "strictness" (which might be top-level in meta or inside criteria?)
+        // The plan says "GrammarChecker.strictness=9".
+        // If the key is "strictness", we update meta.strictness?
+        // Or is it a specific property of the evaluator?
+        // Let's assume it maps to meta properties.
+        (meta as Record<string, unknown>)[key] = value;
+      }
+    }
+
     const evaluatorType = resolveEvaluatorType(meta.evaluator);
 
     // Specialized evaluators (e.g., technical-accuracy) require criteria
@@ -730,7 +721,7 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
  */
 async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileResult> {
   const { file, options, jsonFormatter } = params;
-  const { prompts, promptsPath, provider, searchProvider, concurrency, mapping, outputFormat = 'line' } = options;
+  const { prompts, provider, searchProvider, concurrency, fileSections, outputFormat = 'line' } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -747,26 +738,64 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   }
 
   // Determine applicable prompts for this file
-  const toRun = getApplicablePrompts({
-    file: relFile,
-    prompts,
-    promptsPath,
-    ...(mapping !== undefined && { mapping })
-  });
+  const toRun: Array<{ prompt: PromptFile; overrides: Record<string, unknown> }> = [];
 
-  const results = await runWithConcurrency(toRun, concurrency, async (p) => {
+  if (fileSections && fileSections.length > 0) {
+    // Use new FileSectionResolver
+    const resolver = new FileSectionResolver();
+    // Extract available packs from loaded prompts
+    const availablePacks = Array.from(new Set(prompts.map(p => p.pack).filter((p): p is string => !!p)));
+
+    const resolution = resolver.resolveEvaluationsForFile(relFile, fileSections, availablePacks);
+
+    // Filter prompts by active packs
+    const activePrompts = prompts.filter(p => p.pack && resolution.packs.includes(p.pack));
+
+    // Pre-process overrides into a map for O(1) lookup
+    const overrideMap = new Map<string, Record<string, unknown>>();
+    for (const [key, value] of Object.entries(resolution.overrides)) {
+      const dotIndex = key.indexOf('.');
+      if (dotIndex > 0) {
+        const promptId = key.substring(0, dotIndex);
+        const prop = key.substring(dotIndex + 1);
+        if (!overrideMap.has(promptId)) {
+          overrideMap.set(promptId, {});
+        }
+        overrideMap.get(promptId)![prop] = value;
+      }
+    }
+
+    // Apply overrides efficiently
+    for (const prompt of activePrompts) {
+      toRun.push({
+        prompt,
+        overrides: overrideMap.get(prompt.id) || {}
+      });
+    }
+  } else {
+    // Fallback: When no file sections configured, run all prompts.
+    // This maintains backward compatibility for unconfigured setups.
+    for (const prompt of prompts) {
+      toRun.push({ prompt, overrides: {} });
+    }
+  }
+
+  const results = await runWithConcurrency(toRun, concurrency, async (item) => {
     return runPromptEvaluation({
-      promptFile: p,
+      promptFile: item.prompt,
       relFile,
       content,
       provider,
-      ...(searchProvider !== undefined && { searchProvider })
+      ...(searchProvider !== undefined && { searchProvider }),
+      overrides: item.overrides
     });
   });
 
   // Process results for each prompt
   for (let idx = 0; idx < toRun.length; idx++) {
-    const p = toRun[idx];
+    const item = toRun[idx];
+    if (!item) continue;
+    const p = item.prompt;
     const r = results[idx];
     if (!p || !r) continue;
 

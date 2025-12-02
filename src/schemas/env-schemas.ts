@@ -44,17 +44,6 @@ export const ENV_SCHEMA = z.discriminatedUnion('LLM_PROVIDER', [
   z.object({ LLM_PROVIDER: z.literal(ProviderType.Gemini) }).merge(GEMINI_CONFIG_SCHEMA),
 ]);
 
-// Backward compatibility: if no LLM_PROVIDER is specified, default to azure-openai
-export const ENV_SCHEMA_WITH_DEFAULTS = z.preprocess(
-  (data: unknown) => {
-    if (typeof data === 'object' && data !== null && !('LLM_PROVIDER' in data)) {
-      return { ...data, LLM_PROVIDER: ProviderType.AzureOpenAI };
-    }
-    return data;
-  },
-  ENV_SCHEMA
-);
-
 // Inferred types
 export type EnvConfig = z.infer<typeof ENV_SCHEMA>;
 export type AzureOpenAIConfig = z.infer<typeof AZURE_OPENAI_CONFIG_SCHEMA>;
