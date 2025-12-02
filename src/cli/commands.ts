@@ -88,7 +88,9 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
-      const { promptsPath } = config;
+
+      // Prioritize CLI prompts path over config
+      const promptsPath = cliOptions.prompts || config.promptsPath;
       if (!existsSync(promptsPath)) {
         console.error(`Error: prompts path does not exist: ${promptsPath}`);
         process.exit(1);
