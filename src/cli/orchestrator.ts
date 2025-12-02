@@ -203,7 +203,9 @@ function reportIssue(params: ReportIssueParams): void {
       ...(scoreText !== undefined ? { score: scoreText } : {}),
     };
     (jsonFormatter as ValeJsonFormatter).addIssue(issue);
-  } else if (outputFormat === 'json') {
+  } else if (outputFormat === 'json' || outputFormat === 'rdjson') {
+    // Both json and rdjson use the same JsonFormatter
+    // rdjson will convert to reviewdog format when toJson('rdjson') is called
     const severity = status === 'error' ? 'error' : status === 'warning' ? 'warning' : 'info';
     const matchLen = match ? match.length : 0;
     const endColumn = column + matchLen;
@@ -850,7 +852,7 @@ export async function evaluateFiles(
   let requestFailures = 0;
 
   let jsonFormatter: ValeJsonFormatter | JsonFormatter;
-  if (outputFormat === 'json') {
+  if (outputFormat === 'json' || outputFormat === 'rdjson') {
     jsonFormatter = new JsonFormatter();
   } else {
     jsonFormatter = new ValeJsonFormatter();
