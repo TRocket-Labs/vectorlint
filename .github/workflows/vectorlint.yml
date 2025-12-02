@@ -28,6 +28,8 @@ jobs:
         with:
           llm_provider: ${{ secrets.LLM_PROVIDER }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          perplexy_api_key: ${{ secrets.PERPLEXITY_API_KEY }}
           reporter: github-pr-check
           filter_mode: added
           fail_on_error: false
