@@ -13,6 +13,11 @@ export interface GeminiConfig {
     debugJson?: boolean;
 }
 
+export const GeminiDefaultConfig = {
+    model: 'gemini-2.5-flash',
+    temperature: 0.2,
+};
+
 export class GeminiProvider implements LLMProvider {
     private client: GoogleGenerativeAI;
     private model: GenerativeModel;
@@ -23,33 +28,15 @@ export class GeminiProvider implements LLMProvider {
         this.client = new GoogleGenerativeAI(config.apiKey);
         this.config = {
             ...config,
-            model: config.model ?? 'gemini-2.5-flash',
-            temperature: config.temperature ?? 0.2,
+            model: config.model ?? GeminiDefaultConfig.model,
+            temperature: config.temperature ?? GeminiDefaultConfig.temperature,
         };
         this.model = this.client.getGenerativeModel({
             model: this.config.model!,
             generationConfig: {
                 ...(this.config.temperature !== undefined && { temperature: this.config.temperature }),
                 responseMimeType: "application/json",
-            },
-            safetySettings: [
-                {
-                    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-                    threshold: HarmBlockThreshold.BLOCK_NONE,
-                },
-                {
-                    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                    threshold: HarmBlockThreshold.BLOCK_NONE,
-                },
-                {
-                    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                    threshold: HarmBlockThreshold.BLOCK_NONE,
-                },
-                {
-                    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                    threshold: HarmBlockThreshold.BLOCK_NONE,
-                },
-            ]
+            }
         });
         this.builder = builder ?? new DefaultRequestBuilder();
     }
@@ -61,13 +48,12 @@ export class GeminiProvider implements LLMProvider {
     ): Promise<T> {
         const systemPrompt = this.builder.buildPromptBodyForStructured(promptText);
 
-        // Construct a prompt that forces the structure
         const fullPrompt = `${systemPrompt}
-You must output valid JSON that adheres to the following schema:
-${JSON.stringify(schema.schema, null, 2)}
-Input:
-${content}
-`;
+            You must output valid JSON that adheres to the following schema:
+            ${JSON.stringify(schema.schema, null, 2)}
+            Input:
+            ${content}
+        `;
 
         if (this.config.debug) {
             console.error('[vectorlint] Sending request to Gemini:', {
