@@ -10,9 +10,9 @@ import { checkTarget } from '../prompts/target';
 import { isSubjectiveResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
-import { Type, EvaluationType, Severity } from '../evaluators/types';
+import { Type, Severity } from '../evaluators/types';
 import type {
-  EvaluationOptions, EvaluationResult, ErrorTrackingResult, EvaluationContext,
+  EvaluationOptions, EvaluationResult, ErrorTrackingResult,
   ReportIssueParams, ExtractMatchTextParams, LocationMatch, ProcessViolationsParams,
   ProcessCriterionParams, ProcessCriterionResult, ValidationParams, ProcessPromptResultParams,
   RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult

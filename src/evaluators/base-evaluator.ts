@@ -168,7 +168,7 @@ export class BaseEvaluator implements Evaluator {
     if (finalScore < 10) {
       // Priority: Prompt Meta > Config Default > Warning (Fallback)
       if (this.prompt.meta.severity) {
-        status = this.prompt.meta.severity === 'error' ? Severity.ERROR : Severity.WARNING;
+        status = this.prompt.meta.severity === Severity.ERROR ? Severity.ERROR : Severity.WARNING;
       } else if (this.defaultSeverity) {
         status = this.defaultSeverity;
       } else {
