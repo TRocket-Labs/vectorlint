@@ -28,7 +28,6 @@ describe('Config (vectorlint.ini)', () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
     const ini = `PromptsPath=prompts\nScanPaths=[src/**/*.js]\n`;
     writeFileSync(path.join(cwd, 'vectorlint.ini'), ini);
-    expect(() => loadConfig(cwd)).toThrow(/Only .md and .txt are supported/i);
+    expect(() => loadConfig(cwd)).toThrow(/Only \.md, \.txt, and \.mdx are supported/i);
   });
 });
-

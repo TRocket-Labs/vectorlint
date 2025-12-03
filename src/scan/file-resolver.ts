@@ -2,7 +2,7 @@ import fg from 'fast-glob';
 import path from 'path';
 import { statSync } from 'fs';
 
-const ALLOWED_EXTS = new Set(['.md', '.txt']);
+const ALLOWED_EXTS = new Set(['.md', '.txt', '.mdx']);
 
 function isUnder(child: string, parent: string): boolean {
   const rel = path.relative(parent, child);
@@ -14,8 +14,9 @@ export function resolveTargets(args: {
   cwd: string;
   promptsPath: string;
   scanPaths: string[];
+  configDir: string;
 }): string[] {
-  const { cliArgs, cwd, promptsPath, scanPaths } = args;
+  const { cliArgs, cwd, promptsPath, scanPaths, configDir } = args;
   const exclude = [] as string[];
   // Exclude prompts subtree in globbing
   const promptsRel = path.relative(cwd, promptsPath) || promptsPath;
@@ -37,8 +38,8 @@ export function resolveTargets(args: {
       }
     }
   } else {
-    // Use ScanPaths globs/paths
-    const patterns = scanPaths.map((p) => (path.isAbsolute(p) ? p : path.resolve(cwd, p)).replace(/\\/g, '/'));
+    // Use ScanPaths globs/paths (resolved relative to config directory)
+    const patterns = scanPaths.map((p) => (path.isAbsolute(p) ? p : path.resolve(configDir, p)).replace(/\\/g, '/'));
     const found = fg.sync(patterns, { dot: false, onlyFiles: true, ignore: exclude });
     files.push(...found);
   }

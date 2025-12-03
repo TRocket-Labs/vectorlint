@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { parseEnvironment } from '../src/boundaries/env-parser';
 import { ValidationError } from '../src/errors/index';
+import { ProviderType } from '../src/providers/provider-factory';
+import { AZURE_OPENAI_DEFAULT_CONFIG } from '../src/providers/azure-openai-provider';
+import { ANTHROPIC_DEFAULT_CONFIG } from '../src/providers/anthropic-provider';
+import { OPENAI_DEFAULT_CONFIG } from '../src/providers/openai-provider';
 
 describe('Environment Parser', () => {
   describe('Azure OpenAI Configuration', () => {
@@ -17,7 +21,7 @@ describe('Environment Parser', () => {
       const result = parseEnvironment(env);
 
       expect(result.LLM_PROVIDER).toBe('azure-openai');
-      if (result.LLM_PROVIDER === 'azure-openai') {
+      if (result.LLM_PROVIDER === ProviderType.AzureOpenAI) {
         expect(result.AZURE_OPENAI_API_KEY).toBe('test-key');
         expect(result.AZURE_OPENAI_ENDPOINT).toBe('https://test.openai.azure.com');
         expect(result.AZURE_OPENAI_DEPLOYMENT_NAME).toBe('test-deployment');
@@ -36,8 +40,8 @@ describe('Environment Parser', () => {
 
       const result = parseEnvironment(env);
 
-      if (result.LLM_PROVIDER === 'azure-openai') {
-        expect(result.AZURE_OPENAI_API_VERSION).toBe('2024-02-15-preview');
+      if (result.LLM_PROVIDER === ProviderType.AzureOpenAI) {
+        expect(result.AZURE_OPENAI_API_VERSION).toBe(AZURE_OPENAI_DEFAULT_CONFIG.apiVersion);
         expect(result.AZURE_OPENAI_TEMPERATURE).toBeUndefined();
       }
     });
@@ -67,7 +71,7 @@ describe('Environment Parser', () => {
       const result = parseEnvironment(env);
 
       expect(result.LLM_PROVIDER).toBe('anthropic');
-      if (result.LLM_PROVIDER === 'anthropic') {
+      if (result.LLM_PROVIDER === ProviderType.Anthropic) {
         expect(result.ANTHROPIC_API_KEY).toBe('sk-ant-test-key');
         expect(result.ANTHROPIC_MODEL).toBe('claude-3-haiku-20240307');
         expect(result.ANTHROPIC_MAX_TOKENS).toBe(2048);
@@ -83,8 +87,8 @@ describe('Environment Parser', () => {
 
       const result = parseEnvironment(env);
 
-      if (result.LLM_PROVIDER === 'anthropic') {
-        expect(result.ANTHROPIC_MODEL).toBe('claude-3-sonnet-20240229');
+      if (result.LLM_PROVIDER === ProviderType.Anthropic) {
+        expect(result.ANTHROPIC_MODEL).toBe(ANTHROPIC_DEFAULT_CONFIG.model);
         expect(result.ANTHROPIC_MAX_TOKENS).toBe(4096);
         expect(result.ANTHROPIC_TEMPERATURE).toBeUndefined();
       }
@@ -112,8 +116,8 @@ describe('Environment Parser', () => {
 
       const result = parseEnvironment(env);
 
-      expect(result.LLM_PROVIDER).toBe('openai');
-      if (result.LLM_PROVIDER === 'openai') {
+      expect(result.LLM_PROVIDER).toBe(ProviderType.OpenAI);
+      if (result.LLM_PROVIDER === ProviderType.OpenAI) {
         expect(result.OPENAI_API_KEY).toBe('sk-test-key');
         expect(result.OPENAI_MODEL).toBe('gpt-4o-mini');
         expect(result.OPENAI_TEMPERATURE).toBe(0.8);
@@ -128,8 +132,8 @@ describe('Environment Parser', () => {
 
       const result = parseEnvironment(env);
 
-      if (result.LLM_PROVIDER === 'openai') {
-        expect(result.OPENAI_MODEL).toBe('gpt-4o');
+      if (result.LLM_PROVIDER === ProviderType.OpenAI) {
+        expect(result.OPENAI_MODEL).toBe(OPENAI_DEFAULT_CONFIG.model);
         expect(result.OPENAI_TEMPERATURE).toBeUndefined();
       }
     });
@@ -174,22 +178,17 @@ describe('Environment Parser', () => {
   });
 
   describe('Backward Compatibility', () => {
-    it('defaults to Azure OpenAI when no LLM_PROVIDER is specified', () => {
+    it('requires LLM_PROVIDER to be explicitly specified', () => {
       const env = {
         AZURE_OPENAI_API_KEY: 'test-key',
         AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
         AZURE_OPENAI_DEPLOYMENT_NAME: 'test-deployment',
       };
 
-      const result = parseEnvironment(env);
-
-      expect(result.LLM_PROVIDER).toBe('azure-openai');
-      if (result.LLM_PROVIDER === 'azure-openai') {
-        expect(result.AZURE_OPENAI_API_KEY).toBe('test-key');
-      }
+      expect(() => parseEnvironment(env)).toThrow(ValidationError);
+      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER is required/);
     });
-
-    it('maintains existing Azure OpenAI configurations without changes', () => {
+    it('requires LLM_PROVIDER even when Azure config is present', () => {
       const env = {
         AZURE_OPENAI_API_KEY: 'existing-key',
         AZURE_OPENAI_ENDPOINT: 'https://existing.openai.azure.com',
@@ -198,16 +197,8 @@ describe('Environment Parser', () => {
         AZURE_OPENAI_TEMPERATURE: '1.0',
       };
 
-      const result = parseEnvironment(env);
-
-      expect(result.LLM_PROVIDER).toBe('azure-openai');
-      if (result.LLM_PROVIDER === 'azure-openai') {
-        expect(result.AZURE_OPENAI_API_KEY).toBe('existing-key');
-        expect(result.AZURE_OPENAI_ENDPOINT).toBe('https://existing.openai.azure.com');
-        expect(result.AZURE_OPENAI_DEPLOYMENT_NAME).toBe('existing-deployment');
-        expect(result.AZURE_OPENAI_API_VERSION).toBe('2023-12-01-preview');
-        expect(result.AZURE_OPENAI_TEMPERATURE).toBe(1.0);
-      }
+      expect(() => parseEnvironment(env)).toThrow(ValidationError);
+      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER is required/);
     });
   });
 
@@ -219,7 +210,7 @@ describe('Environment Parser', () => {
       };
 
       expect(() => parseEnvironment(env)).toThrow(ValidationError);
-      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER must be either 'azure-openai', 'anthropic', or 'openai'/);
+      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER is required and must be either 'azure-openai', 'anthropic', or 'openai'/);
     });
 
     it('provides specific error message for missing Azure OpenAI variables', () => {

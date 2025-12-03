@@ -5,12 +5,12 @@ import { createProvider } from '../providers/provider-factory';
 import { PerplexitySearchProvider } from '../providers/perplexity-provider';
 import type { SearchProvider } from '../providers/search-provider';
 import { loadConfig } from '../boundaries/config-loader';
-import { loadPrompts, type PromptFile } from '../prompts/prompt-loader';
+import { loadPromptFile, type PromptFile } from '../prompts/prompt-loader';
+import { EvalPackLoader } from '../boundaries/eval-pack-loader';
 import { printGlobalSummary } from '../output/reporter';
 import { DefaultRequestBuilder } from '../providers/request-builder';
 import { loadDirective } from '../prompts/directive-loader';
 import { resolveTargets } from '../scan/file-resolver';
-import { readPromptMappingFromIni } from '../prompts/prompt-mapping';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
@@ -27,6 +27,7 @@ export function registerMainCommand(program: Command): void {
     .option('--debug-json', 'Print full JSON response from the API')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
     .option('--output-file <file>', 'Write output to a file instead of stdout')
+    .option('--config <path>', 'Path to custom vectorlint.ini config file')
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
 
@@ -80,7 +81,7 @@ export function registerMainCommand(program: Command): void {
       // Load config and prompts
       let config;
       try {
-        config = loadConfig();
+        config = loadConfig(process.cwd(), cliOptions.config);
       } catch (e: unknown) {
         const err = handleUnknownError(e, 'Loading configuration');
         console.error(`Error: ${err.message}`);
@@ -93,12 +94,33 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
-      let prompts: PromptFile[];
+      const prompts: PromptFile[] = [];
       try {
-        const loaded = loadPrompts(promptsPath, { verbose: cliOptions.verbose });
-        prompts = loaded.prompts;
+        const loader = new EvalPackLoader();
+        const packs = await loader.findAllPacks(promptsPath);
+
+        if (packs.length === 0) {
+          console.warn(`[vectorlint] Warning: No eval packs (subdirectories) found in ${promptsPath}.`);
+          console.warn(`[vectorlint] Please organize your evaluations into subdirectories (e.g., ${promptsPath}/VectorLint/).`);
+        }
+
+        for (const packName of packs) {
+          const packRoot = path.join(promptsPath, packName);
+          const evalPaths = await loader.findEvalFiles(packRoot);
+
+          for (const filePath of evalPaths) {
+            const result = loadPromptFile(filePath, packName);
+            if (result.warning) {
+              if (cliOptions.verbose) console.warn(`[vectorlint] ${result.warning}`);
+            }
+            if (result.prompt) {
+              prompts.push(result.prompt);
+            }
+          }
+        }
+
         if (prompts.length === 0) {
-          console.error(`Error: no .md prompts found in ${promptsPath}`);
+          console.error(`Error: no .md prompts found in any packs in ${promptsPath}`);
           process.exit(1);
         }
       } catch (e: unknown) {
@@ -115,6 +137,7 @@ export function registerMainCommand(program: Command): void {
           cwd: process.cwd(),
           promptsPath,
           scanPaths: config.scanPaths,
+          configDir: config.configDir,
         });
       } catch (e: unknown) {
         const err = handleUnknownError(e, 'Resolving target files');
@@ -127,19 +150,7 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
-      // Load prompt/file mapping from INI (optional)
-      const iniPath = path.resolve(process.cwd(), 'vectorlint.ini');
-      let mapping: ReturnType<typeof readPromptMappingFromIni> | undefined;
-      try {
-        if (existsSync(iniPath)) {
-          mapping = readPromptMappingFromIni(iniPath);
-        }
-      } catch (e: unknown) {
-        // Ignore mapping parse errors; validate command covers this
-        const err = handleUnknownError(e, 'Loading prompt mapping');
-        console.warn(`[vectorlint] Warning: ${err.message}`);
-        mapping = undefined;
-      }
+
 
       // Create search provider if API key is available
       const searchProvider: SearchProvider | undefined = process.env.PERPLEXITY_API_KEY
@@ -157,7 +168,6 @@ export function registerMainCommand(program: Command): void {
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
         outputFormat: outputFormat,
-        ...(mapping ? { mapping } : {}),
         ...(cliOptions.outputFile ? { outputFile: cliOptions.outputFile } : {}),
       });
 

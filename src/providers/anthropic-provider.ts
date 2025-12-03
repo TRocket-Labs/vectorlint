@@ -2,9 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { LLMProvider } from './llm-provider';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
-import { 
-  ANTHROPIC_RESPONSE_SCHEMA, 
-  type AnthropicResponse, 
+import {
+  ANTHROPIC_RESPONSE_SCHEMA,
+  type AnthropicResponse,
   type AnthropicToolUseBlock,
   isToolUseBlock,
   isTextBlock
@@ -23,6 +23,12 @@ export interface AnthropicConfig {
   debugJson?: boolean;
 }
 
+export const ANTHROPIC_DEFAULT_CONFIG = {
+  model: 'claude-3-sonnet-20240229',
+  maxTokens: 4096,
+  temperature: 0.2,
+};
+
 export class AnthropicProvider implements LLMProvider {
   private client: Anthropic;
   private config: AnthropicConfig;
@@ -35,9 +41,9 @@ export class AnthropicProvider implements LLMProvider {
     });
     this.config = {
       ...config,
-      model: config.model ?? 'claude-3-sonnet-20240229',
-      maxTokens: config.maxTokens ?? 4096,
-      temperature: config.temperature ?? 0.2,
+      model: config.model ?? ANTHROPIC_DEFAULT_CONFIG.model,
+      maxTokens: config.maxTokens ?? ANTHROPIC_DEFAULT_CONFIG.maxTokens,
+      temperature: config.temperature ?? ANTHROPIC_DEFAULT_CONFIG.temperature,
     };
     this.builder = builder ?? new DefaultRequestBuilder();
   }
@@ -86,7 +92,7 @@ export class AnthropicProvider implements LLMProvider {
       max_tokens: this.config.maxTokens!,
       tools: [toolSchema],
       tool_choice: { type: 'tool', name: schema.name },
-      
+
       // E2E mock compatibility aliases (camelCase)
       maxTokens: this.config.maxTokens!,
       toolChoice: { type: 'tool', name: schema.name },
@@ -146,7 +152,7 @@ export class AnthropicProvider implements LLMProvider {
       if (e instanceof Anthropic.BadRequestError) {
         throw new Error(`Anthropic bad request: ${e.message}`);
       }
-      
+
       const err = handleUnknownError(e, 'Anthropic API call');
       throw new Error(`Anthropic API call failed: ${err.message}`);
     }
@@ -174,7 +180,7 @@ export class AnthropicProvider implements LLMProvider {
       const usage = response.usage;
       const stopReason = response.stop_reason;
       if (usage || stopReason) {
-        console.log('[vectorlint] LLM response meta:', { 
+        console.log('[vectorlint] LLM response meta:', {
           usage: {
             input_tokens: usage.input_tokens,
             output_tokens: usage.output_tokens,
@@ -200,10 +206,10 @@ export class AnthropicProvider implements LLMProvider {
     }
 
     // Find the expected tool use block using type-safe filtering
-    const toolBlock = blocks.find((block): block is AnthropicToolUseBlock => 
+    const toolBlock = blocks.find((block): block is AnthropicToolUseBlock =>
       isToolUseBlock(block) && block.name === expectedToolName
     );
-    
+
     if (!toolBlock) {
       // Check if there are any tool use blocks at all
       const toolUseBlocks = blocks.filter(isToolUseBlock);
@@ -211,14 +217,14 @@ export class AnthropicProvider implements LLMProvider {
         const availableTools = toolUseBlocks.map(block => block.name);
         throw new Error(`Expected tool call '${expectedToolName}' but received: ${availableTools.join(', ')}`);
       }
-      
+
       // Check if response contains text instead of tool use
       const textBlocks = blocks.filter(isTextBlock);
       if (textBlocks.length > 0) {
         const textContent = textBlocks[0].text.slice(0, 200);
         throw new Error(`No tool call received for ${expectedToolName}. Response contains text instead: ${textContent}${textContent.length >= 200 ? '...' : ''}`);
       }
-      
+
       throw new Error(`No tool call received for ${expectedToolName}. Response may not contain structured data.`);
     }
 
