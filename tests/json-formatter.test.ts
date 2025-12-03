@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ValeJsonFormatter } from '../src/output/vale-json-formatter';
-import { JsonFormatter, type RdJsonResult } from '../src/output/json-formatter';
+import { RdJsonFormatter, type RdJsonResult } from '../src/output/rdjson-formatter';
 
 describe('ValeJsonFormatter', () => {
   it('should format issues into Vale-compatible JSON structure', () => {
@@ -132,7 +132,7 @@ describe('ValeJsonFormatter', () => {
   });
 
   it('should produce valid RDJSON output', () => {
-    const formatter = new JsonFormatter();
+    const formatter = new RdJsonFormatter();
 
     formatter.addIssue('test.md', {
       line: 1,
@@ -145,7 +145,7 @@ describe('ValeJsonFormatter', () => {
       suggestion: 'fix'
     });
 
-    const rdjsonOutput = formatter.toJson('rdjson');
+    const rdjsonOutput = formatter.toJson();
 
     // Should be valid JSON
     expect(() => {

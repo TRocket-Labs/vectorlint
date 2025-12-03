@@ -43,51 +43,6 @@ export interface Result {
   };
 }
 
-export interface RdJsonResult {
-  source: {
-    name: string;
-    url: string;
-  };
-  diagnostics: RdJsonDiagnostic[];
-}
-
-export interface RdJsonDiagnostic {
-  message: string;
-  location: {
-    path: string;
-    range: {
-      start: {
-        line: number;
-        column: number;
-      };
-      end?: {
-        line: number;
-        column: number;
-      };
-    };
-  };
-  severity: 'ERROR' | 'WARNING' | 'INFO';
-  code?: {
-    value: string;
-    url?: string;
-  };
-  suggestions?: RdJsonSuggestion[];
-}
-
-export interface RdJsonSuggestion {
-  range: {
-    start: {
-      line: number;
-      column: number;
-    };
-    end: {
-      line: number;
-      column: number;
-    };
-  };
-  text: string;
-}
-
 export class JsonFormatter {
   private files: Record<string, FileResult> = {};
   private errorCount = 0;
@@ -113,70 +68,7 @@ export class JsonFormatter {
     this.files[file].evaluationScores.push(score);
   }
 
-  toRdJsonFormat(): RdJsonResult {
-    const diagnostics: RdJsonDiagnostic[] = [];
-
-    // Iterate over all files and their issues
-    for (const [filePath, fileResult] of Object.entries(this.files)) {
-      for (const issue of fileResult.issues) {
-        const matchLen = issue.match.length;
-
-        const diagnostic: RdJsonDiagnostic = {
-          message: issue.message,
-          location: {
-            path: filePath,
-            range: {
-              start: {
-                line: issue.line,
-                column: issue.column,
-              },
-              end: {
-                line: issue.line,
-                column: issue.column + matchLen,
-              },
-            },
-          },
-          severity: issue.severity === 'error' ? 'ERROR' : issue.severity === 'warning' ? 'WARNING' : 'INFO',
-          code: {
-            value: issue.eval,
-          },
-        };
-
-        if (issue.suggestion) {
-          diagnostic.suggestions = [
-            {
-              range: {
-                start: {
-                  line: issue.line,
-                  column: issue.column,
-                },
-                end: {
-                  line: issue.line,
-                  column: issue.column + matchLen,
-                },
-              },
-              text: issue.suggestion,
-            },
-          ];
-        }
-
-        diagnostics.push(diagnostic);
-      }
-    }
-
-    return {
-      source: {
-        name: 'vectorlint',
-        url: 'https://github.com/TRocket-Labs/vectorlint',
-      },
-      diagnostics,
-    };
-  }
-
-  toJson(format: 'standard' | 'rdjson' = 'standard'): string {
-    if (format === 'rdjson') {
-      return JSON.stringify(this.toRdJsonFormat(), null, 2);
-    }
+  toJson(): string {
     const result: Result = {
       files: this.files,
       summary: {

@@ -9,6 +9,7 @@ import { printFileHeader, printIssueRow, printEvaluationSummaries, type Evaluati
 import { locateEvidenceWithMatch } from '../output/location';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
 import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
+import { RdJsonFormatter } from '../output/rdjson-formatter';
 import { checkTarget } from '../prompts/target';
 import { resolvePromptMapping, aliasForPromptPath, isMappingConfigured } from '../prompts/prompt-mapping';
 import { handleUnknownError } from '../errors/index';
@@ -48,7 +49,7 @@ interface EvaluationContext {
   content: string;
   relFile: string;
   outputFormat: 'line' | 'json' | 'vale-json' | 'rdjson';
-  jsonFormatter: ValeJsonFormatter | JsonFormatter;
+  jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
 }
 
 import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } from '../prompts/schema';
@@ -75,7 +76,7 @@ interface ReportIssueParams {
   summary: string;
   ruleName: string;
   outputFormat: 'line' | 'json' | 'vale-json' | 'rdjson';
-  jsonFormatter: ValeJsonFormatter | JsonFormatter;
+  jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
   suggestion?: string;
   scoreText?: string;
   match?: string;
@@ -147,7 +148,7 @@ type RunPromptEvaluationResult =
 interface EvaluateFileParams {
   file: string;
   options: EvaluationOptions;
-  jsonFormatter: ValeJsonFormatter | JsonFormatter;
+  jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
 }
 
 interface EvaluateFileResult extends ErrorTrackingResult {
@@ -217,7 +218,7 @@ function reportIssue(params: ReportIssueParams): void {
       match: match || '',
       ...(suggestion ? { suggestion } : {})
     };
-    (jsonFormatter as JsonFormatter).addIssue(file, issue);
+    (jsonFormatter as JsonFormatter | RdJsonFormatter).addIssue(file, issue);
   }
 }
 
@@ -678,7 +679,7 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
   }
 
   if (outputFormat === 'json' && scoreComponents.length > 0) {
-    (jsonFormatter as JsonFormatter).addEvaluationScore(relFile, {
+    (jsonFormatter as JsonFormatter | RdJsonFormatter).addEvaluationScore(relFile, {
       id: promptId || promptFile.filename.replace(/\.md$/, ''),
       scores: scoreComponents
     });
@@ -849,9 +850,11 @@ export async function evaluateFiles(
   let totalWarnings = 0;
   let requestFailures = 0;
 
-  let jsonFormatter: ValeJsonFormatter | JsonFormatter;
-  if (outputFormat === 'json' || outputFormat === 'rdjson') {
+  let jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
+  if (outputFormat === 'json') {
     jsonFormatter = new JsonFormatter();
+  } else if (outputFormat === 'rdjson') {
+    jsonFormatter = new RdJsonFormatter();
   } else {
     jsonFormatter = new ValeJsonFormatter();
   }
@@ -874,14 +877,7 @@ export async function evaluateFiles(
 
   // Output results based on format
   if (outputFormat === 'json' || outputFormat === 'vale-json' || outputFormat === 'rdjson') {
-    let jsonStr: string;
-    if (outputFormat === 'vale-json') {
-      jsonStr = jsonFormatter.toJson();
-    } else if (outputFormat === 'rdjson') {
-      jsonStr = (jsonFormatter as JsonFormatter).toJson('rdjson');
-    } else {
-      jsonStr = (jsonFormatter as JsonFormatter).toJson();
-    }
+    const jsonStr = jsonFormatter.toJson();
 
     if (options.outputFile) {
       writeFileSync(options.outputFile, jsonStr, 'utf-8');
