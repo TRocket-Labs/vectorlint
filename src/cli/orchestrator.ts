@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import type { PromptFile } from '../prompts/prompt-loader';
 import type { LLMProvider } from '../providers/llm-provider';
@@ -10,6 +10,7 @@ import { printFileHeader, printIssueRow, printEvaluationSummaries, type Evaluati
 import { locateEvidenceWithMatch } from '../output/location';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
 import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
+import { RdJsonFormatter } from '../output/rdjson-formatter';
 import { checkTarget } from '../prompts/target';
 import { handleUnknownError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
@@ -22,8 +23,9 @@ export interface EvaluationOptions {
   searchProvider?: SearchProvider;
   concurrency: number;
   verbose: boolean;
+  outputFormat?: 'line' | 'json' | 'vale-json' | 'rdjson';
+  outputFile?: string;
   fileSections?: FilePatternConfig[];
-  outputFormat?: 'line' | 'json' | 'vale-json';
 }
 
 export interface EvaluationResult {
@@ -46,8 +48,8 @@ interface ErrorTrackingResult {
 interface EvaluationContext {
   content: string;
   relFile: string;
-  outputFormat: 'line' | 'json' | 'vale-json';
-  jsonFormatter: ValeJsonFormatter | JsonFormatter;
+  outputFormat: 'line' | 'json' | 'vale-json' | 'rdjson';
+  jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
 }
 
 import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } from '../prompts/schema';
@@ -68,8 +70,8 @@ interface ReportIssueParams {
   status: 'warning' | 'error' | undefined;
   summary: string;
   ruleName: string;
-  outputFormat: 'line' | 'json' | 'vale-json';
-  jsonFormatter: ValeJsonFormatter | JsonFormatter;
+  outputFormat: 'line' | 'json' | 'vale-json' | 'rdjson';
+  jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
   suggestion?: string;
   scoreText?: string;
   match?: string;
@@ -142,7 +144,7 @@ type RunPromptEvaluationResult =
 interface EvaluateFileParams {
   file: string;
   options: EvaluationOptions;
-  jsonFormatter: ValeJsonFormatter | JsonFormatter;
+  jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
 }
 
 interface EvaluateFileResult extends ErrorTrackingResult {
@@ -198,7 +200,7 @@ function reportIssue(params: ReportIssueParams): void {
       ...(scoreText !== undefined ? { score: scoreText } : {}),
     };
     (jsonFormatter as ValeJsonFormatter).addIssue(issue);
-  } else if (outputFormat === 'json') {
+  } else if (outputFormat === 'json' || outputFormat === 'rdjson') {
     const severity = status === 'error' ? 'error' : status === 'warning' ? 'warning' : 'info';
     const matchLen = match ? match.length : 0;
     const endColumn = column + matchLen;
@@ -212,7 +214,7 @@ function reportIssue(params: ReportIssueParams): void {
       match: match || '',
       ...(suggestion ? { suggestion } : {})
     };
-    (jsonFormatter as JsonFormatter).addIssue(file, issue);
+    (jsonFormatter as JsonFormatter | RdJsonFormatter).addIssue(file, issue);
   }
 }
 
@@ -382,7 +384,7 @@ function processCriterion(params: ProcessCriterionParams): ProcessCriterionResul
     };
   }
 
-  const got = result.criteria.find(c => c.name === nameKey);
+  const got = result.criteria.find(c => c.name === nameKey || c.name.toLowerCase() === nameKey.toLowerCase());
   if (!got) {
     return {
       errors: 0,
@@ -500,15 +502,29 @@ function validateCriteriaCompleteness(params: ValidationParams): boolean {
   const expectedNames = new Set<string>((meta.criteria || []).map((c) => String(c.name || c.id || '')));
   const returnedNames = new Set(result.criteria.map((c: { name: string }) => c.name));
 
+  // Create normalized maps for case-insensitive lookup
+  const expectedNormalized = new Set<string>();
+  const expectedOriginalMap = new Map<string, string>();
   for (const name of expectedNames) {
-    if (!returnedNames.has(name)) {
-      console.error(`Missing criterion in model output: ${name}`);
+    const norm = name.toLowerCase();
+    expectedNormalized.add(norm);
+    expectedOriginalMap.set(norm, name);
+  }
+
+  const returnedNormalized = new Set<string>();
+  for (const name of returnedNames) {
+    returnedNormalized.add(name.toLowerCase());
+  }
+
+  for (const norm of expectedNormalized) {
+    if (!returnedNormalized.has(norm)) {
+      console.error(`Missing criterion in model output: ${expectedOriginalMap.get(norm)}`);
       hadErrors = true;
     }
   }
 
   for (const name of returnedNames) {
-    if (!expectedNames.has(name)) {
+    if (!expectedNormalized.has(name.toLowerCase())) {
       console.warn(`[vectorlint] Extra criterion returned by model (ignored): ${name}`);
     }
   }
@@ -525,7 +541,11 @@ function validateScores(params: ValidationParams): boolean {
 
   for (const exp of meta.criteria || []) {
     const nameKey = String(exp.name || exp.id || '');
-    const got = result.criteria.find(c => c.name === nameKey);
+    const got = result.criteria.find(
+      c => c.name === nameKey
+        ||
+        c.name.toLowerCase() === nameKey.toLowerCase()
+    );
     if (!got) continue;
 
     const score = Number(got.score);
@@ -637,7 +657,7 @@ function processPromptResult(params: ProcessPromptResultParams): ErrorTrackingRe
   }
 
   if (outputFormat === 'json' && scoreComponents.length > 0) {
-    (jsonFormatter as JsonFormatter).addEvaluationScore(relFile, {
+    (jsonFormatter as JsonFormatter | RdJsonFormatter).addEvaluationScore(relFile, {
       id: promptId || promptFile.filename.replace(/\.md$/, ''),
       scores: scoreComponents
     });
@@ -859,9 +879,11 @@ export async function evaluateFiles(
   let totalWarnings = 0;
   let requestFailures = 0;
 
-  let jsonFormatter: ValeJsonFormatter | JsonFormatter;
+  let jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
   if (outputFormat === 'json') {
     jsonFormatter = new JsonFormatter();
+  } else if (outputFormat === 'rdjson') {
+    jsonFormatter = new RdJsonFormatter();
   } else {
     jsonFormatter = new ValeJsonFormatter();
   }
@@ -883,8 +905,21 @@ export async function evaluateFiles(
   }
 
   // Output results based on format
-  if (outputFormat === 'json' || outputFormat === 'vale-json') {
-    console.log(jsonFormatter.toJson());
+  if (outputFormat === 'json' || outputFormat === 'vale-json' || outputFormat === 'rdjson') {
+    const jsonStr = jsonFormatter.toJson();
+
+    if (options.outputFile) {
+      writeFileSync(options.outputFile, jsonStr, 'utf-8');
+      if (options.verbose) {
+        console.error(`[vectorlint] Wrote output to ${options.outputFile}`);
+      }
+    } else {
+      if (outputFormat === 'rdjson' && options.verbose) {
+        console.error('[vectorlint] Generated RDJSON:');
+        console.error(jsonStr);
+      }
+      console.log(jsonStr);
+    }
   }
 
   return {

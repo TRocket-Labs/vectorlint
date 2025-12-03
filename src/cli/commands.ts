@@ -25,7 +25,8 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt', 'Print full prompt and injected content')
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Print full JSON response from the API')
-    .option('--output <format>', 'Output format: line (default), json, or vale-json', 'line')
+    .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
+    .option('--output-file <file>', 'Write output to a file instead of stdout')
     .option('--config <path>', 'Path to custom vectorlint.ini config file')
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
@@ -87,7 +88,7 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
-      const { promptsPath } = config;
+      const promptsPath = cliOptions.prompts || config.promptsPath;
       if (!existsSync(promptsPath)) {
         console.error(`Error: prompts path does not exist: ${promptsPath}`);
         process.exit(1);
@@ -167,6 +168,7 @@ export function registerMainCommand(program: Command): void {
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
         outputFormat: outputFormat,
+        ...(cliOptions.outputFile ? { outputFile: cliOptions.outputFile } : {}),
       });
 
       // Print global summary (only for line format)

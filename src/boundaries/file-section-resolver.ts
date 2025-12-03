@@ -1,4 +1,4 @@
-import { isMatch } from 'micromatch';
+import micromatch from 'micromatch';
 import { FilePatternConfig } from './file-section-parser';
 
 export interface FileResolution {
@@ -23,7 +23,7 @@ export class FileSectionResolver {
         let mergedOverrides: Record<string, unknown> = {};
 
         for (const section of sections) {
-            if ((isMatch as (filePath: string, pattern: string) => boolean)(filePath, section.pattern)) {
+            if (micromatch.isMatch(filePath, section.pattern)) {
                 // Handle RunEvals
                 if (section.runEvals.length === 0) {
                     // Explicit exclusion: clear active packs
