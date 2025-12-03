@@ -202,11 +202,11 @@ function locateAndReportViolations(params: ProcessViolationsParams): { hadOperat
 }
 
 /*
- * Scores a single criterion (raw → normalized) and reports violations if failing.
- * Score ≤1 = error, score=2 = warning, score >2 = pass (no report).
+ * Extracts pre-calculated scores from a subjective evaluation criterion and reports violations.
+ * All violations are reported regardless of score.
  * Returns error/warning counts, score entry for Quality Scores, and score components for JSON.
  */
-function scoreAndReportCriterion(params: ProcessCriterionParams): ProcessCriterionResult {
+function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCriterionResult {
   const { exp, result, content, relFile, promptId, promptFilename, meta, outputFormat, jsonFormatter } = params;
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -285,48 +285,60 @@ function scoreAndReportCriterion(params: ProcessCriterionParams): ProcessCriteri
 
   const score = Number(got.score);
 
-  // Scores > 2 are passing - don't report any issues
-  if (score > 2) {
-    const violations = got.violations;
-    const rawWeighted = got.weighted_points;
-    const normalizedScore = got.normalized_score;
-    const userScore = rawWeighted;
-    const scoreText = `${normalizedScore.toFixed(1)}/10`;
-
-    return {
-      errors: 0,
-      warnings: 0,
-      userScore,
-      maxScore,
-      hadOperationalErrors,
-      hadSeverityErrors,
-      scoreEntry: { id: ruleName, scoreText, score: normalizedScore }
-    };
-  }
-
-  // Determine severity for failing scores
-  const severity: Severity = score <= 1 ? Severity.ERROR : Severity.WARNING;
-
-  let errors = 0;
-  let warnings = 0;
-
-  if (severity === Severity.ERROR) {
-    hadSeverityErrors = true;
-    errors = 1;
-  } else if (severity === Severity.WARNING) {
-    warnings = 1;
-  }
-
-  const violations = got.violations;
   // Use pre-calculated values from evaluator
   const rawWeighted = got.weighted_points;
   const normalizedScore = got.normalized_score;
   const userScore = rawWeighted;
+  const violations = got.violations;
 
   // Display normalized score (1-10) in CLI output
   const scoreText = `${normalizedScore.toFixed(1)}/10`;
 
-  if (violations.length === 0) {
+  // Determine severity based on violations
+  // If there are violations, use evaluator's scoring to determine severity
+  // Score <= 1 = error, score = 2 = warning, score > 2 = no severity needed (but we still create scoreEntry)
+  let errors = 0;
+  let warnings = 0;
+  let severity: Severity | undefined;
+
+  if (violations.length > 0) {
+    // Determine severity from score for violations
+    if (score <= 1) {
+      severity = Severity.ERROR;
+      hadSeverityErrors = true;
+      errors = violations.length;
+    } else if (score === 2) {
+      severity = Severity.WARNING;
+      warnings = violations.length;
+    } else {
+      // Score > 2 but has violations - this is informational
+      // Use WARNING as default for informational violations
+      severity = Severity.WARNING;
+      warnings = violations.length;
+    }
+
+    // Report all violations
+    const violationResult = locateAndReportViolations({
+      violations: violations as Array<{ pre?: string; post?: string; analysis?: string; suggestion?: string }>,
+      content,
+      relFile,
+      severity,
+      ruleName,
+      scoreText,
+      outputFormat,
+      jsonFormatter
+    });
+    hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
+  } else if (score <= 2) {
+    // No violations but low score - report with summary
+    severity = score <= 1 ? Severity.ERROR : Severity.WARNING;
+    if (severity === Severity.ERROR) {
+      hadSeverityErrors = true;
+      errors = 1;
+    } else {
+      warnings = 1;
+    }
+
     const sum = got.summary.trim();
     const words = sum.split(/\s+/).filter(Boolean);
     const limited = words.slice(0, 15).join(' ');
@@ -343,18 +355,6 @@ function scoreAndReportCriterion(params: ProcessCriterionParams): ProcessCriteri
       scoreText,
       match: ''
     });
-  } else {
-    const violationResult = locateAndReportViolations({
-      violations: violations as Array<{ pre?: string; post?: string; analysis?: string; suggestion?: string }>,
-      content,
-      relFile,
-      severity,
-      ruleName,
-      scoreText,
-      outputFormat,
-      jsonFormatter
-    });
-    hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
   }
 
   return {
@@ -427,9 +427,9 @@ function validateScores(params: ValidationParams): boolean {
 
 /*
  * Routes evaluation results through semi-objective or subjective processing paths.
- * Semi-objective: binary pass/fail, reports violations directly, no score entries.
- * Subjective: processes each criterion, validates scores, creates Quality Score entries.
- * Returns aggregated error/warning counts and optional score entries for display.
+ * Semi-objective: Reports violations, creates scoreEntry using final_score.
+ * Subjective: Iterates through criteria, validates scores, creates scoreEntry per criterion.
+ * Both paths generate scoreEntries for Quality Scores display.
  */
 function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResult {
   const { promptFile, result, content, relFile, outputFormat, jsonFormatter } = params;
@@ -474,12 +474,19 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
       });
     }
 
+    // Create scoreEntry for Quality Scores display
+    const scoreEntry: EvaluationSummary = {
+      id: ruleName,
+      scoreText: `${result.final_score.toFixed(1)}/10`,
+      score: result.final_score
+    };
+
     return {
       errors: severity === Severity.ERROR ? violationCount : 0,
       warnings: severity === Severity.WARNING ? violationCount : 0,
       hadOperationalErrors,
       hadSeverityErrors: severity === Severity.ERROR,
-      scoreEntries: []
+      scoreEntries: [scoreEntry]
     };
   }
 
@@ -494,9 +501,9 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
   const criterionScores: EvaluationSummary[] = [];
   const scoreComponents: ScoreComponent[] = [];
 
-  // Process each criterion
+  // Iterate through each criterion
   for (const exp of meta.criteria || []) {
-    const criterionResult = scoreAndReportCriterion({
+    const criterionResult = extractAndReportCriterion({
       exp,
       result,
       content,
@@ -653,7 +660,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     });
   });
 
-  // Process results for each prompt
+  // Aggregate results from each prompt
   for (let idx = 0; idx < toRun.length; idx++) {
     const item = toRun[idx];
     if (!item) continue;
