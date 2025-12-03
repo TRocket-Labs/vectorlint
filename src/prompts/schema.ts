@@ -121,8 +121,7 @@ export type SemiObjectiveResult = {
   passed_count: number;
   total_count: number;
   items: Array<SemiObjectiveItem>;
-  // Backward compatibility with old BasicResult
-  status?: typeof Severity.WARNING | typeof Severity.ERROR;
+  severity: typeof Severity.WARNING | typeof Severity.ERROR;
   message: string;
   violations: Array<{
     analysis: string;

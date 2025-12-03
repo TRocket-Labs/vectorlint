@@ -189,12 +189,10 @@ export class BaseEvaluator implements Evaluator {
       items: items,
       message,
       violations,
+      // Severity is mandatory in SemiObjectiveResult
+      // Default to WARNING if not specified (e.g. perfect score)
+      severity: status || Severity.WARNING,
     };
-
-    // Only add status if it's defined (to satisfy exactOptionalPropertyTypes)
-    if (status) {
-      result.status = status;
-    }
 
     return result;
   }
