@@ -1,4 +1,4 @@
-EvalsPath=.github/evals   
+RulesPath=.github/evals   
 ScanPaths=[*.md]
 Concurrency=4
 DefaultSeverity=warning

@@ -103,7 +103,7 @@ For the `technical-accuracy` evaluator, you can optionally configure a search pr
 
 ### Project Config (vectorlint.ini)
 
-VectorLint uses a **file-centric configuration**. Evaluations are organized into **eval packs** (subdirectories), and you configure which packs run on which files.
+VectorLint uses a **file-centric configuration**. Evaluations are organized into **rule packs** (subdirectories), and you configure which packs run on which files.
 
 ```bash
 cp vectorlint.example.ini vectorlint.ini
@@ -111,7 +111,7 @@ cp vectorlint.example.ini vectorlint.ini
 
 **Required Directory Structure:**
 
-Organize your evaluations into subdirectories (packs) within `EvalsPath`:
+Organize your evaluations into subdirectories (packs) within `RulesPath`:
 
 ```
 .github/evals/
@@ -130,32 +130,32 @@ Use `[glob/pattern]` sections to specify which packs run on which files:
 
 ```ini
 # Global settings
-EvalsPath=.github/evals
+RulesPath=.github/evals
 ScanPaths=[content/**/*.md]
 
 # All content - run VectorLint pack
 [content/**/*.md]
-RunEvals=VectorLint
+RunRules=VectorLint
 GrammarChecker.strictness=7
 
 # Technical docs - higher strictness
 [content/docs/**/*.md]
-RunEvals=VectorLint
+RunRules=VectorLint
 GrammarChecker.strictness=9
 
 # Marketing - use custom pack
 [content/marketing/**/*.md]
-RunEvals=CustomPack
+RunRules=CustomPack
 
 # Drafts - skip all evaluations
 [content/drafts/**/*.md]
-RunEvals=
+RunRules=
 ```
 
 **Key Settings:**
-- `EvalsPath`: Root directory containing your eval pack subdirectories
+- `RulesPath`: Root directory containing your rule pack subdirectories
 - `ScanPaths`: Glob patterns for files to scan (e.g., `[content/**/*.md]`)
-- `[pattern]` sections: Map file patterns to eval packs using `RunEvals`
+- `[pattern]` sections: Map file patterns to rule packs using `RunRules`
 - Per-eval overrides: Tune specific evaluations (e.g., `GrammarChecker.strictness=9`)
 
 ## Usage Guide
@@ -179,7 +179,7 @@ vectorlint --output vale-json path/to/article.md   # Vale-compatible JSON
 
 ### Creating Prompts
 
-Prompts are Markdown files with YAML frontmatter, organized into eval packs (subdirectories).
+Prompts are Markdown files with YAML frontmatter, organized into rule packs (subdirectories).
 
 **Example** (`VectorLint/tone-checker.md`):
 

@@ -24,15 +24,15 @@ export class FileSectionResolver {
 
         for (const section of sections) {
             if (micromatch.isMatch(filePath, section.pattern)) {
-                // Handle RunEvals
-                if (section.runEvals.length === 0) {
+                // Handle RunRules
+                if (section.runRules.length === 0) {
                     // Explicit exclusion: clear active packs
                     activePacks.clear();
                     // Should we clear overrides too? 
                     // Usually yes, if we are resetting the configuration for this file.
                     mergedOverrides = {};
                 } else {
-                    for (const packName of section.runEvals) {
+                    for (const packName of section.runRules) {
                         // Validate if pack exists (if availablePacks provided)
                         if (availablePacks.length > 0 && !availablePacks.includes(packName)) {
                             console.warn(`[vectorlint] Warning: Pack "${packName}" not found`);

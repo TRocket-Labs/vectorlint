@@ -15,7 +15,8 @@
     "test:ci": "vitest run --coverage"
   },
   "bin": {
-    "vectorlint": "./dist/index.js"
+    "vectorlint": "./dist/index.js",
+    "veclint": "./dist/index.js"
   },
   "keywords": [
     "linting",

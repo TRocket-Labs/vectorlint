@@ -87,10 +87,10 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
 
 VectorLint uses a **pack-based organization** for evaluations:
 
-- All evaluations must be organized into **subdirectories** (packs) within `EvalsPath`
+- All evaluations must be organized into **subdirectories** (packs) within `RulesPath`
 - Pack names are **arbitrary** — use `VectorLint`, `MyCustomPack`, `Marketing`, etc.
 - The system recursively loads **all `.md` files** from within each pack
-- Multiple packs can be used simultaneously: `RunEvals=VectorLint,Marketing`
+- Multiple packs can be used simultaneously: `RunRules=VectorLint,Marketing`
 
 **Directory Structure:**
 ```
@@ -109,26 +109,26 @@ Use `[glob/pattern]` sections in `vectorlint.ini` to specify which packs run on 
 
 ```ini
 # Global settings
-EvalsPath=.github/evals
+RulesPath=.github/evals
 ScanPaths=[*.md]
 
 # All markdown files - run VectorLint pack
 [**/*.md]
-RunEvals=VectorLint
+RunRules=VectorLint
 GrammarChecker.strictness=7
 
 # Technical docs - higher strictness
 [docs/**/*.md]
-RunEvals=VectorLint
+RunRules=VectorLint
 GrammarChecker.strictness=9
 
 # Marketing - different pack
 [marketing/**/*.md]
-RunEvals=Marketing
+RunRules=Marketing
 
 # Drafts - skip all evaluations
 [drafts/**/*.md]
-RunEvals=
+RunRules=
 ```
 
 ## Output Formats
@@ -141,9 +141,9 @@ VectorLint supports multiple output formats via the `--output` flag:
 
 ## Security & Configuration Tips
 
-- Copy `vectorlint.example.ini` → `vectorlint.ini`; set `EvalsPath`, `ScanPaths`, `Concurrency`
-- Organize evaluations into pack subdirectories (e.g., `EvalsPath/VectorLint/`)
-- Use `[glob/pattern]` sections with `RunEvals=PackName` to map files to eval packs
+- Copy `vectorlint.example.ini` → `vectorlint.ini`; set `RulesPath`, `ScanPaths`, `Concurrency`
+- Organize evaluations into pack subdirectories (e.g., `RulesPath/VectorLint/`)
+- Use `[glob/pattern]` sections with `RunRules=PackName` to map files to rule packs
 - Copy `.env.example` → `.env` for provider credentials (OpenAI, Anthropic, Azure, Gemini, Perplexity)
 - All environment variables validated via Zod schemas in `src/boundaries/env-parser.ts`
 - Never commit secrets; `.env` is gitignored

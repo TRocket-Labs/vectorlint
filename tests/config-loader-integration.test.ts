@@ -19,35 +19,35 @@ describe('Config Loader Integration', () => {
 
     it('loads config with file sections', () => {
         const iniContent = `
-EvalsPath = ./prompts
+RulesPath = ./prompts
 ScanPaths = ["**/*.md"]
 
 [docs/**/*.md]
-RunEvals = VectorLint
+RunRules = VectorLint
 technical-accuracy.strictness = 9
 
 [blog/**/*.md]
-RunEvals = BlogPack, SEOPack
+RunRules = BlogPack, SEOPack
 readability.severity = error
 `;
         writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
 
         const config = loadConfig(tempDir);
 
-        expect(config.evalsPath).toContain('prompts');
+        expect(config.rulesPath).toContain('prompts');
         expect(config.scanPaths).toEqual(['**/*.md']);
         expect(config.fileSections).toHaveLength(2);
 
         // First section
         expect(config.fileSections[0]!.pattern).toBe('docs/**/*.md');
-        expect(config.fileSections[0]!.runEvals).toEqual(['VectorLint']);
+        expect(config.fileSections[0]!.runRules).toEqual(['VectorLint']);
         expect(config.fileSections[0]!.overrides).toEqual({
             'technical-accuracy.strictness': '9'
         });
 
         // Second section
         expect(config.fileSections[1]!.pattern).toBe('blog/**/*.md');
-        expect(config.fileSections[1]!.runEvals).toEqual(['BlogPack', 'SEOPack']);
+        expect(config.fileSections[1]!.runRules).toEqual(['BlogPack', 'SEOPack']);
         expect(config.fileSections[1]!.overrides).toEqual({
             'readability.severity': 'error'
         });
@@ -55,20 +55,20 @@ readability.severity = error
 
     it('loads config with multiple file sections and various overrides', () => {
         const iniContent = `
-EvalsPath = ./prompts
+RulesPath = ./prompts
 ScanPaths = ["**/*.md"]
 
 [content/**/*.md]
-RunEvals = Base
+RunRules = Base
 strictness = 7
 
 [content/api/**/*.md]
-RunEvals = APIPack
+RunRules = APIPack
 strictness = 9
 technical-accuracy.depth = high
 
 [content/archived/**/*.md]
-RunEvals = 
+RunRules = 
 `;
         writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
 
@@ -76,13 +76,13 @@ RunEvals =
 
         expect(config.fileSections).toHaveLength(3);
 
-        // Third section has empty RunEvals (exclusion)
-        expect(config.fileSections[2]!.runEvals).toEqual([]);
+        // Third section has empty RunRules (exclusion)
+        expect(config.fileSections[2]!.runRules).toEqual([]);
     });
 
     it('loads config without file sections (defaults to empty array)', () => {
         const iniContent = `
-EvalsPath = ./prompts
+RulesPath = ./prompts
 ScanPaths = ["**/*.md"]
 `;
         writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
@@ -94,13 +94,13 @@ ScanPaths = ["**/*.md"]
 
     it('handles config with concurrency and default severity', () => {
         const iniContent = `
-EvalsPath = ./prompts
+RulesPath = ./prompts
 ScanPaths = ["**/*.md"]
 Concurrency = 8
 DefaultSeverity = error
 
 [**/*.md]
-RunEvals = VectorLint
+RunRules = VectorLint
 `;
         writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
 
@@ -113,17 +113,17 @@ RunEvals = VectorLint
 
     it('preserves order of file sections', () => {
         const iniContent = `
-EvalsPath = ./prompts
+RulesPath = ./prompts
 ScanPaths = ["**/*.md"]
 
 [first/**/*.md]
-RunEvals = First
+RunRules = First
 
 [second/**/*.md]
-RunEvals = Second
+RunRules = Second
 
 [third/**/*.md]
-RunEvals = Third
+RunRules = Third
 `;
         writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
 

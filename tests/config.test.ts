@@ -10,12 +10,12 @@ describe('Config (vectorlint.ini)', () => {
     expect(() => loadConfig(cwd)).toThrow(/vectorlint\.ini/i);
   });
 
-  it('parses EvalsPath and ScanPaths (PascalCase) and trims values', () => {
+  it('parses RulesPath and ScanPaths (PascalCase) and trims values', () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
-    const ini = `\n  EvalsPath = prompts \n  ScanPaths = [ *.md , notes/**/*.txt , docs/*.md , README.md ] \n`;
+    const ini = `\n  RulesPath = prompts \n  ScanPaths = [ *.md , notes/**/*.txt , docs/*.md , README.md ] \n`;
     writeFileSync(path.join(cwd, 'vectorlint.ini'), ini);
     const cfg = loadConfig(cwd);
-    expect(cfg.evalsPath).toMatch(/prompts$/);
+    expect(cfg.rulesPath).toMatch(/prompts$/);
     expect(cfg.scanPaths).toEqual([
       '*.md',
       'notes/**/*.txt',
@@ -26,7 +26,7 @@ describe('Config (vectorlint.ini)', () => {
 
   it('rejects unsupported extensions in ScanPaths', () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
-    const ini = `EvalsPath=prompts\nScanPaths=[src/**/*.js]\n`;
+    const ini = `RulesPath=prompts\nScanPaths=[src/**/*.js]\n`;
     writeFileSync(path.join(cwd, 'vectorlint.ini'), ini);
     expect(() => loadConfig(cwd)).toThrow(/Only \.md, \.txt, and \.mdx are supported/i);
   });

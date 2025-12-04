@@ -11,7 +11,7 @@ import { Severity } from '../evaluators/types';
 
 export interface EvaluationOptions {
     prompts: PromptFile[];
-    evalsPath: string;
+    rulesPath: string;
     provider: LLMProvider;
     searchProvider?: SearchProvider;
     concurrency: number;

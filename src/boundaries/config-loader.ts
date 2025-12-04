@@ -27,7 +27,7 @@ function isSupportedPattern(p: string): boolean {
 }
 
 enum ConfigKey {
-  EVALS_PATH = 'EvalsPath',
+  RULES_PATH = 'RulesPath',
   SCAN_PATHS = 'ScanPaths',
   CONCURRENCY = 'Concurrency',
   DEFAULT_SEVERITY = 'DefaultSeverity',
@@ -47,7 +47,7 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
 
   const configDir = path.dirname(iniPath);
 
-  let evalsPathRaw: string | undefined;
+  let rulesPathRaw: string | undefined;
   let scanPathsRaw: string[] | undefined;
   let concurrencyRaw: number | undefined;
   let defaultSeverityRaw: string | undefined;
@@ -88,8 +88,8 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
       } else {
         // Global property - process config keys
         switch (key) {
-          case ConfigKey.EVALS_PATH as string:
-            evalsPathRaw = stripQuotes(val);
+          case ConfigKey.RULES_PATH as string:
+            rulesPathRaw = stripQuotes(val);
             break;
           case ConfigKey.SCAN_PATHS as string:
             scanPathsRaw = parseBracketList(val);
@@ -111,8 +111,8 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
   }
 
   // Validate required fields
-  if (!evalsPathRaw) {
-    throw new ConfigError('EvalsPath is required in config file');
+  if (!rulesPathRaw) {
+    throw new ConfigError('RulesPath is required in config file');
   }
   if (!scanPathsRaw || scanPathsRaw.length === 0) {
     throw new ConfigError('ScanPaths is required in config file');
@@ -126,15 +126,15 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
   }
 
   // Resolve paths
-  const evalsPath = path.isAbsolute(evalsPathRaw)
-    ? evalsPathRaw
-    : path.resolve(configDir, evalsPathRaw);
+  const rulesPath = path.isAbsolute(rulesPathRaw)
+    ? rulesPathRaw
+    : path.resolve(configDir, rulesPathRaw);
 
   const concurrency = concurrencyRaw ?? 4;
 
   // Create config object and validate with schema
   const configData = {
-    evalsPath,
+    rulesPath,
     scanPaths: scanPathsRaw,
     concurrency,
     configDir,

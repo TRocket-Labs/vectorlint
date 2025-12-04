@@ -52,15 +52,15 @@ describe('Eval Pack System End-to-End', () => {
 
         // 2. Create config file
         const iniContent = `
-EvalsPath = ${promptsDir}
+RulesPath = ${promptsDir}
 ScanPaths = ["**/*.md"]
 
 [docs/**/*.md]
-RunEvals = VectorLint
+RunRules = VectorLint
 technical-accuracy.strictness = 9
 
 [docs/blog/**/*.md]
-RunEvals = VectorLint, CustomPack
+RunRules = VectorLint, CustomPack
 readability.severity = error
 `;
         writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
@@ -69,7 +69,7 @@ readability.severity = error
         const config = loadConfig(tempDir);
 
         expect(config.fileSections).toHaveLength(2);
-        expect(config.evalsPath).toBe(promptsDir);
+        expect(config.rulesPath).toBe(promptsDir);
 
         // 4. Discover eval packs
         const loader = new EvalPackLoader();
@@ -127,14 +127,14 @@ readability.severity = error
 
         // 2. Config references non-existent pack
         const iniContent = `
-EvalsPath = ${promptsDir}
+RulesPath = ${promptsDir}
 ScanPaths = ["**/*.md"]
 
 [docs/**/*.md]
-RunEvals = VectorLint, NonExistentPack
+RunRules = VectorLint, NonExistentPack
 
 [docs/archived/**/*.md]
-RunEvals = 
+RunRules = 
 `;
         writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
 

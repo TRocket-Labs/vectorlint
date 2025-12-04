@@ -7,10 +7,10 @@ describe('File-centric configuration (File Sections)', () => {
     const resolver = new FileSectionResolver();
 
     describe('FileSectionParser', () => {
-        it('parses single section with RunEvals', () => {
+        it('parses single section with RunRules', () => {
             const config = {
                 'docs/**/*.md': {
-                    RunEvals: 'VectorLint'
+                    RunRules: 'VectorLint'
                 }
             };
 
@@ -18,38 +18,38 @@ describe('File-centric configuration (File Sections)', () => {
 
             expect(sections).toHaveLength(1);
             expect(sections[0].pattern).toBe('docs/**/*.md');
-            expect(sections[0].runEvals).toEqual(['VectorLint']);
+            expect(sections[0].runRules).toEqual(['VectorLint']);
             expect(sections[0].overrides).toEqual({});
         });
 
         it('parses comma-separated pack names', () => {
             const config = {
                 'content/**/*.md': {
-                    RunEvals: 'VectorLint, CustomPack, BlogPack'
+                    RunRules: 'VectorLint, CustomPack, BlogPack'
                 }
             };
 
             const sections = parser.parseSections(config);
 
-            expect(sections[0].runEvals).toEqual(['VectorLint', 'CustomPack', 'BlogPack']);
+            expect(sections[0].runRules).toEqual(['VectorLint', 'CustomPack', 'BlogPack']);
         });
 
-        it('parses empty RunEvals as exclusion', () => {
+        it('parses empty RunRules as exclusion', () => {
             const config = {
                 'archived/**/*.md': {
-                    RunEvals: ''
+                    RunRules: ''
                 }
             };
 
             const sections = parser.parseSections(config);
 
-            expect(sections[0].runEvals).toEqual([]);
+            expect(sections[0].runRules).toEqual([]);
         });
 
         it('extracts overrides from section', () => {
             const config = {
                 'critical/**/*.md': {
-                    RunEvals: 'VectorLint',
+                    RunRules: 'VectorLint',
                     'technical-accuracy.strictness': '9',
                     'readability.severity': 'error'
                 }
@@ -69,7 +69,7 @@ describe('File-centric configuration (File Sections)', () => {
             const sections: FilePatternConfig[] = [
                 {
                     pattern: 'docs/**/*.md',
-                    runEvals: ['VectorLint'],
+                    runRules: ['VectorLint'],
                     overrides: {}
                 }
             ];
@@ -84,12 +84,12 @@ describe('File-centric configuration (File Sections)', () => {
             const sections: FilePatternConfig[] = [
                 {
                     pattern: 'content/**/*.md',
-                    runEvals: ['BasePack'],
+                    runRules: ['BasePack'],
                     overrides: {}
                 },
                 {
                     pattern: '**/blog/*.md',
-                    runEvals: ['BlogPack'],
+                    runRules: ['BlogPack'],
                     overrides: {}
                 }
             ];
@@ -105,12 +105,12 @@ describe('File-centric configuration (File Sections)', () => {
             const sections: FilePatternConfig[] = [
                 {
                     pattern: '**/*.md',
-                    runEvals: [],
+                    runRules: [],
                     overrides: { strictness: 7 }
                 },
                 {
                     pattern: 'docs/**/*.md',
-                    runEvals: [],
+                    runRules: [],
                     overrides: { strictness: 9 }
                 }
             ];
@@ -124,12 +124,12 @@ describe('File-centric configuration (File Sections)', () => {
             const sections: FilePatternConfig[] = [
                 {
                     pattern: '**/*.md',
-                    runEvals: ['VectorLint'],
+                    runRules: ['VectorLint'],
                     overrides: { strictness: 7 }
                 },
                 {
                     pattern: 'archived/**/*.md',
-                    runEvals: [], // Explicit exclusion
+                    runRules: [], // Explicit exclusion
                     overrides: {}
                 }
             ];
@@ -144,7 +144,7 @@ describe('File-centric configuration (File Sections)', () => {
             const sections: FilePatternConfig[] = [
                 {
                     pattern: '**/*.md',
-                    runEvals: ['NonExistent', 'VectorLint', 'AlsoMissing'],
+                    runRules: ['NonExistent', 'VectorLint', 'AlsoMissing'],
                     overrides: {}
                 }
             ];
@@ -162,7 +162,7 @@ describe('File-centric configuration (File Sections)', () => {
             const sections: FilePatternConfig[] = [
                 {
                     pattern: '**/*.md',
-                    runEvals: ['VectorLint'],
+                    runRules: ['VectorLint'],
                     overrides: {}
                 }
             ];
@@ -179,12 +179,12 @@ describe('File-centric configuration (File Sections)', () => {
             const sections: FilePatternConfig[] = [
                 {
                     pattern: '**/*.md',
-                    runEvals: ['VectorLint'],
+                    runRules: ['VectorLint'],
                     overrides: { 'technical-accuracy.strictness': 7 }
                 },
                 {
                     pattern: 'docs/api/**/*.md',
-                    runEvals: ['APIPack'],
+                    runRules: ['APIPack'],
                     overrides: { 'technical-accuracy.strictness': 9 }
                 }
             ];
