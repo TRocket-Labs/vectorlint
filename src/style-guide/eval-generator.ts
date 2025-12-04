@@ -4,6 +4,7 @@ import { StyleGuideRule, ParsedStyleGuide } from '../schemas/style-guide-schemas
 import { EVAL_GENERATION_SCHEMA, EvalGenerationOutput } from './eval-generation-schema';
 import { EvalGenerationError } from '../errors/style-guide-errors';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import { TemplateRenderer } from './template-renderer';
 
 export interface EvalGenerationOptions {
     llmProvider: LLMProvider;
@@ -26,6 +27,7 @@ export interface GeneratedEval {
 export class EvalGenerator {
     private llmProvider: LLMProvider;
     private options: EvalGenerationOptions;
+    private renderer: TemplateRenderer;
 
     constructor(options: EvalGenerationOptions) {
         this.llmProvider = options.llmProvider;
@@ -34,6 +36,7 @@ export class EvalGenerator {
             strictness: 'standard',
             ...options,
         };
+        this.renderer = new TemplateRenderer(options.templateDir);
     }
 
     /**
