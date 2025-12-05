@@ -1,6 +1,7 @@
 import { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
+import { Severity } from '../evaluators/types';
 
-export type ValidationLevel = 'error' | 'warning';
+export type ValidationLevel = Severity;
 export interface Validation {
   file: string;
   level: ValidationLevel;
@@ -30,52 +31,52 @@ export function validatePrompt(p: PromptFile): Validation[] {
   const meta: PromptMeta = p.meta;
 
   if (!meta.criteria || meta.criteria.length === 0) {
-    out.push({ file: p.filename, level: 'error', message: 'No criteria defined' });
+    out.push({ file: p.filename, level: Severity.ERROR, message: 'No criteria defined' });
     return out;
   }
 
   for (const c of meta.criteria) {
     if (!c.id && !c.name) {
-      out.push({ file: p.filename, level: 'error', message: 'Criterion missing id/name' });
+      out.push({ file: p.filename, level: Severity.ERROR, message: 'Criterion missing id/name' });
     }
     const w = Number(c.weight);
     if (!Number.isFinite(w) || w <= 0) {
-      out.push({ file: p.filename, level: 'error', message: `Invalid weight for ${c.name || c.id}` });
+      out.push({ file: p.filename, level: Severity.ERROR, message: `Invalid weight for ${c.name || c.id}` });
     }
     if (c.target) {
       if (!validateFlags(c.target.flags)) {
-        out.push({ file: p.filename, level: 'error', message: `Invalid regex flags in target for ${c.name || c.id}` });
+        out.push({ file: p.filename, level: Severity.ERROR, message: `Invalid regex flags in target for ${c.name || c.id}` });
       }
       if (c.target.group !== undefined && (!Number.isInteger(c.target.group) || c.target.group < 0)) {
-        out.push({ file: p.filename, level: 'error', message: `Invalid target.group for ${c.name || c.id}` });
+        out.push({ file: p.filename, level: Severity.ERROR, message: `Invalid target.group for ${c.name || c.id}` });
       }
       if (c.target.regex) {
         try { new RegExp(c.target.regex, c.target.flags || ''); } catch {
-          out.push({ file: p.filename, level: 'error', message: `Invalid target.regex for ${c.name || c.id}` });
+          out.push({ file: p.filename, level: Severity.ERROR, message: `Invalid target.regex for ${c.name || c.id}` });
         }
       }
       if (c.target.suggestion && typeof c.target.suggestion !== 'string') {
-        out.push({ file: p.filename, level: 'error', message: `Invalid target.suggestion for ${c.name || c.id}` });
+        out.push({ file: p.filename, level: Severity.ERROR, message: `Invalid target.suggestion for ${c.name || c.id}` });
       }
     }
   }
 
   const dups = uniqueIds(meta.criteria);
-  for (const id of dups) out.push({ file: p.filename, level: 'error', message: `Duplicate criterion id: ${id}` });
-  if (meta.severity !== undefined && meta.severity !== 'warning' && meta.severity !== 'error') {
-    out.push({ file: p.filename, level: 'error', message: 'severity must be "warning" or "error"' });
+  for (const id of dups) out.push({ file: p.filename, level: Severity.ERROR, message: `Duplicate criterion id: ${id}` });
+  if (meta.severity !== undefined && meta.severity !== Severity.WARNING && meta.severity !== Severity.ERROR) {
+    out.push({ file: p.filename, level: Severity.ERROR, message: 'severity must be "warning" or "error"' });
   }
 
   if (meta.target) {
     if (!validateFlags(meta.target.flags)) {
-      out.push({ file: p.filename, level: 'error', message: 'Invalid regex flags in global target' });
+      out.push({ file: p.filename, level: Severity.ERROR, message: 'Invalid regex flags in global target' });
     }
     if (meta.target.group !== undefined && (!Number.isInteger(meta.target.group) || meta.target.group < 0)) {
-      out.push({ file: p.filename, level: 'error', message: 'Invalid global target.group' });
+      out.push({ file: p.filename, level: Severity.ERROR, message: 'Invalid global target.group' });
     }
     if (meta.target.regex) {
       try { new RegExp(meta.target.regex, meta.target.flags || ''); } catch {
-        out.push({ file: p.filename, level: 'error', message: 'Invalid global target.regex' });
+        out.push({ file: p.filename, level: Severity.ERROR, message: 'Invalid global target.regex' });
       }
     }
   }
@@ -88,7 +89,7 @@ export function validateAll(prompts: PromptFile[]): { errors: Validation[]; warn
   const warnings: Validation[] = [];
   for (const p of prompts) {
     const findings = validatePrompt(p);
-    for (const f of findings) (f.level === 'error' ? errors : warnings).push(f);
+    for (const f of findings) (f.level === Severity.ERROR ? errors : warnings).push(f);
   }
   return { errors, warnings };
 }

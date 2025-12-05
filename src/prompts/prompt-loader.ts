@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
 import YAML from 'yaml';
 import { PROMPT_META_SCHEMA, type PromptFile, type PromptMeta } from '../schemas/prompt-schemas';
+import { Severity } from '../evaluators/types';
 
 // Re-export types for backward compatibility
 export type { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
@@ -59,7 +60,7 @@ export function loadPromptFile(fullPath: string, packName?: string): { prompt: P
       }
     }
 
-    if (meta.severity && meta.severity !== 'warning' && meta.severity !== 'error') {
+    if (meta.severity && meta.severity !== Severity.WARNING && meta.severity !== Severity.ERROR) {
       return { prompt: undefined, warning: `Skipping ${path.basename(fullPath)}: invalid severity` };
     }
     if (meta.target) {

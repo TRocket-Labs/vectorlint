@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Severity } from '../evaluators/types';
 
 // Target specification schema for regex matching
 export const TARGET_SPEC_SCHEMA = z.object({
@@ -37,7 +38,7 @@ export const PROMPT_META_SCHEMA = z.object({
   type: z.enum(['subjective', 'semi-objective']).optional(),
   id: z.string(),
   name: z.string(),
-  severity: z.enum(['warning', 'error']).optional(),
+  severity: z.nativeEnum(Severity).optional(),
   strictness: z.union([
     z.number().positive(),
     z.enum(['lenient', 'standard', 'strict'])

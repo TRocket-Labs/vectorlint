@@ -5,18 +5,6 @@ import { ConfigError, ValidationError, handleUnknownError } from '../errors/inde
 import { DEFAULT_CONFIG_FILENAME } from '../config/constants';
 import { FileSectionParser } from './file-section-parser';
 
-function parseBracketList(value: string): string[] {
-  const v = value.trim();
-  const m = v.match(/^\[(.*)\]$/);
-  if (!m || !m[1]) return [];
-  const inner = m[1];
-  return inner
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-    .map((s) => s.replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
-}
-
 function isSupportedPattern(p: string): boolean {
   const last = p.split(/[\\/]/).pop() || p;
   if (/\.(md|txt|mdx)$/i.test(last)) return true;
@@ -27,7 +15,7 @@ function isSupportedPattern(p: string): boolean {
 }
 
 enum ConfigKey {
-  PROMPTS_PATH = 'PromptsPath',
+  RULES_PATH = 'RulesPath',
   SCAN_PATHS = 'ScanPaths',
   CONCURRENCY = 'Concurrency',
   DEFAULT_SEVERITY = 'DefaultSeverity',
@@ -47,8 +35,7 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
 
   const configDir = path.dirname(iniPath);
 
-  let promptsPathRaw: string | undefined;
-  let scanPathsRaw: string[] | undefined;
+  let rulesPathRaw: string | undefined;
   let concurrencyRaw: number | undefined;
   let defaultSeverityRaw: string | undefined;
   const rawConfigObj: Record<string, unknown> = {};
@@ -72,10 +59,10 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
       }
 
       const m = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.*)$/);
-      if (!m || !m[1] || !m[2]) continue;
+      if (!m || !m[1]) continue;
 
       const key = m[1];
-      const val = m[2];
+      const val = m[2] || '';
       const stripQuotes = (str: string): string =>
         str.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
 
@@ -88,19 +75,21 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
       } else {
         // Global property - process config keys
         switch (key) {
-          case ConfigKey.PROMPTS_PATH as string:
-            promptsPathRaw = stripQuotes(val);
+          case ConfigKey.RULES_PATH as string:
+            rulesPathRaw = stripQuotes(val);
             break;
           case ConfigKey.SCAN_PATHS as string:
-            scanPathsRaw = parseBracketList(val);
-            break;
+            throw new ConfigError('Old ScanPaths=[...] syntax no longer supported. Use [pattern] sections instead.');
           case ConfigKey.CONCURRENCY as string: {
-            const n = Number(stripQuotes(val));
-            if (Number.isFinite(n) && n > 0) concurrencyRaw = Math.floor(n);
+            const parsed = parseInt(val, 10);
+            if (Number.isNaN(parsed)) {
+              throw new ConfigError(`Invalid Concurrency value: ${val}`);
+            }
+            concurrencyRaw = parsed;
             break;
           }
           case ConfigKey.DEFAULT_SEVERITY as string:
-            defaultSeverityRaw = stripQuotes(val).toLowerCase();
+            defaultSeverityRaw = stripQuotes(val);
             break;
         }
       }
@@ -111,35 +100,38 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
   }
 
   // Validate required fields
-  if (!promptsPathRaw) {
-    throw new ConfigError('PromptsPath is required in config file');
+  if (!rulesPathRaw) {
+    throw new ConfigError('RulesPath is required in config file');
   }
-  if (!scanPathsRaw || scanPathsRaw.length === 0) {
-    throw new ConfigError('ScanPaths is required in config file');
+
+  const scanPaths = new FileSectionParser().parseSections(rawConfigObj);
+
+  if (!scanPaths || scanPaths.length === 0) {
+    throw new ConfigError('At least one [pattern] path is required in config file');
   }
 
   // Validate scan path patterns
-  for (const pattern of scanPathsRaw) {
-    if (!isSupportedPattern(pattern)) {
-      throw new ConfigError(`Only .md, .txt, and .mdx are supported in ScanPaths. Invalid pattern: ${pattern}`);
+  for (const pattern of scanPaths) {
+    if (!isSupportedPattern(pattern.pattern)) {
+      throw new ConfigError(`Only .md, .txt, and .mdx are supported in ScanPaths. Invalid pattern: ${pattern.pattern}`);
     }
   }
 
   // Resolve paths
-  const promptsPath = path.isAbsolute(promptsPathRaw)
-    ? promptsPathRaw
-    : path.resolve(configDir, promptsPathRaw);
+  const rulesPath = path.isAbsolute(rulesPathRaw)
+    ? rulesPathRaw
+    : path.resolve(configDir, rulesPathRaw);
 
   const concurrency = concurrencyRaw ?? 4;
 
   // Create config object and validate with schema
+  // Create config object and validate with schema
   const configData = {
-    promptsPath,
-    scanPaths: scanPathsRaw,
+    rulesPath,
+    scanPaths,
     concurrency,
     configDir,
     defaultSeverity: defaultSeverityRaw,
-    fileSections: new FileSectionParser().parseSections(rawConfigObj),
   };
 
   try {

@@ -90,7 +90,13 @@ export default defineConfig([
     // Configs & tests can import dev deps
     {
         files: ["*.config.{js,mjs,ts}", "tests/**/*", "**/*.test.{js,ts}"],
-        rules: { "n/no-unpublished-import": "off" }
+        rules: {
+            "n/no-unpublished-import": "off",
+            "@typescript-eslint/no-explicit-any": "off",
+            "@typescript-eslint/no-unsafe-call": "off",
+            "@typescript-eslint/no-unsafe-member-access": "off",
+            "@typescript-eslint/no-unsafe-return": "off"
+        }
     },
 
     // Disable type-aware rules for config files

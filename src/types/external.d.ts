@@ -1,5 +1,3 @@
-declare module 'micromatch';
-
 declare module '@perplexity-ai/perplexity_ai' {
   export default class Perplexity {
     constructor();

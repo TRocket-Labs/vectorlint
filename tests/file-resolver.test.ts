@@ -25,8 +25,10 @@ describe('FileResolver', () => {
     const res = resolveTargets({
       cliArgs: [],
       cwd: root,
-      promptsPath: path.join(root, 'prompts'),
-      scanPaths: ['**/*.md'],
+      rulesPath: path.join(root, 'prompts'),
+      scanPaths: [
+        { pattern: '**/*.md', overrides: {} }
+      ],
       configDir: root,
     });
     expect(res.sort()).toEqual([
@@ -46,8 +48,10 @@ describe('FileResolver', () => {
     const res = resolveTargets({
       cliArgs: [path.join(root, 'articles')],
       cwd: root,
-      promptsPath: path.join(root, 'prompts'),
-      scanPaths: ['*.md'],
+      rulesPath: path.join(root, 'prompts'),
+      scanPaths: [
+        { pattern: '*.md', overrides: {} }
+      ],
       configDir: root,
     });
     expect(res.sort()).toEqual([
@@ -67,8 +71,11 @@ describe('FileResolver', () => {
     const res = resolveTargets({
       cliArgs: [],
       cwd: root,
-      promptsPath: path.join(root, 'prompts'),
-      scanPaths: ['docs/*md', 'docs/*.txt'],
+      rulesPath: path.join(root, 'prompts'),
+      scanPaths: [
+        { pattern: 'docs/*md', overrides: {} },
+        { pattern: 'docs/*.txt', overrides: {} }
+      ],
       configDir: root,
     });
     expect(res.sort()).toEqual([

@@ -8,6 +8,7 @@ import { renderTemplate } from "../prompts/template-renderer";
 import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
 import { Type, type Severity } from "./types";
+import { MissingDependencyError } from "../errors/index";
 
 // Schema for claim extraction response
 const CLAIM_EXTRACTION_SCHEMA = z.object({
@@ -208,7 +209,11 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
 // Self-register on module load using registerEvaluator directly
 registerEvaluator(Type.TECHNICAL_ACCURACY, (llmProvider, prompt, searchProvider, defaultSeverity) => {
   if (!searchProvider) {
-    throw new Error("technical-accuracy evaluator requires a search provider");
+    throw new MissingDependencyError(
+      "technical-accuracy evaluator requires a search provider",
+      "search-provider",
+      "Configure TAVILY_API_KEY or PERPLEXITY_API_KEY in .env, or remove this eval"
+    );
   }
   return new TechnicalAccuracyEvaluator(llmProvider, prompt, searchProvider, defaultSeverity);
 });
