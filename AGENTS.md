@@ -12,12 +12,12 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
   - `errors/` — custom error types and validation errors
   - `evaluators/` — evaluation logic (base evaluator, registry, specific evaluators)
   - `output/` — TTY formatting (reporter, evidence location)
-  - `prompts/` — YAML frontmatter parsing, schema validation, prompt loading and mapping
+  - `prompts/` — YAML frontmatter parsing, schema validation, eval loading and mapping
   - `providers/` — LLM abstractions (OpenAI, Anthropic, Azure, Perplexity), request builder, provider factory
   - `scan/` — file discovery (fast‑glob) honoring config and exclusions
   - `schemas/` — Zod schemas for all external data (API responses, config, CLI, env)
   - `types/` — TypeScript type definitions
-- `prompts/` — user prompts (.md with YAML frontmatter)
+- `evals/` — user evaluations (.md with YAML frontmatter)
 - `tests/` — Vitest specs for config, scanning, evaluation, providers
 - `vectorlint.example.ini` — template for project config (copy to `vectorlint.ini`)
 
@@ -36,7 +36,7 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
 
 - TypeScript ESM; prefer explicit imports and narrow types
 - Indentation: 2 spaces; avoid trailing whitespace
-- Prompt YAML: `name` (human), `id` (PascalCase), criteria `id` (PascalCase)
+- Eval YAML: `name` (human), `id` (PascalCase), criteria `id` (PascalCase)
 - IDs shown as `PromptId.CriterionId` in output
 
 ## Testing Guidelines
@@ -69,7 +69,7 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
 - Type safety: strict TypeScript with no `any`; use `unknown` + schema validation for external data
 - Dependency inversion: depend on `LLMProvider` and `SearchProvider` interfaces; keep providers thin (transport only)
 - Dependency injection: inject `RequestBuilder` via provider constructor to avoid coupling
-- Separation of concerns: prompts define rubric; schemas enforce structure; CLI orchestrates; evaluators process; reporters format
+- Separation of concerns: evals define rubric; schemas enforce structure; CLI orchestrates; evaluators process; reporters format
 - Extensibility: add providers by implementing `LLMProvider` or `SearchProvider`; add evaluators via registry pattern
 - Error handling: custom error types with proper inheritance; catch blocks use `unknown` type
 
@@ -83,17 +83,81 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
 - Maintain acyclic dependencies (CLI → prompts/providers/output)
 - Add a brief rationale when introducing a new folder; rename rather than accumulate near‑duplicates
 
+## Eval Pack System
+
+VectorLint uses a **pack-based organization** for evaluations:
+
+- All evaluations must be organized into **subdirectories** (packs) within `RulesPath`
+- Pack names are **arbitrary** — use `VectorLint`, `MyCustomPack`, `Marketing`, etc.
+- The system recursively loads **all `.md` files** from within each pack
+- Multiple packs can be used simultaneously: `RunRules=VectorLint,Marketing`
+
+**Directory Structure:**
+```
+.github/evals/
+  VectorLint/              ← Example pack (name is arbitrary)
+    grammar-checker.md
+    Technical/             ← Nested organization supported
+      technical-accuracy.md
+  CustomPack/              ← Another pack
+    custom-eval.md
+```
+
+**File-Centric Configuration:**
+
+Use `[glob/pattern]` sections in `vectorlint.ini` to specify which packs run on which files:
+
+```ini
+# Global settings
+RulesPath=.github/evals
+ScanPaths=[*.md]
+
+# All markdown files - run VectorLint pack
+[**/*.md]
+RunRules=VectorLint
+GrammarChecker.strictness=7
+
+# Technical docs - higher strictness
+[docs/**/*.md]
+RunRules=VectorLint
+GrammarChecker.strictness=9
+
+# Marketing - different pack
+[marketing/**/*.md]
+RunRules=Marketing
+
+# Drafts - skip all evaluations
+[drafts/**/*.md]
+RunRules=
+```
+
+## Output Formats
+
+VectorLint supports multiple output formats via the `--output` flag:
+
+- `line` (default): Human-readable terminal output with colored scores
+- `json`: Native VectorLint JSON format with detailed score breakdowns
+- `vale-json`: Vale-compatible JSON format for integration with Vale-supporting tools
+
 ## Security & Configuration Tips
 
-- Copy `vectorlint.example.ini` → `vectorlint.ini`; set `PromptsPath`, `ScanPaths`, `Concurrency`
-- Copy `.env.example` → `.env` for provider credentials (OpenAI, Anthropic, Azure, Perplexity)
+- Copy `vectorlint.example.ini` → `vectorlint.ini`; set `RulesPath`, `ScanPaths`, `Concurrency`
+- Organize evaluations into pack subdirectories (e.g., `RulesPath/VectorLint/`)
+- Use `[glob/pattern]` sections with `RunRules=PackName` to map files to rule packs
+- Copy `.env.example` → `.env` for provider credentials (OpenAI, Anthropic, Azure, Gemini, Perplexity)
 - All environment variables validated via Zod schemas in `src/boundaries/env-parser.ts`
 - Never commit secrets; `.env` is gitignored
-- Prompts must include YAML frontmatter; the tool appends evidence instructions automatically
+- Evals must include YAML frontmatter; the tool appends evidence instructions automatically
 
 ## Provider Support
+
+### LLM Providers
 
 - OpenAI: GPT-4 and GPT-3.5 models
 - Anthropic: Claude models (Opus, Sonnet, Haiku)
 - Azure OpenAI: Azure-hosted OpenAI models
-- Perplexity: Sonar models with web search capabilities
+- Google Gemini: Gemini Pro and other Gemini models
+
+### Search Providers
+
+- Perplexity: Sonar models with web search capabilities (used by technical-accuracy evaluator)

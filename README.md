@@ -80,7 +80,12 @@ To run `vectorlint` from anywhere on your machine, use `npm link`.
 
 ### LLM Provider
 
-VectorLint supports OpenAI, Azure OpenAI, Anthropic, and Perplexity.
+VectorLint supports multiple LLM providers:
+
+- **OpenAI**: GPT-4, GPT-3.5, and other OpenAI models
+- **Anthropic**: Claude (Opus, Sonnet, Haiku)
+- **Azure OpenAI**: Azure-hosted OpenAI models
+- **Google Gemini**: Gemini Pro and other Gemini models
 
 **Minimal Setup (OpenAI):**
 
@@ -88,19 +93,70 @@ VectorLint supports OpenAI, Azure OpenAI, Anthropic, and Perplexity.
 2.  Set `LLM_PROVIDER=openai`.
 3.  Set `OPENAI_API_KEY=your-key`.
 
-For other providers (Azure, Anthropic), see the comments in `.env.example`.
+For other providers (Azure, Anthropic, Gemini), see the comments in `.env.example`.
+
+### Search Provider (Optional)
+
+For the `technical-accuracy` evaluator, you can optionally configure a search provider:
+
+- **Perplexity**: Set `SEARCH_PROVIDER=perplexity` and `PERPLEXITY_API_KEY` in `.env`
 
 ### Project Config (vectorlint.ini)
 
-To customize which prompts run on which files, use a `vectorlint.ini` file in your project root.
+VectorLint uses a **file-centric configuration**. Evaluations are organized into **rule packs** (subdirectories), and you configure which packs run on which files.
 
 ```bash
 cp vectorlint.example.ini vectorlint.ini
 ```
 
+**Required Directory Structure:**
+
+Organize your evaluations into subdirectories (packs) within `RulesPath`:
+
+```
+.github/evals/
+  VectorLint/              ← Eval pack (name is arbitrary)
+    grammar-checker.md
+    headline-evaluator.md
+    Technical/             ← Nested organization supported
+      technical-accuracy.md
+  CustomPack/              ← You can have multiple packs
+    custom-eval.md
+```
+
+**Configuration Format:**
+
+Use `[glob/pattern]` sections to specify which packs run on which files:
+
+```ini
+# Global settings
+RulesPath=.github/evals
+ScanPaths=[content/**/*.md]
+
+# All content - run VectorLint pack
+[content/**/*.md]
+RunRules=VectorLint
+GrammarChecker.strictness=7
+
+# Technical docs - higher strictness
+[content/docs/**/*.md]
+RunRules=VectorLint
+GrammarChecker.strictness=9
+
+# Marketing - use custom pack
+[content/marketing/**/*.md]
+RunRules=CustomPack
+
+# Drafts - skip all evaluations
+[content/drafts/**/*.md]
+RunRules=
+```
+
 **Key Settings:**
-- `PromptsPath`: Directory containing your `.md` prompts.
-- `ScanPaths`: Glob patterns for files to scan (e.g., `[content/**/*.md]`).
+- `RulesPath`: Root directory containing your rule pack subdirectories
+- `ScanPaths`: Glob patterns for files to scan (e.g., `[content/**/*.md]`)
+- `[pattern]` sections: Map file patterns to rule packs using `RunRules`
+- Per-eval overrides: Tune specific evaluations (e.g., `GrammarChecker.strictness=9`)
 
 ## Usage Guide
 
@@ -115,24 +171,43 @@ npm run dev -- path/to/article.md
 
 # Debug mode (shows prompts and full JSON response)
 vectorlint --verbose --show-prompt --debug-json path/to/article.md
+
+# JSON output formats
+vectorlint --output json path/to/article.md        # Native VectorLint JSON
+vectorlint --output vale-json path/to/article.md   # Vale-compatible JSON
 ```
 
 ### Creating Prompts
 
-Prompts are simple Markdown files with YAML frontmatter.
+Prompts are Markdown files with YAML frontmatter, organized into rule packs (subdirectories).
 
-**Example (`prompts/grammar.md`):**
+**Example** (`VectorLint/tone-checker.md`):
 
 ```markdown
 ---
 evaluator: base
 type: subjective
-id: tone-check
+id: ToneChecker
 name: Tone and Style Check
-severity: error
+severity: warning
 criteria:
-  - id: friendlinessure professional writing quality.
+  - name: Friendliness
+    id: Friendliness
+    weight: 10
+  - name: Professionalism
+    id: Professionalism
+    weight: 8
+---
+
+You are a tone evaluator. Assess the content for:
+
+1. **Friendliness**: Is the tone welcoming and approachable?
+2. **Professionalism**: Does it maintain professional writing quality?
+
+Provide a score (1-4) for each criterion with specific examples.
 ```
+
+For detailed guidance, see [CREATING_EVALS.md](./CREATING_EVALS.md).
 
 ## Testing
 

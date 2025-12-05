@@ -1,7 +1,7 @@
 
 export interface FilePatternConfig {
     pattern: string;
-    runEvals: string[]; // List of pack names to run
+    runRules?: string[]; // List of pack names to run (optional)
     overrides: Record<string, unknown>;
 }
 
@@ -20,29 +20,35 @@ export class FileSectionParser {
                 const pattern = key;
                 const sectionConfig = value as Record<string, unknown>;
 
-                const runEvalsRaw = sectionConfig['RunEvals'];
-                let runEvals: string[] = [];
+                const runRulesRaw = sectionConfig['RunRules'];
+                let runRules: string[] | undefined;
 
-                if (typeof runEvalsRaw === 'string') {
-                    if (runEvalsRaw.trim() === '') {
-                        runEvals = [];
+                if (typeof runRulesRaw === 'string') {
+                    const strValue = runRulesRaw;
+                    if (strValue.trim() === '') {
+                        runRules = [];
                     } else {
-                        runEvals = runEvalsRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                        runRules = strValue.split(',').map(s => s.trim()).filter(s => s.length > 0);
                     }
                 }
 
                 const overrides: Record<string, unknown> = {};
                 for (const [propKey, propValue] of Object.entries(sectionConfig)) {
-                    if (propKey !== 'RunEvals') {
+                    if (propKey !== 'RunRules') {
                         overrides[propKey] = propValue;
                     }
                 }
 
-                sections.push({
+                const section: FilePatternConfig = {
                     pattern,
-                    runEvals,
                     overrides
-                });
+                };
+
+                if (runRules !== undefined) {
+                    section.runRules = runRules;
+                }
+
+                sections.push(section);
             }
         }
 

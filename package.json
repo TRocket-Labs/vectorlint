@@ -15,7 +15,8 @@
     "test:ci": "vitest run --coverage"
   },
   "bin": {
-    "vectorlint": "./dist/index.js"
+    "vectorlint": "./dist/index.js",
+    "veclint": "./dist/index.js"
   },
   "keywords": [
     "linting",
@@ -25,8 +26,16 @@
     "markdown",
     "content QA"
   ],
-  "author": "",
+  "author": "TinyRocket Labs",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TRocket-Labs/vectorlint.git"
+  },
+  "homepage": "https://vectorlint.dev",
+  "bugs": {
+    "url": "https://github.com/TRocket-Labs/vectorlint/issues"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
