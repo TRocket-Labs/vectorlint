@@ -23,8 +23,8 @@ export class FileSectionParser {
                 const runRulesRaw = sectionConfig['RunRules'];
                 let runRules: string[] | undefined;
 
-                if (runRulesRaw !== undefined) {
-                    const strValue = String(runRulesRaw);
+                if (typeof runRulesRaw === 'string') {
+                    const strValue = runRulesRaw;
                     if (strValue.trim() === '') {
                         runRules = [];
                     } else {

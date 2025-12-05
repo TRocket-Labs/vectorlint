@@ -5,18 +5,6 @@ import { ConfigError, ValidationError, handleUnknownError } from '../errors/inde
 import { DEFAULT_CONFIG_FILENAME } from '../config/constants';
 import { FileSectionParser } from './file-section-parser';
 
-function parseBracketList(value: string): string[] {
-  const v = value.trim();
-  const m = v.match(/^\[(.*)\]$/);
-  if (!m || !m[1]) return [];
-  const inner = m[1];
-  return inner
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-    .map((s) => s.replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
-}
-
 function isSupportedPattern(p: string): boolean {
   const last = p.split(/[\\/]/).pop() || p;
   if (/\.(md|txt|mdx)$/i.test(last)) return true;
@@ -48,7 +36,6 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
   const configDir = path.dirname(iniPath);
 
   let rulesPathRaw: string | undefined;
-  let scanPathsRaw: string[] | undefined;
   let concurrencyRaw: number | undefined;
   let defaultSeverityRaw: string | undefined;
   const rawConfigObj: Record<string, unknown> = {};

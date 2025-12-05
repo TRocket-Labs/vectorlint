@@ -4,7 +4,6 @@ import * as fs from 'fs';
 import { ScanPathResolver } from '../src/boundaries/scan-path-resolver';
 import { resolveTargets } from '../src/scan/file-resolver';
 import { loadConfig } from '../src/boundaries/config-loader';
-import { ConfigError } from '../src/errors';
 import { createFilePatternConfig } from './utils.js';
 
 // Mock dependencies
