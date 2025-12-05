@@ -20,7 +20,6 @@ describe('Config Loader Integration', () => {
     it('loads config with file sections', () => {
         const iniContent = `
 RulesPath = ./prompts
-ScanPaths = ["**/*.md"]
 
 [docs/**/*.md]
 RunRules = VectorLint
@@ -35,20 +34,19 @@ readability.severity = error
         const config = loadConfig(tempDir);
 
         expect(config.rulesPath).toContain('prompts');
-        expect(config.scanPaths).toEqual(['**/*.md']);
-        expect(config.fileSections).toHaveLength(2);
+        expect(config.scanPaths).toHaveLength(2);
 
         // First section
-        expect(config.fileSections[0]!.pattern).toBe('docs/**/*.md');
-        expect(config.fileSections[0]!.runRules).toEqual(['VectorLint']);
-        expect(config.fileSections[0]!.overrides).toEqual({
+        expect(config.scanPaths[0]!.pattern).toBe('docs/**/*.md');
+        expect(config.scanPaths[0]!.runRules).toEqual(['VectorLint']);
+        expect(config.scanPaths[0]!.overrides).toEqual({
             'technical-accuracy.strictness': '9'
         });
 
         // Second section
-        expect(config.fileSections[1]!.pattern).toBe('blog/**/*.md');
-        expect(config.fileSections[1]!.runRules).toEqual(['BlogPack', 'SEOPack']);
-        expect(config.fileSections[1]!.overrides).toEqual({
+        expect(config.scanPaths[1]!.pattern).toBe('blog/**/*.md');
+        expect(config.scanPaths[1]!.runRules).toEqual(['BlogPack', 'SEOPack']);
+        expect(config.scanPaths[1]!.overrides).toEqual({
             'readability.severity': 'error'
         });
     });
@@ -56,7 +54,6 @@ readability.severity = error
     it('loads config with multiple file sections and various overrides', () => {
         const iniContent = `
 RulesPath = ./prompts
-ScanPaths = ["**/*.md"]
 
 [content/**/*.md]
 RunRules = Base
@@ -74,28 +71,24 @@ RunRules =
 
         const config = loadConfig(tempDir);
 
-        expect(config.fileSections).toHaveLength(3);
+        expect(config.scanPaths).toHaveLength(3);
 
         // Third section has empty RunRules (exclusion)
-        expect(config.fileSections[2]!.runRules).toEqual([]);
+        expect(config.scanPaths[2]!.runRules).toEqual([]);
     });
 
-    it('loads config without file sections (defaults to empty array)', () => {
+    it('loads config without file sections (throws error)', () => {
         const iniContent = `
 RulesPath = ./prompts
-ScanPaths = ["**/*.md"]
 `;
         writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
 
-        const config = loadConfig(tempDir);
-
-        expect(config.fileSections).toEqual([]);
+        expect(() => loadConfig(tempDir)).toThrow(/At least one \[pattern\] path is required/);
     });
 
     it('handles config with concurrency and default severity', () => {
         const iniContent = `
 RulesPath = ./prompts
-ScanPaths = ["**/*.md"]
 Concurrency = 8
 DefaultSeverity = error
 
@@ -108,13 +101,12 @@ RunRules = VectorLint
 
         expect(config.concurrency).toBe(8);
         expect(config.defaultSeverity).toBe('error');
-        expect(config.fileSections).toHaveLength(1);
+        expect(config.scanPaths).toHaveLength(1);
     });
 
     it('preserves order of file sections', () => {
         const iniContent = `
 RulesPath = ./prompts
-ScanPaths = ["**/*.md"]
 
 [first/**/*.md]
 RunRules = First
@@ -129,9 +121,9 @@ RunRules = Third
 
         const config = loadConfig(tempDir);
 
-        expect(config.fileSections).toHaveLength(3);
-        expect(config.fileSections[0]!.pattern).toBe('first/**/*.md');
-        expect(config.fileSections[1]!.pattern).toBe('second/**/*.md');
-        expect(config.fileSections[2]!.pattern).toBe('third/**/*.md');
+        expect(config.scanPaths).toHaveLength(3);
+        expect(config.scanPaths[0]!.pattern).toBe('first/**/*.md');
+        expect(config.scanPaths[1]!.pattern).toBe('second/**/*.md');
+        expect(config.scanPaths[2]!.pattern).toBe('third/**/*.md');
     });
 });

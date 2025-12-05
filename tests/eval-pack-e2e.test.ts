@@ -4,7 +4,7 @@ import path from 'path';
 import { tmpdir } from 'os';
 import { EvalPackLoader } from '../src/boundaries/eval-pack-loader.js';
 import { loadConfig } from '../src/boundaries/config-loader.js';
-import { FileSectionResolver } from '../src/boundaries/file-section-resolver.js';
+import { ScanPathResolver } from '../src/boundaries/scan-path-resolver.js';
 
 describe('Eval Pack System End-to-End', () => {
     let tempDir: string;
@@ -53,7 +53,6 @@ describe('Eval Pack System End-to-End', () => {
         // 2. Create config file
         const iniContent = `
 RulesPath = ${promptsDir}
-ScanPaths = ["**/*.md"]
 
 [docs/**/*.md]
 RunRules = VectorLint
@@ -68,7 +67,7 @@ readability.severity = error
         // 3. Load configuration
         const config = loadConfig(tempDir);
 
-        expect(config.fileSections).toHaveLength(2);
+        expect(config.scanPaths).toHaveLength(2);
         expect(config.rulesPath).toBe(promptsDir);
 
         // 4. Discover eval packs
@@ -87,12 +86,12 @@ readability.severity = error
         expect(customPackFiles).toHaveLength(1);
 
         // 6. Resolve for specific files
-        const resolver = new FileSectionResolver();
+        const resolver = new ScanPathResolver();
 
         // Test file in docs/
         const docsFileResolution = resolver.resolveEvaluationsForFile(
             'docs/guide.md',
-            config.fileSections,
+            config.scanPaths,
             packs
         );
 
@@ -104,7 +103,7 @@ readability.severity = error
         // Test file in docs/blog/
         const blogFileResolution = resolver.resolveEvaluationsForFile(
             'docs/blog/post.md',
-            config.fileSections,
+            config.scanPaths,
             packs
         );
 
@@ -128,7 +127,6 @@ readability.severity = error
         // 2. Config references non-existent pack
         const iniContent = `
 RulesPath = ${promptsDir}
-ScanPaths = ["**/*.md"]
 
 [docs/**/*.md]
 RunRules = VectorLint, NonExistentPack
@@ -142,12 +140,12 @@ RunRules =
         const config = loadConfig(tempDir);
         const loader = new EvalPackLoader();
         const packs = await loader.findAllPacks(promptsDir);
-        const resolver = new FileSectionResolver();
+        const resolver = new ScanPathResolver();
 
         // Non-existent pack should be filtered out
         const docsResolution = resolver.resolveEvaluationsForFile(
             'docs/test.md',
-            config.fileSections,
+            config.scanPaths,
             packs
         );
 
@@ -157,7 +155,7 @@ RunRules =
         // Explicit exclusion
         const archivedResolution = resolver.resolveEvaluationsForFile(
             'docs/archived/old.md',
-            config.fileSections,
+            config.scanPaths,
             packs
         );
 

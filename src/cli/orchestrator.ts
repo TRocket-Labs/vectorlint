@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import * as path from 'path';
 import type { PromptFile } from '../prompts/prompt-loader';
-import { FileSectionResolver } from '../boundaries/file-section-resolver';
+import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
 import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
 import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
@@ -590,7 +590,7 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
  */
 async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileResult> {
   const { file, options, jsonFormatter } = params;
-  const { prompts, provider, searchProvider, concurrency, fileSections, outputFormat = 'line' } = options;
+  const { prompts, provider, searchProvider, concurrency, scanPaths, outputFormat = 'line' } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -609,13 +609,12 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   // Determine applicable prompts for this file
   const toRun: Array<{ prompt: PromptFile; overrides: Record<string, unknown> }> = [];
 
-  if (fileSections && fileSections.length > 0) {
-    // Use new FileSectionResolver
-    const resolver = new FileSectionResolver();
+  if (scanPaths && scanPaths.length > 0) {
+    const resolver = new ScanPathResolver();
     // Extract available packs from loaded prompts
     const availablePacks = Array.from(new Set(prompts.map(p => p.pack).filter((p): p is string => !!p)));
 
-    const resolution = resolver.resolveEvaluationsForFile(relFile, fileSections, availablePacks);
+    const resolution = resolver.resolveEvaluationsForFile(relFile, scanPaths, availablePacks);
 
     // Filter prompts by active packs
     const activePrompts = prompts.filter(p => p.pack && resolution.packs.includes(p.pack));
@@ -634,15 +633,12 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
       }
     }
 
-    // Apply overrides efficiently
     for (const prompt of activePrompts) {
-      toRun.push({
-        prompt,
-        overrides: overrideMap.get(prompt.id) || {}
-      });
+      const promptOverrides = overrideMap.get(prompt.id) || {};
+      toRun.push({ prompt, overrides: promptOverrides });
     }
   } else {
-    // Fallback: When no file sections configured, run all prompts.
+    // Fallback: When no scanPaths configured, run all prompts.
     // This maintains backward compatibility for unconfigured setups.
     for (const prompt of prompts) {
       toRun.push({ prompt, overrides: {} });

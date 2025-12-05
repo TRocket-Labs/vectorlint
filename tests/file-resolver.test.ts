@@ -26,7 +26,9 @@ describe('FileResolver', () => {
       cliArgs: [],
       cwd: root,
       rulesPath: path.join(root, 'prompts'),
-      scanPaths: ['**/*.md'],
+      scanPaths: [
+        { pattern: '**/*.md', overrides: {} }
+      ],
       configDir: root,
     });
     expect(res.sort()).toEqual([
@@ -47,7 +49,9 @@ describe('FileResolver', () => {
       cliArgs: [path.join(root, 'articles')],
       cwd: root,
       rulesPath: path.join(root, 'prompts'),
-      scanPaths: ['*.md'],
+      scanPaths: [
+        { pattern: '*.md', overrides: {} }
+      ],
       configDir: root,
     });
     expect(res.sort()).toEqual([
@@ -68,7 +72,10 @@ describe('FileResolver', () => {
       cliArgs: [],
       cwd: root,
       rulesPath: path.join(root, 'prompts'),
-      scanPaths: ['docs/*md', 'docs/*.txt'],
+      scanPaths: [
+        { pattern: 'docs/*md', overrides: {} },
+        { pattern: 'docs/*.txt', overrides: {} }
+      ],
       configDir: root,
     });
     expect(res.sort()).toEqual([

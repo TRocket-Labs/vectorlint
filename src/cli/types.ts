@@ -16,7 +16,7 @@ export interface EvaluationOptions {
     searchProvider?: SearchProvider;
     concurrency: number;
     verbose: boolean;
-    fileSections?: FilePatternConfig[];
+    scanPaths: FilePatternConfig[];
     outputFormat?: 'line' | 'json' | 'vale-json';
 }
 

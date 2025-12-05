@@ -1,20 +1,29 @@
-RulesPath=.github/evals   
-ScanPaths=[*.md]
+# VectorLint Configuration Example
+# Global settings
+RulesPath=.github/rules
 Concurrency=4
 DefaultSeverity=warning
 
-# Optional: map prompts to files
-[Prompts]
-paths=["Default:evals", "Blog:evals/blog"]
+# Default rules for all markdown files
+[**/*.md]
+RunRules=VectorLint
 
-[Defaults]
-include=["**/*.md"]
-exclude=["archived/**"]
+# Blog content with custom overrides
+[content/blog/**/*.md]
+RunRules=VectorLint
+GrammarChecker.strictness=8
+HeadlineEvaluator.weight=10
 
-[Directory:Blog]
-include=["content/blog/**/*.md"]
-exclude=["content/blog/drafts/**"]
+# Technical documentation - higher strictness
+[content/docs/**/*.md]
+RunRules=VectorLint,Technical
+GrammarChecker.strictness=9
+TechnicalAccuracy.enabled=true
 
-[Prompt:Headline]
-include=["content/blog/**/*.md"]
-exclude=["content/blog/drafts/**"]
+# Marketing content - use custom pack
+[content/marketing/**/*.md]
+RunRules=Marketing
+
+# Skip drafts entirely
+[content/drafts/**/*.md]
+RunRules=

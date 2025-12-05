@@ -167,6 +167,7 @@ export function registerMainCommand(program: Command): void {
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
         outputFormat: outputFormat,
+        scanPaths: config.scanPaths,
       });
 
       // Print global summary (only for line format)
