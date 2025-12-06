@@ -1,4 +1,4 @@
-# Creating Evals for VectorLint
+# Creating Rules for VectorLint
 
 A comprehensive guide to creating powerful, reusable content evaluations using VectorLint's prompt system.
 
@@ -7,8 +7,8 @@ A comprehensive guide to creating powerful, reusable content evaluations using V
 - [Overview](#overview)
 - [Rule Anatomy](#rule-anatomy)
 - [Evaluation Modes](#evaluation-modes)
-- [Semi-Objective Evals](#semi-objective-evals)
-- [Subjective Evals](#subjective-evals)
+- [Semi-Objective Rules](#semi-objective-rules)
+- [Subjective Rules](#subjective-rules)
 - [Target Specification](#target-specification)
 - [Configuration Reference](#configuration-reference)
 - [Best Practices](#best-practices)
@@ -18,7 +18,7 @@ A comprehensive guide to creating powerful, reusable content evaluations using V
 
 ## Overview
 
-VectorLint evaluations (evals) are Markdown files with YAML frontmatter that define how your content should be assessed. Think of them as "rules" for quality checks, but powered by LLMs instead of regex patterns.
+VectorLint rules are Markdown files with YAML frontmatter that define how your content should be assessed. They're quality checks powered by LLMs instead of regex patterns.
 
 **Key Concepts:**
 
