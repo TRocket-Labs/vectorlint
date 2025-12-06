@@ -1,28 +1,26 @@
 # VectorLint Configuration Example
 # Global settings
-RulesPath=.github/rules
+RulesPath=path-to-rules
 Concurrency=4
 DefaultSeverity=warning
 
 # Default rules for all markdown files
 [**/*.md]
-RunRules=VectorLint
+RunRules=Acme
 
 # Blog content with custom overrides
 [content/blog/**/*.md]
-RunRules=VectorLint
+RunRules=Acme
 GrammarChecker.strictness=8
-HeadlineEvaluator.weight=10
 
 # Technical documentation - higher strictness
 [content/docs/**/*.md]
-RunRules=VectorLint,Technical
+RunRules=Acme
 GrammarChecker.strictness=9
-TechnicalAccuracy.enabled=true
 
 # Marketing content - use custom pack
 [content/marketing/**/*.md]
-RunRules=Marketing
+RunRules=Acme
 
 # Skip drafts entirely
 [content/drafts/**/*.md]

@@ -83,24 +83,24 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
 - Maintain acyclic dependencies (CLI → prompts/providers/output)
 - Add a brief rationale when introducing a new folder; rename rather than accumulate near‑duplicates
 
-## Eval Pack System
+## Rule Pack System
 
-VectorLint uses a **pack-based organization** for evaluations:
+VectorLint uses a **pack-based organization** for rules:
 
-- All evaluations must be organized into **subdirectories** (packs) within `RulesPath`
-- Pack names are **arbitrary** — use `VectorLint`, `MyCustomPack`, `Marketing`, etc.
+- All rules must be organized into **subdirectories** (packs) within `RulesPath`
+- Pack names are **arbitrary**. Recommended practice is to use company names (e.g., `Acme`, `TechCorp`, `Stripe`) to indicate which style guide the rules implement
 - The system recursively loads **all `.md` files** from within each pack
-- Multiple packs can be used simultaneously: `RunRules=VectorLint,Marketing`
+- Multiple packs can be used simultaneously: `RunRules=Acme,Marketing`
 
 **Directory Structure:**
 ```
-.github/evals/
-  VectorLint/              ← Example pack (name is arbitrary)
+.github/rules/
+  Acme/                    ← Company style guide pack
     grammar-checker.md
     Technical/             ← Nested organization supported
       technical-accuracy.md
-  CustomPack/              ← Another pack
-    custom-eval.md
+  TechCorp/                ← Another company's style guide
+    brand-voice.md
 ```
 
 **File-Centric Configuration:**
@@ -109,24 +109,26 @@ Use `[glob/pattern]` sections in `vectorlint.ini` to specify which packs run on 
 
 ```ini
 # Global settings
-RulesPath=.github/evals
-ScanPaths=[*.md]
+RulesPath=.github/rules
+Concurrency=4
+DefaultSeverity=warning
 
-# All markdown files - run VectorLint pack
+# All markdown files - run Acme style guide
 [**/*.md]
-RunRules=VectorLint
+RunRules=Acme
 GrammarChecker.strictness=7
 
 # Technical docs - higher strictness
 [docs/**/*.md]
-RunRules=VectorLint
+RunRules=Acme
 GrammarChecker.strictness=9
 
 # Marketing - different pack
 [marketing/**/*.md]
-RunRules=Marketing
+RunRules=Acme
+GrammarChecker.strictness=9
 
-# Drafts - skip all evaluations
+# Drafts - skip all rules
 [drafts/**/*.md]
 RunRules=
 ```
