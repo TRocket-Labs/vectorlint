@@ -114,14 +114,14 @@ cp vectorlint.example.ini vectorlint.ini
 Organize your evaluations into subdirectories (packs) within `RulesPath`:
 
 ```
-.github/evals/
-  VectorLint/              ← Eval pack (name is arbitrary)
+.github/rules/
+  Acme/                    ← Company style guide pack
     grammar-checker.md
     headline-evaluator.md
     Technical/             ← Nested organization supported
       technical-accuracy.md
-  CustomPack/              ← You can have multiple packs
-    custom-eval.md
+  TechCorp/                ← Another company's style guide
+    brand-voice.md
 ```
 
 **Configuration Format:**
@@ -130,31 +130,33 @@ Use `[glob/pattern]` sections to specify which packs run on which files:
 
 ```ini
 # Global settings
-RulesPath=.github/evals
-ScanPaths=[content/**/*.md]
+RulesPath=.github/rules
+Concurrency=4
+DefaultSeverity=warning
 
-# All content - run VectorLint pack
+# All content - run Acme style guide
 [content/**/*.md]
-RunRules=VectorLint
+RunRules=Acme
 GrammarChecker.strictness=7
 
 # Technical docs - higher strictness
 [content/docs/**/*.md]
-RunRules=VectorLint
+RunRules=Acme
 GrammarChecker.strictness=9
 
-# Marketing - use custom pack
+# Marketing - different company pack
 [content/marketing/**/*.md]
-RunRules=CustomPack
+RunRules=TechCorp
 
-# Drafts - skip all evaluations
+# Drafts - skip all rules
 [content/drafts/**/*.md]
 RunRules=
 ```
 
 **Key Settings:**
 - `RulesPath`: Root directory containing your rule pack subdirectories
-- `ScanPaths`: Glob patterns for files to scan (e.g., `[content/**/*.md]`)
+- `Concurrency`: Number of concurrent evaluations (default: 4)
+- `DefaultSeverity`: Default severity level (`warning` or `error`)
 - `[pattern]` sections: Map file patterns to rule packs using `RunRules`
 - Per-eval overrides: Tune specific evaluations (e.g., `GrammarChecker.strictness=9`)
 
