@@ -396,7 +396,8 @@ Scan for common AI patterns:
 ## Resources
 
 - [VectorLint README](./README.md) - Installation and basic usage
-- [Configuration Example](./vectorlint.ini.example) - Configuration options
+- [Configuration Guide](./CONFIGURATION.md) - Project configuration reference (`vectorlint.ini`)
+- [Configuration Example](./vectorlint.ini.example) - Starter configuration template
 
 ---
 
