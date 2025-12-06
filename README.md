@@ -4,12 +4,13 @@ A command-line tool that evaluates Markdown content using LLMs and provides qual
 
 ![VectorLint Screenshot](./assets/VectorLint_screenshot.jpeg)
 
-## Features
+## What You Can Do with VectorLint
+- **SEO Optimization** - Check if content follows SEO best practices.
+- **AI-Generated Content** - Detect AI-generated writing patterns.
+- **Technical Accuracy** - Verify claims and catch outdated or incorrect technical information
+- **Tone & Voice Consistency** - Ensure content matches appropriate tone for your audience
 
-- **LLM-based** - Uses LLMs to check content quality
-- **CLI Support** - Run locally or in CI/CD pipelines
-- **Consistent Evaluations** - Write structured evaluation prompts to get consistent evaluation results
-- **Quality Scores** - Set scores for your quality standards
+If you can write a prompt for it, you can lint it with VectorLint.
 
 ## Scoring System
 
@@ -18,62 +19,42 @@ VectorLint uses a fair, density-based scoring system:
 *   **Semi-Objective (Density-Based):** Scores are calculated based on **errors per 100 words**. This ensures that a 1000-word article isn't penalized more than a 100-word paragraph for the same error rate. You can configure **Strictness** (Standard, Strict, Lenient) to control penalties.
 *   **Subjective (Normalized):** LLM ratings (1-4) are normalized to a **1-10 scale** using weighted averages, providing granular quality assessment.
 
+## Installation
+
+### NPM Installation (Recommended)
+
+Install globally from npm:
+
+```bash
+npm install -g vectorlint
+```
+
+Or use with npx without installing:
+
+```bash
+npx vectorlint path/to/article.md
+```
+
+### Verify Installation
+
+```bash
+vectorlint --help
+```
+
 ## Quick Start
 
-Get up and running in minutes.
-
-1.  **Clone the repository:**
+1.  **Configure Environment:**
 
     ```bash
-    git clone https://github.com/TinyRocketLabs/vectorlint.git
-    cd vectorlint
-    ```
-
-2.  **Install dependencies & Build:**
-
-    ```bash
-    npm install
-    npm run build
-    ```
-
-3.  **Configure Environment:**
-
-    ```bash
+    # Create .env file in your project directory
     cp .env.example .env
     # Edit .env with your API key (e.g., OPENAI_API_KEY)
     ```
 
-4.  **Run a check:**
+2.  **Run a check:**
 
     ```bash
-    # Run against a local file
-    npm run dev -- path/to/article.md
-    ```
-
-## Global Installation (Recommended)
-
-To run `vectorlint` from anywhere on your machine, use `npm link`.
-
-1.  **Build and Link:**
-
-    ```bash
-    # Inside the vectorlint directory
-    npm run build
-    npm link
-    ```
-
-2.  **Verify Installation:**
-
-    ```bash
-    vectorlint --help
-    ```
-
-3.  **Usage:**
-
-    Now you can run `vectorlint` in any project:
-
-    ```bash
-    vectorlint my-article.md
+    vectorlint path/to/article.md
     ```
 
 ## Configuration
@@ -125,7 +106,6 @@ Organize your evaluations into subdirectories (packs) within `RulesPath`:
 ```
 
 **Configuration Format:**
-
 Use `[glob/pattern]` sections to specify which packs run on which files:
 
 ```ini
@@ -162,28 +142,11 @@ RunRules=
 
 ## Usage Guide
 
-### Running Locally
+### Creating Rules
 
-```bash
-# Basic usage (if linked globally)
-vectorlint path/to/article.md
+Rules are Markdown files with YAML frontmatter, organized into rule packs (subdirectories).
 
-# Using npm script (if not linked)
-npm run dev -- path/to/article.md
-
-# Debug mode (shows prompts and full JSON response)
-vectorlint --verbose --show-prompt --debug-json path/to/article.md
-
-# JSON output formats
-vectorlint --output json path/to/article.md        # Native VectorLint JSON
-vectorlint --output vale-json path/to/article.md   # Vale-compatible JSON
-```
-
-### Creating Prompts
-
-Prompts are Markdown files with YAML frontmatter, organized into rule packs (subdirectories).
-
-**Example** (`VectorLint/tone-checker.md`):
+**Example** (`Acme/tone-checker.md`):
 
 ```markdown
 ---
@@ -209,12 +172,4 @@ You are a tone evaluator. Assess the content for:
 Provide a score (1-4) for each criterion with specific examples.
 ```
 
-For detailed guidance, see [CREATING_EVALS.md](./CREATING_EVALS.md).
-
-## Testing
-
-- `npm test`: Run tests in watch mode
-- `npm run test:run`: Single run
-- `npm run test:ci`: CI run with coverage
-
-Tests live under `tests/` and use Vitest. They validate config parsing (PromptsPath, ScanPaths), file discovery (including prompts exclusion), prompt/file mapping, and prompt aggregation with a mocked provider.
+For detailed guidance, see [CREATING_RULES.md](./CREATING_RULES.md).
