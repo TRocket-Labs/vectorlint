@@ -1,14 +1,14 @@
-# Creating Evals for VectorLint
+# Creating Rules for VectorLint
 
 A comprehensive guide to creating powerful, reusable content evaluations using VectorLint's prompt system.
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Eval Anatomy](#eval-anatomy)
+- [Rule Anatomy](#rule-anatomy)
 - [Evaluation Modes](#evaluation-modes)
-- [Semi-Objective Evals](#semi-objective-evals)
-- [Subjective Evals](#subjective-evals)
+- [Semi-Objective Rules](#semi-objective-rules)
+- [Subjective Rules](#subjective-rules)
 - [Target Specification](#target-specification)
 - [Configuration Reference](#configuration-reference)
 - [Best Practices](#best-practices)
@@ -18,21 +18,22 @@ A comprehensive guide to creating powerful, reusable content evaluations using V
 
 ## Overview
 
-VectorLint evaluations (evals) are Markdown files with YAML frontmatter that define how your content should be assessed. Think of them as "rules" for quality checks, but powered by LLMs instead of regex patterns.
+VectorLint rules are Markdown files with YAML frontmatter that define how your content should be assessed. They're quality checks powered by LLMs instead of regex patterns.
 
 **Key Concepts:**
 
-- **Eval = Prompt file** (`.md` file in your `prompts/` directory)
-- **Criteria** = Individual quality checks within an eval
-- **Score** = LLM-assigned rating (0-4 scale for subjective, pass/fail for semi-objective)
+- **Rule = Prompt file** (`.md` file organized in rule packs)
+- **Pack** = Subdirectory containing related rules (typically named after a company/style guide)
+- **Criteria** = Individual quality checks within a rule
+- **Score** = LLM-assigned rating (1-4 scale for subjective, density-based for semi-objective)
 
 - **Severity** = How failures are reported (`error` or `warning`)
 
 ---
 
-## Eval Anatomy
+## Rule Anatomy
 
-Every eval is a Markdown file with two parts:
+Every rule is a Markdown file with two parts:
 
 ```markdown
 ---
@@ -50,16 +51,23 @@ Your detailed instructions for the LLM go here...
 
 ### File Location
 
-Place eval files in your `evals/` directory (or the path specified in `vectorlint.ini`):
+Organize rules into **pack subdirectories** within `RulesPath` (specified in `vectorlint.ini`):
 
 ```
 project/
-├── evals/
-│   ├── grammar-checker.md
-│   ├── headline-evaluator.md
-│   └── your-custom-eval.md
+├── .github/
+│   └── rules/
+│       ├── Acme/                    ← Company style guide pack
+│       │   ├── grammar-checker.md
+│       │   ├── headline-evaluator.md
+│       │   └── Technical/           ← Nested organization supported
+│       │       └── technical-accuracy.md
+│       └── TechCorp/                ← Another company's pack
+│           └── brand-voice.md
 └── vectorlint.ini
 ```
+
+**Pack Naming:** Use company names (e.g., `Acme`, `TechCorp`, `Stripe`) to indicate which style guide the rules implement.
 
 ---
 
@@ -86,9 +94,9 @@ VectorLint uses a single **Base Evaluator** (`evaluator: base`) that operates in
 
 ---
 
-## Semi-Objective Evals
+## Semi-Objective Rules
 
-Semi-objective evals are perfect for finding specific issues. The LLM lists violations, and the score is calculated based on the count of violations.
+Semi-objective rules are perfect for finding specific issues. The LLM lists violations, and the score is calculated based on the count of violations.
 
 ### Minimal Example
 
@@ -127,9 +135,9 @@ Check this content for grammar issues, spelling errors, and punctuation mistakes
 
 ---
 
-## Subjective Evals
+## Subjective Rules
 
-Subjective evals use weighted criteria and a 0-4 rubric for sophisticated quality measurement.
+Subjective rules use weighted criteria and a 1-4 rubric for sophisticated quality measurement.
 
 ### Structure
 
@@ -227,7 +235,7 @@ target:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `specVersion` | string/number | No | Eval specification version (use `1.0.0`) |
+| `specVersion` | string/number | No | Rule specification version (use `1.0.0`) |
 | `evaluator` | string | No | Evaluator type: `base`, `technical-accuracy` (default: `base`) |
 | `type` | string | No | Mode: `subjective` or `semi-objective` (default: `semi-objective`) |
 | `id` | string | **Yes** | Unique identifier (used in error reporting) |
@@ -388,8 +396,7 @@ Scan for common AI patterns:
 ## Resources
 
 - [VectorLint README](./README.md) - Installation and basic usage
-- [Example Prompts](./prompts/) - Real-world eval examples
-- [vectorlint.ini Reference](./vectorlint.example.ini) - Configuration options
+- [Configuration Example](./vectorlint.ini.example) - Configuration options
 
 ---
 
