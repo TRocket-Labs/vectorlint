@@ -5,8 +5,9 @@ import { createProvider } from '../providers/provider-factory';
 import { PerplexitySearchProvider } from '../providers/perplexity-provider';
 import type { SearchProvider } from '../providers/search-provider';
 import { loadConfig } from '../boundaries/config-loader';
-import { loadPromptFile, type PromptFile } from '../prompts/prompt-loader';
-import { EvalPackLoader } from '../boundaries/eval-pack-loader';
+import { loadRuleFile, type PromptFile } from '../prompts/prompt-loader';
+import { RulePackLoader } from '../boundaries/rule-pack-loader';
+import { PresetLoader } from '../config/preset-loader';
 import { printGlobalSummary } from '../output/reporter';
 import { DefaultRequestBuilder } from '../providers/request-builder';
 import { loadDirective } from '../prompts/directive-loader';
@@ -95,20 +96,23 @@ export function registerMainCommand(program: Command): void {
 
       const prompts: PromptFile[] = [];
       try {
-        const loader = new EvalPackLoader();
-        const packs = await loader.findAllPacks(rulesPath);
+        const presetsDir = path.resolve(__dirname, '../../presets');
+        const presetLoader = new PresetLoader(presetsDir);
+        const loader = new RulePackLoader(presetLoader);
 
-        if (packs.length === 0) {
-          console.warn(`[vectorlint] Warning: No rule packs (subdirectories) found in ${rulesPath}.`);
-          console.warn(`[vectorlint] Please organize your rules into subdirectories (e.g., ${rulesPath}/VectorLint/ or ${rulesPath}/MyPack/).`);
+        const packs = await loader.listAllPacks(rulesPath);
+
+        if (packs.length === 0 && cliOptions.verbose) {
+          console.warn(`[vectorlint] Warning: No rule packs (subdirectories) found in ${rulesPath} or presets.`);
+          console.warn(`[vectorlint] Please organize your rules into subdirectories or use a valid preset.`);
         }
 
-        for (const packName of packs) {
-          const packRoot = path.join(rulesPath, packName);
-          const evalPaths = await loader.findEvalFiles(packRoot);
+        for (const pack of packs) {
+          // pack.path is already absolute
+          const rulePaths = await loader.findRuleFiles(pack.path);
 
-          for (const filePath of evalPaths) {
-            const result = loadPromptFile(filePath, packName);
+          for (const filePath of rulePaths) {
+            const result = loadRuleFile(filePath, pack.name);
             if (result.warning) {
               if (cliOptions.verbose) console.warn(`[vectorlint] ${result.warning}`);
             }

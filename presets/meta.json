@@ -1,0 +1,8 @@
+{
+    "presets": {
+        "VectorLint": {
+            "path": "./VectorLint",
+            "description": "Standard VectorLint quality rules"
+        }
+    }
+}

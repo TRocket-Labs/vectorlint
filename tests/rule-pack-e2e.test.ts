@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { EvalPackLoader } from '../src/boundaries/eval-pack-loader.js';
+import { RulePackLoader } from '../src/boundaries/rule-pack-loader.js';
 import { loadConfig } from '../src/boundaries/config-loader.js';
 import { ScanPathResolver } from '../src/boundaries/scan-path-resolver.js';
 
@@ -71,16 +71,21 @@ readability.severity = error
         expect(config.rulesPath).toBe(promptsDir);
 
         // 4. Discover eval packs
-        const loader = new EvalPackLoader();
-        const packs = await loader.findAllPacks(promptsDir);
+        const loader = new RulePackLoader();
+        const packs = await loader.listAllPacks(promptsDir);
+        const packNames = packs.map(p => p.name);
 
         expect(packs).toHaveLength(2);
-        expect(packs).toContain('VectorLint');
-        expect(packs).toContain('CustomPack');
+        expect(packNames).toContain('VectorLint');
+        expect(packNames).toContain('CustomPack');
 
         // 5. Load eval files from packs
-        const vectorLintFiles = await loader.findEvalFiles(vectorLintDir);
-        const customPackFiles = await loader.findEvalFiles(customPackDir);
+        const vectorLintPack = packs.find(p => p.name === 'VectorLint')!;
+        expect(packs.find(p => p.name === 'VectorLint')?.isPreset).toBe(false);
+        const customPack = packs.find(p => p.name === 'CustomPack')!;
+
+        const vectorLintFiles = await loader.findRuleFiles(vectorLintPack.path);
+        const customPackFiles = await loader.findRuleFiles(customPack.path);
 
         expect(vectorLintFiles).toHaveLength(3);
         expect(customPackFiles).toHaveLength(1);
@@ -91,8 +96,8 @@ readability.severity = error
         // Test file in docs/
         const docsFileResolution = resolver.resolveEvaluationsForFile(
             'docs/guide.md',
-            config.scanPaths,
-            packs
+            config.scanPaths.map(sp => ({ ...sp, runRules: sp.runRules || [] })),
+            packNames
         );
 
         expect(docsFileResolution.packs).toEqual(['VectorLint']);
@@ -103,8 +108,8 @@ readability.severity = error
         // Test file in docs/blog/
         const blogFileResolution = resolver.resolveEvaluationsForFile(
             'docs/blog/post.md',
-            config.scanPaths,
-            packs
+            config.scanPaths.map(sp => ({ ...sp, runRules: sp.runRules || [] })),
+            packNames
         );
 
         expect(blogFileResolution.packs).toContain('VectorLint');
@@ -138,15 +143,16 @@ RunRules =
 
         // 3. Load and resolve
         const config = loadConfig(tempDir);
-        const loader = new EvalPackLoader();
-        const packs = await loader.findAllPacks(promptsDir);
+        const loader = new RulePackLoader();
+        const packs = await loader.listAllPacks(promptsDir);
+        const packNames = packs.map(p => p.name);
         const resolver = new ScanPathResolver();
 
         // Non-existent pack should be filtered out
         const docsResolution = resolver.resolveEvaluationsForFile(
             'docs/test.md',
-            config.scanPaths,
-            packs
+            config.scanPaths.map(sp => ({ ...sp, runRules: sp.runRules || [] })),
+            packNames
         );
 
         expect(docsResolution.packs).toEqual(['VectorLint']);
@@ -155,8 +161,8 @@ RunRules =
         // Explicit exclusion
         const archivedResolution = resolver.resolveEvaluationsForFile(
             'docs/archived/old.md',
-            config.scanPaths,
-            packs
+            config.scanPaths.map(sp => ({ ...sp, runRules: sp.runRules || [] })),
+            packNames
         );
 
         expect(archivedResolution.packs).toEqual([]);
@@ -180,8 +186,8 @@ RunRules =
         writeFileSync(path.join(level2, 'l2.md'), '# L2');
         writeFileSync(path.join(level3, 'l3.md'), '# L3');
 
-        const loader = new EvalPackLoader();
-        const files = await loader.findEvalFiles(packDir);
+        const loader = new RulePackLoader();
+        const files = await loader.findRuleFiles(packDir);
 
         expect(files).toHaveLength(4);
         expect(files.some(f => f.endsWith('root.md'))).toBe(true);
