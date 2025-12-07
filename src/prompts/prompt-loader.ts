@@ -7,7 +7,7 @@ import { Severity } from '../evaluators/types';
 // Re-export types for backward compatibility
 export type { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
 
-export function loadPromptFile(fullPath: string, packName?: string): { prompt: PromptFile | undefined; warning?: string } {
+export function loadRuleFile(fullPath: string, packName?: string): { prompt: PromptFile | undefined; warning?: string } {
   try {
     const raw = readFileSync(fullPath, 'utf-8');
     let meta: PromptMeta | undefined;
@@ -85,7 +85,7 @@ export function loadPromptFile(fullPath: string, packName?: string): { prompt: P
   }
 }
 
-export function loadPrompts(
+export function loadRules(
   dir: string,
   opts: { verbose?: boolean } = {}
 ): { prompts: PromptFile[]; warnings: string[] } {
@@ -111,7 +111,7 @@ export function loadPrompts(
       continue;
     }
 
-    const result = loadPromptFile(full);
+    const result = loadRuleFile(full);
     if (result.warning) {
       warnings.push(result.warning);
     }
