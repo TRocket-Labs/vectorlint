@@ -79,33 +79,21 @@ export class StyleGuideProcessor {
     }
 
     private async extractSingleRule(styleGuide: ParsedStyleGuide): Promise<CategoryExtractionOutput> {
-        const filterTerm = this.options.filterRule!.toLowerCase();
-
-        // Find rules matching the filter
-        const matchingRules = styleGuide.rules.filter(r =>
-            r.description.toLowerCase().includes(filterTerm) ||
-            r.id.toLowerCase().includes(filterTerm) ||
-            r.category?.toLowerCase().includes(filterTerm)
-        );
-
-        if (matchingRules.length === 0) {
-            throw new ProcessingError(
-                `No rules found matching filter: "${this.options.filterRule}" (context: category-extraction)`
-            );
-        }
+        const filterTerm = this.options.filterRule!;
 
         if (this.options.verbose) {
-            console.log(`[StyleGuideProcessor] Found ${matchingRules.length} rules matching "${this.options.filterRule}"`);
-            console.log(`[StyleGuideProcessor] Generating ONE consolidated eval for this rule`);
+            console.log(`[StyleGuideProcessor] Using LLM to find rules related to "${filterTerm}"`);
+            console.log(`[StyleGuideProcessor] Passing full style guide (${styleGuide.rules.length} rules) for semantic matching`);
         }
 
-        const prompt = this.buildSingleRulePrompt(styleGuide, matchingRules, filterTerm);
+        // Pass full style guide to LLM - let LLM semantically find matching rules
+        const prompt = this.buildSingleRulePrompt(styleGuide, filterTerm);
 
         try {
             const schemaJson = zodToJsonSchema(CATEGORY_EXTRACTION_SCHEMA);
 
             const result = await this.llmProvider.runPromptStructured<CategoryExtractionOutput>(
-                JSON.stringify({ name: styleGuide.name, matchingRules }),
+                JSON.stringify(styleGuide),
                 prompt,
                 {
                     name: 'singleRuleExtraction',
@@ -123,12 +111,13 @@ export class StyleGuideProcessor {
 
             if (result.categories.length === 0) {
                 throw new ProcessingError(
-                    `No category generated for rule: "${this.options.filterRule}" (context: category-extraction)`
+                    `LLM could not find rules related to "${filterTerm}" in the style guide`
                 );
             }
 
             if (this.options.verbose) {
-                console.log(`[StyleGuideProcessor] Extracted 1 category: "${result.categories[0]?.name}"`);
+                const cat = result.categories[0];
+                console.log(`[StyleGuideProcessor] LLM extracted category: "${cat?.name}" with ${cat?.rules.length} rules`);
             }
 
             return result;
@@ -232,25 +221,30 @@ export class StyleGuideProcessor {
 
     // --- Prompt Builders ---
 
-    private buildSingleRulePrompt(styleGuide: ParsedStyleGuide, matchingRules: typeof styleGuide.rules, filterTerm: string): string {
+    private buildSingleRulePrompt(styleGuide: ParsedStyleGuide, filterTerm: string): string {
         return `
-You are an expert in creating content evaluation prompts from style guides.
+You are an expert in analyzing style guides and creating content evaluation prompts.
 
-The user wants to generate an evaluation for a SPECIFIC rule: "${filterTerm}"
-
-I found these matching rules in the style guide:
-${matchingRules.map((r, i) => `${i + 1}. ${r.description}`).join('\n')}
+The user wants to generate an evaluation for a SPECIFIC topic: "${filterTerm}"
 
 Your task:
-1. Create EXACTLY ONE category that consolidates all matching rules into a single cohesive evaluation
-2. Name the category based on what "${filterTerm}" refers to in the style guide
-3. Create a PascalCase ID for the category (e.g., "VoiceSecondPersonPreferred")
-4. Classify it as subjective, semi-objective, or objective based on the rule nature
-5. Include ALL matching rules under this single category
+1. Analyze the ENTIRE style guide provided as context
+2. Semantically identify ALL rules that relate to "${filterTerm}" (understand synonyms, related concepts, abbreviations like "pov" = "point of view" = "second person")
+3. Create EXACTLY ONE category that consolidates all related rules into a single cohesive evaluation
+4. Name the category based on the topic (e.g., if "${filterTerm}" is about voice/perspective, name it accordingly)
+5. Create a PascalCase ID for the category (e.g., "VoiceSecondPerson", "ToneFormality")
+6. Classify it as subjective, semi-objective, or objective based on the rule nature
+7. Include ALL semantically matching rules under this single category
 
-DO NOT create multiple categories. Create exactly ONE category that covers the "${filterTerm}" topic.
+IMPORTANT:
+- Use semantic understanding, not just string matching
+- "${filterTerm}" may be an abbreviation (pov, cta, seo) - understand what it means
+- Look for rules that are RELATED to the topic, even if they don't use the exact term
 
 Style Guide Name: ${styleGuide.name}
+Total Rules: ${styleGuide.rules.length}
+
+Analyze the style guide and create ONE category covering the "${filterTerm}" topic.
 `;
     }
 

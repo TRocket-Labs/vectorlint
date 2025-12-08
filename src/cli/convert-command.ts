@@ -2,7 +2,6 @@ import type { Command } from 'commander';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import { StyleGuideParser } from '../style-guide/style-guide-parser';
-import { RuleGenerator } from '../style-guide/rule-generator';
 import { StyleGuideProcessor } from '../style-guide/style-guide-processor';
 import { createProvider } from '../providers/provider-factory';
 import { DefaultRequestBuilder } from '../providers/request-builder';
@@ -23,7 +22,6 @@ export function registerConvertCommand(program: Command): void {
         .option('-t, --template <dir>', 'Custom template directory')
         .option('--strictness <level>', 'Strictness level: lenient, standard, strict', 'standard')
         .option('--severity <level>', 'Default severity: error, warning', 'warning')
-        .option('--group-by-category', 'Group rules by category (recommended, reduces eval count)', true)
         .option('--max-categories <number>', 'Limit to N most important categories (default: 10)', '10')
         .option('--rule <name>', 'Generate only rule matching this name/keyword')
         .option('--force', 'Overwrite existing files', false)
@@ -115,32 +113,18 @@ export function registerConvertCommand(program: Command): void {
                 }
 
                 // 7. Generate Rules
-                let rules: Array<{ filename: string; content: string }> = [];
+                const processor = new StyleGuideProcessor({
+                    llmProvider: provider,
+                    maxCategories: options.maxCategories ? parseInt(options.maxCategories) : 10,
+                    filterRule: options.rule,
+                    templateDir: options.template || undefined,
+                    defaultSeverity: options.severity,
+                    strictness: options.strictness,
+                    verbose: options.verbose,
+                });
 
-                if (options.groupByCategory) {
-                    const processor = new StyleGuideProcessor({
-                        llmProvider: provider,
-                        maxCategories: options.maxCategories ? parseInt(options.maxCategories) : 10,
-                        filterRule: options.rule,
-                        templateDir: options.template || undefined,
-                        defaultSeverity: options.severity,
-                        strictness: options.strictness,
-                        verbose: options.verbose,
-                    });
-
-                    const categoryRules = await processor.process(styleGuide.data);
-                    rules = categoryRules.map(e => ({ filename: e.filename, content: e.content }));
-                } else {
-                    const generator = new RuleGenerator({
-                        llmProvider: provider,
-                        templateDir: options.template || undefined,
-                        defaultSeverity: options.severity,
-                        strictness: options.strictness,
-                    });
-
-                    const ruleRules = await generator.generateRulesFromStyleGuide(styleGuide.data);
-                    rules = ruleRules.map(e => ({ filename: e.filename, content: e.content }));
-                }
+                const categoryRules = await processor.process(styleGuide.data);
+                const rules = categoryRules.map(e => ({ filename: e.filename, content: e.content }));
 
                 if (rules.length === 0) {
                     console.warn('[vectorlint] No rules were generated. Check your style guide format.');

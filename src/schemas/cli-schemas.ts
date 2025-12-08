@@ -23,7 +23,6 @@ export const CONVERT_OPTIONS_SCHEMA = z.object({
   template: z.string().optional(),
   strictness: z.enum(['lenient', 'standard', 'strict']).default('standard'),
   severity: z.enum(['error', 'warning']).default('warning'),
-  groupByCategory: z.boolean().default(true),
   maxCategories: z.string().optional().default('10'),
   rule: z.string().optional(),
   force: z.boolean().default(false),

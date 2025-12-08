@@ -1,4 +1,4 @@
-import { LLMProvider } from "../providers";
+
 
 export enum StyleGuideFormat {
     MARKDOWN = 'markdown',
@@ -16,20 +16,3 @@ export interface ParserResult<T> {
     warnings: string[];
 }
 
-export interface RuleGenerationOptions {
-    llmProvider: LLMProvider;
-    templateDir?: string | undefined;
-    defaultSeverity?: 'error' | 'warning' | undefined;
-    strictness?: 'lenient' | 'standard' | 'strict' | undefined;
-}
-
-export interface GeneratedRule {
-    filename: string;
-    content: string;
-    meta: {
-        id: string;
-        name: string;
-        severity: string;
-        type: string;
-    };
-}
