@@ -57,7 +57,7 @@ loadDotEnv();
 // Set up Commander program
 program
   .name("vectorlint")
-  .description("AI-powered content compliance checker")
+  .description("An LLM-based prose linter")
   .version("1.0.0");
 
 // Register commands

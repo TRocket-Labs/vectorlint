@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
 import path from 'path';
+import { Severity } from '../evaluators/types';
 
 export interface EvaluationSummary {
   id: string;
@@ -8,16 +9,14 @@ export interface EvaluationSummary {
   score?: number;
 }
 
-export type Status = 'warning' | 'error' | undefined;
+export type Status = Severity;
 
 function statusLabel(status: Status): string {
   switch (status) {
-    case 'error':
+    case Severity.ERROR:
       return chalk.red('error');
-    case 'warning':
+    case Severity.WARNING:
       return chalk.yellow('warning');
-    case undefined:
-      return '';
   }
 }
 
@@ -91,7 +90,7 @@ export function printIssueRow(
     console.log(`${contPrefix}${lines[i]}`);
   }
   // Suggestion for warnings/errors (one cell, next line)
-  if (status !== undefined && opts.suggestion) {
+  if (opts.suggestion) {
     const words = opts.suggestion.split(/\s+/).filter(Boolean);
     const suggPrefix = `${contPrefix}`;
     let curr = 'suggestion: ';
@@ -172,77 +171,6 @@ export function printEvaluationSummaries(
       console.log(`    ${paddedId}${coloredScoreText}`);
     }
   }
-}
-
-export function printBasicReport(
-  result: { status?: Status; message: string; violations: Array<{ analysis: string; suggestion?: string; pre?: string; post?: string; criterionName?: string }> },
-  ruleName: string
-) {
-  // Skip output entirely if no violations (undefined status)
-  if (result.status === undefined) {
-    return;
-  }
-
-  const status = result.status;
-  const message = result.message;
-
-  // Print main status line
-  const label = statusLabel(status);
-  console.log(`  ${label}  ${message}  ${chalk.dim(ruleName)}`);
-
-  // Print violations
-  if (result.violations && result.violations.length > 0) {
-    // Check if violations have criterionName for grouping
-    const hasCriterionNames = result.violations.some(v => v.criterionName);
-
-    if (hasCriterionNames) {
-      // Group violations by criterionName
-      const groupedViolations = new Map<string, typeof result.violations>();
-      const ungrouped: typeof result.violations = [];
-
-      for (const v of result.violations) {
-        if (v.criterionName) {
-          if (!groupedViolations.has(v.criterionName)) {
-            groupedViolations.set(v.criterionName, []);
-          }
-          groupedViolations.get(v.criterionName)!.push(v);
-        } else {
-          ungrouped.push(v);
-        }
-      }
-
-      // Print grouped violations
-      for (const [criterionName, violations] of groupedViolations) {
-        console.log(`  ${chalk.cyan(criterionName)}:`);
-        for (const v of violations) {
-          console.log(`    - ${v.analysis}`);
-          if (v.suggestion) {
-            console.log(`      Suggestion: ${v.suggestion}`);
-          }
-        }
-      }
-
-      // Print ungrouped violations
-      if (ungrouped.length > 0) {
-        console.log(`  ${chalk.cyan('Other')}:`);
-        for (const v of ungrouped) {
-          console.log(`    - ${v.analysis}`);
-          if (v.suggestion) {
-            console.log(`      Suggestion: ${v.suggestion}`);
-          }
-        }
-      }
-    } else {
-      // No criterionName, print violations flat
-      for (const v of result.violations) {
-        console.log(`    - ${v.analysis}`);
-        if (v.suggestion) {
-          console.log(`      Suggestion: ${v.suggestion}`);
-        }
-      }
-    }
-  }
-  console.log('');
 }
 
 export function printAdvancedReport(

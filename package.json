@@ -1,7 +1,7 @@
 {
   "name": "vectorlint",
   "version": "2.0.0",
-  "description": "LLM-based prose linter for subjective writing issues",
+  "description": "An LLM-based prose linter for subjective writing issues",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -15,18 +15,38 @@
     "test:ci": "vitest run --coverage"
   },
   "bin": {
-    "vectorlint": "./dist/index.js"
+    "vectorlint": "./dist/index.js",
+    "veclint": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE.md"
+  ],
   "keywords": [
+    "cli",
+    "tty",
+    "command-line",
+    "style",
     "linting",
     "content",
     "ai",
     "compliance",
     "markdown",
-    "content QA"
+    "content QA",
+    "prose linter",
+    "vectorlint"
   ],
-  "author": "",
+  "author": "TinyRocket Labs",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TRocket-Labs/vectorlint.git"
+  },
+  "homepage": "https://vectorlint.dev",
+  "bugs": {
+    "url": "https://github.com/TRocket-Labs/vectorlint/issues"
+  },
   "engines": {
     "node": ">=18.0.0"
   },

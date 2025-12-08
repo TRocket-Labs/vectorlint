@@ -20,7 +20,7 @@ export function registerValidateCommand(program: Command): void {
   program
     .command('validate')
     .description('Validate prompt configuration files')
-    .option('--prompts <dir>', 'override prompts directory')
+    .option('--evals <dir>', 'override evals directory')
     .action(async (rawOpts: unknown) => {
       // Parse and validate command options
       let validateOptions;
@@ -32,11 +32,11 @@ export function registerValidateCommand(program: Command): void {
         process.exit(1);
       }
 
-      // Determine prompts path (from option or config)
-      let promptsPath = validateOptions.prompts;
-      if (!promptsPath) {
+      // Determine rules path (from option or config)
+      let rulesPath = validateOptions.evals;
+      if (!rulesPath) {
         try {
-          promptsPath = loadConfig().promptsPath;
+          rulesPath = loadConfig().rulesPath;
         } catch (e: unknown) {
           const err = handleUnknownError(e, 'Loading configuration');
           console.error(`Error: ${err.message}`);
@@ -44,9 +44,9 @@ export function registerValidateCommand(program: Command): void {
         }
       }
 
-      // Verify prompts path exists
-      if (!existsSync(promptsPath)) {
-        console.error(`Error: prompts path does not exist: ${promptsPath}`);
+      // Verify rules path exists
+      if (!existsSync(rulesPath)) {
+        console.error(`Error: rules path does not exist: ${rulesPath}`);
         process.exit(1);
       }
 
@@ -55,14 +55,14 @@ export function registerValidateCommand(program: Command): void {
       const warnings: string[] = [];
       try {
         const loader = new EvalPackLoader();
-        const packs = await loader.findAllPacks(promptsPath);
+        const packs = await loader.findAllPacks(rulesPath);
 
         if (packs.length === 0) {
-          console.warn(`[vectorlint] Warning: No eval packs (subdirectories) found in ${promptsPath}.`);
+          console.warn(`[vectorlint] Warning: No rule packs (subdirectories) found in ${rulesPath}.`);
         }
 
         for (const packName of packs) {
-          const packRoot = path.join(promptsPath, packName);
+          const packRoot = path.join(rulesPath, packName);
           const evalPaths = await loader.findEvalFiles(packRoot);
 
           for (const filePath of evalPaths) {
@@ -77,7 +77,7 @@ export function registerValidateCommand(program: Command): void {
         }
 
         if (prompts.length === 0) {
-          console.error(`Error: no .md prompts found in any packs in ${promptsPath}`);
+          console.error(`Error: no .md prompts found in any packs in ${rulesPath}`);
           process.exit(1);
         }
       } catch (e: unknown) {
@@ -95,7 +95,7 @@ export function registerValidateCommand(program: Command): void {
 
       // Ensure at least one prompt was found
       if (prompts.length === 0) {
-        console.error(`Error: no .md prompts found in ${promptsPath}`);
+        console.error(`Error: no .md prompts found in ${rulesPath}`);
         process.exit(1);
       }
 
