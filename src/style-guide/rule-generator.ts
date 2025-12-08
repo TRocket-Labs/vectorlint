@@ -6,14 +6,14 @@ import { ProcessingError } from '../errors/index';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { TemplateRenderer } from './template-renderer';
 
-export interface EvalGenerationOptions {
+export interface RuleGenerationOptions {
     llmProvider: LLMProvider;
     templateDir?: string | undefined;
     defaultSeverity?: 'error' | 'warning' | undefined;
     strictness?: 'lenient' | 'standard' | 'strict' | undefined;
 }
 
-export interface GeneratedEval {
+export interface GeneratedRule {
     filename: string;
     content: string;
     meta: {
@@ -24,12 +24,12 @@ export interface GeneratedEval {
     };
 }
 
-export class EvalGenerator {
+export class RuleGenerator {
     private llmProvider: LLMProvider;
-    private options: EvalGenerationOptions;
+    private options: RuleGenerationOptions;
     private renderer: TemplateRenderer;
 
-    constructor(options: EvalGenerationOptions) {
+    constructor(options: RuleGenerationOptions) {
         this.llmProvider = options.llmProvider;
         this.options = {
             defaultSeverity: 'warning',
@@ -42,33 +42,33 @@ export class EvalGenerator {
     /**
      * Generate evaluations from a parsed style guide
      */
-    public async generateEvalsFromStyleGuide(
+    public async generateRulesFromStyleGuide(
         styleGuide: ParsedStyleGuide
-    ): Promise<GeneratedEval[]> {
-        const evals: GeneratedEval[] = [];
+    ): Promise<GeneratedRule[]> {
+        const rules: GeneratedRule[] = [];
 
         let completed = 0;
         for (const rule of styleGuide.rules) {
             try {
-                const generatedEval = await this.generateEval(rule);
-                evals.push(generatedEval);
+                const generatedRule = await this.generateRule(rule);
+                rules.push(generatedRule);
                 completed++;
                 if (completed % 5 === 0 || completed === styleGuide.rules.length) {
-                    console.log(`[EvalGenerator] Progress: ${completed}/${styleGuide.rules.length} rules processed`);
+                    console.log(`[RuleGenerator] Progress: ${completed}/${styleGuide.rules.length} rules processed`);
                 }
             } catch (error) {
-                console.error(`Failed to generate eval for rule ${rule.id}:`, error);
+                console.error(`Failed to generate rule ${rule.id}:`, error);
                 // Continue with other rules
             }
         }
 
-        return evals;
+        return rules;
     }
 
     /**
      * Generate a single evaluation from a rule
      */
-    public async generateEval(rule: StyleGuideRule): Promise<GeneratedEval> {
+    public async generateRule(rule: StyleGuideRule): Promise<GeneratedRule> {
         const prompt = this.buildPrompt(rule);
 
         try {
@@ -78,12 +78,12 @@ export class EvalGenerator {
                 JSON.stringify(rule), // Context
                 prompt,               // System/User prompt
                 {
-                    name: 'evalGeneration',
+                    name: 'ruleGeneration',
                     schema: schemaJson as Record<string, unknown>
                 }
             );
 
-            return this.formatEval(rule, result);
+            return this.formatRule(rule, result);
         } catch (error) {
             throw new ProcessingError(
                 `LLM generation failed: ${(error as Error).message}`
@@ -121,7 +121,7 @@ Output the result in the specified JSON format.
     /**
      * Format the LLM output into a Markdown file content
      */
-    private formatEval(rule: StyleGuideRule, output: EvalGenerationOutput): GeneratedEval {
+    private formatRule(rule: StyleGuideRule, output: EvalGenerationOutput): GeneratedRule {
         const defaultSeverity = this.options.defaultSeverity || 'warning';
 
         // Use TemplateRenderer to generate content

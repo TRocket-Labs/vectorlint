@@ -7,13 +7,13 @@ export const CLI_OPTIONS_SCHEMA = z.object({
   showPromptTrunc: z.boolean().default(false),
   debugJson: z.boolean().default(false),
   output: z.enum(['line', 'json', 'vale-json', 'JSON']).default('line'),
-  evals: z.string().optional(),
+  rules: z.string().optional(),
   config: z.string().optional(),
 });
 
 // Validate command options schema
 export const VALIDATE_OPTIONS_SCHEMA = z.object({
-  evals: z.string().optional(),
+  rules: z.string().optional(),
 });
 
 // Convert command options schema

@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import { StyleGuideParser } from '../style-guide/style-guide-parser';
-import { EvalGenerator } from '../style-guide/eval-generator';
+import { RuleGenerator } from '../style-guide/rule-generator';
 import { StyleGuideProcessor } from '../style-guide/style-guide-processor';
 import { createProvider } from '../providers/provider-factory';
 import { DefaultRequestBuilder } from '../providers/request-builder';
@@ -18,7 +18,7 @@ export function registerConvertCommand(program: Command): void {
         .command('convert')
         .description('Convert a style guide into VectorLint evaluation prompts')
         .argument('<style-guide-path>', 'Path to the style guide file')
-        .option('-o, --output <dir>', 'Output directory for generated evals (defaults to RulesPath from config)')
+        .option('-o, --output <dir>', 'Output directory for generated rules (defaults to RulesPath from config)')
         .option('-f, --format <format>', 'Input format: markdown, auto', 'auto')
         .option('-t, --template <dir>', 'Custom template directory')
         .option('--strictness <level>', 'Strictness level: lenient, standard, strict', 'standard')
@@ -27,7 +27,7 @@ export function registerConvertCommand(program: Command): void {
         .option('--max-categories <number>', 'Limit to N most important categories (default: 10)', '10')
         .option('--rule <name>', 'Generate only rule matching this name/keyword')
         .option('--force', 'Overwrite existing files', false)
-        .option('--dry-run', 'Preview generated evals without writing files', false)
+        .option('--dry-run', 'Preview generated rules without writing files', false)
         .option('-v, --verbose', 'Enable verbose logging', false)
         .action(async (styleGuidePath: string, rawOptions: unknown) => {
             // 1. Parse CLI options
@@ -111,11 +111,11 @@ export function registerConvertCommand(program: Command): void {
 
                 if (options.verbose) {
                     console.log(`[vectorlint] Parsed ${styleGuide.data.rules.length} rules from style guide`);
-                    console.log(`[vectorlint] Generating evals using ${env.LLM_PROVIDER}...`);
+                    console.log(`[vectorlint] Generating rules using ${env.LLM_PROVIDER}...`);
                 }
 
-                // 7. Generate Evals
-                let evals: Array<{ filename: string; content: string }> = [];
+                // 7. Generate Rules
+                let rules: Array<{ filename: string; content: string }> = [];
 
                 if (options.groupByCategory) {
                     const processor = new StyleGuideProcessor({
@@ -128,35 +128,35 @@ export function registerConvertCommand(program: Command): void {
                         verbose: options.verbose,
                     });
 
-                    const categoryEvals = await processor.process(styleGuide.data);
-                    evals = categoryEvals.map(e => ({ filename: e.filename, content: e.content }));
+                    const categoryRules = await processor.process(styleGuide.data);
+                    rules = categoryRules.map(e => ({ filename: e.filename, content: e.content }));
                 } else {
-                    const generator = new EvalGenerator({
+                    const generator = new RuleGenerator({
                         llmProvider: provider,
                         templateDir: options.template || undefined,
                         defaultSeverity: options.severity,
                         strictness: options.strictness,
                     });
 
-                    const ruleEvals = await generator.generateEvalsFromStyleGuide(styleGuide.data);
-                    evals = ruleEvals.map(e => ({ filename: e.filename, content: e.content }));
+                    const ruleRules = await generator.generateRulesFromStyleGuide(styleGuide.data);
+                    rules = ruleRules.map(e => ({ filename: e.filename, content: e.content }));
                 }
 
-                if (evals.length === 0) {
-                    console.warn('[vectorlint] No evals were generated. Check your style guide format.');
+                if (rules.length === 0) {
+                    console.warn('[vectorlint] No rules were generated. Check your style guide format.');
                     process.exit(0);
                 }
 
                 // 8. Write Output
                 if (options.dryRun) {
                     console.log('\n--- DRY RUN PREVIEW ---\n');
-                    for (const eva of evals) {
-                        console.log(`File: ${eva.filename}`);
+                    for (const rule of rules) {
+                        console.log(`File: ${rule.filename}`);
                         console.log('---');
-                        console.log(eva.content);
+                        console.log(rule.content);
                         console.log('---\n');
                     }
-                    console.log(`[vectorlint] Would generate ${evals.length} files in ${outputDir}`);
+                    console.log(`[vectorlint] Would generate ${rules.length} files in ${outputDir}`);
                 } else {
                     if (!existsSync(outputDir!)) {
                         mkdirSync(outputDir!, { recursive: true });
@@ -165,8 +165,8 @@ export function registerConvertCommand(program: Command): void {
                     let writtenCount = 0;
                     let skippedCount = 0;
 
-                    for (const eva of evals) {
-                        const filePath = path.join(outputDir!, eva.filename); // outputDir is guaranteed string here
+                    for (const rule of rules) {
+                        const filePath = path.join(outputDir!, rule.filename); // outputDir is guaranteed string here
 
                         if (existsSync(filePath) && !options.force) {
                             if (options.verbose) {
@@ -176,7 +176,7 @@ export function registerConvertCommand(program: Command): void {
                             continue;
                         }
 
-                        writeFileSync(filePath, eva.content, 'utf-8');
+                        writeFileSync(filePath, rule.content, 'utf-8');
                         writtenCount++;
                         if (options.verbose) {
                             console.log(`[vectorlint] Wrote: ${filePath}`);

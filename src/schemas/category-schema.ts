@@ -2,9 +2,9 @@ import { z } from 'zod';
 
 /**
  * Schema for generating a category-level evaluation prompt
- * This handles multiple related rules in a single eval
+ * This handles multiple related rules in a single rule
  */
-export const CATEGORY_EVAL_GENERATION_SCHEMA = z.object({
+export const CATEGORY_RULE_GENERATION_SCHEMA = z.object({
     evaluationType: z.enum(['subjective', 'semi-objective', 'objective']),
     categoryName: z.string().describe('The category this eval covers'),
     promptBody: z.string().describe('The main instruction for the LLM evaluator'),
@@ -24,7 +24,7 @@ export const CATEGORY_EVAL_GENERATION_SCHEMA = z.object({
     }).optional(),
 });
 
-export type CategoryEvalGenerationOutput = z.infer<typeof CATEGORY_EVAL_GENERATION_SCHEMA>;
+export type CategoryRuleGenerationOutput = z.infer<typeof CATEGORY_RULE_GENERATION_SCHEMA>;
 
 
 

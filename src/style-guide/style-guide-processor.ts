@@ -5,8 +5,8 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
     CATEGORY_EXTRACTION_SCHEMA,
     CategoryExtractionOutput,
-    CATEGORY_EVAL_GENERATION_SCHEMA,
-    CategoryEvalGenerationOutput
+    CATEGORY_RULE_GENERATION_SCHEMA,
+    CategoryRuleGenerationOutput
 } from '../schemas/category-schema';
 import { TemplateRenderer } from './template-renderer';
 
@@ -22,7 +22,7 @@ export interface StyleGuideProcessorOptions {
     verbose?: boolean | undefined;
 }
 
-export interface GeneratedCategoryEval {
+export interface GeneratedCategoryRule {
     filename: string;
     content: string;
     meta: {
@@ -51,9 +51,9 @@ export class StyleGuideProcessor {
     }
 
     /**
-     * Process a style guide: Extract categories and generate evals
+     * Process a style guide: Extract categories and generate rules
      */
-    public async process(styleGuide: ParsedStyleGuide): Promise<GeneratedCategoryEval[]> {
+    public async process(styleGuide: ParsedStyleGuide): Promise<GeneratedCategoryRule[]> {
         // 1. Extract Categories (Organizer Role)
         const extractionOutput = await this.extractCategories(styleGuide);
 
@@ -61,8 +61,8 @@ export class StyleGuideProcessor {
             console.log(`[StyleGuideProcessor] Extracted ${extractionOutput.categories.length} categories`);
         }
 
-        // 2. Generate Evals (Author Role)
-        return this.generateCategoryEvals(extractionOutput);
+        // 2. Generate Rules (Author Role)
+        return this.generateCategoryRules(extractionOutput);
     }
 
     /**
@@ -180,18 +180,18 @@ export class StyleGuideProcessor {
     }
 
     /**
-     * Generate category-level evals from extracted categories
+     * Generate category-level rules from extracted categories
      */
-    private async generateCategoryEvals(
+    private async generateCategoryRules(
         categories: CategoryExtractionOutput
-    ): Promise<GeneratedCategoryEval[]> {
-        const evals: GeneratedCategoryEval[] = [];
+    ): Promise<GeneratedCategoryRule[]> {
+        const rules: GeneratedCategoryRule[] = [];
         let completed = 0;
 
         for (const category of categories.categories) {
             try {
-                const generatedEval = await this.generateCategoryEval(category);
-                evals.push(generatedEval);
+                const generatedEval = await this.generateCategoryRule(category);
+                rules.push(generatedEval);
                 completed++;
                 if (this.options.verbose) {
                     console.log(`[StyleGuideProcessor] Progress: ${completed}/${categories.categories.length} categories processed`);
@@ -202,30 +202,30 @@ export class StyleGuideProcessor {
             }
         }
 
-        return evals;
+        return rules;
     }
 
-    private async generateCategoryEval(
+    private async generateCategoryRule(
         category: CategoryExtractionOutput['categories'][0]
-    ): Promise<GeneratedCategoryEval> {
-        const prompt = this.buildEvalPrompt(category);
+    ): Promise<GeneratedCategoryRule> {
+        const prompt = this.buildRulePrompt(category);
 
         try {
-            const schemaJson = zodToJsonSchema(CATEGORY_EVAL_GENERATION_SCHEMA);
+            const schemaJson = zodToJsonSchema(CATEGORY_RULE_GENERATION_SCHEMA);
 
-            const result = await this.llmProvider.runPromptStructured<CategoryEvalGenerationOutput>(
+            const result = await this.llmProvider.runPromptStructured<CategoryRuleGenerationOutput>(
                 JSON.stringify(category),
                 prompt,
                 {
-                    name: 'categoryEvalGeneration',
+                    name: 'categoryRuleGeneration',
                     schema: schemaJson as Record<string, unknown>
                 }
             );
 
-            return this.formatCategoryEval(category, result);
+            return this.formatCategoryRule(category, result);
         } catch (error) {
             throw new ProcessingError(
-                `Category eval generation failed for ${category.id}: ${(error as Error).message}`
+                `Category rule generation failed for ${category.id}: ${(error as Error).message}`
             );
         }
     }
@@ -285,7 +285,7 @@ Analyze the style guide and output categories based on what you find.
 `;
     }
 
-    private buildEvalPrompt(category: CategoryExtractionOutput['categories'][0]): string {
+    private buildRulePrompt(category: CategoryExtractionOutput['categories'][0]): string {
         return `
 You are an expert in creating automated content evaluation prompts.
 
@@ -316,10 +316,10 @@ Output a structured evaluation prompt that covers the entire category.
 
     // --- Helpers ---
 
-    private formatCategoryEval(
+    private formatCategoryRule(
         category: CategoryExtractionOutput['categories'][0],
-        output: CategoryEvalGenerationOutput
-    ): GeneratedCategoryEval {
+        output: CategoryRuleGenerationOutput
+    ): GeneratedCategoryRule {
         const defaultSeverity = this.options.defaultSeverity || 'warning';
 
         // Helpers for ID formatting

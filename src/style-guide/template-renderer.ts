@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { EvalGenerationOutput } from '../schemas/eval-generation-schema';
-import { CategoryEvalGenerationOutput } from '../schemas/category-schema';
+import { CategoryRuleGenerationOutput } from '../schemas/category-schema';
 import { StyleGuideRule } from '../schemas/style-guide-schemas';
 
 export interface TemplateContext {
@@ -93,7 +93,7 @@ export class TemplateRenderer {
      */
     public createCategoryContext(
         category: { id: string; name: string },
-        output: CategoryEvalGenerationOutput,
+        output: CategoryRuleGenerationOutput,
         defaultSeverity: string
     ): TemplateContext {
         return {
