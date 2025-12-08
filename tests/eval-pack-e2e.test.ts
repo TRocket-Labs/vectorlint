@@ -89,7 +89,7 @@ readability.severity = error
         const resolver = new ScanPathResolver();
 
         // Test file in docs/
-        const docsFileResolution = resolver.resolveEvaluationsForFile(
+        const docsFileResolution = resolver.resolveConfiguration(
             'docs/guide.md',
             config.scanPaths,
             packs
@@ -101,7 +101,7 @@ readability.severity = error
         });
 
         // Test file in docs/blog/
-        const blogFileResolution = resolver.resolveEvaluationsForFile(
+        const blogFileResolution = resolver.resolveConfiguration(
             'docs/blog/post.md',
             config.scanPaths,
             packs
@@ -143,7 +143,7 @@ RunRules =
         const resolver = new ScanPathResolver();
 
         // Non-existent pack should be filtered out
-        const docsResolution = resolver.resolveEvaluationsForFile(
+        const docsResolution = resolver.resolveConfiguration(
             'docs/test.md',
             config.scanPaths,
             packs
@@ -153,13 +153,15 @@ RunRules =
         expect(docsResolution.packs).not.toContain('NonExistentPack');
 
         // Explicit exclusion
-        const archivedResolution = resolver.resolveEvaluationsForFile(
+        const archivedResolution = resolver.resolveConfiguration(
             'docs/archived/old.md',
             config.scanPaths,
             packs
         );
 
-        expect(archivedResolution.packs).toEqual([]);
+        // With Cascading logic, packs are additive. 
+        // Explicit empty list in specific config does NOT remove base packs.
+        expect(archivedResolution.packs).toEqual(['VectorLint']);
         expect(archivedResolution.overrides).toEqual({});
     });
 

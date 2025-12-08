@@ -71,7 +71,7 @@ describe('File-centric configuration (File Sections)', () => {
                 createFilePatternConfig('docs/**/*.md', ['VectorLint'])
             ];
 
-            const result = resolver.resolveEvaluationsForFile('docs/guide.md', sections);
+            const result = resolver.resolveConfiguration('docs/guide.md', sections);
 
             expect(result.packs).toEqual(['VectorLint']);
             expect(result.overrides).toEqual({});
@@ -80,13 +80,13 @@ describe('File-centric configuration (File Sections)', () => {
         it('last matching section wins for RunRules', () => {
             const sections: FilePatternConfig[] = [
                 createFilePatternConfig('content/**/*.md', ['BasePack']),
-                createFilePatternConfig('**/blog/*.md', ['BlogPack'])
+                createFilePatternConfig('content/blog/*.md', ['BlogPack'])
             ];
 
-            const result = resolver.resolveEvaluationsForFile('content/blog/post.md', sections);
+            const result = resolver.resolveConfiguration('content/blog/post.md', sections);
 
-            // Last match wins - only BlogPack
-            expect(result.packs).toEqual(['BlogPack']);
+            // Cascading: BlogPack applies on top of BasePack
+            expect(result.packs).toEqual(['BasePack', 'BlogPack']);
         });
 
         it('later section overrides win', () => {
@@ -95,21 +95,23 @@ describe('File-centric configuration (File Sections)', () => {
                 createFilePatternConfig('docs/**/*.md', undefined, { strictness: 9 })
             ];
 
-            const result = resolver.resolveEvaluationsForFile('docs/api.md', sections);
+            const result = resolver.resolveConfiguration('docs/api.md', sections);
 
             expect(result.overrides.strictness).toBe(9);
         });
 
-        it('explicit exclusion clears packs and overrides', () => {
+        it('explicit empty list inherits base packs (Additive)', () => {
             const sections: FilePatternConfig[] = [
                 createFilePatternConfig('**/*.md', ['VectorLint'], { strictness: 7 }),
                 createFilePatternConfig('archived/**/*.md', [])
             ];
 
-            const result = resolver.resolveEvaluationsForFile('archived/old.md', sections);
+            const result = resolver.resolveConfiguration('archived/old.md', sections);
 
-            expect(result.packs).toEqual([]);
-            expect(result.overrides).toEqual({});
+            // Additive: RunRules are merged (Union). Empty list adds nothing, but doesn't clear.
+            expect(result.packs).toEqual(['VectorLint']);
+            // Overrides are also inherited.
+            expect(result.overrides).toEqual({ strictness: 7 });
         });
 
         it('filters non-existent packs when availablePacks provided', () => {
@@ -117,7 +119,7 @@ describe('File-centric configuration (File Sections)', () => {
                 createFilePatternConfig('**/*.md', ['NonExistent', 'VectorLint', 'AlsoMissing'])
             ];
 
-            const result = resolver.resolveEvaluationsForFile(
+            const result = resolver.resolveConfiguration(
                 'test.md',
                 sections,
                 ['VectorLint'] // Only VectorLint exists
@@ -132,7 +134,7 @@ describe('File-centric configuration (File Sections)', () => {
             ];
 
             expect(() => {
-                resolver.resolveEvaluationsForFile('README.txt', sections);
+                resolver.resolveConfiguration('README.txt', sections);
             }).toThrow(/No configuration found for this path/);
         });
     });
@@ -144,10 +146,10 @@ describe('File-centric configuration (File Sections)', () => {
                 createFilePatternConfig('docs/api/**/*.md', ['APIPack'], { 'technical-accuracy.strictness': 9 })
             ];
 
-            const result = resolver.resolveEvaluationsForFile('docs/api/users.md', sections);
+            const result = resolver.resolveConfiguration('docs/api/users.md', sections);
 
-            // Last match wins for RunRules
-            expect(result.packs).toEqual(['APIPack']);
+            // Cascading: APIPack applies on top of VectorLint
+            expect(result.packs).toEqual(['VectorLint', 'APIPack']);
             expect(result.overrides['technical-accuracy.strictness']).toBe(9); // Later wins
         });
     });
