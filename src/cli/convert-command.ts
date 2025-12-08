@@ -1,7 +1,6 @@
 import type { Command } from 'commander';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import * as path from 'path';
-import { StyleGuideParser } from '../style-guide/style-guide-parser';
 import { StyleGuideProcessor } from '../style-guide/style-guide-processor';
 import { createProvider } from '../providers/provider-factory';
 import { DefaultRequestBuilder } from '../providers/request-builder';
@@ -9,7 +8,6 @@ import { loadDirective } from '../prompts/directive-loader';
 import { parseEnvironment, parseConvertOptions } from '../boundaries/index';
 import { loadConfig } from '../boundaries/config-loader';
 import { handleUnknownError } from '../errors/index';
-import { StyleGuideFormat } from '../style-guide/types';
 import { ConvertOptions } from '../schemas';
 
 export function registerConvertCommand(program: Command): void {
@@ -96,23 +94,12 @@ export function registerConvertCommand(program: Command): void {
                     new DefaultRequestBuilder(directive)
                 );
 
-                // 6. Parse Style Guide
+                // 6. Process Style Guide
                 if (options.verbose) {
-                    console.log(`[vectorlint] Parsing style guide...`);
-                }
-                const parser = new StyleGuideParser();
-                const parseOptions = {
-                    format: options.format === 'auto' ? StyleGuideFormat.AUTO : options.format as StyleGuideFormat,
-                    verbose: options.verbose
-                };
-                const styleGuide = parser.parse(styleGuidePath, parseOptions);
-
-                if (options.verbose) {
-                    console.log(`[vectorlint] Parsed ${styleGuide.data.rules.length} rules from style guide`);
-                    console.log(`[vectorlint] Generating rules using ${env.LLM_PROVIDER}...`);
+                    console.log(`[vectorlint] Processing style guide...`);
+                    console.log(`[vectorlint] Using ${env.LLM_PROVIDER}...`);
                 }
 
-                // 7. Generate Rules
                 const processor = new StyleGuideProcessor({
                     llmProvider: provider,
                     maxCategories: options.maxCategories ? parseInt(options.maxCategories) : 10,
@@ -123,7 +110,7 @@ export function registerConvertCommand(program: Command): void {
                     verbose: options.verbose,
                 });
 
-                const categoryRules = await processor.process(styleGuide.data);
+                const categoryRules = await processor.processFile(styleGuidePath);
                 const rules = categoryRules.map(e => ({ filename: e.filename, content: e.content }));
 
                 if (rules.length === 0) {

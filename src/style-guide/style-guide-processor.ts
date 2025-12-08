@@ -1,6 +1,8 @@
+import { readFileSync } from 'fs';
+import * as path from 'path';
 import { LLMProvider } from '../providers/llm-provider';
-import { ParsedStyleGuide } from '../schemas/style-guide-schemas';
-import { ProcessingError } from '../errors/index';
+import { ParsedStyleGuide, STYLE_GUIDE_SCHEMA } from '../schemas/style-guide-schemas';
+import { ProcessingError, ConfigError, ValidationError } from '../errors/index';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
     CATEGORY_EXTRACTION_SCHEMA,
@@ -48,6 +50,50 @@ export class StyleGuideProcessor {
             strictness: 'standard',
             ...options
         };
+    }
+
+    /**
+     * Process a style guide file: Read, extract categories, and generate rules
+     */
+    public async processFile(filePath: string): Promise<GeneratedCategoryRule[]> {
+        // 1. Read and parse the style guide file
+        const styleGuide = this.readStyleGuide(filePath);
+
+        if (this.options.verbose) {
+            console.log(`[StyleGuideProcessor] Loaded style guide: ${styleGuide.name}`);
+        }
+
+        // 2. Process the style guide content
+        return this.process(styleGuide);
+    }
+
+    /**
+     * Read a style guide file and return parsed content
+     */
+    private readStyleGuide(filePath: string): ParsedStyleGuide {
+        // Validate file extension
+        const ext = path.extname(filePath).toLowerCase();
+        if (ext !== '.md' && ext !== '.markdown') {
+            throw new ConfigError(`Unsupported format: ${ext}. Only .md or .markdown files are supported.`);
+        }
+
+        try {
+            const content = readFileSync(filePath, 'utf-8');
+            const name = path.basename(filePath, path.extname(filePath));
+
+            const result: ParsedStyleGuide = { name, content };
+
+            // Validate against schema
+            STYLE_GUIDE_SCHEMA.parse(result);
+
+            return result;
+        } catch (error) {
+            if (error instanceof ConfigError || error instanceof ValidationError) {
+                throw error;
+            }
+            const err = error instanceof Error ? error : new Error(String(error));
+            throw new ProcessingError(`Failed to read style guide: ${err.message}`);
+        }
     }
 
     /**
