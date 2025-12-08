@@ -614,7 +614,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     // Extract available packs from loaded prompts
     const availablePacks = Array.from(new Set(prompts.map(p => p.pack).filter((p): p is string => !!p)));
 
-    const resolution = resolver.resolveEvaluationsForFile(relFile, scanPaths, availablePacks);
+    const resolution = resolver.resolveConfiguration(relFile, scanPaths, availablePacks);
 
     // Filter prompts by active packs
     const activePrompts = prompts.filter(p => p.pack && resolution.packs.includes(p.pack));
