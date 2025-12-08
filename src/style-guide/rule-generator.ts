@@ -5,24 +5,7 @@ import { EVAL_GENERATION_SCHEMA, EvalGenerationOutput } from '../schemas/eval-ge
 import { ProcessingError } from '../errors/index';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { TemplateRenderer } from './template-renderer';
-
-export interface RuleGenerationOptions {
-    llmProvider: LLMProvider;
-    templateDir?: string | undefined;
-    defaultSeverity?: 'error' | 'warning' | undefined;
-    strictness?: 'lenient' | 'standard' | 'strict' | undefined;
-}
-
-export interface GeneratedRule {
-    filename: string;
-    content: string;
-    meta: {
-        id: string;
-        name: string;
-        severity: string;
-        type: string;
-    };
-}
+import { GeneratedRule, RuleGenerationOptions } from './types';
 
 export class RuleGenerator {
     private llmProvider: LLMProvider;
@@ -100,7 +83,7 @@ You are an expert in creating automated content evaluation prompts.
 Your task is to convert a style guide rule into a structured evaluation prompt for an LLM.
 
 Rule ID: ${rule.id}
-Category: ${rule.category}
+${rule.category ? `Category: ${rule.category}` : ''}
 Description: ${rule.description}
 Severity: ${rule.severity || this.options.defaultSeverity}
 ${rule.examples ? `Examples:\nGood: ${rule.examples.good?.join(', ')}\nBad: ${rule.examples.bad?.join(', ')}` : ''}

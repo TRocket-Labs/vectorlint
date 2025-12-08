@@ -85,7 +85,7 @@ export class StyleGuideProcessor {
         const matchingRules = styleGuide.rules.filter(r =>
             r.description.toLowerCase().includes(filterTerm) ||
             r.id.toLowerCase().includes(filterTerm) ||
-            r.category.toLowerCase().includes(filterTerm)
+            r.category?.toLowerCase().includes(filterTerm)
         );
 
         if (matchingRules.length === 0) {

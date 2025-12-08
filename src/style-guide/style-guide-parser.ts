@@ -54,9 +54,6 @@ export class StyleGuideParser {
 
             this.validate(result);
 
-            // Auto-categorize rules if not already categorized
-            result.rules = result.rules.map((rule) => this.categorizeRule(rule));
-
             if (options.verbose && this.warnings.length > 0) {
                 console.warn('[StyleGuideParser] Warnings:');
                 this.warnings.forEach((w) => console.warn(`  - ${w}`));
@@ -123,25 +120,13 @@ export class StyleGuideParser {
         let ruleCounter = 0;
 
         for (const section of sections) {
-            // Each H2 or H3 section could be a category
-            // If it's H2, it's likely a category header. If H3, it might be a rule.
-            let category = 'general';
-
-            // Try to find the parent H2 for this section if possible, 
-            // but for now let's just look for category in the current section title if it's H2
-            if (section.level === 2) {
-                const rawCategory = section.title.replace(/^\d+\.\s*/, '').trim();
-                category = this.normalizeCategory(rawCategory);
-            }
-
             // If section is H3, treat the title itself as a rule
             if (section.level === 3) {
                 ruleCounter++;
                 const ruleId = this.generateRuleId(section.title, ruleCounter);
                 rules.push({
                     id: ruleId,
-                    category: 'general', // We'd need state to know the parent category, but 'general' is safe for now
-                    description: section.title.replace(/^\*\*|\*\*$/g, '').trim(), // Remove bold markers
+                    description: section.title.replace(/^\*\*|\*\*$/g, '').trim(),
                     severity: 'warning',
                 });
             }
@@ -151,7 +136,7 @@ export class StyleGuideParser {
 
             for (const item of listItems) {
                 ruleCounter++;
-                const rule = this.parseMarkdownRule(item, category, ruleCounter);
+                const rule = this.parseMarkdownRule(item, ruleCounter);
                 if (rule) {
                     rules.push(rule);
                 }
@@ -201,22 +186,6 @@ export class StyleGuideParser {
         }
     }
 
-    /**
-     * Normalize category name to standard ID format
-     */
-    private normalizeCategory(raw: string): string {
-        return raw.toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/(^-|-$)/g, '');
-    }
-    private categorizeRule(rule: StyleGuideRule): StyleGuideRule {
-        // Keep the category as-is from the markdown section title
-        // If no category was set, use 'uncategorized'
-        if (!rule.category || rule.category.trim() === '') {
-            return { ...rule, category: 'uncategorized' };
-        }
-        return rule;
-    }
 
     /**
      * Extract sections from markdown content
@@ -295,7 +264,6 @@ export class StyleGuideParser {
      */
     private parseMarkdownRule(
         item: string,
-        category: string,
         index: number
     ): StyleGuideRule | null {
         if (!item.trim()) return null;
@@ -305,9 +273,8 @@ export class StyleGuideParser {
 
         return {
             id,
-            category,
             description: item,
-            severity: 'warning', // Default severity
+            severity: 'warning',
         };
     }
 

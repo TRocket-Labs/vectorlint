@@ -7,7 +7,7 @@ export const STYLE_GUIDE_EXAMPLES_SCHEMA = z.object({
 
 export const STYLE_GUIDE_RULE_SCHEMA = z.object({
     id: z.string(),
-    category: z.string(),
+    category: z.string().optional(),
     description: z.string(),
     severity: z.enum(['error', 'warning']).optional(),
     examples: STYLE_GUIDE_EXAMPLES_SCHEMA.optional(),
