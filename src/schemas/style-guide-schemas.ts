@@ -23,6 +23,12 @@ export const STYLE_GUIDE_SCHEMA = z.object({
     metadata: z.record(z.unknown()).optional(),
 }).strict();
 
+export const STYLE_GUIDE_FRONTMATTER_SCHEMA = z.object({
+    name: z.string().optional(),
+    version: z.string().optional(),
+    description: z.string().optional(),
+});
+
 export type StyleGuideExamples = z.infer<typeof STYLE_GUIDE_EXAMPLES_SCHEMA>;
 export type StyleGuideRule = z.infer<typeof STYLE_GUIDE_RULE_SCHEMA>;
 export type ParsedStyleGuide = z.infer<typeof STYLE_GUIDE_SCHEMA>;

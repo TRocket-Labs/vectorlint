@@ -1,7 +1,5 @@
 import { readFileSync } from 'fs';
 import * as path from 'path';
-import YAML from 'yaml';
-import { z } from 'zod';
 import {
     STYLE_GUIDE_SCHEMA,
     type ParsedStyleGuide,
@@ -17,12 +15,6 @@ import {
     type ParserOptions,
     type ParserResult,
 } from './types';
-
-const STYLE_GUIDE_FRONTMATTER_SCHEMA = z.object({
-    name: z.string().optional(),
-    version: z.string().optional(),
-    description: z.string().optional(),
-});
 
 /**
  * Parser for converting style guide documents into structured format
@@ -44,7 +36,7 @@ export class StyleGuideParser {
 
             switch (format) {
                 case StyleGuideFormat.MARKDOWN:
-                    result = this.parseMarkdown(content);
+                    result = this.parseMarkdown(content, filePath);
                     break;
                 default:
                     throw new ConfigError(
@@ -77,46 +69,13 @@ export class StyleGuideParser {
     /**
      * Parse Markdown format style guide
      */
-    parseMarkdown(content: string): ParsedStyleGuide {
+    parseMarkdown(content: string, filePath: string): ParsedStyleGuide {
         const rules: StyleGuideRule[] = [];
-        let name = 'Untitled Style Guide';
-        let version: string | undefined;
-        let description: string | undefined;
-
-        // Check for YAML frontmatter
-        let bodyContent = content;
-        if (content.startsWith('---')) {
-            const endIndex = content.indexOf('\n---', 3);
-            if (endIndex !== -1) {
-                const frontmatter = content.slice(3, endIndex).trim();
-                bodyContent = content.slice(endIndex + 4);
-
-                try {
-                    const raw: unknown = YAML.parse(frontmatter);
-                    const parsed = STYLE_GUIDE_FRONTMATTER_SCHEMA.safeParse(raw);
-
-                    if (parsed.success) {
-                        const meta = parsed.data;
-                        if (meta.name) name = meta.name;
-                        if (meta.version) version = meta.version;
-                        if (meta.description) description = meta.description;
-                    } else {
-                        this.warnings.push('Invalid YAML frontmatter format');
-                    }
-                } catch (e) {
-                    this.warnings.push('Failed to parse YAML frontmatter, using defaults');
-                }
-            }
-        }
-
-        // Extract title from first H1 if no name in frontmatter
-        const h1Match = bodyContent.match(/^#\s+(.+)$/m);
-        if (h1Match && h1Match[1] && name === 'Untitled Style Guide') {
-            name = h1Match[1].trim();
-        }
+        // Name from filename (without extension)
+        const name = path.basename(filePath, path.extname(filePath));
 
         // Parse rules from sections
-        const sections = this.extractMarkdownSections(bodyContent);
+        const sections = this.extractMarkdownSections(content);
         let ruleCounter = 0;
 
         for (const section of sections) {
@@ -149,8 +108,6 @@ export class StyleGuideParser {
 
         return {
             name,
-            version,
-            description,
             rules,
         };
     }
