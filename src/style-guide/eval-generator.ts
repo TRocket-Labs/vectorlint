@@ -1,16 +1,16 @@
 import { z } from 'zod';
 import { LLMProvider } from '../providers/llm-provider';
 import { StyleGuideRule, ParsedStyleGuide } from '../schemas/style-guide-schemas';
-import { EVAL_GENERATION_SCHEMA, EvalGenerationOutput } from './eval-generation-schema';
+import { EVAL_GENERATION_SCHEMA, EvalGenerationOutput } from '../schemas/eval-generation-schema';
 import { EvalGenerationError } from '../errors/style-guide-errors';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { TemplateRenderer } from './template-renderer';
 
 export interface EvalGenerationOptions {
     llmProvider: LLMProvider;
-    templateDir?: string;
-    defaultSeverity?: 'error' | 'warning';
-    strictness?: 'lenient' | 'standard' | 'strict';
+    templateDir?: string | undefined;
+    defaultSeverity?: 'error' | 'warning' | undefined;
+    strictness?: 'lenient' | 'standard' | 'strict' | undefined;
 }
 
 export interface GeneratedEval {
@@ -47,10 +47,15 @@ export class EvalGenerator {
     ): Promise<GeneratedEval[]> {
         const evals: GeneratedEval[] = [];
 
+        let completed = 0;
         for (const rule of styleGuide.rules) {
             try {
                 const generatedEval = await this.generateEval(rule);
                 evals.push(generatedEval);
+                completed++;
+                if (completed % 5 === 0 || completed === styleGuide.rules.length) {
+                    console.log(`[EvalGenerator] Progress: ${completed}/${styleGuide.rules.length} rules processed`);
+                }
             } catch (error) {
                 console.error(`Failed to generate eval for rule ${rule.id}:`, error);
                 // Continue with other rules
@@ -67,7 +72,7 @@ export class EvalGenerator {
         const prompt = this.buildPrompt(rule);
 
         try {
-            const schemaJson = zodToJsonSchema(EVAL_GENERATION_SCHEMA, 'evalGeneration');
+            const schemaJson = zodToJsonSchema(EVAL_GENERATION_SCHEMA);
 
             // The LLMProvider expects { name: string; schema: Record<string, unknown> }
             // zodToJsonSchema returns a schema object that might have $schema, etc.
