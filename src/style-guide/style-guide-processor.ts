@@ -83,7 +83,7 @@ export class StyleGuideProcessor {
 
         if (this.options.verbose) {
             console.log(`[StyleGuideProcessor] Using LLM to find rules related to "${filterTerm}"`);
-            console.log(`[StyleGuideProcessor] Passing full style guide (${styleGuide.rules.length} rules) for semantic matching`);
+            console.log(`[StyleGuideProcessor] Passing raw style guide content for semantic matching`);
         }
 
         // Pass full style guide to LLM - let LLM semantically find matching rules
@@ -242,9 +242,8 @@ IMPORTANT:
 - Look for rules that are RELATED to the topic, even if they don't use the exact term
 
 Style Guide Name: ${styleGuide.name}
-Total Rules: ${styleGuide.rules.length}
 
-Analyze the style guide and create ONE category covering the "${filterTerm}" topic.
+Analyze the style guide content and create ONE category covering the "${filterTerm}" topic.
 `;
     }
 
@@ -273,9 +272,8 @@ Important:
 - Preserve original rule text and examples
 
 Style Guide Name: ${styleGuide.name}
-Total Rules: ${styleGuide.rules.length}
 
-Analyze the style guide and output categories based on what you find.
+Analyze the style guide content and output categories based on what you find.
 `;
     }
 
