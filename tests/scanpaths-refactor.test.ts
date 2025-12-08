@@ -68,43 +68,62 @@ describe('ScanPaths Refactor', () => {
                 createFilePatternConfig('content/**/*.md', ['VectorLint'])
             ];
 
-            const result = resolver.resolveEvaluationsForFile('content/blog/post.md', scanPaths);
+            const result = resolver.resolveConfiguration('content/blog/post.md', scanPaths);
             expect(result.packs).toEqual(['VectorLint']);
         });
 
-        it('should apply last matching section when multiple patterns match (Precedence)', () => {
+        it('should apply most specific pattern (Specific > General) regardless of order', () => {
+            // General defined AFTER specific
             const scanPaths = [
-                createFilePatternConfig('content/**/*.md', ['VectorLint']),
-                createFilePatternConfig('content/blog/**/*.md', ['Marketing'])
+                createFilePatternConfig('content/blog/**/*.md', ['Marketing']),
+                createFilePatternConfig('content/**/*.md', ['VectorLint'])
             ];
 
-            // content/blog/post.md matches both, but 'Marketing' is last
-            const result = resolver.resolveEvaluationsForFile('content/blog/post.md', scanPaths);
-            expect(result.packs).toEqual(['Marketing']);
+            // Cascading: General is merged with Specific
+            // content/blog/**/*.md (Marketing) + content/**/*.md (VectorLint)
+            const result = resolver.resolveConfiguration('content/blog/post.md', scanPaths);
+            expect(result.packs).toEqual(expect.arrayContaining(['VectorLint', 'Marketing']));
         });
 
-        it('should merge overrides with last-match-wins precedence', () => {
+        it('should merge duplicate patterns (Cascading)', () => {
             const scanPaths = [
-                createFilePatternConfig('**/*.md', ['VectorLint'], { 'Grammar.strictness': 5 }),
-                createFilePatternConfig('docs/**/*.md', ['Technical'], { 'Grammar.strictness': 9, 'Technical.enabled': true })
+                createFilePatternConfig('content/blog/**/*.md', ['First']),
+                createFilePatternConfig('content/blog/**/*.md', ['Second'])
             ];
 
-            const result = resolver.resolveEvaluationsForFile('docs/api.md', scanPaths);
-            expect(result.packs).toEqual(['Technical']);
+            // Tie in specificity -> Both apply and merge
+            const result = resolver.resolveConfiguration('content/blog/post.md', scanPaths);
+            expect(result.packs).toEqual(['First', 'Second']);
+        });
+
+        it('should merge overrides (Cascading Configuration)', () => {
+            const scanPaths = [
+                // General: strictness 5
+                createFilePatternConfig('**/*.md', ['VectorLint'], { 'Grammar.strictness': 5 }),
+                // Specific: enabled=true
+                createFilePatternConfig('docs/**/*.md', ['Technical'], { 'Technical.enabled': true })
+            ];
+
+            // Specific path matches both. 
+            // Result should contain BOTH overrides.
+            const result = resolver.resolveConfiguration('docs/api.md', scanPaths);
+            expect(result.packs).toEqual(expect.arrayContaining(['VectorLint', 'Technical']));
+
             expect(result.overrides).toEqual({
-                'Grammar.strictness': 9,
+                'Grammar.strictness': 5,
                 'Technical.enabled': true
             });
         });
 
-        it('should return empty packs when RunRules is empty (Skip)', () => {
+        it('should inherit packs if specific rule has empty RunRules', () => {
             const scanPaths = [
                 createFilePatternConfig('**/*.md', ['VectorLint']),
                 createFilePatternConfig('drafts/**/*.md', [])
             ];
 
-            const result = resolver.resolveEvaluationsForFile('drafts/wip.md', scanPaths);
-            expect(result.packs).toEqual([]);
+            // Cascading: Inherits 'VectorLint' from base, adds nothing from specific.
+            const result = resolver.resolveConfiguration('drafts/wip.md', scanPaths);
+            expect(result.packs).toEqual(['VectorLint']);
         });
 
         it('should throw error when file matches NO pattern', () => {
@@ -113,7 +132,7 @@ describe('ScanPaths Refactor', () => {
             ];
 
             expect(() => {
-                resolver.resolveEvaluationsForFile('other/readme.md', scanPaths);
+                resolver.resolveConfiguration('other/readme.md', scanPaths);
             }).toThrow(/No configuration found for this path/);
         });
     });

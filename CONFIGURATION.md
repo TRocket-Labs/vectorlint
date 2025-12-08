@@ -117,28 +117,34 @@ In this example, VectorLint sees two available packs: `Acme` and `TechCorp`.
 
 ### Order of Appearance
 
-VectorLint processes file patterns **in the order they appear** in `vectorlint.ini`.
+## Cascading Configuration
 
-*   Later patterns override settings from earlier patterns.
-*   If a file matches multiple sections, the **last matching section** determines the final configuration.
+VectorLint uses a **"Cascading"** logic (similar to Vale.sh) to determine which configuration applies to a file.
 
-**Example:**
+1.  **General to Specific**: All configuration blocks that match a file are applied, starting with general patterns and ending with specific ones.
+2.  **What happens**:
+    *   **Rule Packs**: A file runs rules from all matching patterns.
+    *   **Settings**: More specific patterns override general ones.
+3.  **Specificity**:
+    *   **General**: Patterns with fewer path segments or more wildcards (e.g., `*.md`).
+    *   **Specific**: Patterns with more path segments or exact names (e.g., `content/docs/api.md`).
+
+### Example
 
 ```ini
-# General rule: All markdown files run "Acme"
+# General (Applied FIRST)
 [**/*.md]
-RunRules=Acme
-GrammarChecker.strictness=7
+RunRules=GeneralRules
+Grammar.strictness=5
 
-# Specific overriding rule: Docs run "Acme" with higher strictness
-# This must come AFTER the general rule to take effect
+# Specific (Applied SECOND, overrides General)
+# MATCHES: content/docs/api.md
+# RESULT: Runs "GeneralRules" AND "TechDocs". strictness is 9 (overrides 5).
 [content/docs/**/*.md]
-GrammarChecker.strictness=9
+RunRules=TechDocs
+Grammar.strictness=9
 ```
 
----
-
-## Strictness Configuration
 
 You can configure the strictness of semi-objective rules (like Grammar or AI Detection) to control how they score content. Strictness determines the penalty weight for error density.
 
