@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import * as path from 'path';
 import YAML from 'yaml';
+import { z } from 'zod';
 import {
     STYLE_GUIDE_SCHEMA,
     type ParsedStyleGuide,
@@ -16,6 +17,12 @@ import {
     type ParserOptions,
     type ParserResult,
 } from './types';
+
+const STYLE_GUIDE_FRONTMATTER_SCHEMA = z.object({
+    name: z.string().optional(),
+    version: z.string().optional(),
+    description: z.string().optional(),
+});
 
 /**
  * Parser for converting style guide documents into structured format
@@ -90,10 +97,17 @@ export class StyleGuideParser {
                 bodyContent = content.slice(endIndex + 4);
 
                 try {
-                    const meta = YAML.parse(frontmatter);
-                    if (meta.name) name = meta.name;
-                    if (meta.version) version = meta.version;
-                    if (meta.description) description = meta.description;
+                    const raw: unknown = YAML.parse(frontmatter);
+                    const parsed = STYLE_GUIDE_FRONTMATTER_SCHEMA.safeParse(raw);
+
+                    if (parsed.success) {
+                        const meta = parsed.data;
+                        if (meta.name) name = meta.name;
+                        if (meta.version) version = meta.version;
+                        if (meta.description) description = meta.description;
+                    } else {
+                        this.warnings.push('Invalid YAML frontmatter format');
+                    }
                 } catch (e) {
                     this.warnings.push('Failed to parse YAML frontmatter, using defaults');
                 }
@@ -118,7 +132,8 @@ export class StyleGuideParser {
             // Try to find the parent H2 for this section if possible, 
             // but for now let's just look for category in the current section title if it's H2
             if (section.level === 2) {
-                category = section.title.replace(/^\d+\.\s*/, '').trim(); // Remove "1. " prefix
+                const rawCategory = section.title.replace(/^\d+\.\s*/, '').trim();
+                category = this.normalizeCategory(rawCategory);
             }
 
             // If section is H3, treat the title itself as a rule
@@ -178,6 +193,9 @@ export class StyleGuideParser {
     /**
      * Validate parsed style guide against schema
      */
+    /**
+     * Notify user if validation fails
+     */
     private validate(styleGuide: ParsedStyleGuide): void {
         try {
             STYLE_GUIDE_SCHEMA.parse(styleGuide);
@@ -190,9 +208,13 @@ export class StyleGuideParser {
     }
 
     /**
-     * Process a rule - category is now determined dynamically by LLM, not preset here
-     * Just preserve whatever category was extracted from the markdown structure
+     * Normalize category name to standard ID format
      */
+    private normalizeCategory(raw: string): string {
+        return raw.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '');
+    }
     private categorizeRule(rule: StyleGuideRule): StyleGuideRule {
         // Keep the category as-is from the markdown section title
         // If no category was set, use 'uncategorized'

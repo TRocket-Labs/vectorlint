@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { StyleGuideParser } from '../../src/style-guide/style-guide-parser';
-import { StyleGuideFormat, RuleCategory } from '../../src/style-guide/types';
+import { StyleGuideFormat } from '../../src/style-guide/types';
 import {
     StyleGuideParseError,
     UnsupportedFormatError,
@@ -61,18 +61,18 @@ describe('StyleGuideParser', () => {
             const rules = result.data.rules;
 
             // Should have tone rules
-            const toneRules = rules.filter((r) => r.category === RuleCategory.TONE);
+            const toneRules = rules.filter((r) => r.category === 'voice-and-tone');
             expect(toneRules.length).toBeGreaterThan(0);
 
             // Should have terminology rules
             const termRules = rules.filter(
-                (r) => r.category === RuleCategory.TERMINOLOGY
+                (r) => r.category === 'terminology'
             );
             expect(termRules.length).toBeGreaterThan(0);
 
             // Should have structure rules
             const structureRules = rules.filter(
-                (r) => r.category === RuleCategory.STRUCTURE
+                (r) => r.category === 'structure'
             );
             expect(structureRules.length).toBeGreaterThan(0);
         });

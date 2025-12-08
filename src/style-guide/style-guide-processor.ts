@@ -322,40 +322,11 @@ Output a structured evaluation prompt that covers the entire category.
         category: CategoryExtractionOutput['categories'][0],
         output: CategoryEvalGenerationOutput
     ): GeneratedCategoryEval {
-        // Build YAML frontmatter
-        let content = `---
-evaluator: base
-type: ${output.evaluationType}
-id: ${category.id}
-name: ${category.name}
-severity: ${this.options.defaultSeverity}
-`;
+        const defaultSeverity = this.options.defaultSeverity || 'warning';
 
-        if (output.criteria && output.criteria.length > 0) {
-            content += `criteria:\n`;
-            output.criteria.forEach(c => {
-                content += `  - name: ${c.name}\n`;
-                content += `    id: ${c.id}\n`;
-                content += `    weight: ${c.weight}\n`;
-            });
-        }
-
-        content += `---\n\n`;
-        content += `# ${category.name}\n\n`;
-        content += `${output.promptBody}\n\n`;
-
-        // Add rubrics if present
-        if (output.criteria) {
-            output.criteria.forEach(c => {
-                if (c.rubric && c.rubric.length > 0) {
-                    content += `## Rubric for ${c.name}\n\n`;
-                    c.rubric.forEach(r => {
-                        content += `- **${r.score} (${r.label})**: ${r.description}\n`;
-                    });
-                    content += `\n`;
-                }
-            });
-        }
+        // Use TemplateRenderer
+        const context = this.renderer.createCategoryContext(category, output, defaultSeverity);
+        const content = this.renderer.render('base-template.md', context);
 
         return {
             filename: `${category.id}.md`,

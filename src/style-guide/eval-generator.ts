@@ -74,11 +74,6 @@ export class EvalGenerator {
         try {
             const schemaJson = zodToJsonSchema(EVAL_GENERATION_SCHEMA);
 
-            // The LLMProvider expects { name: string; schema: Record<string, unknown> }
-            // zodToJsonSchema returns a schema object that might have $schema, etc.
-            // We need to cast or massage it to fit the interface if strict.
-            // Assuming schema property expects the JSON schema object.
-
             const result = await this.llmProvider.runPromptStructured<EvalGenerationOutput>(
                 JSON.stringify(rule), // Context
                 prompt,               // System/User prompt
@@ -128,48 +123,20 @@ Output the result in the specified JSON format.
      * Format the LLM output into a Markdown file content
      */
     private formatEval(rule: StyleGuideRule, output: EvalGenerationOutput): GeneratedEval {
-        const severity = rule.severity || this.options.defaultSeverity || 'warning';
+        const defaultSeverity = this.options.defaultSeverity || 'warning';
 
-        // YAML Frontmatter
-        let content = `---
-evaluator: base
-type: ${output.evaluationType}
-id: ${rule.id}
-name: ${rule.id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-severity: ${severity}
-`;
+        // Use TemplateRenderer to generate content
+        const context = this.renderer.createContext(rule, output, defaultSeverity);
+        const content = this.renderer.render('base-template.md', context);
 
-        if (output.criteria && output.criteria.length > 0) {
-            content += `criteria:\n`;
-            output.criteria.forEach(c => {
-                content += `  - name: ${c.name}\n`;
-                content += `    id: ${c.id}\n`;
-                content += `    weight: ${c.weight}\n`;
-            });
-        }
-
-        content += `---\n\n`;
-        content += `${output.promptBody}\n\n`;
-
-        if (output.criteria) {
-            output.criteria.forEach(c => {
-                if (c.rubric) {
-                    content += `## Rubric for ${c.name}\n\n`;
-                    c.rubric.forEach(r => {
-                        content += `- **${r.score} (${r.label})**: ${r.description}\n`;
-                    });
-                    content += `\n`;
-                }
-            });
-        }
-
+        // Extract meta for return value (still needed for CLI/API)
         return {
             filename: `${rule.id}.md`,
             content,
             meta: {
                 id: rule.id,
                 name: rule.id,
-                severity,
+                severity: context.SEVERITY as string,
                 type: output.evaluationType,
             }
         };

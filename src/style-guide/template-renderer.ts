@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { EvalGenerationOutput } from '../schemas/eval-generation-schema';
+import { CategoryEvalGenerationOutput } from '../schemas/category-schema';
 import { StyleGuideRule } from '../schemas/style-guide-schemas';
 
 export interface TemplateContext {
@@ -72,19 +73,6 @@ export class TemplateRenderer {
             .replace(/-/g, ' ')
             .replace(/\b\w/g, (l) => l.toUpperCase());
 
-        let rubricStr = '';
-        if (output.criteria) {
-            output.criteria.forEach(c => {
-                if (c.rubric) {
-                    rubricStr += `## Rubric for ${c.name}\n\n`;
-                    c.rubric.forEach(r => {
-                        rubricStr += `- **${r.score} (${r.label})**: ${r.description}\n`;
-                    });
-                    rubricStr += `\n`;
-                }
-            });
-        }
-
         return {
             EVALUATION_TYPE: output.evaluationType,
             RULE_ID: rule.id,
@@ -96,7 +84,46 @@ export class TemplateRenderer {
                 id: c.id,
                 weight: c.weight
             })),
-            RUBRIC: rubricStr.trim()
+            RUBRIC: this.buildRubricString(output.criteria)
         };
+    }
+
+    /**
+     * Create context from category and LLM output
+     */
+    public createCategoryContext(
+        category: { id: string; name: string },
+        output: CategoryEvalGenerationOutput,
+        defaultSeverity: string
+    ): TemplateContext {
+        return {
+            EVALUATION_TYPE: output.evaluationType,
+            RULE_ID: category.id,
+            RULE_NAME: category.name,
+            SEVERITY: defaultSeverity,
+            PROMPT_BODY: `# ${category.name}\n\n${output.promptBody}`,
+            CRITERIA: output.criteria?.map(c => ({
+                name: c.name,
+                id: c.id,
+                weight: c.weight
+            })),
+            RUBRIC: this.buildRubricString(output.criteria)
+        };
+    }
+
+    private buildRubricString(criteria?: Array<{ name: string; rubric?: Array<{ score: number; label: string; description: string }> | undefined }>): string {
+        let rubricStr = '';
+        if (criteria) {
+            criteria.forEach(c => {
+                if (c.rubric) {
+                    rubricStr += `## Rubric for ${c.name}\n\n`;
+                    c.rubric.forEach(r => {
+                        rubricStr += `- **${r.score} (${r.label})**: ${r.description}\n`;
+                    });
+                    rubricStr += `\n`;
+                }
+            });
+        }
+        return rubricStr.trim();
     }
 }
