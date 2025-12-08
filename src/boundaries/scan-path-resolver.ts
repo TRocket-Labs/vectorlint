@@ -30,10 +30,9 @@ export class ScanPathResolver {
         }
 
         // 2. Sort matches by specificity (Ascending)
-        // We apply General settings (low specificity) first, then Specific settings (high specificity).
+        // Apply General settings (low specificity) first, then Specific settings (high specificity).
         // JS sort is stable, so patterns with equal specificity preserve their definition order.
         // This ensures that later-defined rules correctly override earlier ones.
-
         matches.sort((a, b) => {
             const scoreA = getSpecificityScore(a.pattern);
             const scoreB = getSpecificityScore(b.pattern);
