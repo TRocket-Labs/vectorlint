@@ -1,18 +1,23 @@
+import { LLMProvider } from "../providers";
 
-
-export enum StyleGuideFormat {
-    MARKDOWN = 'markdown',
-    AUTO = 'auto',
+export interface StyleGuideProcessorOptions {
+    llmProvider: LLMProvider;
+    maxCategories?: number | undefined;
+    filterRule?: string | undefined;
+    templateDir?: string | undefined;
+    defaultSeverity?: 'error' | 'warning' | undefined;
+    strictness?: 'lenient' | 'standard' | 'strict' | undefined;
+    verbose?: boolean | undefined;
 }
 
-export interface ParserOptions {
-    format?: StyleGuideFormat;
-    verbose?: boolean;
-    strict?: boolean;
-}
-
-export interface ParserResult<T> {
-    data: T;
-    warnings: string[];
+export interface GeneratedCategoryRule {
+    filename: string;
+    content: string;
+    meta: {
+        id: string;
+        name: string;
+        categoryType: string;
+        ruleCount: number;
+    };
 }
 

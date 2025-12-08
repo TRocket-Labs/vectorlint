@@ -11,29 +11,7 @@ import {
     CategoryRuleGenerationOutput
 } from '../schemas/category-schema';
 import { TemplateRenderer } from './template-renderer';
-
-export interface StyleGuideProcessorOptions {
-    llmProvider: LLMProvider;
-    // Extraction options
-    maxCategories?: number | undefined;
-    filterRule?: string | undefined;
-    // Generation options
-    templateDir?: string | undefined;
-    defaultSeverity?: 'error' | 'warning' | undefined;
-    strictness?: 'lenient' | 'standard' | 'strict' | undefined;
-    verbose?: boolean | undefined;
-}
-
-export interface GeneratedCategoryRule {
-    filename: string;
-    content: string;
-    meta: {
-        id: string;
-        name: string;
-        categoryType: string;
-        ruleCount: number;
-    };
-}
+import { GeneratedCategoryRule, StyleGuideProcessorOptions } from './types';
 
 export class StyleGuideProcessor {
     private llmProvider: LLMProvider;
@@ -269,87 +247,87 @@ export class StyleGuideProcessor {
 
     private buildSingleRulePrompt(styleGuide: ParsedStyleGuide, filterTerm: string): string {
         return `
-You are an expert in analyzing style guides and creating content evaluation prompts.
+            You are an expert in analyzing style guides and creating content evaluation prompts.
 
-The user wants to generate an evaluation for a SPECIFIC topic: "${filterTerm}"
+            The user wants to generate an evaluation for a SPECIFIC topic: "${filterTerm}"
 
-Your task:
-1. Analyze the ENTIRE style guide provided as context
-2. Semantically identify ALL rules that relate to "${filterTerm}" (understand synonyms, related concepts, abbreviations like "pov" = "point of view" = "second person")
-3. Create EXACTLY ONE category that consolidates all related rules into a single cohesive evaluation
-4. Name the category based on the topic (e.g., if "${filterTerm}" is about voice/perspective, name it accordingly)
-5. Create a PascalCase ID for the category (e.g., "VoiceSecondPerson", "ToneFormality")
-6. Classify it as subjective, semi-objective, or objective based on the rule nature
-7. Include ALL semantically matching rules under this single category
+            Your task:
+            1. Analyze the ENTIRE style guide provided as context
+            2. Semantically identify ALL rules that relate to "${filterTerm}" (understand synonyms, related concepts, abbreviations like "pov" = "point of view" = "second person")
+            3. Create EXACTLY ONE category that consolidates all related rules into a single cohesive evaluation
+            4. Name the category based on the topic (e.g., if "${filterTerm}" is about voice/perspective, name it accordingly)
+            5. Create a PascalCase ID for the category (e.g., "VoiceSecondPerson", "ToneFormality")
+            6. Classify it as subjective, semi-objective, or objective based on the rule nature
+            7. Include ALL semantically matching rules under this single category
 
-IMPORTANT:
-- Use semantic understanding, not just string matching
-- "${filterTerm}" may be an abbreviation (pov, cta, seo) - understand what it means
-- Look for rules that are RELATED to the topic, even if they don't use the exact term
+            IMPORTANT:
+            - Use semantic understanding, not just string matching
+            - "${filterTerm}" may be an abbreviation (pov, cta, seo) - understand what it means
+            - Look for rules that are RELATED to the topic, even if they don't use the exact term
 
-Style Guide Name: ${styleGuide.name}
+            Style Guide Name: ${styleGuide.name}
 
-Analyze the style guide content and create ONE category covering the "${filterTerm}" topic.
-`;
+            Analyze the style guide content and create ONE category covering the "${filterTerm}" topic.
+            `;
     }
 
     private buildFullPrompt(styleGuide: ParsedStyleGuide): string {
         return `
-You are an expert in analyzing style guides and organizing rules into logical categories.
+            You are an expert in analyzing style guides and organizing rules into logical categories.
 
-Your task is to analyze the provided style guide and DYNAMICALLY identify categories based on the content.
-DO NOT use predefined categories. Let the content guide what categories emerge naturally.
+            Your task is to analyze the provided style guide and DYNAMICALLY identify categories based on the content.
+            DO NOT use predefined categories. Let the content guide what categories emerge naturally.
 
-Instructions:
-1. Read all the rules in the style guide
-2. Identify natural thematic groupings (e.g., if many rules discuss tone, create a "Voice & Tone" category)
-3. Create up to ${this.options.maxCategories} categories based on what you find
-4. Classify each category as:
-   - Subjective: Requires judgment (tone, style, clarity)
-   - Semi-objective: Clear patterns but needs context (citations, evidence)
-   - Objective: Can be mechanically checked (formatting, word count)
-5. Assign priority (1=highest, 10=lowest) based on impact on content quality
-6. Use PascalCase for all category IDs (e.g., "VoiceTone", "EvidenceCredibility")
+            Instructions:
+            1. Read all the rules in the style guide
+            2. Identify natural thematic groupings (e.g., if many rules discuss tone, create a "Voice & Tone" category)
+            3. Create up to ${this.options.maxCategories} categories based on what you find
+            4. Classify each category as:
+            - Subjective: Requires judgment (tone, style, clarity)
+            - Semi-objective: Clear patterns but needs context (citations, evidence)
+            - Objective: Can be mechanically checked (formatting, word count)
+            5. Assign priority (1=highest, 10=lowest) based on impact on content quality
+            6. Use PascalCase for all category IDs (e.g., "VoiceTone", "EvidenceCredibility")
 
-Important:
-- Categories should emerge from the ACTUAL content of the style guide
-- Do not force rules into predefined buckets
-- Each category should have 3-10 related rules
-- Preserve original rule text and examples
+            Important:
+            - Categories should emerge from the ACTUAL content of the style guide
+            - Do not force rules into predefined buckets
+            - Each category should have 3-10 related rules
+            - Preserve original rule text and examples
 
-Style Guide Name: ${styleGuide.name}
+            Style Guide Name: ${styleGuide.name}
 
-Analyze the style guide content and output categories based on what you find.
-`;
+            Analyze the style guide content and output categories based on what you find.
+            `;
     }
 
     private buildRulePrompt(category: CategoryExtractionOutput['categories'][0]): string {
         return `
-You are an expert in creating automated content evaluation prompts.
+            You are an expert in creating automated content evaluation prompts.
 
-Your task is to create a comprehensive evaluation prompt that checks ALL rules in the "${category.name}" category.
+            Your task is to create a comprehensive evaluation prompt that checks ALL rules in the "${category.name}" category.
 
-Category: ${category.name}
-Type: ${category.type}
-Description: ${category.description}
-Number of Rules: ${category.rules.length}
+            Category: ${category.name}
+            Type: ${category.type}
+            Description: ${category.description}
+            Number of Rules: ${category.rules.length}
 
-Rules to evaluate:
-${category.rules.map((r, i) => `${i + 1}. ${r.description}`).join('\n')}
+            Rules to evaluate:
+            ${category.rules.map((r, i) => `${i + 1}. ${r.description}`).join('\n')}
 
-Strictness Level: ${this.options.strictness}
+            Strictness Level: ${this.options.strictness}
 
-Instructions:
-1. Create a single prompt that evaluates ALL rules in this category together
-2. Each rule becomes a separate criterion with its own weight
-3. Use PascalCase for all criterion IDs (e.g., "VoiceSecondPersonPreferred")
-4. The prompt body should instruct the LLM to check all criteria
-4. For ${category.type} evaluation, ${category.type === 'subjective' ? 'create 1-4 rubrics for each criterion' : 'provide clear pass/fail guidance'}
-5. Total weight across all criteria should sum to 100
-6. Use examples from the rules when available
+            Instructions:
+            1. Create a single prompt that evaluates ALL rules in this category together
+            2. Each rule becomes a separate criterion with its own weight
+            3. Use PascalCase for all criterion IDs (e.g., "VoiceSecondPersonPreferred")
+            4. The prompt body should instruct the LLM to check all criteria
+            4. For ${category.type} evaluation, ${category.type === 'subjective' ? 'create 1-4 rubrics for each criterion' : 'provide clear pass/fail guidance'}
+            5. Total weight across all criteria should sum to 100
+            6. Use examples from the rules when available
 
-Output a structured evaluation prompt that covers the entire category.
-`;
+            Output a structured evaluation prompt that covers the entire category.
+        `;
     }
 
     // --- Helpers ---
