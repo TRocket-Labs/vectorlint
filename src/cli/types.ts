@@ -130,3 +130,5 @@ export interface EvaluateFileParams {
 export interface EvaluateFileResult extends ErrorTrackingResult {
     requestFailures: number;
 }
+
+export type { ConvertOptions } from '../schemas/cli-schemas';
