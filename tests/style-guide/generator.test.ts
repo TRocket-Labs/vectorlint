@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { EvalGenerator } from '../../src/style-guide/eval-generator';
 import { LLMProvider } from '../../src/providers/llm-provider';
 import { StyleGuideRule } from '../../src/schemas/style-guide-schemas';
-import { EvalGenerationOutput } from '../../src/style-guide/eval-generation-schema';
+import { EvalGenerationOutput } from '../../src/schemas/eval-generation-schema';
 
 // Mock LLM Provider
 class MockLLMProvider implements LLMProvider {
