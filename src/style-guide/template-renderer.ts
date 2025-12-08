@@ -2,24 +2,9 @@ import Handlebars from 'handlebars';
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { EvalGenerationOutput } from '../schemas/eval-generation-schema';
-import { CategoryRuleGenerationOutput } from '../schemas/category-schema';
+import { CategoryRuleGenerationOutput, RuleGenerationOutput } from '../schemas/style-guide-schemas';
 import { StyleGuideRule } from '../schemas/style-guide-schemas';
-
-export interface TemplateContext {
-    EVALUATION_TYPE: string;
-    RULE_ID: string;
-    RULE_NAME: string;
-    SEVERITY: string;
-    PROMPT_BODY: string;
-    CRITERIA?: Array<{
-        name: string;
-        id: string;
-        weight: number;
-    }> | undefined;
-    RUBRIC?: string | undefined;
-    [key: string]: unknown;
-}
+import { TemplateContext } from './types';
 
 export class TemplateRenderer {
     private templateDir: string;
@@ -65,7 +50,7 @@ export class TemplateRenderer {
      */
     public createContext(
         rule: StyleGuideRule,
-        output: EvalGenerationOutput,
+        output: RuleGenerationOutput,
         defaultSeverity: string
     ): TemplateContext {
         const severity = rule.severity || defaultSeverity;

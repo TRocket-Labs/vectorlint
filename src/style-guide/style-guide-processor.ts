@@ -9,24 +9,25 @@ import {
     CategoryExtractionOutput,
     CATEGORY_RULE_GENERATION_SCHEMA,
     CategoryRuleGenerationOutput
-} from '../schemas/category-schema';
+} from '../schemas/style-guide-schemas';
 import { TemplateRenderer } from './template-renderer';
-import { GeneratedCategoryRule, StyleGuideProcessorOptions } from './types';
+import { GeneratedCategoryRule, StyleGuideProcessorOptions, ResolvedProcessorOptions } from './types';
 
 export class StyleGuideProcessor {
     private llmProvider: LLMProvider;
-    private options: Required<Pick<StyleGuideProcessorOptions, 'maxCategories' | 'verbose' | 'defaultSeverity' | 'strictness'>> & Omit<StyleGuideProcessorOptions, 'llmProvider' | 'maxCategories' | 'verbose' | 'defaultSeverity' | 'strictness'>;
+    private options: ResolvedProcessorOptions;
     private renderer: TemplateRenderer;
 
     constructor(options: StyleGuideProcessorOptions) {
         this.llmProvider = options.llmProvider;
         this.renderer = new TemplateRenderer(options.templateDir);
         this.options = {
-            maxCategories: 10,
-            verbose: false,
-            defaultSeverity: 'warning',
-            strictness: 'standard',
-            ...options
+            maxCategories: options.maxCategories ?? 10,
+            verbose: options.verbose ?? false,
+            defaultSeverity: options.defaultSeverity ?? 'warning',
+            strictness: options.strictness ?? 'standard',
+            filterRule: options.filterRule,
+            templateDir: options.templateDir,
         };
     }
 
@@ -110,7 +111,6 @@ export class StyleGuideProcessor {
             console.log(`[StyleGuideProcessor] Passing raw style guide content for semantic matching`);
         }
 
-        // Pass full style guide to LLM - let LLM semantically find matching rules
         const prompt = this.buildSingleRulePrompt(styleGuide, filterTerm);
 
         try {
