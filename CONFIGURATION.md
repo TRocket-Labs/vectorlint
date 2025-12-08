@@ -121,13 +121,13 @@ In this example, VectorLint sees two available packs: `Acme` and `TechCorp`.
 
 VectorLint uses a **"Cascading"** logic (similar to Vale.sh) to determine which configuration applies to a file.
 
-1.  **Merge & Override**: All configuration blocks that match a file are applied, from **General** to **Specific**.
-2.  **Order of Application**:
-    *   **Rule Packs**: Are additive. A file inherits rule packs from all matching blocks.
-    *   **Overrides**: More specific blocks override less specific ones.
-3.  **Determining Specificity**:
-    *   **General**: Patterns with fewer segments or more wildcards (e.g., `*.md`).
-    *   **Specific**: Patterns with more segments or explicit filenames (e.g., `content/docs/api.md`).
+1.  **General to Specific**: All configuration blocks that match a file are applied, starting with general patterns and ending with specific ones.
+2.  **What happens**:
+    *   **Rule Packs**: A file runs rules from all matching patterns.
+    *   **Settings**: More specific patterns override general ones.
+3.  **Specificity**:
+    *   **General**: Patterns with fewer path segments or more wildcards (e.g., `*.md`).
+    *   **Specific**: Patterns with more path segments or exact names (e.g., `content/docs/api.md`).
 
 ### Example
 
