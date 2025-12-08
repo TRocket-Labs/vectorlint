@@ -1,7 +1,8 @@
 import Handlebars from 'handlebars';
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import { EvalGenerationOutput } from './eval-generation-schema';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { EvalGenerationOutput } from '../schemas/eval-generation-schema';
 import { StyleGuideRule } from '../schemas/style-guide-schemas';
 
 export interface TemplateContext {
@@ -23,7 +24,14 @@ export class TemplateRenderer {
     private templateDir: string;
 
     constructor(templateDir?: string) {
-        this.templateDir = templateDir || join(__dirname, 'templates');
+        if (templateDir) {
+            this.templateDir = templateDir;
+        } else {
+            // ESM compatible __dirname
+            const __filename = fileURLToPath(import.meta.url);
+            const __dirname = dirname(__filename);
+            this.templateDir = join(__dirname, 'templates');
+        }
         this.registerHelpers();
     }
 
