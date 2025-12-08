@@ -13,7 +13,6 @@ import {
 } from '../errors/style-guide-errors';
 import {
     StyleGuideFormat,
-    RuleCategory,
     type ParserOptions,
     type ParserResult,
 } from './types';
@@ -29,7 +28,10 @@ export class StyleGuideParser {
 
         try {
             const content = readFileSync(filePath, 'utf-8');
-            const format = options.format || this.detectFormat(filePath);
+            let format = options.format;
+            if (!format || format === StyleGuideFormat.AUTO) {
+                format = this.detectFormat(filePath);
+            }
 
             let result: ParsedStyleGuide;
 
@@ -188,66 +190,16 @@ export class StyleGuideParser {
     }
 
     /**
-     * Auto-categorize a rule based on its content
+     * Process a rule - category is now determined dynamically by LLM, not preset here
+     * Just preserve whatever category was extracted from the markdown structure
      */
     private categorizeRule(rule: StyleGuideRule): StyleGuideRule {
-        // Check existing category first
-        if (rule.category && rule.category !== 'general') {
-            const category = rule.category.toLowerCase();
-
-            if (category.includes('grammar') || category.includes('mechanics')) {
-                return { ...rule, category: RuleCategory.GRAMMAR };
-            }
-            if (category.includes('tone') || category.includes('voice')) {
-                return { ...rule, category: RuleCategory.TONE };
-            }
-            if (category.includes('term')) {
-                return { ...rule, category: RuleCategory.TERMINOLOGY };
-            }
-            if (category.includes('structure') || category.includes('heading')) {
-                return { ...rule, category: RuleCategory.STRUCTURE };
-            }
-
-            // Keep original if no mapping found
-            return rule;
+        // Keep the category as-is from the markdown section title
+        // If no category was set, use 'uncategorized'
+        if (!rule.category || rule.category.trim() === '') {
+            return { ...rule, category: 'uncategorized' };
         }
-
-        const description = rule.description.toLowerCase();
-
-        // Simple keyword-based categorization
-        if (
-            description.includes('grammar') ||
-            description.includes('spelling') ||
-            description.includes('punctuation')
-        ) {
-            return { ...rule, category: RuleCategory.GRAMMAR };
-        }
-
-        if (
-            description.includes('tone') ||
-            description.includes('voice') ||
-            description.includes('style')
-        ) {
-            return { ...rule, category: RuleCategory.TONE };
-        }
-
-        if (
-            description.includes('term') ||
-            description.includes('word') ||
-            description.includes('phrase')
-        ) {
-            return { ...rule, category: RuleCategory.TERMINOLOGY };
-        }
-
-        if (
-            description.includes('heading') ||
-            description.includes('paragraph') ||
-            description.includes('structure')
-        ) {
-            return { ...rule, category: RuleCategory.STRUCTURE };
-        }
-
-        return { ...rule, category: RuleCategory.CUSTOM };
+        return rule;
     }
 
     /**
