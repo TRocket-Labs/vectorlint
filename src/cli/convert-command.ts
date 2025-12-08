@@ -31,7 +31,7 @@ export function registerConvertCommand(program: Command): void {
         .command('convert')
         .description('Convert a style guide into VectorLint evaluation prompts')
         .argument('<style-guide-path>', 'Path to the style guide file')
-        .option('-o, --output <dir>', 'Output directory for generated evals (defaults to PromptsPath from config)')
+        .option('-o, --output <dir>', 'Output directory for generated evals (defaults to RulesPath from config)')
         .option('-f, --format <format>', 'Input format: markdown, auto', 'auto')
         .option('-t, --template <dir>', 'Custom template directory')
         .option('--strictness <level>', 'Strictness level: lenient, standard, strict', 'standard')
@@ -54,9 +54,9 @@ export function registerConvertCommand(program: Command): void {
                 if (!outputDir) {
                     try {
                         const config = loadConfig();
-                        outputDir = config.promptsPath;
+                        outputDir = config.rulesPath;
                         if (options.verbose) {
-                            console.log(`[vectorlint] Using PromptsPath from config: ${outputDir}`);
+                            console.log(`[vectorlint] Using RulesPath from config: ${outputDir}`);
                         }
                     } catch {
                         console.error('Error: No output directory specified and no vectorlint.ini found.');

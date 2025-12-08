@@ -10,7 +10,7 @@ export const CATEGORY_EVAL_GENERATION_SCHEMA = z.object({
     promptBody: z.string().describe('The main instruction for the LLM evaluator'),
     criteria: z.array(z.object({
         name: z.string().describe('Criterion name (usually the rule description)'),
-        id: z.string().describe('Criterion ID (slug-friendly)'),
+        id: z.string().describe('PascalCase criterion ID (e.g., "VoiceSecondPersonPreferred")'),
         weight: z.number().positive().describe('Weight of this criterion in overall score'),
         rubric: z.array(z.object({
             score: z.number().int().min(1).max(4),
@@ -34,7 +34,7 @@ export type CategoryEvalGenerationOutput = z.infer<typeof CATEGORY_EVAL_GENERATI
 export const CATEGORY_EXTRACTION_SCHEMA = z.object({
     categories: z.array(z.object({
         name: z.string().describe('Category name (e.g., "Voice & Tone", "Evidence & Citations")'),
-        id: z.string().describe('Slug-friendly category ID (e.g., "voice-tone")'),
+        id: z.string().describe('PascalCase category ID (e.g., "VoiceTone")'),
         type: z.enum(['subjective', 'semi-objective', 'objective']).describe('Evaluation type for this category'),
         description: z.string().describe('Brief description of what this category covers'),
         rules: z.array(z.object({

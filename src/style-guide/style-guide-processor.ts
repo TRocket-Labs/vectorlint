@@ -249,8 +249,9 @@ ${matchingRules.map((r, i) => `${i + 1}. ${r.description}`).join('\n')}
 Your task:
 1. Create EXACTLY ONE category that consolidates all matching rules into a single cohesive evaluation
 2. Name the category based on what "${filterTerm}" refers to in the style guide
-3. Classify it as subjective, semi-objective, or objective based on the rule nature
-4. Include ALL matching rules under this single category
+3. Create a PascalCase ID for the category (e.g., "VoiceSecondPersonPreferred")
+4. Classify it as subjective, semi-objective, or objective based on the rule nature
+5. Include ALL matching rules under this single category
 
 DO NOT create multiple categories. Create exactly ONE category that covers the "${filterTerm}" topic.
 
@@ -274,6 +275,7 @@ Instructions:
    - Semi-objective: Clear patterns but needs context (citations, evidence)
    - Objective: Can be mechanically checked (formatting, word count)
 5. Assign priority (1=highest, 10=lowest) based on impact on content quality
+6. Use PascalCase for all category IDs (e.g., "VoiceTone", "EvidenceCredibility")
 
 Important:
 - Categories should emerge from the ACTUAL content of the style guide
@@ -307,7 +309,8 @@ Strictness Level: ${this.options.strictness}
 Instructions:
 1. Create a single prompt that evaluates ALL rules in this category together
 2. Each rule becomes a separate criterion with its own weight
-3. The prompt body should instruct the LLM to check all criteria
+3. Use PascalCase for all criterion IDs (e.g., "VoiceSecondPersonPreferred")
+4. The prompt body should instruct the LLM to check all criteria
 4. For ${category.type} evaluation, ${category.type === 'subjective' ? 'create 1-4 rubrics for each criterion' : 'provide clear pass/fail guidance'}
 5. Total weight across all criteria should sum to 100
 6. Use examples from the rules when available
@@ -324,12 +327,21 @@ Output a structured evaluation prompt that covers the entire category.
     ): GeneratedCategoryEval {
         const defaultSeverity = this.options.defaultSeverity || 'warning';
 
+        // Helpers for ID formatting
+        const toKebabCase = (str: string) => str
+            .replace(/([a-z])([A-Z])/g, '$1-$2')
+            .replace(/[\s_]+/g, '-')
+            .toLowerCase();
+
         // Use TemplateRenderer
         const context = this.renderer.createCategoryContext(category, output, defaultSeverity);
         const content = this.renderer.render('base-template.md', context);
 
+        // Ensure filename is kebab-case even if ID is PascalCase
+        const filenameId = toKebabCase(category.id);
+
         return {
-            filename: `${category.id}.md`,
+            filename: `${filenameId}.md`,
             content,
             meta: {
                 id: category.id,
