@@ -8,10 +8,10 @@ import {
     type StyleGuideRule,
 } from '../schemas/style-guide-schemas';
 import {
-    StyleGuideParseError,
-    StyleGuideValidationError,
-    UnsupportedFormatError,
-} from '../errors/style-guide-errors';
+    ValidationError,
+    ProcessingError,
+    ConfigError,
+} from '../errors/index';
 import {
     StyleGuideFormat,
     type ParserOptions,
@@ -47,9 +47,8 @@ export class StyleGuideParser {
                     result = this.parseMarkdown(content);
                     break;
                 default:
-                    throw new UnsupportedFormatError(
-                        `Unsupported format: ${format}`,
-                        format
+                    throw new ConfigError(
+                        `Unsupported format: ${format}`
                     );
             }
 
@@ -68,13 +67,12 @@ export class StyleGuideParser {
                 warnings: this.warnings,
             };
         } catch (error) {
-            if (error instanceof StyleGuideParseError || error instanceof UnsupportedFormatError) {
+            if (error instanceof ProcessingError || error instanceof ConfigError || error instanceof ValidationError) {
                 throw error;
             }
             const err = error instanceof Error ? error : new Error(String(error));
-            throw new StyleGuideParseError(
-                `Failed to parse style guide: ${err.message}`,
-                filePath
+            throw new ProcessingError(
+                `Failed to parse style guide: ${err.message}`
             );
         }
     }
@@ -183,9 +181,8 @@ export class StyleGuideParser {
             case '.markdown':
                 return StyleGuideFormat.MARKDOWN;
             default:
-                throw new UnsupportedFormatError(
-                    `Cannot detect format from extension: ${ext}`,
-                    ext
+                throw new ConfigError(
+                    `Cannot detect format from extension: ${ext}`
                 );
         }
     }
@@ -193,15 +190,12 @@ export class StyleGuideParser {
     /**
      * Validate parsed style guide against schema
      */
-    /**
-     * Notify user if validation fails
-     */
     private validate(styleGuide: ParsedStyleGuide): void {
         try {
             STYLE_GUIDE_SCHEMA.parse(styleGuide);
         } catch (error) {
             const err = error instanceof Error ? error : new Error(String(error));
-            throw new StyleGuideValidationError(
+            throw new ValidationError(
                 `Style guide validation failed: ${err.message}`
             );
         }

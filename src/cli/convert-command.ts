@@ -11,7 +11,7 @@ import { parseEnvironment, parseConvertOptions } from '../boundaries/index';
 import { loadConfig } from '../boundaries/config-loader';
 import { handleUnknownError } from '../errors/index';
 import { StyleGuideFormat } from '../style-guide/types';
-import { ConvertOptions } from './types';
+import { ConvertOptions } from '../schemas';
 
 export function registerConvertCommand(program: Command): void {
     program

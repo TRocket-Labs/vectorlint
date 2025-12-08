@@ -1,6 +1,6 @@
 import { LLMProvider } from '../providers/llm-provider';
 import { ParsedStyleGuide } from '../schemas/style-guide-schemas';
-import { EvalGenerationError } from '../errors/style-guide-errors';
+import { ProcessingError } from '../errors/index';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
     CATEGORY_EXTRACTION_SCHEMA,
@@ -89,9 +89,8 @@ export class StyleGuideProcessor {
         );
 
         if (matchingRules.length === 0) {
-            throw new EvalGenerationError(
-                `No rules found matching filter: "${this.options.filterRule}"`,
-                'category-extraction'
+            throw new ProcessingError(
+                `No rules found matching filter: "${this.options.filterRule}" (context: category-extraction)`
             );
         }
 
@@ -123,9 +122,8 @@ export class StyleGuideProcessor {
             }
 
             if (result.categories.length === 0) {
-                throw new EvalGenerationError(
-                    `No category generated for rule: "${this.options.filterRule}"`,
-                    'category-extraction'
+                throw new ProcessingError(
+                    `No category generated for rule: "${this.options.filterRule}" (context: category-extraction)`
                 );
             }
 
@@ -135,10 +133,9 @@ export class StyleGuideProcessor {
 
             return result;
         } catch (error) {
-            if (error instanceof EvalGenerationError) throw error;
-            throw new EvalGenerationError(
-                `Single rule extraction failed: ${(error as Error).message}`,
-                'category-extraction'
+            if (error instanceof ProcessingError) throw error;
+            throw new ProcessingError(
+                `Single rule extraction failed: ${(error as Error).message}`
             );
         }
     }
@@ -175,10 +172,9 @@ export class StyleGuideProcessor {
 
             return finalResult;
         } catch (error) {
-            if (error instanceof EvalGenerationError) throw error;
-            throw new EvalGenerationError(
-                `Category extraction failed: ${(error as Error).message}`,
-                'category-extraction'
+            if (error instanceof ProcessingError) throw error;
+            throw new ProcessingError(
+                `Category extraction failed: ${(error as Error).message}`
             );
         }
     }
@@ -228,9 +224,8 @@ export class StyleGuideProcessor {
 
             return this.formatCategoryEval(category, result);
         } catch (error) {
-            throw new EvalGenerationError(
-                `Category eval generation failed: ${(error as Error).message}`,
-                category.id
+            throw new ProcessingError(
+                `Category eval generation failed for ${category.id}: ${(error as Error).message}`
             );
         }
     }

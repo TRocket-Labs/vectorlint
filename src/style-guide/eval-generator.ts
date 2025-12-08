@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { LLMProvider } from '../providers/llm-provider';
 import { StyleGuideRule, ParsedStyleGuide } from '../schemas/style-guide-schemas';
 import { EVAL_GENERATION_SCHEMA, EvalGenerationOutput } from '../schemas/eval-generation-schema';
-import { EvalGenerationError } from '../errors/style-guide-errors';
+import { ProcessingError } from '../errors/index';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { TemplateRenderer } from './template-renderer';
 
@@ -85,9 +85,8 @@ export class EvalGenerator {
 
             return this.formatEval(rule, result);
         } catch (error) {
-            throw new EvalGenerationError(
-                `LLM generation failed: ${(error as Error).message}`,
-                rule.id
+            throw new ProcessingError(
+                `LLM generation failed: ${(error as Error).message}`
             );
         }
     }
