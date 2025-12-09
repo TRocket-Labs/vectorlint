@@ -2,8 +2,11 @@ import Handlebars from 'handlebars';
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { CategoryRuleGenerationOutput, RuleGenerationOutput } from '../schemas/style-guide-schemas';
-import { StyleGuideRule } from '../schemas/style-guide-schemas';
+import {
+    CategoryRuleGenerationOutput,
+    RuleGenerationOutput,
+    StyleGuideRule
+} from '../schemas/style-guide-schemas';
 import { TemplateContext } from './types';
 
 export class TemplateRenderer {
@@ -13,10 +16,10 @@ export class TemplateRenderer {
         if (templateDir) {
             this.templateDir = templateDir;
         } else {
-            // ESM compatible __dirname
-            const __filename = fileURLToPath(import.meta.url);
-            const __dirname = dirname(__filename);
-            this.templateDir = join(__dirname, 'templates');
+            // ESM compatible current directory resolution
+            const currentFilePath = fileURLToPath(import.meta.url);
+            const currentDirPath = dirname(currentFilePath);
+            this.templateDir = join(currentDirPath, 'templates');
         }
         this.registerHelpers();
     }

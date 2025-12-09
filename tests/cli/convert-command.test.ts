@@ -2,12 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { registerConvertCommand } from '../../src/cli/convert-command';
 import * as fs from 'fs';
-import * as path from 'path';
 
 // Mocks
 vi.mock('fs');
-vi.mock('../../src/style-guide/style-guide-parser');
-vi.mock('../../src/style-guide/eval-generator');
+vi.mock('../../src/style-guide/style-guide-processor');
 vi.mock('../../src/providers/provider-factory');
 vi.mock('../../src/boundaries/index');
 vi.mock('../../src/prompts/directive-loader');

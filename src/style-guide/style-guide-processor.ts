@@ -1,15 +1,16 @@
 import { readFileSync } from 'fs';
 import * as path from 'path';
 import { LLMProvider } from '../providers/llm-provider';
-import { ParsedStyleGuide, STYLE_GUIDE_SCHEMA } from '../schemas/style-guide-schemas';
-import { ProcessingError, ConfigError, ValidationError } from '../errors/index';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
+    ParsedStyleGuide,
+    STYLE_GUIDE_SCHEMA,
     CATEGORY_EXTRACTION_SCHEMA,
     CategoryExtractionOutput,
     CATEGORY_RULE_GENERATION_SCHEMA,
     CategoryRuleGenerationOutput
 } from '../schemas/style-guide-schemas';
+import { ProcessingError, ConfigError, ValidationError } from '../errors/index';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import { TemplateRenderer } from './template-renderer';
 import { GeneratedCategoryRule, StyleGuideProcessorOptions, ResolvedProcessorOptions } from './types';
 
@@ -35,14 +36,12 @@ export class StyleGuideProcessor {
      * Process a style guide file: Read, extract categories, and generate rules
      */
     public async processFile(filePath: string): Promise<GeneratedCategoryRule[]> {
-        // 1. Read and parse the style guide file
         const styleGuide = this.readStyleGuide(filePath);
 
         if (this.options.verbose) {
             console.log(`[StyleGuideProcessor] Loaded style guide: ${styleGuide.name}`);
         }
 
-        // 2. Process the style guide content
         return this.process(styleGuide);
     }
 
@@ -62,7 +61,6 @@ export class StyleGuideProcessor {
 
             const result: ParsedStyleGuide = { name, content };
 
-            // Validate against schema
             STYLE_GUIDE_SCHEMA.parse(result);
 
             return result;
@@ -94,12 +92,9 @@ export class StyleGuideProcessor {
      * Extract and categorize rules from a parsed style guide
      */
     private async extractCategories(styleGuide: ParsedStyleGuide): Promise<CategoryExtractionOutput> {
-        // If filterRule is specified, generate ONLY ONE category for that specific rule
         if (this.options.filterRule) {
             return this.extractSingleRule(styleGuide);
         }
-
-        // Otherwise, do full category extraction
         return this.extractAllCategories(styleGuide);
     }
 
@@ -125,7 +120,6 @@ export class StyleGuideProcessor {
                 }
             );
 
-            // Ensure we return exactly ONE category
             if (result.categories.length > 1) {
                 const firstCategory = result.categories[0];
                 if (firstCategory) {
@@ -246,88 +240,78 @@ export class StyleGuideProcessor {
     // --- Prompt Builders ---
 
     private buildSingleRulePrompt(styleGuide: ParsedStyleGuide, filterTerm: string): string {
-        return `
-            You are an expert in analyzing style guides and creating content evaluation prompts.
+        return `You are a **style guide analyzer** designed to extract and categorize rules from style guides.
 
-            The user wants to generate an evaluation for a SPECIFIC topic: "${filterTerm}"
+## Task
 
-            Your task:
-            1. Analyze the ENTIRE style guide provided as context
-            2. Semantically identify ALL rules that relate to "${filterTerm}" (understand synonyms, related concepts, abbreviations like "pov" = "point of view" = "second person")
-            3. Create EXACTLY ONE category that consolidates all related rules into a single cohesive evaluation
-            4. Name the category based on the topic (e.g., if "${filterTerm}" is about voice/perspective, name it accordingly)
-            5. Create a PascalCase ID for the category (e.g., "VoiceSecondPerson", "ToneFormality")
-            6. Classify it as subjective, semi-objective, or objective based on the rule nature
-            7. Include ALL semantically matching rules under this single category
+Analyze the provided style guide and extract all rules related to: **"${filterTerm}"**
 
-            IMPORTANT:
-            - Use semantic understanding, not just string matching
-            - "${filterTerm}" may be an abbreviation (pov, cta, seo) - understand what it means
-            - Look for rules that are RELATED to the topic, even if they don't use the exact term
+## Output Requirements
 
-            Style Guide Name: ${styleGuide.name}
+- Create **exactly one** category that consolidates all related rules
+- Use **PascalCase** for the category ID
+- Classify as: **subjective**, **semi-objective**, or **objective**
+- Include all semantically matching rules
 
-            Analyze the style guide content and create ONE category covering the "${filterTerm}" topic.
-            `;
+## Guidelines
+
+- Look for rules **related** to the topic, not just exact matches
+- Consolidate similar rules into a cohesive category
+- Preserve original rule text
+
+Style Guide: **${styleGuide.name}**`;
     }
 
     private buildFullPrompt(styleGuide: ParsedStyleGuide): string {
-        return `
-            You are an expert in analyzing style guides and organizing rules into logical categories.
+        return `You are a **style guide categorizer** designed to organize style guide rules into logical groups.
 
-            Your task is to analyze the provided style guide and DYNAMICALLY identify categories based on the content.
-            DO NOT use predefined categories. Let the content guide what categories emerge naturally.
+## Task
 
-            Instructions:
-            1. Read all the rules in the style guide
-            2. Identify natural thematic groupings (e.g., if many rules discuss tone, create a "Voice & Tone" category)
-            3. Create up to ${this.options.maxCategories} categories based on what you find
-            4. Classify each category as:
-            - Subjective: Requires judgment (tone, style, clarity)
-            - Semi-objective: Clear patterns but needs context (citations, evidence)
-            - Objective: Can be mechanically checked (formatting, word count)
-            5. Assign priority (1=highest, 10=lowest) based on impact on content quality
-            6. Use PascalCase for all category IDs (e.g., "VoiceTone", "EvidenceCredibility")
+Analyze the provided style guide and identify up to **${this.options.maxCategories}** natural categories.
 
-            Important:
-            - Categories should emerge from the ACTUAL content of the style guide
-            - Do not force rules into predefined buckets
-            - Each category should have 3-10 related rules
-            - Preserve original rule text and examples
+## Category Types
 
-            Style Guide Name: ${styleGuide.name}
+- **Subjective**: Requires judgment (tone, style, clarity)
+- **Semi-objective**: Clear patterns but needs context (citations, evidence)  
+- **Objective**: Can be mechanically checked (formatting, word count)
 
-            Analyze the style guide content and output categories based on what you find.
-            `;
+## Output Requirements
+
+- Use **PascalCase** for all category IDs
+- Assign **priority** (1=highest, 10=lowest) based on quality impact
+- Include **3-10 rules** per category
+- Preserve original rule text and examples
+
+
+
+Style Guide: **${styleGuide.name}**`;
     }
 
     private buildRulePrompt(category: CategoryExtractionOutput['categories'][0]): string {
-        return `
-            You are an expert in creating automated content evaluation prompts.
+        return `You are an **evaluation prompt generator** designed to create content evaluation prompts.
 
-            Your task is to create a comprehensive evaluation prompt that checks ALL rules in the "${category.name}" category.
+## Task
 
-            Category: ${category.name}
-            Type: ${category.type}
-            Description: ${category.description}
-            Number of Rules: ${category.rules.length}
+Create a comprehensive evaluation prompt for the **"${category.name}"** category.
 
-            Rules to evaluate:
-            ${category.rules.map((r, i) => `${i + 1}. ${r.description}`).join('\n')}
+## Category Details
 
-            Strictness Level: ${this.options.strictness}
+- **Name**: ${category.name}
+- **Type**: ${category.type}
+- **Description**: ${category.description}
+- **Strictness**: ${this.options.strictness}
 
-            Instructions:
-            1. Create a single prompt that evaluates ALL rules in this category together
-            2. Each rule becomes a separate criterion with its own weight
-            3. Use PascalCase for all criterion IDs (e.g., "VoiceSecondPersonPreferred")
-            4. The prompt body should instruct the LLM to check all criteria
-            4. For ${category.type} evaluation, ${category.type === 'subjective' ? 'create 1-4 rubrics for each criterion' : 'provide clear pass/fail guidance'}
-            5. Total weight across all criteria should sum to 100
-            6. Use examples from the rules when available
+## Rules to Evaluate
 
-            Output a structured evaluation prompt that covers the entire category.
-        `;
+${category.rules.map((r, i) => `${i + 1}. ${r.description}`).join('\n')}
+
+## Output Requirements
+
+- Each rule becomes a **separate criterion** with its own weight
+- Use **PascalCase** for all criterion IDs
+- Total weight must sum to **100**
+${category.type === 'subjective' ? '- Create **1-4 rubric levels** for each criterion' : '- Provide **pass/fail** guidance for each criterion'}
+- Include examples from rules when available`;
     }
 
     // --- Helpers ---
