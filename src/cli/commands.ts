@@ -74,7 +74,7 @@ export function registerMainCommand(program: Command): void {
 
       if (cliOptions.verbose) {
         const directiveLen = directive ? directive.length : 0;
-        console.error(`[vectorlint] Directive active: ${directiveLen} char(s)`);
+        console.log(`[vectorlint] Directive active: ${directiveLen} char(s)`);
       }
 
       // Load config and prompts

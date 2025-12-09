@@ -9,13 +9,15 @@ import { printFileHeader, printIssueRow, printEvaluationSummaries, type Evaluati
 import { locateEvidenceWithMatch } from '../output/location';
 import { checkTarget } from '../prompts/target';
 import { isSubjectiveResult } from '../prompts/schema';
+import { handleUnknownError, MissingDependencyError } from '../errors/index';
+import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
-import { EvaluateFileParams, EvaluateFileResult, ExtractMatchTextParams, LocationMatch, ProcessCriterionParams, ProcessCriterionResult, ProcessPromptResultParams, ProcessViolationsParams, ReportIssueParams, RunPromptEvaluationParams, RunPromptEvaluationResult, ValidationParams, EvaluationOptions, EvaluationResult, ErrorTrackingResult } from './types';
-import { handleUnknownError, MissingDependencyError } from '../errors';
-import { createEvaluator } from '../evaluators';
-
-
-
+import type {
+  EvaluationOptions, EvaluationResult, ErrorTrackingResult,
+  ReportIssueParams, ExtractMatchTextParams, LocationMatch, ProcessViolationsParams,
+  ProcessCriterionParams, ProcessCriterionResult, ValidationParams, ProcessPromptResultParams,
+  RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult
+} from './types';
 
 /*
  * Returns the evaluator type, defaulting to 'base' if not specified.
