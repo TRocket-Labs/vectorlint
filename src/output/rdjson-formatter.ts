@@ -1,4 +1,5 @@
 import type { Issue, EvaluationScore } from './json-formatter';
+import { Severity } from '../evaluators/types';
 
 export interface RdJsonResult {
     source: {
@@ -90,7 +91,7 @@ export class RdJsonFormatter {
                             },
                         },
                     },
-                    severity: issue.severity === 'error' ? 'ERROR' : issue.severity === 'warning' ? 'WARNING' : 'INFO',
+                    severity: issue.severity === Severity.ERROR ? 'ERROR' : issue.severity === Severity.WARNING ? 'WARNING' : 'INFO',
                     code: {
                         value: issue.eval,
                     },

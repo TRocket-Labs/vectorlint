@@ -10,7 +10,7 @@ import { locateEvidenceWithMatch } from '../output/location';
 import { checkTarget } from '../prompts/target';
 import { isSubjectiveResult } from '../prompts/schema';
 import { Type, Severity } from '../evaluators/types';
-import { EvaluateFileParams, EvaluateFileResult, ExtractMatchTextParams, LocationMatch, ProcessCriterionParams, ProcessCriterionResult, ProcessPromptResultParams, ProcessViolationsParams, ReportIssueParams, RunPromptEvaluationParams, RunPromptEvaluationResult, ValidationParams, EvaluationOptions, EvaluationResult, ErrorTrackingResult, EvaluationContext } from './types';
+import { EvaluateFileParams, EvaluateFileResult, ExtractMatchTextParams, LocationMatch, ProcessCriterionParams, ProcessCriterionResult, ProcessPromptResultParams, ProcessViolationsParams, ReportIssueParams, RunPromptEvaluationParams, RunPromptEvaluationResult, ValidationParams, EvaluationOptions, EvaluationResult, ErrorTrackingResult } from './types';
 import { handleUnknownError, MissingDependencyError } from '../errors';
 import { createEvaluator } from '../evaluators';
 
