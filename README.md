@@ -1,60 +1,109 @@
-# VectorLint
+# VectorLint: Prompt it, Lint it! [![npm version](https://img.shields.io/npm/v/vectorlint.svg)](https://www.npmjs.com/package/vectorlint) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-A command-line tool that evaluates Markdown content using LLMs and provides quality scores. Think of it like [Vale](https://github.com/errata-ai/vale), but instead of pattern matching, it uses LLMs enabling you to catch subjective issues like clarity, tone, and technical accuracy.
+VectorLint is a command-line tool that evaluates and scores content using LLMs. It uses [LLM-as-a-Judge](https://en.wikipedia.org/wiki/LLM-as-a-Judge) to catch content quality issues that typically require human judgement.  
 
 ![VectorLint Screenshot](./assets/VectorLint_screenshot.jpeg)
 
-## Features
+## Installation
 
-- **LLM-based** - Uses LLMs to check content quality
-- **CLI Support** - Run locally or in CI/CD pipelines
-- **Consistent Evaluations** - Write structured evaluation prompts to get consistent evaluation results
-- **Quality Scores** - Set scores for your quality standards
+### Option 1: Global Installation
 
-## Scoring System
+Install globally from npm:
 
-VectorLint uses a fair, density-based scoring system:
+```bash
+npm install -g vectorlint
+```
 
-*   **Semi-Objective (Density-Based):** Scores are calculated based on **errors per 100 words**. This ensures that a 1000-word article isn't penalized more than a 100-word paragraph for the same error rate. You can configure **Strictness** (Standard, Strict, Lenient) to control penalties.
-*   **Subjective (Normalized):** LLM ratings (1-4) are normalized to a **1-10 scale** using weighted averages, providing granular quality assessment.
+Verify installation:
+
+```bash
+vectorlint --help
+```
+
+### Option 2: Zero-Install with npx
+
+Run VectorLint without installing:
+
+```bash
+npx vectorlint path/to/article.md
+```
+
+## Enforce Your Style Guide
+
+Define rules as Markdown files with YAML frontmatter to enforce your specific content standards:
+
+- **Check SEO Optimization** - Verify content follows SEO best practices
+- **Detect AI-Generated Content** - Identify artificial writing patterns
+- **Verify Technical Accuracy** - Catch outdated or incorrect technical information
+- **Ensure Tone & Voice Consistency** - Match content to appropriate tone for your audience
+
+If you can write a prompt for it, you can lint it with VectorLint.
+
+👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
+
+## Quality Scores
+VectorLint scores your content using error density and a rubric based system, enabling you to measure quality across documentation. This gives your team a shared understanding of which content needs attention and helps track improvements over time.
+*   **Density-Based Scoring:** For errors that can be counted, scores are calculated based on **error density (errors per 100 words)**, making quality assessment fair across documents of any length.
+*   **Rubric-Based Scoring:** For more subjective quality standards, like flow and completeness, scores are graded on a 1-4 rubric system and then normalized to a **1-10 scale**.
 
 ## Quick Start
 
-Get up and running in minutes.
+1.  **Create Your First Rule:**
 
-1.  **Clone the repository:**
+    Create a directory named `VectorLint` and add a file `grammar.md` inside it:
 
-    ```bash
-    git clone https://github.com/TinyRocketLabs/vectorlint.git
-    cd vectorlint
+    ```markdown
+    ---
+    evaluator: base
+    id: GrammarChecker
+    description: Grammar Checker
+    severity: error
+    ---
+    Check this content for grammar issues, spelling errors, and punctuation mistakes.
     ```
 
-2.  **Install dependencies & Build:**
+2.  **Configure VectorLint:**
 
-    ```bash
-    npm install
-    npm run build
+    Create a `vectorlint.ini` configuration file in your project root:
+
+    ```ini
+    # vectorlint.ini
+    RulesPath=.
+    
+    # Run the "VectorLint" rule pack on all markdown files
+    [**/*.md]
+    RunRules=VectorLint
     ```
 
-3.  **Configure Environment:**
+    👉 **[Full configuration reference →](./CONFIGURATION.md)**
+
+3.  **Set An LLM Provider:**
+
+    Create a `.env` file in your project root with your API keys:
 
     ```bash
-    cp .env.example .env
-    # Edit .env with your API key (e.g., OPENAI_API_KEY)
+    # OpenAI (Default)
+    OPENAI_API_KEY=sk-...
+    LLM_PROVIDER=openai
+
+    # - OR -
+    
+    # Anthropic
+    ANTHROPIC_API_KEY=sk-ant-...
+    LLM_PROVIDER=anthropic
     ```
 
 4.  **Run a check:**
 
     ```bash
-    # Run against a local file
-    npm run dev -- path/to/article.md
+    vectorlint path/to/article.md
     ```
 
-## Global Installation (Recommended)
+## Contributing
 
-To run `vectorlint` from anywhere on your machine, use `npm link`.
+We welcome your contributions! Whether it's adding new rules, fixing bugs, or improving documentation, please check out our [Contributing Guidelines](.github/CONTRIBUTING.md) to get started.
 
-1.  **Build and Link:**
+## Resources
 
     ```bash
     # Inside the vectorlint directory
@@ -159,3 +208,5 @@ criteria:
 - `npm run test:ci`: CI run with coverage
 
 Tests live under `tests/` and use Vitest. They validate config parsing (PromptsPath, ScanPaths), file discovery (including prompts exclusion), prompt/file mapping, and prompt aggregation with a mocked provider.
+- **[Creating Custom Rules](./CREATING_RULES.md)** - Write your own quality checks in Markdown
+- **[Configuration Guide](./CONFIGURATION.md)** - Complete reference for `vectorlint.ini`

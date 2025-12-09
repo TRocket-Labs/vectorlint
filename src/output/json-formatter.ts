@@ -1,4 +1,4 @@
-
+import { Severity } from '../evaluators/types';
 export interface ScoreComponent {
   criterion?: string;
   rawScore: number;
@@ -18,7 +18,7 @@ export interface Issue {
   line: number;
   column: number;
   span: [number, number];
-  severity: 'error' | 'warning' | 'info';
+  severity: Severity;
   message: string;
   eval: string; // Renamed from rule
   match: string;
@@ -54,9 +54,9 @@ export class JsonFormatter {
     }
     this.files[file].issues.push(issue);
 
-    if (issue.severity === 'error') {
+    if (issue.severity === Severity.ERROR) {
       this.errorCount++;
-    } else if (issue.severity === 'warning') {
+    } else if (issue.severity === Severity.WARNING) {
       this.warningCount++;
     }
   }

@@ -9,12 +9,13 @@ export const CLI_OPTIONS_SCHEMA = z.object({
   output: z.enum(['line', 'json', 'vale-json', 'JSON', 'rdjson']).default('line'),
   outputFile: z.string().optional(),
   prompts: z.string().optional(),
+  evals: z.string().optional(),
   config: z.string().optional(),
 });
 
 // Validate command options schema
 export const VALIDATE_OPTIONS_SCHEMA = z.object({
-  prompts: z.string().optional(),
+  evals: z.string().optional(),
 });
 
 // Inferred types

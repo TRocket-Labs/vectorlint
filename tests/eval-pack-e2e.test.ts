@@ -4,7 +4,7 @@ import path from 'path';
 import { tmpdir } from 'os';
 import { EvalPackLoader } from '../src/boundaries/eval-pack-loader.js';
 import { loadConfig } from '../src/boundaries/config-loader.js';
-import { FileSectionResolver } from '../src/boundaries/file-section-resolver.js';
+import { ScanPathResolver } from '../src/boundaries/scan-path-resolver.js';
 
 describe('Eval Pack System End-to-End', () => {
     let tempDir: string;
@@ -52,15 +52,14 @@ describe('Eval Pack System End-to-End', () => {
 
         // 2. Create config file
         const iniContent = `
-PromptsPath = ${promptsDir}
-ScanPaths = ["**/*.md"]
+RulesPath = ${promptsDir}
 
 [docs/**/*.md]
-RunEvals = VectorLint
+RunRules = VectorLint
 technical-accuracy.strictness = 9
 
 [docs/blog/**/*.md]
-RunEvals = VectorLint, CustomPack
+RunRules = VectorLint, CustomPack
 readability.severity = error
 `;
         writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
@@ -68,8 +67,8 @@ readability.severity = error
         // 3. Load configuration
         const config = loadConfig(tempDir);
 
-        expect(config.fileSections).toHaveLength(2);
-        expect(config.promptsPath).toBe(promptsDir);
+        expect(config.scanPaths).toHaveLength(2);
+        expect(config.rulesPath).toBe(promptsDir);
 
         // 4. Discover eval packs
         const loader = new EvalPackLoader();
@@ -87,12 +86,12 @@ readability.severity = error
         expect(customPackFiles).toHaveLength(1);
 
         // 6. Resolve for specific files
-        const resolver = new FileSectionResolver();
+        const resolver = new ScanPathResolver();
 
         // Test file in docs/
-        const docsFileResolution = resolver.resolveEvaluationsForFile(
+        const docsFileResolution = resolver.resolveConfiguration(
             'docs/guide.md',
-            config.fileSections,
+            config.scanPaths,
             packs
         );
 
@@ -102,9 +101,9 @@ readability.severity = error
         });
 
         // Test file in docs/blog/
-        const blogFileResolution = resolver.resolveEvaluationsForFile(
+        const blogFileResolution = resolver.resolveConfiguration(
             'docs/blog/post.md',
-            config.fileSections,
+            config.scanPaths,
             packs
         );
 
@@ -127,14 +126,13 @@ readability.severity = error
 
         // 2. Config references non-existent pack
         const iniContent = `
-PromptsPath = ${promptsDir}
-ScanPaths = ["**/*.md"]
+RulesPath = ${promptsDir}
 
 [docs/**/*.md]
-RunEvals = VectorLint, NonExistentPack
+RunRules = VectorLint, NonExistentPack
 
 [docs/archived/**/*.md]
-RunEvals = 
+RunRules = 
 `;
         writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
 
@@ -142,12 +140,12 @@ RunEvals =
         const config = loadConfig(tempDir);
         const loader = new EvalPackLoader();
         const packs = await loader.findAllPacks(promptsDir);
-        const resolver = new FileSectionResolver();
+        const resolver = new ScanPathResolver();
 
         // Non-existent pack should be filtered out
-        const docsResolution = resolver.resolveEvaluationsForFile(
+        const docsResolution = resolver.resolveConfiguration(
             'docs/test.md',
-            config.fileSections,
+            config.scanPaths,
             packs
         );
 
@@ -155,13 +153,15 @@ RunEvals =
         expect(docsResolution.packs).not.toContain('NonExistentPack');
 
         // Explicit exclusion
-        const archivedResolution = resolver.resolveEvaluationsForFile(
+        const archivedResolution = resolver.resolveConfiguration(
             'docs/archived/old.md',
-            config.fileSections,
+            config.scanPaths,
             packs
         );
 
-        expect(archivedResolution.packs).toEqual([]);
+        // With Cascading logic, packs are additive. 
+        // Explicit empty list in specific config does NOT remove base packs.
+        expect(archivedResolution.packs).toEqual(['VectorLint']);
         expect(archivedResolution.overrides).toEqual({});
     });
 

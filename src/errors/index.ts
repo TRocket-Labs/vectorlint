@@ -30,6 +30,18 @@ export class ProcessingError extends VectorlintError {
   }
 }
 
+// Missing dependency error for when required dependencies are not available
+export class MissingDependencyError extends VectorlintError {
+  constructor(
+    message: string,
+    public readonly dependency: string,
+    public readonly hint?: string
+  ) {
+    super(message, 'MISSING_DEPENDENCY');
+    this.name = 'MissingDependencyError';
+  }
+}
+
 // Utility function to handle unknown errors safely
 export function handleUnknownError(e: unknown, context: string): Error {
   if (e instanceof Error) {

@@ -88,24 +88,24 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
-      const promptsPath = cliOptions.prompts || config.promptsPath;
-      if (!existsSync(promptsPath)) {
-        console.error(`Error: prompts path does not exist: ${promptsPath}`);
+      const { rulesPath } = config;
+      if (!existsSync(rulesPath)) {
+        console.error(`Error: rules path does not exist: ${rulesPath}`);
         process.exit(1);
       }
 
       const prompts: PromptFile[] = [];
       try {
         const loader = new EvalPackLoader();
-        const packs = await loader.findAllPacks(promptsPath);
+        const packs = await loader.findAllPacks(rulesPath);
 
         if (packs.length === 0) {
-          console.warn(`[vectorlint] Warning: No eval packs (subdirectories) found in ${promptsPath}.`);
-          console.warn(`[vectorlint] Please organize your evaluations into subdirectories (e.g., ${promptsPath}/VectorLint/).`);
+          console.warn(`[vectorlint] Warning: No rule packs (subdirectories) found in ${rulesPath}.`);
+          console.warn(`[vectorlint] Please organize your rules into subdirectories (e.g., ${rulesPath}/VectorLint/ or ${rulesPath}/MyPack/).`);
         }
 
         for (const packName of packs) {
-          const packRoot = path.join(promptsPath, packName);
+          const packRoot = path.join(rulesPath, packName);
           const evalPaths = await loader.findEvalFiles(packRoot);
 
           for (const filePath of evalPaths) {
@@ -120,7 +120,7 @@ export function registerMainCommand(program: Command): void {
         }
 
         if (prompts.length === 0) {
-          console.error(`Error: no .md prompts found in any packs in ${promptsPath}`);
+          console.error(`Error: no .md rules found in any packs in ${rulesPath}`);
           process.exit(1);
         }
       } catch (e: unknown) {
@@ -135,7 +135,7 @@ export function registerMainCommand(program: Command): void {
         targets = resolveTargets({
           cliArgs: paths,
           cwd: process.cwd(),
-          promptsPath,
+          rulesPath,
           scanPaths: config.scanPaths,
           configDir: config.configDir,
         });
@@ -162,13 +162,14 @@ export function registerMainCommand(program: Command): void {
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
         prompts,
-        promptsPath,
+        rulesPath,
         provider,
         ...(searchProvider ? { searchProvider } : {}),
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
         outputFormat: outputFormat,
         ...(cliOptions.outputFile ? { outputFile: cliOptions.outputFile } : {}),
+        scanPaths: config.scanPaths,
       });
 
       // Print global summary (only for line format)

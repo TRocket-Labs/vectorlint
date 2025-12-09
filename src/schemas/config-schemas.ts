@@ -2,16 +2,15 @@ import { z } from 'zod';
 
 // Configuration file schema for vectorlint.ini validation
 export const CONFIG_SCHEMA = z.object({
-  promptsPath: z.string().min(1),
-  scanPaths: z.array(z.string().min(1)).min(1),
+  rulesPath: z.string().min(1),
   concurrency: z.number().int().positive().default(4),
   configDir: z.string().min(1),
   defaultSeverity: z.enum(['warning', 'error']).optional(),
-  fileSections: z.array(z.object({
+  scanPaths: z.array(z.object({
     pattern: z.string(),
-    runEvals: z.array(z.string()),
+    runRules: z.array(z.string()).optional(),
     overrides: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
-  })).default([]),
+  })).min(1),
 });
 
 // Inferred types

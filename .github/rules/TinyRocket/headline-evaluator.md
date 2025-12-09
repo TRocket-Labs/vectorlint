@@ -1,7 +1,7 @@
 ---
 specVersion: 1.0.0
 type: subjective
-
+evaluator: base
 severity: error
 name: Headline Evaluator
 id: Headline
