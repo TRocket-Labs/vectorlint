@@ -6,6 +6,7 @@ import type { FilePatternConfig } from '../boundaries/file-section-parser';
 import type { EvaluationSummary } from '../output/reporter';
 import { ValeJsonFormatter } from '../output/vale-json-formatter';
 import { JsonFormatter, type ScoreComponent } from '../output/json-formatter';
+import { RdJsonFormatter } from '../output/rdjson-formatter';
 import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
 
@@ -17,7 +18,8 @@ export interface EvaluationOptions {
     concurrency: number;
     verbose: boolean;
     scanPaths: FilePatternConfig[];
-    outputFormat?: 'line' | 'json' | 'vale-json';
+    outputFormat?: 'line' | 'json' | 'vale-json' | 'rdjson';
+    outputFile?: string;
 }
 
 export interface EvaluationResult {
@@ -40,8 +42,8 @@ export interface ErrorTrackingResult {
 export interface EvaluationContext {
     content: string;
     relFile: string;
-    outputFormat: 'line' | 'json' | 'vale-json';
-    jsonFormatter: ValeJsonFormatter | JsonFormatter;
+    outputFormat: 'line' | 'json' | 'vale-json' | 'rdjson';
+    jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
 }
 
 export interface ReportIssueParams {
@@ -51,8 +53,8 @@ export interface ReportIssueParams {
     severity: Severity
     summary: string;
     ruleName: string;
-    outputFormat: 'line' | 'json' | 'vale-json';
-    jsonFormatter: ValeJsonFormatter | JsonFormatter;
+    outputFormat: 'line' | 'json' | 'vale-json' | 'rdjson';
+    jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
     suggestion?: string;
     scoreText?: string;
     match?: string;
@@ -124,7 +126,7 @@ export type RunPromptEvaluationResult =
 export interface EvaluateFileParams {
     file: string;
     options: EvaluationOptions;
-    jsonFormatter: ValeJsonFormatter | JsonFormatter;
+    jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
 }
 
 export interface EvaluateFileResult extends ErrorTrackingResult {
