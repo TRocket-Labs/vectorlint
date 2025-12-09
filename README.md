@@ -99,74 +99,7 @@ VectorLint scores your content using error density and a rubric based system, en
     vectorlint path/to/article.md
     ```
 
-## Contributing
-
-We welcome your contributions! Whether it's adding new rules, fixing bugs, or improving documentation, please check out our [Contributing Guidelines](.github/CONTRIBUTING.md) to get started.
-
-## Resources
-
-    ```bash
-    # Inside the vectorlint directory
-    npm run build
-    npm link
-    ```
-
-2.  **Verify Installation:**
-
-    ```bash
-    vectorlint --help
-    ```
-
-3.  **Usage:**
-
-    Now you can run `vectorlint` in any project:
-
-    ```bash
-    vectorlint my-article.md
-    ```
-
-## Configuration
-
-### LLM Provider
-
-VectorLint supports OpenAI, Azure OpenAI, Anthropic, and Perplexity.
-
-**Minimal Setup (OpenAI):**
-
-1.  Copy `.env.example` to `.env`.
-2.  Set `LLM_PROVIDER=openai`.
-3.  Set `OPENAI_API_KEY=your-key`.
-
-For other providers (Azure, Anthropic), see the comments in `.env.example`.
-
-### Project Config (vectorlint.ini)
-
-To customize which prompts run on which files, use a `vectorlint.ini` file in your project root.
-
-```bash
-cp vectorlint.example.ini vectorlint.ini
-```
-
-**Key Settings:**
-- `PromptsPath`: Directory containing your `.md` prompts.
-- `ScanPaths`: Glob patterns for files to scan (e.g., `[content/**/*.md]`).
-
-## Usage Guide
-
-### Running Locally
-
-```bash
-# Basic usage (if linked globally)
-vectorlint path/to/article.md
-
-# Using npm script (if not linked)
-npm run dev -- path/to/article.md
-
-# Debug mode (shows prompts and full JSON response)
-vectorlint --verbose --show-prompt --debug-json path/to/article.md
-```
-
-### CI/CD Integration (GitHub Actions & reviewdog)
+## CI/CD Integration (GitHub Actions & reviewdog)
 
 VectorLint integrates with [reviewdog](https://github.com/reviewdog/reviewdog) via the official GitHub Action for automated PR feedback.
 
@@ -205,34 +138,16 @@ jobs:
           filter_mode: added
           fail_on_error: false
 ```
-
 **Reviewdog Reporter Options:**
 - `github-pr-review`: Posts inline comments on specific lines in the PR diff.
 - `github-pr-check`: Creates annotations in the "Checks" tab.
 
-### Creating Prompts
 
-Prompts are simple Markdown files with YAML frontmatter.
+## Contributing
 
-**Example (`prompts/grammar.md`):**
+We welcome your contributions! Whether it's adding new rules, fixing bugs, or improving documentation, please check out our [Contributing Guidelines](.github/CONTRIBUTING.md) to get started.
 
-```markdown
----
-evaluator: base
-type: subjective
-id: tone-check
-name: Tone and Style Check
-severity: error
-criteria:
-  - id: friendlinessure professional writing quality.
-```
+## Resources
 
-## Testing
-
-- `npm test`: Run tests in watch mode
-- `npm run test:run`: Single run
-- `npm run test:ci`: CI run with coverage
-
-Tests live under `tests/` and use Vitest. They validate config parsing (PromptsPath, ScanPaths), file discovery (including prompts exclusion), prompt/file mapping, and prompt aggregation with a mocked provider.
 - **[Creating Custom Rules](./CREATING_RULES.md)** - Write your own quality checks in Markdown
 - **[Configuration Guide](./CONFIGURATION.md)** - Complete reference for `vectorlint.ini`
