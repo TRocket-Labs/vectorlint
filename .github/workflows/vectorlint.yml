@@ -35,5 +35,4 @@ jobs:
           reporter: github-pr-check
           filter_mode: added
           fail_on_error: false
-          vectorlint_flags: '--verbose'
-          
+          vectorlint_flags: '--verbose'          
