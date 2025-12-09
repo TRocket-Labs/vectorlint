@@ -1,0 +1,3 @@
+# Invalid File
+
+This file has an unsupported extension for testing.

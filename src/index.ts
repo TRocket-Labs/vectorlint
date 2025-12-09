@@ -5,6 +5,7 @@ import * as path from "path";
 import { handleUnknownError } from "./errors/index";
 import { registerValidateCommand } from "./cli/validate-command";
 import { registerMainCommand } from "./cli/commands";
+import { registerConvertCommand } from "./cli/convert-command";
 
 // Import evaluators module to trigger self-registration of all evaluators
 import "./evaluators/index";
@@ -62,6 +63,7 @@ program
 // Register commands
 registerValidateCommand(program);
 registerMainCommand(program);
+registerConvertCommand(program);
 
 // Parse command line arguments
 program.parse();
