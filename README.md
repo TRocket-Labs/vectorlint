@@ -168,21 +168,47 @@ vectorlint --verbose --show-prompt --debug-json path/to/article.md
 
 ### CI/CD Integration (GitHub Actions & reviewdog)
 
-VectorLint supports the `rdjson` format, making it easy to integrate with [reviewdog](https://github.com/reviewdog/reviewdog) for automated code review comments in Pull Requests.
+VectorLint integrates with [reviewdog](https://github.com/reviewdog/reviewdog) via the official GitHub Action for automated PR feedback.
 
-**Example Workflow:**
+**Example Workflow (`.github/workflows/vectorlint.yml`):**
 
 ```yaml
-- name: Run VectorLint with reviewdog
-  env:
-    REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  run: |
-    npx vectorlint --output rdjson . | reviewdog -f=rdjson -name="vectorlint" -reporter=github-pr-review -filter-mode=added -fail-on-error=true
+name: VectorLint
+
+on:
+  pull_request:
+    paths:
+      - '**/*.md'
+      - '**/*.mdx'
+      - 'vectorlint.ini'
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run VectorLint
+        uses: TRocket-Labs/vectorlint-action@v1
+        with:
+          llm_provider: ${{ secrets.LLM_PROVIDER }}
+          # Add your provider credentials via GitHub Secrets
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          # Reviewdog options
+          reporter: github-pr-review
+          filter_mode: added
+          fail_on_error: false
 ```
 
-Supported reporters:
-- `github-pr-review`: Posts comments on specific lines in the PR.
-- `github-check`: Creates annotations in the "Checks" tab.
+**Reviewdog Reporter Options:**
+- `github-pr-review`: Posts inline comments on specific lines in the PR diff.
+- `github-pr-check`: Creates annotations in the "Checks" tab.
 
 ### Creating Prompts
 
