@@ -1,8 +1,8 @@
 
 export interface FilePatternConfig {
     pattern: string;
-    runRules?: string[]; // List of pack names to run (optional)
-    overrides: Record<string, unknown>;
+    runRules?: string[] | undefined; // List of pack names to run (optional)
+    overrides: Record<string, string | number | boolean>;
 }
 
 export class FileSectionParser {
@@ -32,10 +32,13 @@ export class FileSectionParser {
                     }
                 }
 
-                const overrides: Record<string, unknown> = {};
+                const overrides: Record<string, string | number | boolean> = {};
                 for (const [propKey, propValue] of Object.entries(sectionConfig)) {
                     if (propKey !== 'RunRules') {
-                        overrides[propKey] = propValue;
+                        // INI values are strings, but may be parsed as numbers/booleans
+                        if (typeof propValue === 'string' || typeof propValue === 'number' || typeof propValue === 'boolean') {
+                            overrides[propKey] = propValue;
+                        }
                     }
                 }
 

@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import * as path from 'path';
 import type { PromptFile } from '../prompts/prompt-loader';
 import { ScanPathResolver } from '../boundaries/scan-path-resolver';
@@ -778,22 +778,10 @@ export async function evaluateFiles(
     }
   }
 
-  // Output results based on format
+  // Output results based on format (always to stdout for JSON formats)
   if (outputFormat === 'json' || outputFormat === 'vale-json' || outputFormat === 'rdjson') {
     const jsonStr = jsonFormatter.toJson();
-
-    if (options.outputFile) {
-      writeFileSync(options.outputFile, jsonStr, 'utf-8');
-      if (options.verbose) {
-        console.error(`[vectorlint] Wrote output to ${options.outputFile}`);
-      }
-    } else {
-      if (outputFormat === 'rdjson' && options.verbose) {
-        console.error('[vectorlint] Generated RDJSON:');
-        console.error(jsonStr);
-      }
-      console.log(jsonStr);
-    }
+    console.log(jsonStr);
   }
 
   return {

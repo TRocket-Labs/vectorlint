@@ -26,7 +26,6 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Print full JSON response from the API')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
-    .option('--output-file <file>', 'Write output to a file instead of stdout')
     .option('--config <path>', 'Path to custom vectorlint.ini config file')
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
@@ -168,7 +167,6 @@ export function registerMainCommand(program: Command): void {
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
         outputFormat: outputFormat,
-        ...(cliOptions.outputFile ? { outputFile: cliOptions.outputFile } : {}),
         scanPaths: config.scanPaths,
       });
 
