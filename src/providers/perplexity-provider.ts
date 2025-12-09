@@ -24,8 +24,7 @@ export class PerplexitySearchProvider implements SearchProvider {
   async search(query: string): Promise<PerplexityResult[]> {
     if (!query?.trim()) throw new Error('Search query cannot be empty.');
 
-    if (this.debug) console.log(`[Perplexity] Searching: "${query}"`);
-
+    if (this.debug) console.error(`[Perplexity] Searching: "${query}"`);
     try {
       const rawResponse: unknown = await this.client.search.create({
         query,
@@ -41,8 +40,8 @@ export class PerplexitySearchProvider implements SearchProvider {
       const results = validated.results;
 
       if (this.debug) {
-        console.log(`[Perplexity] Found ${results.length} results`);
-        console.log(results.slice(0, 2));
+        console.error(`[Perplexity] Found ${results.length} results`);
+        console.error(results.slice(0, 2));
       }
 
       return results;

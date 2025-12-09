@@ -86,24 +86,24 @@ export class OpenAIProvider implements LLMProvider {
     }
 
     if (this.config.debug) {
-      console.log('[vectorlint] Sending request to OpenAI:', {
+      console.error('[vectorlint] Sending request to OpenAI:', {
         model: this.config.model,
         temperature: this.config.temperature,
       });
 
       if (this.config.showPrompt) {
-        console.log('[vectorlint] System prompt (full):');
-        console.log(systemPrompt);
-        console.log('[vectorlint] User content (full):');
-        console.log(content);
+        console.error('[vectorlint] System prompt (full):');
+        console.error(systemPrompt);
+        console.error('[vectorlint] User content (full):');
+        console.error(content);
       } else if (this.config.showPromptTrunc) {
-        console.log('[vectorlint] System prompt (first 500 chars):');
-        console.log(systemPrompt.slice(0, 500));
-        if (systemPrompt.length > 500) console.log('... [truncated]');
+        console.error('[vectorlint] System prompt (first 500 chars):');
+        console.error(systemPrompt.slice(0, 500));
+        if (systemPrompt.length > 500) console.error('... [truncated]');
         const preview = content.slice(0, 500);
-        console.log('[vectorlint] User content preview (first 500 chars):');
-        console.log(preview);
-        if (content.length > 500) console.log('... [truncated]');
+        console.error('[vectorlint] User content preview (first 500 chars):');
+        console.error(preview);
+        if (content.length > 500) console.error('... [truncated]');
       }
     }
 
@@ -134,7 +134,7 @@ export class OpenAIProvider implements LLMProvider {
       const usage = validatedResponse.usage;
       const firstChoice = validatedResponse.choices[0];
       if (usage || firstChoice) {
-        console.log('[vectorlint] LLM response meta:', {
+        console.error('[vectorlint] LLM response meta:', {
           usage: usage ? {
             prompt_tokens: usage.prompt_tokens,
             completion_tokens: usage.completion_tokens,
@@ -145,8 +145,8 @@ export class OpenAIProvider implements LLMProvider {
       }
       if (this.config.debugJson) {
         try {
-          console.log('[vectorlint] Full JSON response:');
-          console.log(JSON.stringify(rawResponse, null, 2));
+          console.error('[vectorlint] Full JSON response:');
+          console.error(JSON.stringify(rawResponse, null, 2));
         } catch (e: unknown) {
           const err = handleUnknownError(e, 'JSON stringify for debug');
           console.warn(`[vectorlint] Warning: ${err.message}`);
