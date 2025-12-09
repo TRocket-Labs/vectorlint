@@ -46,6 +46,19 @@ export const CATEGORY_RULE_GENERATION_SCHEMA = z.object({
 });
 
 
+
+/**
+ * Schema for the first step: Identifying evaluation types and their descriptions
+ */
+export const TYPE_IDENTIFICATION_SCHEMA = z.object({
+    types: z.array(z.object({
+        type: z.enum(['objective', 'semi-objective', 'subjective']),
+        description: z.string().describe('Description of the rule type'),
+        ruleCount: z.number().int().describe('Estimated number of rules for this type'),
+        rules: z.array(z.string()).describe('Raw text of the rules belonging to this type'),
+    })),
+});
+
 /**
  * Schema for extracting and categorizing rules from a style guide
  */
@@ -95,4 +108,5 @@ export type StyleGuideExamples = z.infer<typeof STYLE_GUIDE_EXAMPLES_SCHEMA>;
 export type StyleGuideRule = z.infer<typeof STYLE_GUIDE_RULE_SCHEMA>;
 export type ParsedStyleGuide = z.infer<typeof STYLE_GUIDE_SCHEMA>;
 export type CategoryExtractionOutput = z.infer<typeof CATEGORY_EXTRACTION_SCHEMA>;
+export type TypeIdentificationOutput = z.infer<typeof TYPE_IDENTIFICATION_SCHEMA>;
 

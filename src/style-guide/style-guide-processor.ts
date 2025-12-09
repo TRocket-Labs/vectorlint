@@ -7,7 +7,9 @@ import {
     CATEGORY_EXTRACTION_SCHEMA,
     CategoryExtractionOutput,
     CATEGORY_RULE_GENERATION_SCHEMA,
-    CategoryRuleGenerationOutput
+    CategoryRuleGenerationOutput,
+    TYPE_IDENTIFICATION_SCHEMA,
+    TypeIdentificationOutput
 } from '../schemas/style-guide-schemas';
 import { ProcessingError, ConfigError, ValidationError } from '../errors/index';
 import { zodToJsonSchema } from 'zod-to-json-schema';
@@ -74,81 +76,81 @@ export class StyleGuideProcessor {
     }
 
     /**
-     * Process a style guide: Extract categories and generate rules
+     * Process a style guide: Identify types, extract categories, and generate rules
      */
     public async process(styleGuide: ParsedStyleGuide): Promise<GeneratedCategoryRule[]> {
-        // 1. Extract Categories (Organizer Role)
-        const extractionOutput = await this.extractCategories(styleGuide);
-
-        if (this.options.verbose) {
-            console.log(`[StyleGuideProcessor] Extracted ${extractionOutput.categories.length} categories`);
+        // Handle single rule extraction separately
+        if (this.options.filterRule) {
+            return this.processSingleRule(styleGuide);
         }
 
-        // 2. Generate Rules (Author Role)
+        // 1. Identify Types Strategy (Planner Role)
+        const typeIdentification = await this.identifyTypes(styleGuide);
+
+        if (this.options.verbose) {
+            console.log(`[StyleGuideProcessor] Identified ${typeIdentification.types.length} evaluation types`);
+        }
+
+        const allCategories: CategoryExtractionOutput['categories'] = [];
+
+        // 2. Extract Categories for each type (Organizer Role)
+        for (const typeInfo of typeIdentification.types) {
+            const categories = await this.extractCategoriesForType(styleGuide, typeInfo);
+            allCategories.push(...categories.categories);
+        }
+
+        if (this.options.verbose) {
+            console.log(`[StyleGuideProcessor] Extracted ${allCategories.length} total categories`);
+        }
+
+        // 3. Generate Rules (Author Role)
+        return this.generateCategoryRules({ categories: allCategories });
+    }
+
+    /**
+     * Process a single rule based on filter term
+     */
+    private async processSingleRule(styleGuide: ParsedStyleGuide): Promise<GeneratedCategoryRule[]> {
+        const filterTerm = this.options.filterRule!;
+
+        if (this.options.verbose) {
+            console.log(`[StyleGuideProcessor] Processing single rule filter: "${filterTerm}"`);
+        }
+
+        const extractionOutput = await this.extractSingleRule(styleGuide, filterTerm);
         return this.generateCategoryRules(extractionOutput);
     }
 
     /**
-     * Extract and categorize rules from a parsed style guide
+     * Step 1: Identify evaluation types present in the style guide
      */
-    private async extractCategories(styleGuide: ParsedStyleGuide): Promise<CategoryExtractionOutput> {
-        if (this.options.filterRule) {
-            return this.extractSingleRule(styleGuide);
-        }
-        return this.extractAllCategories(styleGuide);
-    }
-
-    private async extractSingleRule(styleGuide: ParsedStyleGuide): Promise<CategoryExtractionOutput> {
-        const filterTerm = this.options.filterRule!;
-
-        if (this.options.verbose) {
-            console.log(`[StyleGuideProcessor] Using LLM to find rules related to "${filterTerm}"`);
-            console.log(`[StyleGuideProcessor] Passing raw style guide content for semantic matching`);
-        }
-
-        const prompt = this.buildSingleRulePrompt(styleGuide, filterTerm);
+    private async identifyTypes(styleGuide: ParsedStyleGuide): Promise<TypeIdentificationOutput> {
+        const prompt = this.buildTypeIdentificationPrompt(styleGuide);
 
         try {
-            const schemaJson = zodToJsonSchema(CATEGORY_EXTRACTION_SCHEMA);
+            const schemaJson = zodToJsonSchema(TYPE_IDENTIFICATION_SCHEMA);
 
-            const result = await this.llmProvider.runPromptStructured<CategoryExtractionOutput>(
+            return await this.llmProvider.runPromptStructured<TypeIdentificationOutput>(
                 JSON.stringify(styleGuide),
                 prompt,
                 {
-                    name: 'singleRuleExtraction',
+                    name: 'typeIdentification',
                     schema: schemaJson as Record<string, unknown>
                 }
             );
-
-            if (result.categories.length > 1) {
-                const firstCategory = result.categories[0];
-                if (firstCategory) {
-                    result.categories = [firstCategory];
-                }
-            }
-
-            if (result.categories.length === 0) {
-                throw new ProcessingError(
-                    `LLM could not find rules related to "${filterTerm}" in the style guide`
-                );
-            }
-
-            if (this.options.verbose) {
-                const cat = result.categories[0];
-                console.log(`[StyleGuideProcessor] LLM extracted category: "${cat?.name}" with ${cat?.rules.length} rules`);
-            }
-
-            return result;
         } catch (error) {
-            if (error instanceof ProcessingError) throw error;
-            throw new ProcessingError(
-                `Single rule extraction failed: ${(error as Error).message}`
-            );
+            throw new ProcessingError(`Type identification failed: ${(error as Error).message}`);
         }
     }
 
-    private async extractAllCategories(styleGuide: ParsedStyleGuide): Promise<CategoryExtractionOutput> {
-        const prompt = this.buildFullPrompt(styleGuide);
+    /**
+     * Step 2: Extract categories for a specific evaluation type
+     */
+    private async extractCategoriesForType(
+        styleGuide: ParsedStyleGuide,
+        typeInfo: TypeIdentificationOutput['types'][0]
+    ): Promise<CategoryExtractionOutput> {
+        const prompt = this.buildCategoryExtractionPrompt(styleGuide, typeInfo);
 
         try {
             const schemaJson = zodToJsonSchema(CATEGORY_EXTRACTION_SCHEMA);
@@ -162,26 +164,45 @@ export class StyleGuideProcessor {
                 }
             );
 
-            // Sort categories by priority (1=highest) and limit to maxCategories
-            const sortedCategories = [...result.categories]
-                .sort((a, b) => a.priority - b.priority)
-                .slice(0, this.options.maxCategories);
+            // Ensure extracted categories match the requested type
+            result.categories.forEach(cat => cat.type = typeInfo.type);
 
-            const finalResult: CategoryExtractionOutput = { categories: sortedCategories };
+            return result;
+        } catch (error) {
+            console.warn(`Category extraction failed for type ${typeInfo.type}:`, error);
+            return { categories: [] };
+        }
+    }
 
-            if (this.options.verbose) {
-                const totalRules = finalResult.categories.reduce((sum: number, cat) => sum + cat.rules.length, 0);
-                console.log(`[StyleGuideProcessor] Extracted ${finalResult.categories.length} categories with ${totalRules} total rules`);
-                finalResult.categories.forEach(cat => {
-                    console.log(`  - ${cat.name} (priority: ${cat.priority}, ${cat.type}): ${cat.rules.length} rules`);
-                });
+
+    private async extractSingleRule(styleGuide: ParsedStyleGuide, filterTerm: string): Promise<CategoryExtractionOutput> {
+        const prompt = this.buildFilteredRulePrompt(styleGuide, filterTerm);
+
+        try {
+            const schemaJson = zodToJsonSchema(CATEGORY_EXTRACTION_SCHEMA);
+
+            const result = await this.llmProvider.runPromptStructured<CategoryExtractionOutput>(
+                JSON.stringify(styleGuide),
+                prompt,
+                {
+                    name: 'singleRuleExtraction',
+                    schema: schemaJson as Record<string, unknown>
+                }
+            );
+
+            if (result.categories.length === 0) {
+                throw new ProcessingError(
+                    `LLM could not find rules related to "${filterTerm}" in the style guide`
+                );
             }
 
-            return finalResult;
+            // Take only the first category if multiple returned
+            return { categories: [result.categories[0]!] };
+
         } catch (error) {
             if (error instanceof ProcessingError) throw error;
             throw new ProcessingError(
-                `Category extraction failed: ${(error as Error).message}`
+                `Single rule extraction failed: ${(error as Error).message}`
             );
         }
     }
@@ -215,7 +236,7 @@ export class StyleGuideProcessor {
     private async generateCategoryRule(
         category: CategoryExtractionOutput['categories'][0]
     ): Promise<GeneratedCategoryRule> {
-        const prompt = this.buildRulePrompt(category);
+        const prompt = this.buildRuleGenerationPrompt(category);
 
         try {
             const schemaJson = zodToJsonSchema(CATEGORY_RULE_GENERATION_SCHEMA);
@@ -239,7 +260,54 @@ export class StyleGuideProcessor {
 
     // --- Prompt Builders ---
 
-    private buildSingleRulePrompt(styleGuide: ParsedStyleGuide, filterTerm: string): string {
+    private buildTypeIdentificationPrompt(styleGuide: ParsedStyleGuide): string {
+        return `You are a **style guide planning agent**.
+
+## Task
+Analyze the style guide and identify which evaluation types are present.
+
+## Evaluation Types
+- **objective**: Formatting, structure, casing, specific disallowed words.
+- **semi-objective**: Grammar, spelling, specific prohibited patterns, clear violations.
+- **subjective**: Tone, voice, clarity, audience, engagement, flow.
+
+## Output Requirements
+- Identify **all** applicable types found in the content
+- Estimate the number of rules for each type
+- Provide the raw text of the rules belonging to each type
+
+Style Guide: **${styleGuide.name}**`;
+    }
+
+    private buildCategoryExtractionPrompt(
+        styleGuide: ParsedStyleGuide,
+        typeInfo: TypeIdentificationOutput['types'][0]
+    ): string {
+        return `You are a **rule categorizer** agent.
+
+## Task
+Extract and categorize rules specifically for the **${typeInfo.type}** evaluation type.
+
+## Context
+${typeInfo.description}
+Raw Rules Text:
+${typeInfo.rules.join('\n\n')}
+
+## Type: ${typeInfo.type}
+${typeInfo.type === 'subjective' ? '- Focus on tone, voice, clarity' : ''}
+${typeInfo.type === 'semi-objective' ? '- Focus on repeatable patterns and clear violations' : ''}
+${typeInfo.type === 'objective' ? '- Focus on formatting, structure, and existence checks' : ''}
+
+## Output Requirements
+- Create logical categories for these rules (e.g., "Voice & Tone", "Grammar", "Formatting")
+- Use **PascalCase** for IDs
+- Group related rules together (3-10 rules per category)
+- Preserve original instructions
+
+Style Guide: **${styleGuide.name}**`;
+    }
+
+    private buildFilteredRulePrompt(styleGuide: ParsedStyleGuide, filterTerm: string): string {
         return `You are a **style guide analyzer** designed to extract and categorize rules from style guides.
 
 ## Task
@@ -262,32 +330,7 @@ Analyze the provided style guide and extract all rules related to: **"${filterTe
 Style Guide: **${styleGuide.name}**`;
     }
 
-    private buildFullPrompt(styleGuide: ParsedStyleGuide): string {
-        return `You are a **style guide categorizer** designed to organize style guide rules into logical groups.
-
-## Task
-
-Analyze the provided style guide and identify up to **${this.options.maxCategories}** natural categories.
-
-## Category Types
-
-- **Subjective**: Requires judgment (tone, style, clarity)
-- **Semi-objective**: Clear patterns but needs context (citations, evidence)  
-- **Objective**: Can be mechanically checked (formatting, word count)
-
-## Output Requirements
-
-- Use **PascalCase** for all category IDs
-- Assign **priority** (1=highest, 10=lowest) based on quality impact
-- Include **3-10 rules** per category
-- Preserve original rule text and examples
-
-
-
-Style Guide: **${styleGuide.name}**`;
-    }
-
-    private buildRulePrompt(category: CategoryExtractionOutput['categories'][0]): string {
+    private buildRuleGenerationPrompt(category: CategoryExtractionOutput['categories'][0]): string {
         return `You are an **evaluation prompt generator** designed to create content evaluation prompts.
 
 ## Task

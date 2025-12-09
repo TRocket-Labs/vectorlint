@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { StyleGuideProcessor } from '../../src/style-guide/style-guide-processor';
 import { LLMProvider } from '../../src/providers/llm-provider';
-import type { ParsedStyleGuide, CategoryExtractionOutput, CategoryRuleGenerationOutput } from '../../src/schemas/style-guide-schemas';
+import type { ParsedStyleGuide, CategoryExtractionOutput, CategoryRuleGenerationOutput, TypeIdentificationOutput } from '../../src/schemas/style-guide-schemas';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -14,7 +14,22 @@ class MockLLMProvider implements LLMProvider {
         promptText: string,
         schema: { name: string; schema: Record<string, unknown> }
     ): Promise<T> {
-        // Category extraction call
+        // 1. Type Identification Call
+        if (schema.name === 'typeIdentification') {
+            const typeResult: TypeIdentificationOutput = {
+                types: [
+                    {
+                        type: 'subjective',
+                        description: 'Tone and Voice rules',
+                        ruleCount: 5,
+                        rules: ['Use second person', 'Use active voice']
+                    }
+                ]
+            };
+            return Promise.resolve(typeResult as T);
+        }
+
+        // 2. Category Extraction Call
         if (schema.name === 'categoryExtraction') {
             const categoryResult: CategoryExtractionOutput = {
                 categories: [
@@ -34,33 +49,54 @@ class MockLLMProvider implements LLMProvider {
             return Promise.resolve(categoryResult as T);
         }
 
-        // Category rule generation call
-        const ruleResult: CategoryRuleGenerationOutput = {
-            evaluationType: 'subjective',
-            categoryName: 'Voice & Tone',
-            promptBody: 'Evaluate the content for voice and tone adherence.',
-            criteria: [
-                {
-                    name: 'Second Person Voice',
-                    id: 'SecondPersonVoice',
-                    weight: 50,
-                    rubric: [
-                        { score: 4, label: 'Excellent', description: 'Consistent second person usage' },
-                        { score: 1, label: 'Poor', description: 'No second person usage' }
-                    ]
-                },
-                {
-                    name: 'Active Voice',
-                    id: 'ActiveVoice',
-                    weight: 50,
-                    rubric: [
-                        { score: 4, label: 'Excellent', description: 'Strong active voice throughout' },
-                        { score: 1, label: 'Poor', description: 'Predominantly passive voice' }
-                    ]
-                }
-            ]
-        };
-        return Promise.resolve(ruleResult as T);
+        // 3. Category Rule Generation Call
+        if (schema.name === 'categoryRuleGeneration') {
+            const ruleResult: CategoryRuleGenerationOutput = {
+                evaluationType: 'subjective',
+                categoryName: 'Voice & Tone',
+                promptBody: 'Evaluate the content for voice and tone adherence.',
+                criteria: [
+                    {
+                        name: 'Second Person Voice',
+                        id: 'SecondPersonVoice',
+                        weight: 50,
+                        rubric: [
+                            { score: 4, label: 'Excellent', description: 'Consistent second person usage' },
+                            { score: 1, label: 'Poor', description: 'No second person usage' }
+                        ]
+                    },
+                    {
+                        name: 'Active Voice',
+                        id: 'ActiveVoice',
+                        weight: 50,
+                        rubric: [
+                            { score: 4, label: 'Excellent', description: 'Strong active voice throughout' },
+                            { score: 1, label: 'Poor', description: 'Predominantly passive voice' }
+                        ]
+                    }
+                ]
+            };
+            return Promise.resolve(ruleResult as T);
+        }
+
+        // Default or Single Rule Extraction
+        if (schema.name === 'singleRuleExtraction') {
+            const categoryResult: CategoryExtractionOutput = {
+                categories: [
+                    {
+                        id: 'SingleRule',
+                        name: 'Single Rule Category',
+                        description: 'A single extracted rule',
+                        type: 'semi-objective',
+                        priority: 1,
+                        rules: [{ description: 'Single rule description' }]
+                    }
+                ]
+            };
+            return Promise.resolve(categoryResult as T);
+        }
+
+        return Promise.reject(new Error(`Unknown schema name: ${schema.name}`));
     }
 }
 
