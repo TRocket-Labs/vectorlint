@@ -19,7 +19,6 @@ export interface EvaluationOptions {
     verbose: boolean;
     scanPaths: FilePatternConfig[];
     outputFormat?: 'line' | 'json' | 'vale-json' | 'rdjson';
-    outputFile?: string;
 }
 
 export interface EvaluationResult {
