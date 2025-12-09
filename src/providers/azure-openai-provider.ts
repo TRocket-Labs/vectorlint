@@ -67,24 +67,24 @@ export class AzureOpenAIProvider implements LLMProvider {
     }
 
     if (this.debug) {
-      console.error('[vectorlint] Sending request to Azure OpenAI:', {
+      console.log('[vectorlint] Sending request to Azure OpenAI:', {
         model: this.deploymentName,
         apiVersion: this.apiVersion || AZURE_OPENAI_DEFAULT_CONFIG.apiVersion,
         temperature: this.temperature,
       });
       if (this.showPrompt) {
-        console.error('[vectorlint] Prompt (full):');
-        console.error(prompt);
-        console.error('[vectorlint] Injected content (full):');
-        console.error(content);
+        console.log('[vectorlint] Prompt (full):');
+        console.log(prompt);
+        console.log('[vectorlint] Injected content (full):');
+        console.log(content);
       } else if (this.showPromptTrunc) {
-        console.error('[vectorlint] Prompt (first 500 chars):');
-        console.error(prompt.slice(0, 500));
-        if (prompt.length > 500) console.error('... [truncated]');
+        console.log('[vectorlint] Prompt (first 500 chars):');
+        console.log(prompt.slice(0, 500));
+        if (prompt.length > 500) console.log('... [truncated]');
         const preview = content.slice(0, 500);
-        console.error('[vectorlint] Injected content preview (first 500 chars):');
-        console.error(preview);
-        if (content.length > 500) console.error('... [truncated]');
+        console.log('[vectorlint] Injected content preview (first 500 chars):');
+        console.log(preview);
+        if (content.length > 500) console.log('... [truncated]');
       }
     }
 
@@ -116,12 +116,12 @@ export class AzureOpenAIProvider implements LLMProvider {
       const usage = validatedResponse.usage;
       const finish = validatedResponse.choices[0]?.finish_reason;
       if (usage || finish) {
-        console.error('[vectorlint] LLM response meta:', { usage, finish_reason: finish });
+        console.log('[vectorlint] LLM response meta:', { usage, finish_reason: finish });
       }
       if (this.debugJson) {
         try {
-          console.error('[vectorlint] Full JSON response:');
-          console.error(JSON.stringify(validatedResponse, null, 2));
+          console.log('[vectorlint] Full JSON response:');
+          console.log(JSON.stringify(validatedResponse, null, 2));
         } catch (e: unknown) {
           const err = handleUnknownError(e, 'JSON stringify for debug');
           console.warn(`[vectorlint] Warning: ${err.message}`);

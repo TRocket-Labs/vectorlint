@@ -103,24 +103,24 @@ export class AnthropicProvider implements LLMProvider {
     }
 
     if (this.config.debug) {
-      console.error('[vectorlint] Sending request to Anthropic:', {
+      console.log('[vectorlint] Sending request to Anthropic:', {
         model: this.config.model,
         maxTokens: this.config.maxTokens,
         temperature: this.config.temperature,
       });
       if (this.config.showPrompt) {
-        console.error('[vectorlint] System prompt (full):');
-        console.error(systemPrompt);
-        console.error('[vectorlint] User content (full):');
-        console.error(content);
+        console.log('[vectorlint] System prompt (full):');
+        console.log(systemPrompt);
+        console.log('[vectorlint] User content (full):');
+        console.log(content);
       } else if (this.config.showPromptTrunc) {
-        console.error('[vectorlint] System prompt (first 500 chars):');
-        console.error(systemPrompt.slice(0, 500));
-        if (systemPrompt.length > 500) console.error('... [truncated]');
+        console.log('[vectorlint] System prompt (first 500 chars):');
+        console.log(systemPrompt.slice(0, 500));
+        if (systemPrompt.length > 500) console.log('... [truncated]');
         const preview = content.slice(0, 500);
-        console.error('[vectorlint] User content preview (first 500 chars):');
-        console.error(preview);
-        if (content.length > 500) console.error('... [truncated]');
+        console.log('[vectorlint] User content preview (first 500 chars):');
+        console.log(preview);
+        if (content.length > 500) console.log('... [truncated]');
       }
     }
 
@@ -180,7 +180,7 @@ export class AnthropicProvider implements LLMProvider {
       const usage = response.usage;
       const stopReason = response.stop_reason;
       if (usage || stopReason) {
-        console.error('[vectorlint] LLM response meta:', {
+        console.log('[vectorlint] LLM response meta:', {
           usage: {
             input_tokens: usage.input_tokens,
             output_tokens: usage.output_tokens,
@@ -190,8 +190,8 @@ export class AnthropicProvider implements LLMProvider {
       }
       if (this.config.debugJson) {
         try {
-          console.error('[vectorlint] Full JSON response:');
-          console.error(JSON.stringify(response, null, 2));
+          console.log('[vectorlint] Full JSON response:');
+          console.log(JSON.stringify(response, null, 2));
         } catch (e: unknown) {
           const err = handleUnknownError(e, 'JSON stringify for debug');
           console.warn(`[vectorlint] Warning: ${err.message}`);
