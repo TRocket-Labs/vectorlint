@@ -10,17 +10,6 @@ import { loadConfig } from '../boundaries/config-loader';
 import { handleUnknownError } from '../errors/index';
 import { ConvertOptions } from '../schemas';
 
-/**
- * Custom error class for convert command failures.
- * Includes exit code for CLI handling.
- */
-class ConvertCommandError extends Error {
-    constructor(message: string, public readonly exitCode: number = 1) {
-        super(message);
-        this.name = 'ConvertCommandError';
-    }
-}
-
 export function registerConvertCommand(program: Command): void {
     program
         .command('convert')
@@ -40,12 +29,10 @@ export function registerConvertCommand(program: Command): void {
             try {
                 await executeConvert(styleGuidePath, rawOptions);
             } catch (e: unknown) {
-                if (e instanceof ConvertCommandError) {
-                    console.error(`Error: ${e.message}`);
-                    // Re-throw to let Commander handle the exit
-                    throw e;
-                }
-                throw e;
+
+                const err = handleUnknownError(e, 'execute convert');
+                console.error(`Error: ${err.message}`);
+                throw err;
             }
         });
 }
@@ -57,12 +44,12 @@ async function executeConvert(styleGuidePath: string, rawOptions: unknown): Prom
         options = parseConvertOptions(rawOptions);
     } catch (e: unknown) {
         const err = handleUnknownError(e, 'Parsing CLI options');
-        throw new ConvertCommandError(err.message);
+        throw new Error(err.message);
     }
 
     // 2. Validate input file
     if (!existsSync(styleGuidePath)) {
-        throw new ConvertCommandError(`Style guide file not found: ${styleGuidePath}`);
+        throw new Error(`Style guide file not found: ${styleGuidePath}`);
     }
 
     // 3. Load configuration & determine output directory
@@ -84,10 +71,10 @@ async function executeConvert(styleGuidePath: string, rawOptions: unknown): Prom
             const err = handleUnknownError(e, 'Loading configuration');
             console.error('Error: No output directory specified and failed to load vectorlint.ini.');
             console.error(`Details: ${err.message}`);
-            throw new ConvertCommandError('Please either use -o/--output or create a valid vectorlint.ini.');
+            throw new Error('Please either use -o/--output or create a valid vectorlint.ini.');
         }
         const err = handleUnknownError(e, 'Loading configuration');
-        throw new ConvertCommandError(err.message);
+        throw new Error(err.message);
     }
 
     if (options.verbose) {
@@ -102,7 +89,7 @@ async function executeConvert(styleGuidePath: string, rawOptions: unknown): Prom
     } catch (e: unknown) {
         const err = handleUnknownError(e, 'Validating environment variables');
         console.error('Please set these in your .env file or environment.');
-        throw new ConvertCommandError(err.message);
+        throw new Error(err.message);
     }
 
     // 5. Load Directive & Initialize Provider
@@ -138,6 +125,10 @@ async function executeConvert(styleGuidePath: string, rawOptions: unknown): Prom
     }
 
     // 7. Write Output
+    // Create subdirectory named after the style guide
+    const styleGuideName = path.basename(styleGuidePath, path.extname(styleGuidePath));
+    const finalOutputDir = path.join(outputDir, styleGuideName);
+
     if (options.dryRun) {
         console.log('\n--- DRY RUN PREVIEW ---\n');
         for (const rule of rules) {
@@ -146,17 +137,17 @@ async function executeConvert(styleGuidePath: string, rawOptions: unknown): Prom
             console.log(rule.content);
             console.log('---\n');
         }
-        console.log(`[vectorlint] Would generate ${rules.length} files in ${outputDir}`);
+        console.log(`[vectorlint] Would generate ${rules.length} files in ${finalOutputDir}`);
     } else {
-        if (!existsSync(outputDir)) {
-            mkdirSync(outputDir, { recursive: true });
+        if (!existsSync(finalOutputDir)) {
+            mkdirSync(finalOutputDir, { recursive: true });
         }
 
         let writtenCount = 0;
         let skippedCount = 0;
 
         for (const rule of rules) {
-            const filePath = path.join(outputDir, rule.filename);
+            const filePath = path.join(finalOutputDir, rule.filename);
 
             if (existsSync(filePath) && !options.force) {
                 if (options.verbose) {

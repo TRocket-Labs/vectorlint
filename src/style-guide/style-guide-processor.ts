@@ -283,7 +283,7 @@ Style Guide: **${styleGuide.name}**`;
         styleGuide: ParsedStyleGuide,
         typeInfo: TypeIdentificationOutput['types'][0]
     ): string {
-        return `You are a **rule categorizer** agent.
+        return `You are a **style guide rule categorizer** agent.
 
 ## Task
 Extract and categorize rules specifically for the **${typeInfo.type}** evaluation type.
