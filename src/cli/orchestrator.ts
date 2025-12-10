@@ -12,6 +12,7 @@ import { isSubjectiveResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
+import { OutputFormat } from './types';
 import type {
   EvaluationOptions, EvaluationResult, ErrorTrackingResult,
   ReportIssueParams, ExtractMatchTextParams, LocationMatch, ProcessViolationsParams,
@@ -57,10 +58,10 @@ async function runWithConcurrency<T, R>(
 function reportIssue(params: ReportIssueParams): void {
   const { file, line, column, severity, summary, ruleName, outputFormat, jsonFormatter, suggestion, scoreText, match } = params;
 
-  if (outputFormat === 'line') {
+  if (outputFormat === OutputFormat.Line) {
     const locStr = `${line}:${column}`;
     printIssueRow(locStr, severity, summary, ruleName, suggestion ? { suggestion } : {});
-  } else if (outputFormat === 'vale-json') {
+  } else if (outputFormat === OutputFormat.ValeJson) {
     const issue: JsonIssue = {
       file,
       line,
@@ -74,7 +75,7 @@ function reportIssue(params: ReportIssueParams): void {
       ...(scoreText !== undefined ? { score: scoreText } : {}),
     };
     (jsonFormatter as ValeJsonFormatter).addIssue(issue);
-  } else if (outputFormat === 'json' || outputFormat === 'rdjson') {
+  } else if (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.RdJson) {
 
     const matchLen = match ? match.length : 0;
     const endColumn = column + matchLen;
@@ -479,7 +480,7 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
         jsonFormatter
       });
       hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
-    } else if ((outputFormat === 'json' || outputFormat === 'vale-json') && result.message) {
+    } else if ((outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson) && result.message) {
       // For JSON, if there's a message but no violations, report it as a general issue
       reportIssue({
         file: relFile,
@@ -546,7 +547,7 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
     }
   }
 
-  if (outputFormat === 'json' && scoreComponents.length > 0) {
+  if (outputFormat === OutputFormat.Json && scoreComponents.length > 0) {
     (jsonFormatter as JsonFormatter | RdJsonFormatter).addEvaluationScore(relFile, {
       id: promptId || promptFile.filename.replace(/\.md$/, ''),
       scores: scoreComponents
@@ -610,7 +611,7 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
  */
 async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileResult> {
   const { file, options, jsonFormatter } = params;
-  const { prompts, provider, searchProvider, concurrency, scanPaths, outputFormat = 'line' } = options;
+  const { prompts, provider, searchProvider, concurrency, scanPaths, outputFormat = OutputFormat.Line } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -622,7 +623,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   const content = readFileSync(file, 'utf-8');
   const relFile = path.relative(process.cwd(), file) || file;
 
-  if (outputFormat === 'line') {
+  if (outputFormat === OutputFormat.Line) {
     printFileHeader(relFile);
   }
 
@@ -722,7 +723,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     }
   }
 
-  if (outputFormat === 'line') {
+  if (outputFormat === OutputFormat.Line) {
 
     printEvaluationSummaries(allScores);
     console.log('');
@@ -746,7 +747,7 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  const { outputFormat = 'line' } = options;
+  const { outputFormat = OutputFormat.Line } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -756,9 +757,9 @@ export async function evaluateFiles(
   let requestFailures = 0;
 
   let jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
-  if (outputFormat === 'json') {
+  if (outputFormat === OutputFormat.Json) {
     jsonFormatter = new JsonFormatter();
-  } else if (outputFormat === 'rdjson') {
+  } else if (outputFormat === OutputFormat.RdJson) {
     jsonFormatter = new RdJsonFormatter();
   } else {
     jsonFormatter = new ValeJsonFormatter();
@@ -781,7 +782,7 @@ export async function evaluateFiles(
   }
 
   // Output results based on format (always to stdout for JSON formats)
-  if (outputFormat === 'json' || outputFormat === 'vale-json' || outputFormat === 'rdjson') {
+  if (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson || outputFormat === OutputFormat.RdJson) {
     const jsonStr = jsonFormatter.toJson();
     console.log(jsonStr);
   }
