@@ -24,7 +24,7 @@ export interface RdJsonDiagnostic {
             };
         };
     };
-    severity: 'ERROR' | 'WARNING' | 'INFO';
+    severity: Severity;
     code?: {
         value: string;
         url?: string;
@@ -91,7 +91,7 @@ export class RdJsonFormatter {
                             },
                         },
                     },
-                    severity: issue.severity === Severity.ERROR ? 'ERROR' : issue.severity === Severity.WARNING ? 'WARNING' : 'INFO',
+                    severity: issue.severity === Severity.ERROR ? Severity.ERROR : Severity.WARNING,
                     code: {
                         value: issue.eval,
                     },

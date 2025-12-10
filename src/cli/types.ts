@@ -10,6 +10,13 @@ import { RdJsonFormatter } from '../output/rdjson-formatter';
 import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
 
+export enum OutputFormat {
+    Line = 'line',
+    Json = 'json',
+    ValeJson = 'vale-json',
+    RdJson = 'rdjson'
+}
+
 export interface EvaluationOptions {
     prompts: PromptFile[];
     rulesPath: string;
@@ -18,7 +25,7 @@ export interface EvaluationOptions {
     concurrency: number;
     verbose: boolean;
     scanPaths: FilePatternConfig[];
-    outputFormat?: 'line' | 'json' | 'vale-json' | 'rdjson';
+    outputFormat?: OutputFormat;
 }
 
 export interface EvaluationResult {
@@ -41,7 +48,7 @@ export interface ErrorTrackingResult {
 export interface EvaluationContext {
     content: string;
     relFile: string;
-    outputFormat: 'line' | 'json' | 'vale-json' | 'rdjson';
+    outputFormat: OutputFormat;
     jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
 }
 
@@ -52,7 +59,7 @@ export interface ReportIssueParams {
     severity: Severity
     summary: string;
     ruleName: string;
-    outputFormat: 'line' | 'json' | 'vale-json' | 'rdjson';
+    outputFormat: OutputFormat;
     jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
     suggestion?: string;
     scoreText?: string;
