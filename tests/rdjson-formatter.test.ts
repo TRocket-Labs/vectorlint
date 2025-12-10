@@ -32,7 +32,7 @@ describe('RdJsonFormatter', () => {
 
     const diag = parsed.diagnostics[0]!;
     expect(diag.message).toBe('Test message');
-    expect(diag.severity).toBe('ERROR');
+    expect(diag.severity).toBe(Severity.ERROR);
     expect(diag.location.path).toBe('test.md');
     expect(diag.location.range.start.line).toBe(1);
     expect(diag.location.range.start.column).toBe(1);

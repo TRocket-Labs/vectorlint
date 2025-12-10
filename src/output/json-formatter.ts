@@ -1,4 +1,16 @@
+import { createRequire } from 'node:module';
+import { z } from 'zod';
 import { Severity } from '../evaluators/types';
+
+const require = createRequire(import.meta.url);
+
+const PACKAGE_JSON_SCHEMA = z.object({
+  version: z.string(),
+});
+
+// Using require to load JSON in ESM
+const rawPackageJson: unknown = require('../../package.json');
+const pkg = PACKAGE_JSON_SCHEMA.parse(rawPackageJson);
 export interface ScoreComponent {
   criterion?: string;
   rawScore: number;
@@ -77,7 +89,7 @@ export class JsonFormatter {
         warnings: this.warningCount,
       },
       metadata: {
-        version: '1.0.0', // TODO: Get from package.json
+        version: pkg.version,
         timestamp: new Date().toISOString(),
       },
     };
