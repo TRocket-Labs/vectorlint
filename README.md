@@ -99,50 +99,6 @@ VectorLint scores your content using error density and a rubric based system, en
     vectorlint path/to/article.md
     ```
 
-## CI/CD Integration (GitHub Actions & reviewdog)
-
-VectorLint integrates with [reviewdog](https://github.com/reviewdog/reviewdog) via the official GitHub Action for automated PR feedback.
-
-**Example Workflow (`.github/workflows/vectorlint.yml`):**
-
-```yaml
-name: VectorLint
-
-on:
-  pull_request:
-    paths:
-      - '**/*.md'
-      - '**/*.mdx'
-      - 'vectorlint.ini'
-
-permissions:
-  contents: read
-  pull-requests: write
-  checks: write
-
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run VectorLint
-        uses: TRocket-Labs/vectorlint-action@v1
-        with:
-          llm_provider: ${{ secrets.LLM_PROVIDER }}
-          # Add your provider credentials via GitHub Secrets
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          # Reviewdog options
-          reporter: github-pr-review
-          filter_mode: added
-          fail_on_error: false
-```
-**Reviewdog Reporter Options:**
-- `github-pr-review`: Posts inline comments on specific lines in the PR diff.
-- `github-pr-check`: Creates annotations in the "Checks" tab.
-
-
 ## Contributing
 
 We welcome your contributions! Whether it's adding new rules, fixing bugs, or improving documentation, please check out our [Contributing Guidelines](.github/CONTRIBUTING.md) to get started.
