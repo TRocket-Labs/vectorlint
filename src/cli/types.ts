@@ -6,8 +6,16 @@ import type { FilePatternConfig } from '../boundaries/file-section-parser';
 import type { EvaluationSummary } from '../output/reporter';
 import { ValeJsonFormatter } from '../output/vale-json-formatter';
 import { JsonFormatter, type ScoreComponent } from '../output/json-formatter';
+import { RdJsonFormatter } from '../output/rdjson-formatter';
 import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
+
+export enum OutputFormat {
+    Line = 'line',
+    Json = 'json',
+    ValeJson = 'vale-json',
+    RdJson = 'rdjson'
+}
 
 export interface EvaluationOptions {
     prompts: PromptFile[];
@@ -17,7 +25,7 @@ export interface EvaluationOptions {
     concurrency: number;
     verbose: boolean;
     scanPaths: FilePatternConfig[];
-    outputFormat?: 'line' | 'json' | 'vale-json';
+    outputFormat?: OutputFormat;
 }
 
 export interface EvaluationResult {
@@ -40,8 +48,8 @@ export interface ErrorTrackingResult {
 export interface EvaluationContext {
     content: string;
     relFile: string;
-    outputFormat: 'line' | 'json' | 'vale-json';
-    jsonFormatter: ValeJsonFormatter | JsonFormatter;
+    outputFormat: OutputFormat;
+    jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
 }
 
 export interface ReportIssueParams {
@@ -51,8 +59,8 @@ export interface ReportIssueParams {
     severity: Severity
     summary: string;
     ruleName: string;
-    outputFormat: 'line' | 'json' | 'vale-json';
-    jsonFormatter: ValeJsonFormatter | JsonFormatter;
+    outputFormat: OutputFormat;
+    jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
     suggestion?: string;
     scoreText?: string;
     match?: string;
@@ -124,7 +132,7 @@ export type RunPromptEvaluationResult =
 export interface EvaluateFileParams {
     file: string;
     options: EvaluationOptions;
-    jsonFormatter: ValeJsonFormatter | JsonFormatter;
+    jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
 }
 
 export interface EvaluateFileResult extends ErrorTrackingResult {
