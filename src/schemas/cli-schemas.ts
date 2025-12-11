@@ -28,6 +28,7 @@ export const CONVERT_OPTIONS_SCHEMA = z.object({
   force: z.boolean().default(false),
   dryRun: z.boolean().default(false),
   verbose: z.boolean().default(false),
+  name: z.string().optional(),
 });
 
 // Inferred types

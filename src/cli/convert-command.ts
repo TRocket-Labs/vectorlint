@@ -16,6 +16,7 @@ export function registerConvertCommand(program: Command): void {
         .description('Convert a style guide into VectorLint evaluation prompts')
         .argument('<style-guide-path>', 'Path to the style guide file')
         .option('-o, --output <dir>', 'Output directory for generated rules (defaults to RulesPath from config)')
+        .option('-n, --name <name>', 'Custom name for the output subdirectory')
         .option('-f, --format <format>', 'Input format: markdown, auto', 'auto')
         .option('-t, --template <dir>', 'Custom template directory')
         .option('--strictness <level>', 'Strictness level: lenient, standard, strict', 'standard')
@@ -125,8 +126,9 @@ async function executeConvert(styleGuidePath: string, rawOptions: unknown): Prom
     }
 
     // 7. Write Output
-    // Create subdirectory named after the style guide
-    const styleGuideName = path.basename(styleGuidePath, path.extname(styleGuidePath));
+    // 7. Write Output
+    // Create subdirectory named after the style guide OR custom name
+    const styleGuideName = options.name || path.basename(styleGuidePath, path.extname(styleGuidePath));
     const finalOutputDir = path.join(outputDir, styleGuideName);
 
     if (options.dryRun) {
