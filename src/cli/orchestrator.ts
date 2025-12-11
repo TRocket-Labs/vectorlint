@@ -85,7 +85,7 @@ function reportIssue(params: ReportIssueParams): void {
       span: [column, endColumn],
       severity,
       message: summary,
-      eval: ruleName,
+      rule: ruleName,
       match: match || '',
       ...(suggestion ? { suggestion } : {})
     };

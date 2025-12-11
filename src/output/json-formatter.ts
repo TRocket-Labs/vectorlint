@@ -32,7 +32,7 @@ export interface Issue {
   span: [number, number];
   severity: Severity;
   message: string;
-  eval: string; // Renamed from rule
+  rule: string;
   match: string;
   suggestion?: string;
 }

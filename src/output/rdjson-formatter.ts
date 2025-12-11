@@ -93,7 +93,7 @@ export class RdJsonFormatter {
                     },
                     severity: issue.severity === Severity.ERROR ? Severity.ERROR : Severity.WARNING,
                     code: {
-                        value: issue.eval,
+                        value: issue.rule,
                     },
                 };
 

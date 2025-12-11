@@ -12,7 +12,7 @@ describe('RdJsonFormatter', () => {
       span: [1, 6],
       severity: Severity.ERROR,
       message: 'Test message',
-      eval: 'TestRule',
+      rule: 'TestRule',
       match: 'match',
       suggestion: 'fix'
     });
