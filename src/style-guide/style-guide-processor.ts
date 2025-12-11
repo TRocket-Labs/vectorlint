@@ -263,20 +263,21 @@ export class StyleGuideProcessor {
     private buildTypeIdentificationPrompt(styleGuide: ParsedStyleGuide): string {
         return `You are a **style guide planning agent**.
 
-## Task
-Analyze the style guide and identify which evaluation types are present.
+                ## Task
+                Analyze the style guide and identify which evaluation types are present.
 
-## Evaluation Types
-- **objective**: Formatting, structure, casing, specific disallowed words.
-- **semi-objective**: Grammar, spelling, specific prohibited patterns, clear violations.
-- **subjective**: Tone, voice, clarity, audience, engagement, flow.
+                ## Evaluation Types
+                - **objective**: Formatting, structure, casing, specific disallowed words.
+                - **semi-objective**: Grammar, spelling, specific prohibited patterns, clear violations.
+                - **subjective**: Tone, voice, clarity, audience, engagement, flow.
 
-## Output Requirements
-- Identify **all** applicable types found in the content
-- Estimate the number of rules for each type
-- Provide the raw text of the rules belonging to each type
+                ## Output Requirements
+                - Identify **all** applicable types found in the content
+                - Estimate the number of rules for each type
+                - Provide the raw text of the rules belonging to each type
 
-Style Guide: **${styleGuide.name}**`;
+                Style Guide: **${styleGuide.name}**
+        `;
     }
 
     private buildCategoryExtractionPrompt(
@@ -285,76 +286,79 @@ Style Guide: **${styleGuide.name}**`;
     ): string {
         return `You are a **style guide rule categorizer** agent.
 
-## Task
-Extract and categorize rules specifically for the **${typeInfo.type}** evaluation type.
+            ## Task
+            Extract and categorize rules specifically for the **${typeInfo.type}** evaluation type.
 
-## Context
-${typeInfo.description}
-Raw Rules Text:
-${typeInfo.rules.join('\n\n')}
+            ## Context
+            ${typeInfo.description}
+            Raw Rules Text:
+            ${typeInfo.rules.join('\n\n')}
 
-## Type: ${typeInfo.type}
-${typeInfo.type === 'subjective' ? '- Focus on tone, voice, clarity' : ''}
-${typeInfo.type === 'semi-objective' ? '- Focus on repeatable patterns and clear violations' : ''}
-${typeInfo.type === 'objective' ? '- Focus on formatting, structure, and existence checks' : ''}
+            ## Type: ${typeInfo.type}
+            ${typeInfo.type === 'subjective' ? '- Focus on tone, voice, clarity' : ''}
+            ${typeInfo.type === 'semi-objective' ? '- Focus on repeatable patterns and clear violations' : ''}
+            ${typeInfo.type === 'objective' ? '- Focus on formatting, structure, and existence checks' : ''}
 
-## Output Requirements
-- Create logical categories for these rules (e.g., "Voice & Tone", "Grammar", "Formatting")
-- Use **PascalCase** for IDs
-- Group related rules together (3-10 rules per category)
-- Preserve original instructions
+            ## Output Requirements
+            - Create logical categories for these rules (e.g., "Voice & Tone", "Grammar", "Formatting")
+            - Use **PascalCase** for IDs
+            - Group related rules together (3-10 rules per category)
+            - Preserve original instructions
 
-Style Guide: **${styleGuide.name}**`;
+            Style Guide: **${styleGuide.name}**`
+            ;
     }
 
     private buildFilteredRulePrompt(styleGuide: ParsedStyleGuide, filterTerm: string): string {
         return `You are a **style guide analyzer** designed to extract and categorize rules from style guides.
 
-## Task
+            ## Task
 
-Analyze the provided style guide and extract all rules related to: **"${filterTerm}"**
+            Analyze the provided style guide and extract all rules related to: **"${filterTerm}"**
 
-## Output Requirements
+            ## Output Requirements
 
-- Create **exactly one** category that consolidates all related rules
-- Use **PascalCase** for the category ID
-- Classify as: **subjective**, **semi-objective**, or **objective**
-- Include all semantically matching rules
+            - Create **exactly one** category that consolidates all related rules
+            - Use **PascalCase** for the category ID
+            - Classify as: **subjective**, **semi-objective**, or **objective**
+            - Include all semantically matching rules
 
-## Guidelines
+            ## Guidelines
 
-- Look for rules **related** to the topic, not just exact matches
-- Consolidate similar rules into a cohesive category
-- Preserve original rule text
+            - Look for rules **related** to the topic, not just exact matches
+            - Consolidate similar rules into a cohesive category
+            - Preserve original rule text
 
-Style Guide: **${styleGuide.name}**`;
+            Style Guide: **${styleGuide.name}**
+        `;
     }
 
     private buildRuleGenerationPrompt(category: CategoryExtractionOutput['categories'][0]): string {
         return `You are an **evaluation prompt generator** designed to create content evaluation prompts.
 
-## Task
+            ## Task
 
-Create a comprehensive evaluation prompt for the **"${category.name}"** category.
+            Create a comprehensive evaluation prompt for the **"${category.name}"** category.
 
-## Category Details
+            ## Category Details
 
-- **Name**: ${category.name}
-- **Type**: ${category.type}
-- **Description**: ${category.description}
-- **Strictness**: ${this.options.strictness}
+            - **Name**: ${category.name}
+            - **Type**: ${category.type}
+            - **Description**: ${category.description}
+            - **Strictness**: ${this.options.strictness}
 
-## Rules to Evaluate
+            ## Rules to Evaluate
 
-${category.rules.map((r, i) => `${i + 1}. ${r.description}`).join('\n')}
+            ${category.rules.map((r, i) => `${i + 1}. ${r.description}`).join('\n')}
 
-## Output Requirements
+            ## Output Requirements
 
-- Each rule becomes a **separate criterion** with its own weight
-- Use **PascalCase** for all criterion IDs
-- Total weight must sum to **100**
-${category.type === 'subjective' ? '- Create **1-4 rubric levels** for each criterion' : '- Provide **pass/fail** guidance for each criterion'}
-- Include examples from rules when available`;
+            - Each rule becomes a **separate criterion** with its own weight
+            - Use **PascalCase** for all criterion IDs
+            - Total weight must sum to **100**
+            ${category.type === 'subjective' ? '- Create **1-4 rubric levels** for each criterion' : '- Provide **pass/fail** guidance for each criterion'}
+            - Include examples from rules when available
+        `;
     }
 
     // --- Helpers ---
