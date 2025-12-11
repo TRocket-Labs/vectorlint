@@ -4,6 +4,7 @@ import type { PromptFile } from '../prompts/prompt-loader';
 import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
 import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
+import { RdJsonFormatter } from '../output/rdjson-formatter';
 import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
 import { locateEvidenceWithMatch } from '../output/location';
 import { checkTarget } from '../prompts/target';
@@ -11,6 +12,7 @@ import { isSubjectiveResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
+import { OutputFormat } from './types';
 import type {
   EvaluationOptions, EvaluationResult, ErrorTrackingResult,
   ReportIssueParams, ExtractMatchTextParams, LocationMatch, ProcessViolationsParams,
@@ -56,10 +58,10 @@ async function runWithConcurrency<T, R>(
 function reportIssue(params: ReportIssueParams): void {
   const { file, line, column, severity, summary, ruleName, outputFormat, jsonFormatter, suggestion, scoreText, match } = params;
 
-  if (outputFormat === 'line') {
+  if (outputFormat === OutputFormat.Line) {
     const locStr = `${line}:${column}`;
     printIssueRow(locStr, severity, summary, ruleName, suggestion ? { suggestion } : {});
-  } else if (outputFormat === 'vale-json') {
+  } else if (outputFormat === OutputFormat.ValeJson) {
     const issue: JsonIssue = {
       file,
       line,
@@ -73,7 +75,8 @@ function reportIssue(params: ReportIssueParams): void {
       ...(scoreText !== undefined ? { score: scoreText } : {}),
     };
     (jsonFormatter as ValeJsonFormatter).addIssue(issue);
-  } else if (outputFormat === 'json') {
+  } else if (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.RdJson) {
+
     const matchLen = match ? match.length : 0;
     const endColumn = column + matchLen;
     const issue: Issue = {
@@ -82,11 +85,11 @@ function reportIssue(params: ReportIssueParams): void {
       span: [column, endColumn],
       severity,
       message: summary,
-      eval: ruleName,
+      rule: ruleName,
       match: match || '',
       ...(suggestion ? { suggestion } : {})
     };
-    (jsonFormatter as JsonFormatter).addIssue(file, issue);
+    (jsonFormatter as JsonFormatter | RdJsonFormatter).addIssue(file, issue);
   }
 }
 
@@ -261,7 +264,7 @@ function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCrite
     };
   }
 
-  const got = result.criteria.find(c => c.name === nameKey);
+  const got = result.criteria.find(c => c.name === nameKey || c.name.toLowerCase() === nameKey.toLowerCase());
   if (!got) {
     return {
       errors: 0,
@@ -387,15 +390,29 @@ function validateCriteriaCompleteness(params: ValidationParams): boolean {
   const expectedNames = new Set<string>((meta.criteria || []).map((c) => String(c.name || c.id || '')));
   const returnedNames = new Set(result.criteria.map((c: { name: string }) => c.name));
 
+  // Create normalized maps for case-insensitive lookup
+  const expectedNormalized = new Set<string>();
+  const expectedOriginalMap = new Map<string, string>();
   for (const name of expectedNames) {
-    if (!returnedNames.has(name)) {
-      console.error(`Missing criterion in model output: ${name}`);
+    const norm = name.toLowerCase();
+    expectedNormalized.add(norm);
+    expectedOriginalMap.set(norm, name);
+  }
+
+  const returnedNormalized = new Set<string>();
+  for (const name of returnedNames) {
+    returnedNormalized.add(name.toLowerCase());
+  }
+
+  for (const norm of expectedNormalized) {
+    if (!returnedNormalized.has(norm)) {
+      console.error(`Missing criterion in model output: ${expectedOriginalMap.get(norm)}`);
       hadErrors = true;
     }
   }
 
   for (const name of returnedNames) {
-    if (!expectedNames.has(name)) {
+    if (!expectedNormalized.has(name.toLowerCase())) {
       console.warn(`[vectorlint] Extra criterion returned by model (ignored): ${name}`);
     }
   }
@@ -412,7 +429,11 @@ function validateScores(params: ValidationParams): boolean {
 
   for (const exp of meta.criteria || []) {
     const nameKey = String(exp.name || exp.id || '');
-    const got = result.criteria.find(c => c.name === nameKey);
+    const got = result.criteria.find(
+      c => c.name === nameKey
+        ||
+        c.name.toLowerCase() === nameKey.toLowerCase()
+    );
     if (!got) continue;
 
     const score = Number(got.score);
@@ -459,7 +480,7 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
         jsonFormatter
       });
       hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
-    } else if ((outputFormat === 'json' || outputFormat === 'vale-json') && result.message) {
+    } else if ((outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson) && result.message) {
       // For JSON, if there's a message but no violations, report it as a general issue
       reportIssue({
         file: relFile,
@@ -526,8 +547,8 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
     }
   }
 
-  if (outputFormat === 'json' && scoreComponents.length > 0) {
-    (jsonFormatter as JsonFormatter).addEvaluationScore(relFile, {
+  if (outputFormat === OutputFormat.Json && scoreComponents.length > 0) {
+    (jsonFormatter as JsonFormatter | RdJsonFormatter).addEvaluationScore(relFile, {
       id: promptId || promptFile.filename.replace(/\.md$/, ''),
       scores: scoreComponents
     });
@@ -590,7 +611,7 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
  */
 async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileResult> {
   const { file, options, jsonFormatter } = params;
-  const { prompts, provider, searchProvider, concurrency, scanPaths, outputFormat = 'line' } = options;
+  const { prompts, provider, searchProvider, concurrency, scanPaths, outputFormat = OutputFormat.Line } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -602,7 +623,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   const content = readFileSync(file, 'utf-8');
   const relFile = path.relative(process.cwd(), file) || file;
 
-  if (outputFormat === 'line') {
+  if (outputFormat === OutputFormat.Line) {
     printFileHeader(relFile);
   }
 
@@ -702,7 +723,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     }
   }
 
-  if (outputFormat === 'line') {
+  if (outputFormat === OutputFormat.Line) {
 
     printEvaluationSummaries(allScores);
     console.log('');
@@ -726,7 +747,7 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  const { outputFormat = 'line' } = options;
+  const { outputFormat = OutputFormat.Line } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -735,9 +756,11 @@ export async function evaluateFiles(
   let totalWarnings = 0;
   let requestFailures = 0;
 
-  let jsonFormatter: ValeJsonFormatter | JsonFormatter;
-  if (outputFormat === 'json') {
+  let jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
+  if (outputFormat === OutputFormat.Json) {
     jsonFormatter = new JsonFormatter();
+  } else if (outputFormat === OutputFormat.RdJson) {
+    jsonFormatter = new RdJsonFormatter();
   } else {
     jsonFormatter = new ValeJsonFormatter();
   }
@@ -758,9 +781,10 @@ export async function evaluateFiles(
     }
   }
 
-  // Output results based on format
-  if (outputFormat === 'json' || outputFormat === 'vale-json') {
-    console.log(jsonFormatter.toJson());
+  // Output results based on format (always to stdout for JSON formats)
+  if (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson || outputFormat === OutputFormat.RdJson) {
+    const jsonStr = jsonFormatter.toJson();
+    console.log(jsonStr);
   }
 
   return {
