@@ -1,16 +1,12 @@
-import { createRequire } from 'node:module';
 import { z } from 'zod';
 import { Severity } from '../evaluators/types';
-
-const REQUIRE = createRequire(import.meta.url);
+import pkg from '../../package.json';
 
 const PACKAGE_JSON_SCHEMA = z.object({
   version: z.string(),
 });
 
-// Using require to load JSON in ESM
-const RAW_PACKAGE_JSON: unknown = REQUIRE('../../package.json');
-const PKG = PACKAGE_JSON_SCHEMA.parse(RAW_PACKAGE_JSON);
+const PKG = PACKAGE_JSON_SCHEMA.parse(pkg);
 export interface ScoreComponent {
   criterion?: string;
   rawScore: number;
