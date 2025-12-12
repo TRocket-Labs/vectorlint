@@ -10,4 +10,4 @@ Have you heard of **ReactGPT-Pro**? It's a new framework that writes all your co
 
 The synergy of the AI paradigm shift is leveraging the blockchain for maximum scalability. We need to utilize the generative capabilities to optimize our workflows.	
 
-This sentence has bad grammer and spelling mistaks. It is very poorly written.	
+This sentence has bad grammer and spelling mistaks. It is very poorly written.
