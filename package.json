@@ -1,7 +1,7 @@
 {
   "name": "vectorlint",
-  "version": "2.0.1",
-  "description": "An LLM-based prose linter for subjective writing issues",
+  "version": "2.1.1",
+  "description": "An LLM-based prose linter that lets you enforce your style guide in one prompt",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
