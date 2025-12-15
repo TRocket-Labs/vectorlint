@@ -7,8 +7,13 @@ import { PresetLoader } from '../config/preset-loader';
 import { validateAll } from '../prompts/prompt-validator';
 import { parseValidateOptions } from '../boundaries/index';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import { handleUnknownError } from '../errors/index';
 import { printFileHeader, printValidationRow } from '../output/reporter';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /*
  * Registers the 'validate' command with Commander.
