@@ -1,87 +1,94 @@
+import { z } from 'zod';
 import { Severity } from '../evaluators/types';
+import pkg from '../../package.json';
+
+const PACKAGE_JSON_SCHEMA = z.object({
+  version: z.string(),
+});
+
+const PKG = PACKAGE_JSON_SCHEMA.parse(pkg);
 export interface ScoreComponent {
-    criterion?: string;
-    rawScore: number;
-    maxScore: number;
-    weightedScore: number;
-    weightedMaxScore: number;
-    normalizedScore: number;
-    normalizedMaxScore: number;
+  criterion?: string;
+  rawScore: number;
+  maxScore: number;
+  weightedScore: number;
+  weightedMaxScore: number;
+  normalizedScore: number;
+  normalizedMaxScore: number;
 }
 
 export interface EvaluationScore {
-    id: string;
-    scores: ScoreComponent[];
+  id: string;
+  scores: ScoreComponent[];
 }
 
 export interface Issue {
-    line: number;
-    column: number;
-    span: [number, number];
-    severity: Severity;
-    message: string;
-    eval: string; // Renamed from rule
-    match: string;
-    suggestion?: string;
+  line: number;
+  column: number;
+  span: [number, number];
+  severity: Severity;
+  message: string;
+  rule: string;
+  match: string;
+  suggestion?: string;
 }
 
 export interface FileResult {
-    issues: Issue[];
-    evaluationScores: EvaluationScore[];
+  issues: Issue[];
+  evaluationScores: EvaluationScore[];
 }
 
 export interface Result {
-    files: Record<string, FileResult>;
-    summary: {
-        files: number;
-        errors: number;
-        warnings: number;
-    };
-    metadata: {
-        version: string;
-        timestamp: string;
-    };
+  files: Record<string, FileResult>;
+  summary: {
+    files: number;
+    errors: number;
+    warnings: number;
+  };
+  metadata: {
+    version: string;
+    timestamp: string;
+  };
 }
 
 export class JsonFormatter {
-    private files: Record<string, FileResult> = {};
-    private errorCount = 0;
-    private warningCount = 0;
+  private files: Record<string, FileResult> = {};
+  private errorCount = 0;
+  private warningCount = 0;
 
-    addIssue(file: string, issue: Issue): void {
-        if (!this.files[file]) {
-            this.files[file] = { issues: [], evaluationScores: [] };
-        }
-        this.files[file].issues.push(issue);
-
-        if (issue.severity === Severity.ERROR) {
-            this.errorCount++;
-        } else if (issue.severity === Severity.WARNING) {
-            this.warningCount++;
-        }
+  addIssue(file: string, issue: Issue): void {
+    if (!this.files[file]) {
+      this.files[file] = { issues: [], evaluationScores: [] };
     }
+    this.files[file].issues.push(issue);
 
-    addEvaluationScore(file: string, score: EvaluationScore): void {
-        if (!this.files[file]) {
-            this.files[file] = { issues: [], evaluationScores: [] };
-        }
-        this.files[file].evaluationScores.push(score);
+    if (issue.severity === Severity.ERROR) {
+      this.errorCount++;
+    } else if (issue.severity === Severity.WARNING) {
+      this.warningCount++;
     }
+  }
 
-
-    toJson(): string {
-        const result: Result = {
-            files: this.files,
-            summary: {
-                files: Object.keys(this.files).length,
-                errors: this.errorCount,
-                warnings: this.warningCount,
-            },
-            metadata: {
-                version: '1.0.0', // TODO: Get from package.json
-                timestamp: new Date().toISOString(),
-            },
-        };
-        return JSON.stringify(result, null, 2);
+  addEvaluationScore(file: string, score: EvaluationScore): void {
+    if (!this.files[file]) {
+      this.files[file] = { issues: [], evaluationScores: [] };
     }
+    this.files[file].evaluationScores.push(score);
+  }
+
+  toJson(): string {
+    const result: Result = {
+      files: this.files,
+      summary: {
+        files: Object.keys(this.files).length,
+        errors: this.errorCount,
+        warnings: this.warningCount,
+      },
+      metadata: {
+        version: PKG.version,
+        timestamp: new Date().toISOString(),
+      },
+    };
+    return JSON.stringify(result, null, 2);
+  }
 }
