@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { loadPrompts } from '../src/prompts/prompt-loader';
+import { loadRules } from '../src/prompts/prompt-loader';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -34,7 +34,7 @@ criteria:
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadPrompts(tmpDir);
+            const { prompts, warnings } = loadRules(tmpDir);
             expect(warnings).toHaveLength(0);
             expect(prompts).toHaveLength(1);
             expect(prompts[0].meta.evaluator).toBe('base');
@@ -49,7 +49,7 @@ name: Test Evaluator
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadPrompts(tmpDir);
+            const { prompts, warnings } = loadRules(tmpDir);
             expect(warnings).toHaveLength(0);
             expect(prompts).toHaveLength(1);
         });
@@ -66,7 +66,7 @@ criteria:
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadPrompts(tmpDir);
+            const { prompts, warnings } = loadRules(tmpDir);
             expect(warnings).toHaveLength(0);
             expect(prompts).toHaveLength(1);
             expect(prompts[0].meta.criteria![0].weight).toBe(1);
@@ -79,7 +79,7 @@ name: Test Evaluator
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadPrompts(tmpDir);
+            const { prompts, warnings } = loadRules(tmpDir);
             expect(prompts).toHaveLength(0);
             expect(warnings.length).toBeGreaterThan(0);
             expect(warnings[0]).toContain('test.md');
@@ -92,7 +92,7 @@ id: Test
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadPrompts(tmpDir);
+            const { prompts, warnings } = loadRules(tmpDir);
             expect(prompts).toHaveLength(0);
             expect(warnings.length).toBeGreaterThan(0);
             expect(warnings[0]).toContain('test.md');
@@ -108,7 +108,7 @@ criteria:
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadPrompts(tmpDir);
+            const { prompts, warnings } = loadRules(tmpDir);
             expect(prompts).toHaveLength(0);
             expect(warnings.length).toBeGreaterThan(0);
             expect(warnings[0]).toContain('test.md');
@@ -124,7 +124,7 @@ criteria:
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadPrompts(tmpDir);
+            const { prompts, warnings } = loadRules(tmpDir);
             expect(prompts).toHaveLength(0);
             expect(warnings.length).toBeGreaterThan(0);
             expect(warnings[0]).toContain('test.md');

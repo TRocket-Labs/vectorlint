@@ -28,6 +28,23 @@ function resolveEvaluatorType(evaluator: string | undefined): string {
 }
 
 /*
+ * Constructs a hierarchical rule name following the pattern:
+ * - With criterion: PackName.RuleId.CriterionId
+ * - Without criterion: PackName.RuleId
+ */
+function buildRuleName(
+  packName: string,
+  ruleId: string,
+  criterionId: string | undefined
+): string {
+  const parts = [packName, ruleId];
+  if (criterionId) {
+    parts.push(criterionId);
+  }
+  return parts.join('.');
+}
+
+/*
  * Generic concurrency runner that executes workers in parallel up to a specified limit.
  * Preserves result order matching input order.
  */
@@ -210,13 +227,13 @@ function locateAndReportViolations(params: ProcessViolationsParams): { hadOperat
  * Returns error/warning counts, score entry for Quality Scores, and score components for JSON.
  */
 function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCriterionResult {
-  const { exp, result, content, relFile, promptId, promptFilename, meta, outputFormat, jsonFormatter } = params;
+  const { exp, result, content, relFile, packName, promptId, promptFilename, meta, outputFormat, jsonFormatter } = params;
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
 
   const nameKey = String(exp.name || exp.id || '');
   const criterionId = (exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('') : ''));
-  const ruleName = promptId && criterionId ? `${promptId}.${criterionId}` : (promptId || criterionId || promptFilename);
+  const ruleName = buildRuleName(packName, promptId, criterionId);
 
   const weightNum = exp.weight || 1;
   const maxScore = weightNum;
@@ -465,7 +482,7 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
   // Handle Semi-Objective Result
   if (!isSubjectiveResult(result)) {
     const severity = result.severity;
-    const ruleName = promptId || promptFile.filename.replace(/\.md$/, '');
+    const ruleName = buildRuleName(promptFile.pack, promptId, undefined);
     const violationCount = result.violations.length;
 
     if (violationCount > 0) {
@@ -529,6 +546,7 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
       result,
       content,
       relFile,
+      packName: promptFile.pack,
       promptId,
       promptFilename: promptFile.filename,
       meta,
