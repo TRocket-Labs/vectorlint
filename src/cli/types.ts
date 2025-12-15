@@ -86,6 +86,7 @@ export interface ProcessViolationsParams extends EvaluationContext {
 export interface ProcessCriterionParams extends EvaluationContext {
     exp: PromptCriterionSpec;
     result: SubjectiveResult;
+    packName: string;
     promptId: string;
     promptFilename: string;
     meta: PromptMeta;

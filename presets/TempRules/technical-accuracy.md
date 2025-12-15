@@ -1,15 +1,13 @@
 ---
 specVersion: 1.0.0
 evaluator: technical-accuracy
-type: subjective
+type: semi-objective
 id: TechnicalAccuracy
 name: Technical Accuracy
 severity: error
-
 criteria:
   - name: Accuracy Ratio
     id: AccuracyRatio
-    weight: 20
 ---
 
 You are a **technical accuracy verifier** for developer documentation and technical content.
