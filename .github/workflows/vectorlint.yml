@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - '**/*.md'
-      - '**/*.mdx'
 
 permissions:
   contents: read
@@ -33,4 +32,4 @@ jobs:
           reporter: github-pr-check
           filter_mode: added
           fail_on_error: false
-       
+                
