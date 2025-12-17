@@ -29,8 +29,6 @@ jobs:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           openai_model: ${{ secrets.OPENAI_MODEL }}
           openai_temperature: ${{ secrets.OPENAI_TEMPERATURE }}
-          # Perplexity
-          perplexity_api_key: ${{ secrets.PERPLEXITY_API_KEY }}
           # Reviewdog options
           reporter: github-pr-check
           filter_mode: added
