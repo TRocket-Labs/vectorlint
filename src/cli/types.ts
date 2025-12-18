@@ -46,6 +46,7 @@ export interface ErrorTrackingResult {
     hadOperationalErrors: boolean;
     hadSeverityErrors: boolean;
     scoreEntries?: EvaluationSummary[];
+    scoreComponents?: ScoreComponent[];
 }
 
 export interface EvaluationContext {

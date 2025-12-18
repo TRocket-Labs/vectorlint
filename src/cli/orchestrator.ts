@@ -535,7 +535,8 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
       warnings: severity === Severity.WARNING ? violationCount : 0,
       hadOperationalErrors,
       hadSeverityErrors: severity === Severity.ERROR,
-      scoreEntries: [scoreEntry]
+      scoreEntries: [scoreEntry],
+      scoreComponents: []
     };
   }
 
@@ -588,7 +589,8 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
     warnings: promptWarnings,
     hadOperationalErrors,
     hadSeverityErrors,
-    scoreEntries: criterionScores
+    scoreEntries: criterionScores,
+    scoreComponents: scoreComponents
   };
 }
 
@@ -677,15 +679,24 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
         }
       }
 
-      if (outputFormat === OutputFormat.Line) {
-        if (cached.scores) {
+      if (cached.scores) {
+        if (outputFormat === OutputFormat.Line) {
           const replayScores = new Map<string, EvaluationSummary[]>();
           for (const s of cached.scores) {
             replayScores.set(s.ruleName, s.items);
           }
           printEvaluationSummaries(replayScores);
+          console.log('');
+        } else if (outputFormat === OutputFormat.Json) {
+          for (const s of cached.scores) {
+            if (s.components && s.components.length > 0) {
+              (jsonFormatter as JsonFormatter | RdJsonFormatter).addEvaluationScore(relFile, {
+                id: s.ruleName,
+                scores: s.components
+              });
+            }
+          }
         }
-        console.log('');
       }
 
       return {
@@ -704,7 +715,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
-  const allScores = new Map<string, EvaluationSummary[]>();
+  const allScores = new Map<string, CachedScore>();
   // Collect issues for caching
   const issueCollector: CachedIssue[] = [];
 
@@ -805,13 +816,20 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
 
     if (promptResult.scoreEntries && promptResult.scoreEntries.length > 0) {
       const ruleName = (p.meta.id || p.filename).toString();
-      allScores.set(ruleName, promptResult.scoreEntries);
+      allScores.set(ruleName, {
+        ruleName,
+        items: promptResult.scoreEntries,
+        ...(promptResult.scoreComponents ? { components: promptResult.scoreComponents as any } : {})
+      });
     }
   }
 
   if (outputFormat === OutputFormat.Line) {
-
-    printEvaluationSummaries(allScores);
+    const summaryMap = new Map<string, EvaluationSummary[]>();
+    for (const [key, val] of allScores.entries()) {
+      summaryMap.set(key, val.items);
+    }
+    printEvaluationSummaries(summaryMap);
     console.log('');
   }
 
@@ -829,10 +847,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     const contentHash = hashContent(content);
     const cacheKey = createCacheKeyString(relFile, contentHash, promptsHash);
 
-    const cachedScores: CachedScore[] = [];
-    for (const [ruleName, items] of allScores.entries()) {
-      cachedScores.push({ ruleName, items });
-    }
+    const cachedScores: CachedScore[] = Array.from(allScores.values());
 
     cacheStore.set(cacheKey, {
       errors: totalErrors,

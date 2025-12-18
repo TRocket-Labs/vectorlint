@@ -30,9 +30,26 @@ export interface CachedEvaluationSummary {
     score?: number;
 }
 
+/**
+ * Minimal score component for replay (mirrors ScoreComponent).
+ */
+export interface CachedScoreComponent {
+    criterion?: string;
+    rawScore: number;
+    maxScore: number;
+    weightedScore: number;
+    weightedMaxScore: number;
+    normalizedScore: number;
+    normalizedMaxScore: number;
+}
+
+/**
+ * Grouped scores by rule/prompt.
+ */
 export interface CachedScore {
     ruleName: string;
     items: CachedEvaluationSummary[];
+    components?: CachedScoreComponent[];
 }
 export interface CachedResult {
     errors: number;
