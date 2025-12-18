@@ -792,12 +792,9 @@ async function evaluateFile(
     );
 
     // Filter prompts by active packs
-    let activePrompts = prompts.filter(
-      (p) => p.pack && resolution.packs.includes(p.pack)
-    );
-
-    // Filter out disabled rules (Pack.RuleId=disabled)
-    activePrompts = activePrompts.filter((p) => {
+    const activePrompts = prompts.filter((p) => {
+      if (!p.pack || !resolution.packs.includes(p.pack)) return false;
+      if (!p.meta?.id) return true;
       const disableKey = `${p.pack}.${p.meta.id}`;
       return resolution.overrides[disableKey] !== "disabled";
     });
