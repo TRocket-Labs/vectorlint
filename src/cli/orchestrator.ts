@@ -795,6 +795,8 @@ export async function evaluateFiles(
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
 
   let jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
   if (outputFormat === OutputFormat.Json) {
@@ -814,6 +816,12 @@ export async function evaluateFiles(
       requestFailures += fileResult.requestFailures;
       hadOperationalErrors = hadOperationalErrors || fileResult.hadOperationalErrors;
       hadSeverityErrors = hadSeverityErrors || fileResult.hadSeverityErrors;
+
+      // Aggregate token usage
+      if (fileResult.tokenUsage) {
+        totalInputTokens += fileResult.tokenUsage.totalInputTokens;
+        totalOutputTokens += fileResult.tokenUsage.totalOutputTokens;
+      }
     } catch (e: unknown) {
       const err = handleUnknownError(e, `Processing file ${file}`);
       console.error(`Error processing file ${file}: ${err.message}`);
@@ -827,6 +835,19 @@ export async function evaluateFiles(
     console.log(jsonStr);
   }
 
+  // Calculate aggregated token usage stats
+  const tokenUsage: TokenUsageStats = {
+    totalInputTokens,
+    totalOutputTokens,
+  };
+
+  // Calculate cost if pricing is configured
+  const pricing = options.pricing || {};
+  const cost = calculateCost({ inputTokens: totalInputTokens, outputTokens: totalOutputTokens }, pricing);
+  if (cost !== undefined) {
+    tokenUsage.totalCost = cost;
+  }
+
   return {
     totalFiles,
     totalErrors,
@@ -834,5 +855,6 @@ export async function evaluateFiles(
     requestFailures,
     hadOperationalErrors,
     hadSeverityErrors,
+    tokenUsage,
   };
 }

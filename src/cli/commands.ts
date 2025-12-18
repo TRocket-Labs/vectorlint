@@ -7,7 +7,7 @@ import type { SearchProvider } from '../providers/search-provider';
 import { loadConfig } from '../boundaries/config-loader';
 import { loadPromptFile, type PromptFile } from '../prompts/prompt-loader';
 import { EvalPackLoader } from '../boundaries/eval-pack-loader';
-import { printGlobalSummary } from '../output/reporter';
+import { printGlobalSummary, printTokenUsage } from '../output/reporter';
 import { DefaultRequestBuilder } from '../providers/request-builder';
 import { loadDirective } from '../prompts/directive-loader';
 import { resolveTargets } from '../scan/file-resolver';
@@ -183,6 +183,11 @@ export function registerMainCommand(program: Command): void {
           result.totalWarnings,
           result.requestFailures
         );
+
+        // Print token usage if available
+        if (result.tokenUsage) {
+          printTokenUsage(result.tokenUsage);
+        }
       }
 
       // Exit with appropriate code
