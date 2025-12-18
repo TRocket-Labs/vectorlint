@@ -2,6 +2,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import type { CacheData, CachedResult } from './types';
 
+/**
+ * Cache schema version. Bump this to invalidate existing caches
+ * when the internal data structure changes in a future release.
+ */
 const CACHE_VERSION = 1;
 const DEFAULT_CACHE_DIR = '.vectorlint';
 const CACHE_FILENAME = 'cache.json';
