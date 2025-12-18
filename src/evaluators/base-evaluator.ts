@@ -1,5 +1,5 @@
-import type { LLMProvider } from '../providers/llm-provider';
-import type { PromptFile } from '../schemas/prompt-schemas';
+import type { LLMProvider } from "../providers/llm-provider";
+import type { PromptFile } from "../schemas/prompt-schemas";
 import {
   buildSubjectiveLLMSchema,
   buildSemiObjectiveLLMSchema,
@@ -9,16 +9,27 @@ import {
   type SemiObjectiveResult,
   type EvaluationResult,
   type SemiObjectiveItem,
-} from '../prompts/schema';
-import { registerEvaluator } from './evaluator-registry';
-import type { Evaluator } from './evaluator';
-import { Type, Severity, EvaluationType } from './types';
+} from "../prompts/schema";
+import { registerEvaluator } from "./evaluator-registry";
+import type { Evaluator } from "./evaluator";
+import { Type, Severity, EvaluationType } from "./types";
+import { mergeViolations, RecursiveChunker, type Chunk } from "../chunking";
+import {
+  calculateSemiObjectiveScore,
+  calculateSubjectiveScore,
+  averageSubjectiveScores,
+} from "../scoring";
+
+const CHUNKING_THRESHOLD = 600; // Word count threshold for enabling chunking
+const MAX_CHUNK_SIZE = 500; // Maximum words per chunk
 
 /*
  * Core LLM-based evaluator that handles Subjective and Semi-Objective evaluation modes.
  * Mode is determined by prompt frontmatter 'type' field:
  * - 'subjective': Weighted average of 1-4 scores per criterion, normalized to 1-10.
  * - 'semi-objective': Density-based scoring (errors per 100 words).
+ *
+ * Content is automatically chunked for documents >600 words to improve accuracy.
  *
  * Subclasses can override protected methods to customize evaluation behavior
  * while reusing the core evaluation logic.
@@ -28,7 +39,7 @@ export class BaseEvaluator implements Evaluator {
     protected llmProvider: LLMProvider,
     protected prompt: PromptFile,
     protected defaultSeverity?: Severity
-  ) { }
+  ) {}
 
   async evaluate(_file: string, content: string): Promise<EvaluationResult> {
     const type = this.getEvaluationType();
@@ -44,162 +55,127 @@ export class BaseEvaluator implements Evaluator {
    * Determines the evaluation type.
    * Defaults to 'semi-objective' if not specified, for backward compatibility.
    */
-  protected getEvaluationType(): typeof EvaluationType.SUBJECTIVE | typeof EvaluationType.SEMI_OBJECTIVE {
-    return this.prompt.meta.type === 'subjective' ? EvaluationType.SUBJECTIVE : EvaluationType.SEMI_OBJECTIVE;
+  protected getEvaluationType():
+    | typeof EvaluationType.SUBJECTIVE
+    | typeof EvaluationType.SEMI_OBJECTIVE {
+    return this.prompt.meta.type === "subjective"
+      ? EvaluationType.SUBJECTIVE
+      : EvaluationType.SEMI_OBJECTIVE;
+  }
+
+  protected chunkContent(content: string): Chunk[] {
+    const wordCount = content.trim().split(/\s+/).length || 1;
+
+    if (wordCount <= CHUNKING_THRESHOLD) {
+      // Content is small enough, no chunking needed
+      return [
+        {
+          content,
+          startOffset: 0,
+          endOffset: content.length,
+          index: 0,
+        },
+      ];
+    }
+
+    const chunker = new RecursiveChunker();
+    return chunker.chunk(content, { maxChunkSize: MAX_CHUNK_SIZE });
   }
 
   /*
    * Runs subjective evaluation:
-   * 1. LLM scores each criterion 1-4.
-   * 2. We normalize to 1-10 scale using linear interpolation.
-   * 3. Calculate weighted average.
+   * 1. Chunk content if needed.
+   * 2. LLM scores each criterion 1-4 for each chunk.
+   * 3. Average scores across chunks (weighted by chunk size).
    */
-  protected async runSubjectiveEvaluation(content: string): Promise<SubjectiveResult> {
+  protected async runSubjectiveEvaluation(
+    content: string
+  ): Promise<SubjectiveResult> {
     const schema = buildSubjectiveLLMSchema();
+    const chunks = this.chunkContent(content);
 
-    // Step 1: Get raw scores from LLM
-    const llmResult = await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
-      content,
-      this.prompt.body,
-      schema
-    );
+    // Single chunk - run directly
+    if (chunks.length === 1) {
+      const llmResult =
+        await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
+          content,
+          this.prompt.body,
+          schema
+        );
 
-    // Step 2: Calculate scores locally
-    let totalWeightedScore = 0;
-    let totalWeight = 0;
+      return calculateSubjectiveScore(llmResult.criteria, {
+        promptCriteria: this.prompt.meta.criteria,
+      });
+    }
 
-    const criteriaWithCalculations = llmResult.criteria.map((c) => {
-      // Find the weight from the prompt definition
-      const definedCriterion = this.prompt.meta.criteria?.find((dc) => dc.name === c.name);
-      const weight = definedCriterion?.weight || 1; // Default to weight 1 if missing
+    // Multiple chunks - evaluate each and average
+    const chunkResults: SubjectiveResult[] = [];
+    const chunkWordCounts: number[] = [];
 
-      // Normalize 1-4 score to 1-10 scale
+    for (const chunk of chunks) {
+      const llmResult =
+        await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
+          chunk.content,
+          this.prompt.body,
+          schema
+        );
 
-      const normalizedScore = 1 + ((c.score - 1) / 3) * 9;
+      const result = calculateSubjectiveScore(llmResult.criteria, {
+        promptCriteria: this.prompt.meta.criteria,
+      });
 
-      const weightedPoints = normalizedScore * weight;
+      chunkResults.push(result);
+      chunkWordCounts.push(chunk.content.trim().split(/\s+/).length);
+    }
 
-      totalWeightedScore += weightedPoints;
-      totalWeight += weight;
-
-      return {
-        ...c,
-        weight,
-        normalized_score: Number(normalizedScore.toFixed(2)),
-        weighted_points: Number(weightedPoints.toFixed(2)),
-      };
-    });
-
-
-    const finalScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 1;
-
-    return {
-      type: EvaluationType.SUBJECTIVE,
-      final_score: Number(finalScore.toFixed(1)), // Round to 1 decimal
-      criteria: criteriaWithCalculations,
-    };
+    // Average scores across chunks
+    return averageSubjectiveScores(chunkResults, chunkWordCounts);
   }
 
   /*
    * Runs semi-objective evaluation:
-   * 1. LLM lists violations only.
-   * 2. We calculate score based on violation density (per 100 words).
+   * 1. Chunk content if needed.
+   * 2. LLM lists violations for each chunk.
+   * 3. Merge all violations across chunks.
+   * 4. Calculate score once from total violations.
    */
-  protected async runSemiObjectiveEvaluation(content: string): Promise<SemiObjectiveResult> {
+  protected async runSemiObjectiveEvaluation(
+    content: string
+  ): Promise<SemiObjectiveResult> {
     const schema = buildSemiObjectiveLLMSchema();
+    const chunks = this.chunkContent(content);
+    const totalWordCount = content.trim().split(/\s+/).length || 1;
 
-    // Step 1: Get list of violations from LLM
-    const llmResult = await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
-      content,
-      this.prompt.body,
-      schema
-    );
+    // Collect all violations from all chunks
+    const allChunkViolations: SemiObjectiveItem[][] = [];
 
-    // Step 2: Calculate scores based on violation density
-    // Estimate word count (simple whitespace split)
-    const wordCount = content.trim().split(/\s+/).length || 1;
-
-    return this.calculateSemiObjectiveResult(llmResult.violations, wordCount);
-  }
-
-  /*
-   * Centralized scoring logic for semi-objective evaluations.
-   * Calculates score based on violation density.
-   */
-  protected calculateSemiObjectiveResult(items: SemiObjectiveItem[], wordCount: number): SemiObjectiveResult {
-    // items is already violations (LLM only returns failures)
-    const violations = items.map(item => ({
-      analysis: item.analysis,
-      ...(item.suggestion && { suggestion: item.suggestion }),
-      ...(item.pre && { pre: item.pre }),
-      ...(item.post && { post: item.post }),
-      criterionName: item.description,
-    }));
-
-    // Density Calculation
-    // Density = Violations per 100 words
-    const density = (violations.length / wordCount) * 100;
-
-    // Strictness Factor (Default 10)
-    let strictness = 10;
-    const strictnessConfig = this.prompt.meta.strictness;
-
-    if (typeof strictnessConfig === 'number') {
-      strictness = strictnessConfig;
-    } else if (strictnessConfig === 'lenient') {
-      strictness = 5;
-    } else if (strictnessConfig === 'strict') {
-      strictness = 20;
-    } else if (strictnessConfig === 'standard') {
-      strictness = 10;
+    for (const chunk of chunks) {
+      const llmResult =
+        await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
+          chunk.content,
+          this.prompt.body,
+          schema
+        );
+      allChunkViolations.push(llmResult.violations);
     }
 
-    // Score Calculation
-    // Score = 100 - (Density * Strictness)
-    // Clamped between 0 and 100
-    const rawScore = Math.max(0, Math.min(100, 100 - (density * strictness)));
+    // Merge and deduplicate violations
+    const mergedViolations = mergeViolations(allChunkViolations);
 
-    // Final Score on 1-10 scale
-    const finalScore = rawScore / 10;
-
-    // Determine status
-    let status: typeof Severity.WARNING | typeof Severity.ERROR | undefined;
-
-    if (finalScore < 10) {
-      // Priority: Prompt Meta > Config Default > Warning (Fallback)
-      if (this.prompt.meta.severity) {
-        status = this.prompt.meta.severity === Severity.ERROR ? Severity.ERROR : Severity.WARNING;
-      } else if (this.defaultSeverity) {
-        status = this.defaultSeverity;
-      } else {
-        status = Severity.WARNING;
-      }
-    }
-
-    const message = violations.length > 0
-      ? `Found ${violations.length} issue${violations.length > 1 ? 's' : ''}`
-      : 'No issues found';
-
-    const result: SemiObjectiveResult = {
-      type: EvaluationType.SEMI_OBJECTIVE,
-      final_score: Number(finalScore.toFixed(1)),
-      percentage: Number(rawScore.toFixed(1)),
-      passed_count: 0,  // No longer meaningful
-      total_count: violations.length,
-      items: items,
-      message,
-      violations,
-      // Severity is mandatory in SemiObjectiveResult
-      // Default to WARNING if not specified (e.g. perfect score)
-      severity: status || Severity.WARNING,
-    };
-
-    return result;
+    // Calculate score once from all violations
+    return calculateSemiObjectiveScore(mergedViolations, totalWordCount, {
+      strictness: this.prompt.meta.strictness,
+      defaultSeverity: this.defaultSeverity,
+      promptSeverity: this.prompt.meta.severity,
+    });
   }
 }
 
 // Register as default evaluator for base type
 // Note: EvaluatorFactory signature is (llmProvider, prompt, searchProvider?, defaultSeverity?)
-registerEvaluator(Type.BASE, (llmProvider, prompt, _searchProvider, defaultSeverity) => {
-  return new BaseEvaluator(llmProvider, prompt, defaultSeverity);
-});
+registerEvaluator(
+  Type.BASE,
+  (llmProvider, prompt, _searchProvider, defaultSeverity) => {
+    return new BaseEvaluator(llmProvider, prompt, defaultSeverity);
+  }
+);
