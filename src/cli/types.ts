@@ -37,6 +37,7 @@ export interface EvaluationResult {
     requestFailures: number;
     hadOperationalErrors: boolean;
     hadSeverityErrors: boolean;
+    tokenUsage?: TokenUsageStats;
 }
 
 export interface ErrorTrackingResult {

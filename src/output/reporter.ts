@@ -205,6 +205,8 @@ export function printTokenUsage(stats: TokenUsageStats) {
   console.log(`  - Input tokens: ${stats.totalInputTokens.toLocaleString()}`);
   console.log(`  - Output tokens: ${stats.totalOutputTokens.toLocaleString()}`);
   if (stats.totalCost !== undefined) {
-    console.log(`  - Total cost: $${stats.totalCost.toFixed(4)}`);
+    // Use 4 decimal places for small costs, 2 for larger amounts
+    const precision = stats.totalCost >= 1 ? 2 : 4;
+    console.log(`  - Total cost: $${stats.totalCost.toFixed(precision)}`);
   }
 }
