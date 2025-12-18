@@ -20,8 +20,7 @@ import type {
   RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult,
   RunPromptEvaluationResultSuccess
 } from './types';
-import { calculateCost, PricingConfig, TokenUsageStats } from '../types/token-usage';
-import { parseEnvironment } from '../boundaries/env-parser';
+import { calculateCost, TokenUsageStats } from '../providers/token-usage';
 
 /*
  * Returns the evaluator type, defaulting to 'base' if not specified.
@@ -744,21 +743,20 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   }
 
   // Calculate costs if output format is Line
-  const env = parseEnvironment();
-  const pricing: PricingConfig = {};
-  if (env.INPUT_PRICE_PER_MILLION !== undefined) {
-    pricing.inputPricePerMillion = env.INPUT_PRICE_PER_MILLION;
-  }
-  if (env.OUTPUT_PRICE_PER_MILLION !== undefined) {
-    pricing.outputPricePerMillion = env.OUTPUT_PRICE_PER_MILLION;
-  }
+  const pricing = options.pricing || {};
 
   const tokenUsageStats: TokenUsageStats = {
     totalInputTokens,
     totalOutputTokens,
   };
 
-  const cost = calculateCost({ inputTokens: totalInputTokens, outputTokens: totalOutputTokens }, pricing);
+  const cost = calculateCost(
+    {
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens
+    },
+    pricing
+  );
   if (cost !== undefined) {
     tokenUsageStats.totalCost = cost;
   }

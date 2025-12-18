@@ -9,7 +9,7 @@ import { JsonFormatter, type ScoreComponent } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
 import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
-import { TokenUsage, TokenUsageStats } from '../types/token-usage';
+import { TokenUsage, TokenUsageStats, PricingConfig } from '../providers/token-usage';
 
 export enum OutputFormat {
     Line = 'line',
@@ -27,6 +27,7 @@ export interface EvaluationOptions {
     verbose: boolean;
     scanPaths: FilePatternConfig[];
     outputFormat?: OutputFormat;
+    pricing?: PricingConfig;
 }
 
 export interface EvaluationResult {

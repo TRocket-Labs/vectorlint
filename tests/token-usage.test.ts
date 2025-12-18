@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCost, TokenUsage, PricingConfig } from '../src/types/token-usage';
+import { calculateCost, TokenUsage, PricingConfig } from '../src/providers/token-usage';
 
 describe('Token Usage Calculation', () => {
     it('should calculate cost correctly when pricing provided', () => {

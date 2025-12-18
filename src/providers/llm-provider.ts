@@ -1,4 +1,4 @@
-import type { TokenUsage } from '../types/token-usage';
+import type { TokenUsage } from './token-usage';
 
 export interface LLMResult<T> {
   data: T;
