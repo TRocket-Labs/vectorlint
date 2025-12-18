@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { LLMProvider } from './llm-provider';
+import { LLMProvider, LLMResult } from './llm-provider';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import {
   ANTHROPIC_RESPONSE_SCHEMA,
@@ -72,7 +72,7 @@ export class AnthropicProvider implements LLMProvider {
     content: string,
     promptText: string,
     schema: { name: string; schema: Record<string, unknown> }
-  ): Promise<T> {
+  ): Promise<LLMResult<T>> {
     const systemPrompt = this.builder.buildPromptBodyForStructured(promptText);
 
     // Create tool schema for structured response
@@ -92,6 +92,7 @@ export class AnthropicProvider implements LLMProvider {
       max_tokens: this.config.maxTokens!,
       tools: [toolSchema],
       tool_choice: { type: 'tool', name: schema.name },
+      stream: false,
 
       // E2E mock compatibility aliases (camelCase)
       maxTokens: this.config.maxTokens!,
@@ -160,7 +161,15 @@ export class AnthropicProvider implements LLMProvider {
     // Validate the API response structure using schema validation
     const validatedResponse = this.validateResponse(rawResponse);
 
-    return this.extractStructuredResponse<T>(validatedResponse, schema.name);
+    const data = this.extractStructuredResponse<T>(validatedResponse, schema.name);
+
+    return {
+      data,
+      usage: {
+        inputTokens: validatedResponse.usage.input_tokens,
+        outputTokens: validatedResponse.usage.output_tokens,
+      }
+    };
   }
 
   private convertToAnthropicToolSchema(schema: { name: string; schema: Record<string, unknown> }): Anthropic.Messages.Tool {

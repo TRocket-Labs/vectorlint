@@ -5,20 +5,23 @@ import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
 import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
-import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
+import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary, printTokenUsage } from '../output/reporter';
 import { locateEvidenceWithMatch } from '../output/location';
 import { checkTarget } from '../prompts/target';
 import { isSubjectiveResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
-import { createEvaluator } from '../evaluators/index';
+import { BaseEvaluator, createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { OutputFormat } from './types';
 import type {
   EvaluationOptions, EvaluationResult, ErrorTrackingResult,
   ReportIssueParams, ExtractMatchTextParams, LocationMatch, ProcessViolationsParams,
   ProcessCriterionParams, ProcessCriterionResult, ValidationParams, ProcessPromptResultParams,
-  RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult
+  RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult,
+  RunPromptEvaluationResultSuccess
 } from './types';
+import { calculateCost, PricingConfig, TokenUsageStats } from '../types/token-usage';
+import { parseEnvironment } from '../boundaries/env-parser';
 
 /*
  * Returns the evaluator type, defaulting to 'base' if not specified.
@@ -599,7 +602,15 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
     const evaluator = createEvaluator(evaluatorType, provider, promptFile, searchProvider);
     const result = await evaluator.evaluate(relFile, content);
 
-    return { ok: true, result };
+
+    const usage = (evaluator as BaseEvaluator).getLastUsage?.();
+
+    const resultObj: RunPromptEvaluationResultSuccess = { ok: true, result };
+    if (usage) {
+      resultObj.usage = usage;
+    }
+
+    return resultObj;
   } catch (e: unknown) {
     const err = handleUnknownError(e, `Running prompt ${promptFile.filename}`);
     return { ok: false, error: err };
@@ -618,6 +629,9 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+
   const allScores = new Map<string, EvaluationSummary[]>();
 
   const content = readFileSync(file, 'utf-8');
@@ -704,6 +718,12 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
       continue;
     }
 
+    // Accumulate token usage
+    if (r.usage) {
+      totalInputTokens += r.usage.inputTokens;
+      totalOutputTokens += r.usage.outputTokens;
+    }
+
     const promptResult = routePromptResult({
       promptFile: p,
       result: r.result,
@@ -723,9 +743,30 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     }
   }
 
+  // Calculate costs if output format is Line
+  const env = parseEnvironment();
+  const pricing: PricingConfig = {};
+  if (env.INPUT_PRICE_PER_MILLION !== undefined) {
+    pricing.inputPricePerMillion = env.INPUT_PRICE_PER_MILLION;
+  }
+  if (env.OUTPUT_PRICE_PER_MILLION !== undefined) {
+    pricing.outputPricePerMillion = env.OUTPUT_PRICE_PER_MILLION;
+  }
+
+  const tokenUsageStats: TokenUsageStats = {
+    totalInputTokens,
+    totalOutputTokens,
+  };
+
+  const cost = calculateCost({ inputTokens: totalInputTokens, outputTokens: totalOutputTokens }, pricing);
+  if (cost !== undefined) {
+    tokenUsageStats.totalCost = cost;
+  }
+
   if (outputFormat === OutputFormat.Line) {
 
     printEvaluationSummaries(allScores);
+    printTokenUsage(tokenUsageStats);
     console.log('');
   }
 
@@ -734,7 +775,8 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     warnings: totalWarnings,
     requestFailures,
     hadOperationalErrors,
-    hadSeverityErrors
+    hadSeverityErrors,
+    tokenUsage: tokenUsageStats
   };
 }
 

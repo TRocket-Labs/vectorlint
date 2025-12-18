@@ -141,10 +141,14 @@ describe('Anthropic End-to-End Integration', () => {
       );
 
       // Step 6: Verify results
-      expect(result).toEqual({
+      expect(result.data).toEqual({
         score: 92,
         feedback: 'Excellent content quality',
         categories: ['clarity', 'accuracy'],
+      });
+      expect(result.usage).toEqual({
+        inputTokens: 150,
+        outputTokens: 75,
       });
 
       // Verify API was called with correct parameters
@@ -231,7 +235,11 @@ describe('Anthropic End-to-End Integration', () => {
         schema
       );
 
-      expect(result).toEqual({ result: 'success' });
+      expect(result.data).toEqual({ result: 'success' });
+      expect(result.usage).toEqual({
+        inputTokens: 50,
+        outputTokens: 25,
+      });
 
       // Verify defaults were used
       expect(SHARED_E2E_MOCK_CREATE).toHaveBeenCalledWith(
@@ -469,7 +477,7 @@ describe('Anthropic End-to-End Integration', () => {
         schema
       );
 
-      expect(result).toEqual({
+      expect(result.data).toEqual({
         overall_score: 87.5,
         detailed_scores: {
           clarity: 90,
@@ -485,6 +493,10 @@ describe('Anthropic End-to-End Integration', () => {
           reading_level: 'intermediate',
           topics: ['technology', 'education'],
         },
+      });
+      expect(result.usage).toEqual({
+        inputTokens: 200,
+        outputTokens: 100,
       });
     });
 
@@ -543,9 +555,13 @@ describe('Anthropic End-to-End Integration', () => {
       );
 
       // Should extract the tool use result, ignoring the text
-      expect(result).toEqual({
+      expect(result.data).toEqual({
         score: 78,
         notes: 'Good overall quality',
+      });
+      expect(result.usage).toEqual({
+        inputTokens: 80,
+        outputTokens: 40,
       });
     });
   });
@@ -598,7 +614,11 @@ describe('Anthropic End-to-End Integration', () => {
         schema
       );
 
-      expect(result).toEqual({ status: 'debug_success' });
+      expect(result.data).toEqual({ status: 'debug_success' });
+      expect(result.usage).toEqual({
+        inputTokens: 30,
+        outputTokens: 15,
+      });
 
       // Verify debug logging occurred
       expect(consoleSpy).toHaveBeenCalledWith(

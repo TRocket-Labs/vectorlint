@@ -29,6 +29,11 @@ const OPENAI_CONFIG_SCHEMA = z.object({
   OPENAI_TEMPERATURE: z.coerce.number().min(0).max(2).optional(),
 });
 
+// Base environment schema with shared optional variables
+const BASE_ENV_SCHEMA = z.object({
+  INPUT_PRICE_PER_MILLION: z.coerce.number().positive().optional(),
+  OUTPUT_PRICE_PER_MILLION: z.coerce.number().positive().optional(),
+});
 // Gemini configuration schema
 const GEMINI_CONFIG_SCHEMA = z.object({
   GEMINI_API_KEY: z.string().min(1),
@@ -38,10 +43,10 @@ const GEMINI_CONFIG_SCHEMA = z.object({
 
 // Discriminated union based on provider type
 export const ENV_SCHEMA = z.discriminatedUnion('LLM_PROVIDER', [
-  z.object({ LLM_PROVIDER: z.literal(ProviderType.AzureOpenAI) }).merge(AZURE_OPENAI_CONFIG_SCHEMA),
-  z.object({ LLM_PROVIDER: z.literal(ProviderType.Anthropic) }).merge(ANTHROPIC_CONFIG_SCHEMA),
-  z.object({ LLM_PROVIDER: z.literal(ProviderType.OpenAI) }).merge(OPENAI_CONFIG_SCHEMA),
-  z.object({ LLM_PROVIDER: z.literal(ProviderType.Gemini) }).merge(GEMINI_CONFIG_SCHEMA),
+  z.object({ LLM_PROVIDER: z.literal(ProviderType.AzureOpenAI) }).merge(AZURE_OPENAI_CONFIG_SCHEMA).merge(BASE_ENV_SCHEMA),
+  z.object({ LLM_PROVIDER: z.literal(ProviderType.Anthropic) }).merge(ANTHROPIC_CONFIG_SCHEMA).merge(BASE_ENV_SCHEMA),
+  z.object({ LLM_PROVIDER: z.literal(ProviderType.OpenAI) }).merge(OPENAI_CONFIG_SCHEMA).merge(BASE_ENV_SCHEMA),
+  z.object({ LLM_PROVIDER: z.literal(ProviderType.Gemini) }).merge(GEMINI_CONFIG_SCHEMA).merge(BASE_ENV_SCHEMA),
 ]);
 
 // Inferred types

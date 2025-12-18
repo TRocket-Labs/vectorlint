@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { 
-  MockAPIErrorParams, 
-  MockAuthenticationErrorParams, 
+import type {
+  MockAPIErrorParams,
+  MockAuthenticationErrorParams,
   MockRateLimitErrorParams,
-  MockOpenAIClient 
+  MockOpenAIClient
 } from './schemas/mock-schemas';
 
 // Shared spy used by all tests
@@ -51,14 +51,14 @@ const ERRORS = vi.hoisted(() => {
 vi.mock('openai', () => {
   // Pull hoisted classes so we reuse the same identities everywhere
   const { APIError, AuthenticationError, RateLimitError } = ERRORS;
-  
+
   // Default export client with proper typing
   const openAI = vi.fn((): MockOpenAIClient => ({
     // Support either surface your provider might call
     chat: { completions: { create: SHARED_CREATE } },
     responses: { create: SHARED_CREATE },
   }));
-  
+
   // Attach error classes on the default export too
   // @ts-expect-error - Mock needs to add error classes to constructor function
   openAI.APIError = APIError;
@@ -66,7 +66,7 @@ vi.mock('openai', () => {
   openAI.AuthenticationError = AuthenticationError;
   // @ts-expect-error - Mock needs to add error classes to constructor function
   openAI.RateLimitError = RateLimitError;
-  
+
   // Some codebases read from OpenAI.errors.*
   // @ts-expect-error - Mock needs to add errors object to constructor function
   openAI.errors = {
@@ -74,7 +74,7 @@ vi.mock('openai', () => {
     AuthenticationError,
     RateLimitError,
   };
-  
+
   return {
     __esModule: true,
     default: openAI,
@@ -100,11 +100,11 @@ describe('OpenAIProvider', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    
+
     // Get reference to the mocked validation function
     const apiClient = await import('../src/boundaries/api-client');
     mockValidateApiResponse = vi.mocked(apiClient.validateApiResponse);
-    
+
     // Default mock behavior - return the response as-is
     mockValidateApiResponse.mockImplementation((response: unknown) => response as OpenAIResponse);
   });
@@ -197,10 +197,16 @@ describe('OpenAIProvider', () => {
         schema
       );
 
-      expect(result).toEqual({
+      expect(result.data).toEqual({
         score: 85,
         feedback: 'Good content',
       });
+
+      expect(result.usage).toBeDefined();
+      if (result.usage) {
+        expect(result.usage.inputTokens).toBe(100);
+        expect(result.usage.outputTokens).toBe(50);
+      }
     });
 
     it('configures OpenAI API call with JSON schema response format', async () => {
@@ -267,10 +273,10 @@ describe('OpenAIProvider', () => {
         choices: [
           {
             message: {
-              content: JSON.stringify({ 
-                score: 85, 
-                feedback: 'Good', 
-                categories: ['content', 'style'] 
+              content: JSON.stringify({
+                score: 85,
+                feedback: 'Good',
+                categories: ['content', 'style']
               }),
             },
             finish_reason: 'stop',
@@ -286,12 +292,12 @@ describe('OpenAIProvider', () => {
         schema: {
           type: 'object',
           properties: {
-            score: { 
+            score: {
               type: 'number',
               minimum: 0,
               maximum: 100
             },
-            feedback: { 
+            feedback: {
               type: 'string',
               minLength: 1
             },
@@ -458,9 +464,9 @@ describe('OpenAIProvider', () => {
 
       const openAI = await import('openai');
       // @ts-expect-error - Mock constructor signature differs from real SDK
-      SHARED_CREATE.mockRejectedValue(new openAI.APIError({ 
-        message: 'API request failed', 
-        status: 429 
+      SHARED_CREATE.mockRejectedValue(new openAI.APIError({
+        message: 'API request failed',
+        status: 429
       }));
 
       const provider = new OpenAIProvider(config);
@@ -481,8 +487,8 @@ describe('OpenAIProvider', () => {
 
       const openAI = await import('openai');
       // @ts-expect-error - Mock constructor signature differs from real SDK
-      SHARED_CREATE.mockRejectedValue(new openAI.RateLimitError({ 
-        message: 'Rate limit exceeded' 
+      SHARED_CREATE.mockRejectedValue(new openAI.RateLimitError({
+        message: 'Rate limit exceeded'
       }));
 
       const provider = new OpenAIProvider(config);
@@ -503,8 +509,8 @@ describe('OpenAIProvider', () => {
 
       const openAI = await import('openai');
       // @ts-expect-error - Mock constructor signature differs from real SDK
-      SHARED_CREATE.mockRejectedValue(new openAI.AuthenticationError({ 
-        message: 'Invalid API key' 
+      SHARED_CREATE.mockRejectedValue(new openAI.AuthenticationError({
+        message: 'Invalid API key'
       }));
 
       const provider = new OpenAIProvider(config);
@@ -686,7 +692,7 @@ describe('OpenAIProvider', () => {
     let consoleSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
-      consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
     });
 
     afterEach(() => {
@@ -904,7 +910,7 @@ describe('OpenAIProvider', () => {
 
       SHARED_CREATE.mockResolvedValue(mockResponse);
 
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
       const provider = new OpenAIProvider(config);
       const schema = {
@@ -959,7 +965,7 @@ describe('OpenAIProvider', () => {
       // Check all console.log calls to ensure API key is never exposed
       const allLogCalls = consoleSpy.mock.calls.flat();
       const allLogContent = allLogCalls.join(' ');
-      
+
       expect(allLogContent).not.toContain(sensitiveApiKey);
       expect(allLogContent).not.toContain('sk-very-secret-api-key');
       expect(allLogContent).not.toContain('very-secret-api-key');
@@ -975,9 +981,9 @@ describe('OpenAIProvider', () => {
 
       const openAI = await import('openai');
       // @ts-expect-error - Mock constructor signature differs from real SDK
-      SHARED_CREATE.mockRejectedValue(new openAI.APIError({ 
-        message: 'Authentication failed', 
-        status: 401 
+      SHARED_CREATE.mockRejectedValue(new openAI.APIError({
+        message: 'Authentication failed',
+        status: 401
       }));
 
       const provider = new OpenAIProvider(config);
@@ -995,11 +1001,11 @@ describe('OpenAIProvider', () => {
       // Check console logs don't contain API key - this is the main security test
       const allLogCalls = consoleSpy.mock.calls.flat();
       const allLogContent = allLogCalls.join(' ');
-      
+
       expect(allLogContent).not.toContain(sensitiveApiKey);
       expect(allLogContent).not.toContain('sk-another-secret-key');
       expect(allLogContent).not.toContain('another-secret-key');
-      
+
       // Verify debug logs were actually called (so test is meaningful)
       expect(consoleSpy).toHaveBeenCalledWith(
         '[vectorlint] Sending request to OpenAI:',
@@ -1043,7 +1049,7 @@ describe('OpenAIProvider', () => {
       await provider.runPromptStructured('Test content', 'Test prompt', schema);
 
       expect(mockBuilder.buildPromptBodyForStructured).toHaveBeenCalledWith('Test prompt');
-      
+
       expect(SHARED_CREATE).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: [

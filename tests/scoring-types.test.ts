@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { BaseEvaluator } from '../src/evaluators/base-evaluator';
 import { EvaluationType } from '../src/evaluators/types';
-import type { LLMProvider } from '../src/providers/llm-provider';
+import { LLMProvider, LLMResult } from '../src/providers/llm-provider';
 import type { PromptFile } from '../src/schemas/prompt-schemas';
 import type { SubjectiveLLMResult, SemiObjectiveLLMResult } from '../src/prompts/schema';
 import type { SearchProvider } from '../src/providers/search-provider';
@@ -31,24 +31,27 @@ describe('Scoring Types', () => {
         it('should calculate weighted average correctly', async () => {
             const evaluator = new BaseEvaluator(mockLlmProvider, subjectivePrompt);
 
-            // Mock LLM returning raw scores (0-4)
-            const mockLlmResponse: SubjectiveLLMResult = {
-                criteria: [
-                    {
-                        name: 'Criterion 1',
-                        score: 4, // 100%
-                        summary: 'Good',
-                        reasoning: 'Reason',
-                        violations: []
-                    },
-                    {
-                        name: 'Criterion 2',
-                        score: 2, // 50%
-                        summary: 'Okay',
-                        reasoning: 'Reason',
-                        violations: []
-                    },
-                ],
+
+            // Mock LLM returning raw scores (0-4) wrapped in LLMResult
+            const mockLlmResponse: LLMResult<SubjectiveLLMResult> = {
+                data: {
+                    criteria: [
+                        {
+                            name: 'Criterion 1',
+                            score: 4, // 100%
+                            summary: 'Good',
+                            reasoning: 'Reason',
+                            violations: []
+                        },
+                        {
+                            name: 'Criterion 2',
+                            score: 2, // 50%
+                            summary: 'Okay',
+                            reasoning: 'Reason',
+                            violations: []
+                        },
+                    ],
+                }
             };
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -65,8 +68,8 @@ describe('Scoring Types', () => {
             // Total: 700 / 100 = 7
             // Final Score: 7.0
             expect(result.final_score).toBe(7.0);
-            expect(result.criteria[0].weighted_points).toBe(500);
-            expect(result.criteria[1].weighted_points).toBe(200);
+            expect(result.criteria[0]!.weighted_points).toBe(500);
+            expect(result.criteria[1]!.weighted_points).toBe(200);
         });
     });
 
@@ -87,11 +90,13 @@ describe('Scoring Types', () => {
             const evaluator = new BaseEvaluator(mockLlmProvider, semiObjectivePrompt);
 
             // Mock LLM returning violations only
-            const mockLlmResponse: SemiObjectiveLLMResult = {
-                violations: [
-                    { description: 'Issue 1', analysis: 'fail', suggestion: '', pre: '', post: '' },
-                    { description: 'Issue 2', analysis: 'fail', suggestion: '', pre: '', post: '' },
-                ],
+            const mockLlmResponse: LLMResult<SemiObjectiveLLMResult> = {
+                data: {
+                    violations: [
+                        { description: 'Issue 1', analysis: 'fail', suggestion: '', pre: '', post: '' },
+                        { description: 'Issue 2', analysis: 'fail', suggestion: '', pre: '', post: '' },
+                    ],
+                }
             };
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -113,8 +118,10 @@ describe('Scoring Types', () => {
         it('should handle empty violations list (perfect score)', async () => {
             const evaluator = new BaseEvaluator(mockLlmProvider, semiObjectivePrompt);
 
-            const mockLlmResponse: SemiObjectiveLLMResult = {
-                violations: [],
+            const mockLlmResponse: LLMResult<SemiObjectiveLLMResult> = {
+                data: {
+                    violations: [],
+                }
             };
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -162,7 +169,7 @@ describe('Scoring Types', () => {
             // Mock claim extraction to return empty list
             // eslint-disable-next-line @typescript-eslint/unbound-method
             const mockFn = vi.mocked(mockLlmProvider.runPromptStructured);
-            mockFn.mockResolvedValueOnce({ claims: [] });
+            mockFn.mockResolvedValueOnce({ data: { claims: [] } } as unknown as LLMResult<any>);
 
             const result = await evaluator.evaluate('file.md', 'content');
 
