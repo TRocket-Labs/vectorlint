@@ -9,6 +9,7 @@ import { JsonFormatter, type ScoreComponent } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
 import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
+import type { CacheStore, CachedIssue } from '../cache/index';
 
 export enum OutputFormat {
     Line = 'line',
@@ -26,6 +27,8 @@ export interface EvaluationOptions {
     verbose: boolean;
     scanPaths: FilePatternConfig[];
     outputFormat?: OutputFormat;
+    cacheEnabled?: boolean;
+    forceFullRun?: boolean;
 }
 
 export interface EvaluationResult {
@@ -89,6 +92,7 @@ export interface ProcessViolationsParams extends EvaluationContext {
     severity: Severity;
     ruleName: string;
     scoreText: string;
+    issueCollector?: CachedIssue[] | undefined;
 }
 
 export interface ProcessCriterionParams extends EvaluationContext {
@@ -97,6 +101,7 @@ export interface ProcessCriterionParams extends EvaluationContext {
     promptId: string;
     promptFilename: string;
     meta: PromptMeta;
+    issueCollector?: CachedIssue[] | undefined;
 }
 
 export interface ProcessCriterionResult extends ErrorTrackingResult {
@@ -114,6 +119,7 @@ export interface ValidationParams {
 export interface ProcessPromptResultParams extends EvaluationContext {
     promptFile: PromptFile;
     result: PromptEvaluationResult;
+    issueCollector?: CachedIssue[] | undefined;
 }
 
 export interface RunPromptEvaluationParams {
@@ -133,8 +139,12 @@ export interface EvaluateFileParams {
     file: string;
     options: EvaluationOptions;
     jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
+    cacheStore?: CacheStore | undefined;
+    promptsHash?: string | undefined;
+    useCache?: boolean | undefined;
 }
 
 export interface EvaluateFileResult extends ErrorTrackingResult {
     requestFailures: number;
+    wasCacheHit?: boolean;
 }
