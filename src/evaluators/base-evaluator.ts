@@ -1,5 +1,6 @@
 import type { LLMProvider } from '../providers/llm-provider';
 import type { PromptFile } from '../schemas/prompt-schemas';
+import type { TokenUsage } from '../types/token-usage';
 import {
   buildSubjectiveLLMSchema,
   buildSemiObjectiveLLMSchema,
@@ -24,6 +25,8 @@ import { Type, Severity, EvaluationType } from './types';
  * while reusing the core evaluation logic.
  */
 export class BaseEvaluator implements Evaluator {
+  protected lastUsage?: TokenUsage;
+
   constructor(
     protected llmProvider: LLMProvider,
     protected prompt: PromptFile,
@@ -38,6 +41,10 @@ export class BaseEvaluator implements Evaluator {
     } else {
       return this.runSemiObjectiveEvaluation(content);
     }
+  }
+
+  getLastUsage(): TokenUsage | undefined {
+    return this.lastUsage;
   }
 
   /*
@@ -58,11 +65,14 @@ export class BaseEvaluator implements Evaluator {
     const schema = buildSubjectiveLLMSchema();
 
     // Step 1: Get raw scores from LLM
-    const llmResult = await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
+    const { data: llmResult, usage } = await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
       content,
       this.prompt.body,
       schema
     );
+    if (usage) {
+      this.lastUsage = usage;
+    }
 
     // Step 2: Calculate scores locally
     let totalWeightedScore = 0;
@@ -109,11 +119,14 @@ export class BaseEvaluator implements Evaluator {
     const schema = buildSemiObjectiveLLMSchema();
 
     // Step 1: Get list of violations from LLM
-    const llmResult = await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
+    const { data: llmResult, usage } = await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
       content,
       this.prompt.body,
       schema
     );
+    if (usage) {
+      this.lastUsage = usage;
+    }
 
     // Step 2: Calculate scores based on violation density
     // Estimate word count (simple whitespace split)
