@@ -10,8 +10,8 @@ export interface TokenUsageStats {
 }
 
 export interface PricingConfig {
-    inputPricePerMillion?: number;
-    outputPricePerMillion?: number;
+    inputPricePerMillion?: number | undefined;
+    outputPricePerMillion?: number | undefined;
 }
 
 /**
