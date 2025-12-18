@@ -209,4 +209,5 @@ export function printTokenUsage(stats: TokenUsageStats) {
     const precision = stats.totalCost >= 1 ? 2 : 4;
     console.log(`  - Total cost: $${stats.totalCost.toFixed(precision)}`);
   }
+  console.log('');
 }

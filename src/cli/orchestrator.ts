@@ -5,7 +5,7 @@ import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
 import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
-import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary, printTokenUsage } from '../output/reporter';
+import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
 import { locateEvidenceWithMatch } from '../output/location';
 import { checkTarget } from '../prompts/target';
 import { isSubjectiveResult } from '../prompts/schema';
@@ -20,7 +20,10 @@ import type {
   RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult,
   RunPromptEvaluationResultSuccess
 } from './types';
-import { calculateCost, TokenUsageStats } from '../providers/token-usage';
+import {
+  calculateCost,
+  TokenUsageStats
+} from '../providers/token-usage';
 
 /*
  * Returns the evaluator type, defaulting to 'base' if not specified.
@@ -762,9 +765,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   }
 
   if (outputFormat === OutputFormat.Line) {
-
     printEvaluationSummaries(allScores);
-    printTokenUsage(tokenUsageStats);
     console.log('');
   }
 
