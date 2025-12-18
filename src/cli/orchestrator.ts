@@ -10,15 +10,20 @@ import { locateEvidenceWithMatch } from '../output/location';
 import { checkTarget } from '../prompts/target';
 import { isSubjectiveResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
-import { createEvaluator } from '../evaluators/index';
+import { BaseEvaluator, createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { OutputFormat } from './types';
 import type {
   EvaluationOptions, EvaluationResult, ErrorTrackingResult,
   ReportIssueParams, ExtractMatchTextParams, LocationMatch, ProcessViolationsParams,
   ProcessCriterionParams, ProcessCriterionResult, ValidationParams, ProcessPromptResultParams,
-  RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult
+  RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult,
+  RunPromptEvaluationResultSuccess
 } from './types';
+import {
+  calculateCost,
+  TokenUsageStats
+} from '../providers/token-usage';
 
 /*
  * Returns the evaluator type, defaulting to 'base' if not specified.
@@ -599,7 +604,15 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
     const evaluator = createEvaluator(evaluatorType, provider, promptFile, searchProvider);
     const result = await evaluator.evaluate(relFile, content);
 
-    return { ok: true, result };
+
+    const usage = (evaluator as BaseEvaluator).getLastUsage?.();
+
+    const resultObj: RunPromptEvaluationResultSuccess = { ok: true, result };
+    if (usage) {
+      resultObj.usage = usage;
+    }
+
+    return resultObj;
   } catch (e: unknown) {
     const err = handleUnknownError(e, `Running prompt ${promptFile.filename}`);
     return { ok: false, error: err };
@@ -618,6 +631,9 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+
   const allScores = new Map<string, EvaluationSummary[]>();
 
   const content = readFileSync(file, 'utf-8');
@@ -704,6 +720,12 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
       continue;
     }
 
+    // Accumulate token usage
+    if (r.usage) {
+      totalInputTokens += r.usage.inputTokens;
+      totalOutputTokens += r.usage.outputTokens;
+    }
+
     const promptResult = routePromptResult({
       promptFile: p,
       result: r.result,
@@ -723,8 +745,26 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     }
   }
 
-  if (outputFormat === OutputFormat.Line) {
+  // Calculate costs if output format is Line
+  const pricing = options.pricing || {};
 
+  const tokenUsageStats: TokenUsageStats = {
+    totalInputTokens,
+    totalOutputTokens,
+  };
+
+  const cost = calculateCost(
+    {
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens
+    },
+    pricing
+  );
+  if (cost !== undefined) {
+    tokenUsageStats.totalCost = cost;
+  }
+
+  if (outputFormat === OutputFormat.Line) {
     printEvaluationSummaries(allScores);
     console.log('');
   }
@@ -734,7 +774,8 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     warnings: totalWarnings,
     requestFailures,
     hadOperationalErrors,
-    hadSeverityErrors
+    hadSeverityErrors,
+    tokenUsage: tokenUsageStats
   };
 }
 
@@ -755,6 +796,8 @@ export async function evaluateFiles(
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
 
   let jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
   if (outputFormat === OutputFormat.Json) {
@@ -774,6 +817,12 @@ export async function evaluateFiles(
       requestFailures += fileResult.requestFailures;
       hadOperationalErrors = hadOperationalErrors || fileResult.hadOperationalErrors;
       hadSeverityErrors = hadSeverityErrors || fileResult.hadSeverityErrors;
+
+      // Aggregate token usage
+      if (fileResult.tokenUsage) {
+        totalInputTokens += fileResult.tokenUsage.totalInputTokens;
+        totalOutputTokens += fileResult.tokenUsage.totalOutputTokens;
+      }
     } catch (e: unknown) {
       const err = handleUnknownError(e, `Processing file ${file}`);
       console.error(`Error processing file ${file}: ${err.message}`);
@@ -787,6 +836,19 @@ export async function evaluateFiles(
     console.log(jsonStr);
   }
 
+  // Calculate aggregated token usage stats
+  const tokenUsage: TokenUsageStats = {
+    totalInputTokens,
+    totalOutputTokens,
+  };
+
+  // Calculate cost if pricing is configured
+  const pricing = options.pricing || {};
+  const cost = calculateCost({ inputTokens: totalInputTokens, outputTokens: totalOutputTokens }, pricing);
+  if (cost !== undefined) {
+    tokenUsage.totalCost = cost;
+  }
+
   return {
     totalFiles,
     totalErrors,
@@ -794,5 +856,6 @@ export async function evaluateFiles(
     requestFailures,
     hadOperationalErrors,
     hadSeverityErrors,
+    tokenUsage,
   };
 }

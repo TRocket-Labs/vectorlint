@@ -7,13 +7,14 @@ import type { SearchProvider } from '../providers/search-provider';
 import { loadConfig } from '../boundaries/config-loader';
 import { loadPromptFile, type PromptFile } from '../prompts/prompt-loader';
 import { EvalPackLoader } from '../boundaries/eval-pack-loader';
-import { printGlobalSummary } from '../output/reporter';
+import { printGlobalSummary, printTokenUsage } from '../output/reporter';
 import { DefaultRequestBuilder } from '../providers/request-builder';
 import { loadDirective } from '../prompts/directive-loader';
 import { resolveTargets } from '../scan/file-resolver';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
+import { OutputFormat } from './types';
 
 /*
  * Registers the main evaluation command with Commander.
@@ -156,7 +157,7 @@ export function registerMainCommand(program: Command): void {
         ? new PerplexitySearchProvider({ debug: false })
         : undefined;
 
-      const outputFormat = cliOptions.output === 'JSON' ? 'json' : cliOptions.output;
+      const outputFormat = cliOptions.output as OutputFormat;
 
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
@@ -168,10 +169,17 @@ export function registerMainCommand(program: Command): void {
         verbose: cliOptions.verbose,
         outputFormat: outputFormat,
         scanPaths: config.scanPaths,
+        pricing: {
+          inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,
+          outputPricePerMillion: env.OUTPUT_PRICE_PER_MILLION,
+        },
       });
 
       // Print global summary (only for line format)
       if (cliOptions.output === 'line') {
+        if (result.tokenUsage) {
+          printTokenUsage(result.tokenUsage);
+        }
         printGlobalSummary(
           result.totalFiles,
           result.totalErrors,

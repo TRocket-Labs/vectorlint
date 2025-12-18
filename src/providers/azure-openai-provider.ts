@@ -1,5 +1,5 @@
 import { AzureOpenAI } from 'openai';
-import { LLMProvider } from './llm-provider';
+import { LLMProvider, LLMResult } from './llm-provider';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import { validateApiResponse } from '../boundaries/api-client';
 import { handleUnknownError } from '../errors/index';
@@ -48,7 +48,7 @@ export class AzureOpenAIProvider implements LLMProvider {
     this.builder = builder ?? new DefaultRequestBuilder();
   }
 
-  async runPromptStructured<T = unknown>(content: string, promptText: string, schema: { name: string; schema: Record<string, unknown> }): Promise<T> {
+  async runPromptStructured<T = unknown>(content: string, promptText: string, schema: { name: string; schema: Record<string, unknown> }): Promise<LLMResult<T>> {
     const prompt = this.builder.buildPromptBodyForStructured(promptText);
 
     const params: Parameters<typeof this.client.chat.completions.create>[0] = {
@@ -132,7 +132,17 @@ export class AzureOpenAIProvider implements LLMProvider {
       throw new Error('Empty response from LLM (no content).');
     }
     try {
-      return JSON.parse(responseText) as T;
+      const data = JSON.parse(responseText) as T;
+      const usage = validatedResponse.usage;
+
+      const result: LLMResult<T> = { data };
+      if (usage) {
+        result.usage = {
+          inputTokens: usage.prompt_tokens,
+          outputTokens: usage.completion_tokens,
+        };
+      }
+      return result;
     } catch (e: unknown) {
       const err = handleUnknownError(e, 'JSON parsing');
       const preview = responseText.slice(0, 200);

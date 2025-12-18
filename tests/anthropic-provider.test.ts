@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AnthropicProvider } from '../src/providers/anthropic-provider';
 import { DefaultRequestBuilder } from '../src/providers/request-builder';
 import type { AnthropicMessage } from '../src/schemas/api-schemas';
-import type { 
-  MockAPIErrorParams, 
-  MockAuthenticationErrorParams, 
+import type {
+  MockAPIErrorParams,
+  MockAuthenticationErrorParams,
   MockRateLimitErrorParams,
   MockBadRequestErrorParams,
-  MockAnthropicClient 
+  MockAnthropicClient
 } from './schemas/mock-schemas';
 
 // Create a shared mock function that all instances will use
@@ -69,11 +69,11 @@ describe('AnthropicProvider', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    
+
     // Get reference to the mocked validation function
     const apiClient = await import('../src/boundaries/api-client');
     mockValidateAnthropicResponse = vi.mocked(apiClient.validateAnthropicResponse);
-    
+
     // Default mock behavior - return the response as-is
     mockValidateAnthropicResponse.mockImplementation((response: unknown) => response as AnthropicMessage);
   });
@@ -172,10 +172,15 @@ describe('AnthropicProvider', () => {
         schema
       );
 
-      expect(result).toEqual({
+      expect(result.data).toEqual({
         score: 85,
         feedback: 'Good content',
       });
+      expect(result.usage).toBeDefined();
+      if (result.usage) {
+        expect(result.usage.inputTokens).toBe(100);
+        expect(result.usage.outputTokens).toBe(50);
+      }
     });
 
     it('converts schema to Anthropic tool format correctly', async () => {
@@ -331,9 +336,10 @@ describe('AnthropicProvider', () => {
       };
 
       const anthropic = await import('@anthropic-ai/sdk');
-      SHARED_MOCK_CREATE.mockRejectedValue(new anthropic.APIError({ 
-        message: 'Invalid request', 
-        status: 400 
+      const mockApiError = anthropic.APIError as unknown as new (params: MockAPIErrorParams) => Error;
+      SHARED_MOCK_CREATE.mockRejectedValue(new mockApiError({
+        message: 'Invalid request',
+        status: 400
       }));
 
       const provider = new AnthropicProvider(config);
@@ -353,8 +359,9 @@ describe('AnthropicProvider', () => {
       };
 
       const anthropic = await import('@anthropic-ai/sdk');
-      SHARED_MOCK_CREATE.mockRejectedValue(new anthropic.RateLimitError({ 
-        message: 'Rate limit exceeded' 
+      const mockRateLimitError = anthropic.RateLimitError as unknown as new (params: Partial<MockRateLimitErrorParams>) => Error;
+      SHARED_MOCK_CREATE.mockRejectedValue(new mockRateLimitError({
+        message: 'Rate limit exceeded'
       }));
 
       const provider = new AnthropicProvider(config);
@@ -374,8 +381,9 @@ describe('AnthropicProvider', () => {
       };
 
       const anthropic = await import('@anthropic-ai/sdk');
-      SHARED_MOCK_CREATE.mockRejectedValue(new anthropic.AuthenticationError({ 
-        message: 'Invalid API key' 
+      const mockAuthenticationError = anthropic.AuthenticationError as unknown as new (params: Partial<MockAuthenticationErrorParams>) => Error;
+      SHARED_MOCK_CREATE.mockRejectedValue(new mockAuthenticationError({
+        message: 'Invalid API key'
       }));
 
       const provider = new AnthropicProvider(config);
@@ -395,8 +403,9 @@ describe('AnthropicProvider', () => {
       };
 
       const anthropic = await import('@anthropic-ai/sdk');
-      SHARED_MOCK_CREATE.mockRejectedValue(new anthropic.BadRequestError({ 
-        message: 'Bad request' 
+      const mockBadRequestError = anthropic.BadRequestError as unknown as new (params: Partial<MockBadRequestErrorParams>) => Error;
+      SHARED_MOCK_CREATE.mockRejectedValue(new mockBadRequestError({
+        message: 'Bad request'
       }));
 
       const provider = new AnthropicProvider(config);
@@ -643,7 +652,7 @@ describe('AnthropicProvider', () => {
     let consoleSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
-      consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
     });
 
     afterEach(() => {

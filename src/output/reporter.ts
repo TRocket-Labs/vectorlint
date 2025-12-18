@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
 import path from 'path';
 import { Severity } from '../evaluators/types';
+import { TokenUsageStats } from '../providers/token-usage';
 
 export interface EvaluationSummary {
   id: string;
@@ -197,4 +198,16 @@ export function printAdvancedReport(
 export function printValidationRow(level: 'error' | 'warning', message: string) {
   const label = level === 'error' ? chalk.red('error') : chalk.yellow('warning');
   console.log(`  ${label}  ${message}`);
+}
+
+export function printTokenUsage(stats: TokenUsageStats) {
+  console.log(chalk.bold('\nToken Usage:'));
+  console.log(`  - Input tokens: ${stats.totalInputTokens.toLocaleString()}`);
+  console.log(`  - Output tokens: ${stats.totalOutputTokens.toLocaleString()}`);
+  if (stats.totalCost !== undefined) {
+    // Use 4 decimal places for small costs, 2 for larger amounts
+    const precision = stats.totalCost >= 1 ? 2 : 4;
+    console.log(`  - Total cost: $${stats.totalCost.toFixed(precision)}`);
+  }
+  console.log('');
 }

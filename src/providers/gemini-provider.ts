@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
-import { LLMProvider } from './llm-provider';
+import { LLMProvider, LLMResult } from './llm-provider';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import { handleUnknownError } from '../errors/index';
 
@@ -45,7 +45,7 @@ export class GeminiProvider implements LLMProvider {
         content: string,
         promptText: string,
         schema: { name: string; schema: Record<string, unknown> }
-    ): Promise<T> {
+    ): Promise<LLMResult<T>> {
         const systemPrompt = this.builder.buildPromptBodyForStructured(promptText);
 
         const fullPrompt = `${systemPrompt}
@@ -74,13 +74,23 @@ export class GeminiProvider implements LLMProvider {
             const result = await this.model.generateContent(fullPrompt);
             const response = result.response;
             const text = response.text();
+            const usageMetadata = response.usageMetadata;
 
             if (this.config.debug && this.config.debugJson) {
                 console.error('[vectorlint] Full JSON response:');
                 console.error(text);
             }
 
-            return JSON.parse(text) as T;
+            const data = JSON.parse(text) as T;
+
+            const llmResult: LLMResult<T> = { data };
+            if (usageMetadata) {
+                llmResult.usage = {
+                    inputTokens: usageMetadata.promptTokenCount ?? 0,
+                    outputTokens: usageMetadata.candidatesTokenCount ?? 0,
+                };
+            }
+            return llmResult;
         } catch (e: unknown) {
             const err = handleUnknownError(e, 'Gemini API call');
             throw new Error(`Gemini API call failed: ${err.message}`);
