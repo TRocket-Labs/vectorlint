@@ -177,17 +177,15 @@ export function registerMainCommand(program: Command): void {
 
       // Print global summary (only for line format)
       if (cliOptions.output === 'line') {
+        if (result.tokenUsage) {
+          printTokenUsage(result.tokenUsage);
+        }
         printGlobalSummary(
           result.totalFiles,
           result.totalErrors,
           result.totalWarnings,
           result.requestFailures
         );
-
-        // Print token usage if available
-        if (result.tokenUsage) {
-          printTokenUsage(result.tokenUsage);
-        }
       }
 
       // Exit with appropriate code
