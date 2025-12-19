@@ -27,6 +27,8 @@ export function registerMainCommand(program: Command): void {
     .option('--debug-json', 'Print full JSON response from the API')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
     .option('--config <path>', 'Path to custom vectorlint.ini config file')
+    .option('--full', 'Force full evaluation, ignore cache')
+    .option('--no-cache', 'Disable caching entirely')
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
 
@@ -135,7 +137,10 @@ export function registerMainCommand(program: Command): void {
           cliArgs: paths,
           cwd: process.cwd(),
           rulesPath,
-          scanPaths: config.scanPaths,
+          scanPaths: config.scanPaths.map(({ runRules, ...rest }) => ({
+            ...rest,
+            ...(runRules !== undefined ? { runRules } : {})
+          })),
           configDir: config.configDir,
         });
       } catch (e: unknown) {
@@ -167,7 +172,12 @@ export function registerMainCommand(program: Command): void {
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
         outputFormat: outputFormat,
-        scanPaths: config.scanPaths,
+        scanPaths: config.scanPaths.map(({ runRules, ...rest }) => ({
+          ...rest,
+          ...(runRules !== undefined ? { runRules } : {})
+        })),
+        cacheEnabled: !cliOptions.noCache,
+        forceFullRun: cliOptions.full,
       });
 
       // Print global summary (only for line format)
