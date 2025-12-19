@@ -43,7 +43,7 @@ The project follows strict TypeScript safety guidelines and uses schema validati
 3. Set up your environment:
    ```bash
    # Copy the example config files
-   cp vectorlint.example.ini vectorlint.ini
+   cp vectorlint.example.ini .vectorlint.ini
    cp .env.example .env
    
    # Edit .env with your Azure OpenAI credentials

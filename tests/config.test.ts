@@ -4,7 +4,7 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { loadConfig } from '../src/config/config.js';
 
-describe('Config (vectorlint.ini)', () => {
+describe('Config (.vectorlint.ini)', () => {
   it('errors when config file is missing', () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
     expect(() => loadConfig(cwd)).toThrow(/\.vectorlint\.ini.*vectorlint\.ini/i);
@@ -22,14 +22,14 @@ describe('Config (vectorlint.ini)', () => {
     expect(cfg.rulesPath).toMatch(/hidden-prompts$/);
   });
 
-  it('falls back to vectorlint.ini when hidden file is absent', () => {
+  it('falls back to .vectorlint.ini when hidden file is absent', () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
     const ini = `
                 RulesPath = fallback-prompts
                 [*.md]
                 RunRules=VectorLint
                 `;
-    writeFileSync(path.join(cwd, 'vectorlint.ini'), ini);
+    writeFileSync(path.join(cwd, '.vectorlint.ini'), ini);
     const cfg = loadConfig(cwd);
     expect(cfg.rulesPath).toMatch(/fallback-prompts$/);
   });
@@ -65,7 +65,7 @@ RunRules=VectorLint
 [README.md]
 RunRules=VectorLint
 `;
-    writeFileSync(path.join(cwd, 'vectorlint.ini'), ini);
+    writeFileSync(path.join(cwd, '.vectorlint.ini'), ini);
     const cfg = loadConfig(cwd);
     expect(cfg.rulesPath).toMatch(/prompts$/);
     expect(cfg.scanPaths).toHaveLength(4);
@@ -93,7 +93,7 @@ RunRules=VectorLint
     // Actually, let's test that it throws if we use the old syntax, which is what the previous failure showed.
     const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
     const ini = `RulesPath=prompts\nScanPaths=[src/**/*.js]\n`;
-    writeFileSync(path.join(cwd, 'vectorlint.ini'), ini);
+    writeFileSync(path.join(cwd, '.vectorlint.ini'), ini);
     expect(() => loadConfig(cwd)).toThrow(/Old ScanPaths=\[\.\.\.\] syntax no longer supported/i);
   });
 });

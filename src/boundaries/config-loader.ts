@@ -46,7 +46,7 @@ function resolveConfigPath(cwd: string, configPath?: string): string {
 }
 
 /**
- * Load and validate configuration from vectorlint.ini file	
+ * Load and validate configuration from .vectorlint.ini file	
  */
 export function loadConfig(cwd: string = process.cwd(), configPath?: string): Config {
   const iniPath = resolveConfigPath(cwd, configPath);

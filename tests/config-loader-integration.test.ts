@@ -29,7 +29,7 @@ technical-accuracy.strictness = 9
 RunRules = BlogPack, SEOPack
 readability.severity = error
 `;
-        writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, '.vectorlint.ini'), iniContent);
 
         const config = loadConfig(tempDir);
 
@@ -67,7 +67,7 @@ technical-accuracy.depth = high
 [content/archived/**/*.md]
 RunRules = 
 `;
-        writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, '.vectorlint.ini'), iniContent);
 
         const config = loadConfig(tempDir);
 
@@ -81,7 +81,7 @@ RunRules =
         const iniContent = `
 RulesPath = ./prompts
 `;
-        writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, '.vectorlint.ini'), iniContent);
 
         expect(() => loadConfig(tempDir)).toThrow(/At least one \[pattern\] path is required/);
     });
@@ -95,7 +95,7 @@ DefaultSeverity = error
 [**/*.md]
 RunRules = VectorLint
 `;
-        writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, '.vectorlint.ini'), iniContent);
 
         const config = loadConfig(tempDir);
 
@@ -117,7 +117,7 @@ RunRules = Second
 [third/**/*.md]
 RunRules = Third
 `;
-        writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, '.vectorlint.ini'), iniContent);
 
         const config = loadConfig(tempDir);
 

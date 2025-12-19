@@ -167,7 +167,7 @@ describe('ScanPaths Refactor', () => {
             vi.mocked(fs.readFileSync).mockReturnValue(iniContent);
 
             expect(() => {
-                loadConfig(cwd, 'vectorlint.ini');
+                loadConfig(cwd, '.vectorlint.ini');
             }).toThrow(/Old ScanPaths=\[\.\.\.\] syntax no longer supported/);
         });
     });

@@ -62,7 +62,7 @@ technical-accuracy.strictness = 9
 RunRules = VectorLint, CustomPack
 readability.severity = error
 `;
-        writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, '.vectorlint.ini'), iniContent);
 
         // 3. Load configuration
         const config = loadConfig(tempDir);
@@ -134,7 +134,7 @@ RunRules = VectorLint, NonExistentPack
 [docs/archived/**/*.md]
 RunRules = 
 `;
-        writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, '.vectorlint.ini'), iniContent);
 
         // 3. Load and resolve
         const config = loadConfig(tempDir);
