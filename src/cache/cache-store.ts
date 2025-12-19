@@ -43,9 +43,19 @@ export class CacheStore {
                     return { version: CACHE_VERSION, entries: {} };
                 }
 
-                const parsed = result.data as CacheData;
+                const parsed = result.data;
 
-                // Version check for future migrations
+                /*
+                 * Cache version invalidation: Bump CACHE_VERSION when CachedResult structure changes.
+                 * 
+                 * When to bump:
+                 * - Adding/removing fields in CachedResult, CachedIssue, or CachedScore
+                 * - Changing hash algorithms (content or prompts)
+                 * - Modifying score calculation logic that affects cached components
+                 * 
+                 * Migration strategy: On version mismatch, clear entire cache and rebuild.
+                 */
+
                 if (parsed.version !== CACHE_VERSION) {
                     console.warn(`[vectorlint] Cache version mismatch, clearing cache`);
                     return { version: CACHE_VERSION, entries: {} };
@@ -53,9 +63,10 @@ export class CacheStore {
 
                 return parsed;
             }
-        } catch {
+        } catch (e: unknown) {
             // If cache is corrupted, start fresh
-            console.warn(`[vectorlint] Could not read cache, starting fresh`);
+            const err = e instanceof Error ? e : new Error(String(e));
+            console.warn(`[vectorlint] Could not read cache, starting fresh: ${err.message}`);
         }
 
         return { version: CACHE_VERSION, entries: {} };

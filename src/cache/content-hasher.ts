@@ -1,9 +1,16 @@
 import { createHash } from 'crypto';
 import type { PromptFile } from '../prompts/prompt-loader';
 
+const HASH_TRUNCATE_LENGTH = 16;
+
 /**
  * Computes a SHA256 hash of normalized content.
- * Normalization: trims whitespace and normalizes line endings.
+ * 
+ * Normalization rationale:
+ * - Line endings (\r\n -> \n): Ensures consistent hashing across Windows/Unix.
+ * - Trim whitespace: Trailing whitespace is irrelevant for content quality.
+ * 
+ * IMPORTANT: Changing normalization invalidates ALL cache entries.
  */
 export function hashContent(content: string): string {
     const normalized = content.replace(/\r\n/g, '\n').trim();
@@ -15,7 +22,7 @@ export function hashContent(content: string): string {
  * This includes prompt id, meta, and body to detect rule changes.
  */
 export function hashPrompts(prompts: PromptFile[]): string {
-    // Sort prompts by id for consistent ordering
+    // Sort prompts by id for deterministic hashing.
     const sorted = [...prompts].sort((a, b) => a.id.localeCompare(b.id));
 
     // Extract hashable parts: id, meta (serialized), and body
@@ -32,13 +39,12 @@ export function hashPrompts(prompts: PromptFile[]): string {
 
 /**
  * Creates a cache key string from components.
- * Format: filePath|contentHash|promptsHash
+ * Format: "filePath|contentHash(16)|promptsHash(16)"
  */
 export function createCacheKeyString(
     filePath: string,
     contentHash: string,
     promptsHash: string
 ): string {
-    // Use | as separator since it's not valid in file paths
-    return `${filePath}|${contentHash.substring(0, 16)}|${promptsHash.substring(0, 16)}`;
+    return `${filePath}|${contentHash.substring(0, HASH_TRUNCATE_LENGTH)}|${promptsHash.substring(0, HASH_TRUNCATE_LENGTH)}`;
 }

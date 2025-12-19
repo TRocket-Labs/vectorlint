@@ -28,7 +28,7 @@ export interface CachedIssue {
 export interface CachedEvaluationSummary {
     id: string;
     scoreText: string;
-    score?: number;
+    score?: number | undefined;
 }
 
 /**
@@ -37,16 +37,17 @@ export interface CachedEvaluationSummary {
 export interface CachedScore {
     ruleName: string;
     items: CachedEvaluationSummary[];
-    components?: ScoreComponent[];
+    components?: ScoreComponent[] | undefined;
 }
+
 export interface CachedResult {
     errors: number;
     warnings: number;
     hadOperationalErrors: boolean;
     hadSeverityErrors: boolean;
     requestFailures: number;
-    issues?: CachedIssue[];
-    scores?: CachedScore[];
+    issues?: CachedIssue[] | undefined;
+    scores?: CachedScore[] | undefined;
     jsonOutput?: unknown;
     timestamp: number;
 }
