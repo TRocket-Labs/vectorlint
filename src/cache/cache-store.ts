@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import type { CacheData, CachedResult } from './types';
+import { CACHE_SCHEMA } from '../schemas/cache-schema';
 
 /**
  * Cache schema version. Bump this to invalidate existing caches
@@ -33,7 +34,16 @@ export class CacheStore {
         try {
             if (existsSync(this.cacheFile)) {
                 const raw = readFileSync(this.cacheFile, 'utf-8');
-                const parsed = JSON.parse(raw) as CacheData;
+                const json: unknown = JSON.parse(raw);
+
+                const result = CACHE_SCHEMA.safeParse(json);
+
+                if (!result.success) {
+                    console.warn(`[vectorlint] Cache validation failed, starting fresh: ${result.error.message}`);
+                    return { version: CACHE_VERSION, entries: {} };
+                }
+
+                const parsed = result.data as CacheData;
 
                 // Version check for future migrations
                 if (parsed.version !== CACHE_VERSION) {

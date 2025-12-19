@@ -819,7 +819,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
       allScores.set(ruleName, {
         ruleName,
         items: promptResult.scoreEntries,
-        ...(promptResult.scoreComponents ? { components: promptResult.scoreComponents as any } : {})
+        ...(promptResult.scoreComponents ? { components: promptResult.scoreComponents } : {})
       });
     }
   }

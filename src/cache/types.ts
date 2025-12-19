@@ -1,4 +1,5 @@
 import { Severity } from '../evaluators/types';
+import { ScoreComponent } from '../output/json-formatter';
 
 /**
  * Unique key for cache entries consisting of file path and content/prompt hashes.
@@ -31,25 +32,12 @@ export interface CachedEvaluationSummary {
 }
 
 /**
- * Minimal score component for replay (mirrors ScoreComponent).
- */
-export interface CachedScoreComponent {
-    criterion?: string;
-    rawScore: number;
-    maxScore: number;
-    weightedScore: number;
-    weightedMaxScore: number;
-    normalizedScore: number;
-    normalizedMaxScore: number;
-}
-
-/**
  * Grouped scores by rule/prompt.
  */
 export interface CachedScore {
     ruleName: string;
     items: CachedEvaluationSummary[];
-    components?: CachedScoreComponent[];
+    components?: ScoreComponent[];
 }
 export interface CachedResult {
     errors: number;
