@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { CONFIG_SCHEMA, type Config } from '../schemas/config-schemas';
 import { ConfigError, ValidationError, handleUnknownError } from '../errors/index';
-import { DEFAULT_CONFIG_FILENAME } from '../config/constants';
+import { LEGACY_CONFIG_FILENAME, DEFAULT_CONFIG_FILENAME } from '../config/constants';
 import { FileSectionParser } from './file-section-parser';
 
 function isSupportedPattern(p: string): boolean {
@@ -21,17 +21,35 @@ enum ConfigKey {
   DEFAULT_SEVERITY = 'DefaultSeverity',
 }
 
+function resolveConfigPath(cwd: string, configPath?: string): string {
+  if (configPath) {
+    const explicitPath = path.resolve(cwd, configPath);
+    if (!existsSync(explicitPath)) {
+      throw new ConfigError(`Missing configuration file at ${explicitPath}`);
+    }
+    return explicitPath;
+  }
+
+  const hiddenPath = path.resolve(cwd, DEFAULT_CONFIG_FILENAME);
+  if (existsSync(hiddenPath)) {
+    return hiddenPath;
+  }
+
+  const defaultPath = path.resolve(cwd, LEGACY_CONFIG_FILENAME);
+  if (existsSync(defaultPath)) {
+    return defaultPath;
+  }
+
+  throw new ConfigError(
+    `Missing configuration file. Expected ${DEFAULT_CONFIG_FILENAME} or ${LEGACY_CONFIG_FILENAME} in ${cwd}`
+  );
+}
+
 /**
  * Load and validate configuration from vectorlint.ini file	
  */
 export function loadConfig(cwd: string = process.cwd(), configPath?: string): Config {
-  const iniPath = configPath
-    ? path.resolve(cwd, configPath)
-    : path.resolve(cwd, DEFAULT_CONFIG_FILENAME);
-
-  if (!existsSync(iniPath)) {
-    throw new ConfigError(`Missing configuration file at ${iniPath}`);
-  }
+  const iniPath = resolveConfigPath(cwd, configPath);
 
   const configDir = path.dirname(iniPath);
 
