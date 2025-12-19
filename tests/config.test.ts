@@ -7,7 +7,49 @@ import { loadConfig } from '../src/config/config.js';
 describe('Config (vectorlint.ini)', () => {
   it('errors when config file is missing', () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
-    expect(() => loadConfig(cwd)).toThrow(/vectorlint\.ini/i);
+    expect(() => loadConfig(cwd)).toThrow(/\.vectorlint\.ini.*vectorlint\.ini/i);
+  });
+
+  it('loads .vectorlint.ini (hidden file) when present', () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
+    const ini = `
+                RulesPath = hidden-prompts
+                [*.md]
+                RunRules=VectorLint
+                `;
+    writeFileSync(path.join(cwd, '.vectorlint.ini'), ini);
+    const cfg = loadConfig(cwd);
+    expect(cfg.rulesPath).toMatch(/hidden-prompts$/);
+  });
+
+  it('falls back to vectorlint.ini when hidden file is absent', () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
+    const ini = `
+                RulesPath = fallback-prompts
+                [*.md]
+                RunRules=VectorLint
+                `;
+    writeFileSync(path.join(cwd, 'vectorlint.ini'), ini);
+    const cfg = loadConfig(cwd);
+    expect(cfg.rulesPath).toMatch(/fallback-prompts$/);
+  });
+
+  it('hidden file takes precedence when both exist', () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
+    const hiddenIni = `
+                RulesPath = hidden-rules
+                [*.md]
+                RunRules=VectorLint
+                `;
+    const visibleIni = `
+                RulesPath = visible-rules
+                [*.md]
+                RunRules=VectorLint
+                `;
+    writeFileSync(path.join(cwd, '.vectorlint.ini'), hiddenIni);
+    writeFileSync(path.join(cwd, 'vectorlint.ini'), visibleIni);
+    const cfg = loadConfig(cwd);
+    expect(cfg.rulesPath).toMatch(/hidden-rules$/);
   });
 
   it('parses RulesPath and ScanPaths (PascalCase) and trims values', () => {
