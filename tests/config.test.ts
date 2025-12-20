@@ -22,14 +22,14 @@ describe('Config (.vectorlint.ini)', () => {
     expect(cfg.rulesPath).toMatch(/hidden-prompts$/);
   });
 
-  it('falls back to .vectorlint.ini when hidden file is absent', () => {
+  it('falls back to vectorlint.ini when hidden file is absent', () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
     const ini = `
                 RulesPath = fallback-prompts
                 [*.md]
                 RunRules=VectorLint
                 `;
-    writeFileSync(path.join(cwd, '.vectorlint.ini'), ini);
+    writeFileSync(path.join(cwd, 'vectorlint.ini'), ini);
     const cfg = loadConfig(cwd);
     expect(cfg.rulesPath).toMatch(/fallback-prompts$/);
   });
