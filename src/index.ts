@@ -5,6 +5,7 @@ import * as path from "path";
 import { handleUnknownError } from "./errors/index";
 import { registerValidateCommand } from "./cli/validate-command";
 import { registerMainCommand } from "./cli/commands";
+import { registerInitCommand } from "./cli/init-command";
 
 // Import evaluators module to trigger self-registration of all evaluators
 import "./evaluators/index";
@@ -60,6 +61,7 @@ program
   .version("1.0.0");
 
 // Register commands
+registerInitCommand(program);
 registerValidateCommand(program);
 registerMainCommand(program);
 
