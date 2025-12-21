@@ -3,6 +3,7 @@ import { writeFileSync, mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { loadConfig } from '../src/config/config.js';
+import { DEFAULT_CONFIG_FILENAME, LEGACY_CONFIG_FILENAME } from '../src/config/constants.js';
 
 describe('Config (.vectorlint.ini)', () => {
   it('errors when config file is missing', () => {
@@ -17,7 +18,7 @@ describe('Config (.vectorlint.ini)', () => {
                 [*.md]
                 RunRules=VectorLint
                 `;
-    writeFileSync(path.join(cwd, '.vectorlint.ini'), ini);
+    writeFileSync(path.join(cwd, DEFAULT_CONFIG_FILENAME), ini);
     const cfg = loadConfig(cwd);
     expect(cfg.rulesPath).toMatch(/hidden-prompts$/);
   });
@@ -46,8 +47,8 @@ describe('Config (.vectorlint.ini)', () => {
                 [*.md]
                 RunRules=VectorLint
                 `;
-    writeFileSync(path.join(cwd, '.vectorlint.ini'), hiddenIni);
-    writeFileSync(path.join(cwd, 'vectorlint.ini'), visibleIni);
+    writeFileSync(path.join(cwd, DEFAULT_CONFIG_FILENAME), hiddenIni);
+    writeFileSync(path.join(cwd, LEGACY_CONFIG_FILENAME), visibleIni);
     const cfg = loadConfig(cwd);
     expect(cfg.rulesPath).toMatch(/hidden-rules$/);
   });
@@ -65,7 +66,7 @@ RunRules=VectorLint
 [README.md]
 RunRules=VectorLint
 `;
-    writeFileSync(path.join(cwd, '.vectorlint.ini'), ini);
+    writeFileSync(path.join(cwd, DEFAULT_CONFIG_FILENAME), ini);
     const cfg = loadConfig(cwd);
     expect(cfg.rulesPath).toMatch(/prompts$/);
     expect(cfg.scanPaths).toHaveLength(4);
@@ -93,7 +94,7 @@ RunRules=VectorLint
     // Actually, let's test that it throws if we use the old syntax, which is what the previous failure showed.
     const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
     const ini = `RulesPath=prompts\nScanPaths=[src/**/*.js]\n`;
-    writeFileSync(path.join(cwd, '.vectorlint.ini'), ini);
+    writeFileSync(path.join(cwd, DEFAULT_CONFIG_FILENAME), ini);
     expect(() => loadConfig(cwd)).toThrow(/Old ScanPaths=\[\.\.\.\] syntax no longer supported/i);
   });
 });

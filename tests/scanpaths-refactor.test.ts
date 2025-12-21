@@ -5,6 +5,7 @@ import { ScanPathResolver } from '../src/boundaries/scan-path-resolver';
 import { resolveTargets } from '../src/scan/file-resolver';
 import { loadConfig } from '../src/boundaries/config-loader';
 import { createFilePatternConfig } from './utils.js';
+import { DEFAULT_CONFIG_FILENAME } from '../src/config/constants';
 
 // Mock dependencies
 vi.mock('fast-glob', () => ({
@@ -167,7 +168,7 @@ describe('ScanPaths Refactor', () => {
             vi.mocked(fs.readFileSync).mockReturnValue(iniContent);
 
             expect(() => {
-                loadConfig(cwd, '.vectorlint.ini');
+                loadConfig(cwd, DEFAULT_CONFIG_FILENAME);
             }).toThrow(/Old ScanPaths=\[\.\.\.\] syntax no longer supported/);
         });
     });

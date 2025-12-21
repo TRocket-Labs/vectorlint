@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
 import { loadConfig } from '../src/boundaries/config-loader.js';
+import { DEFAULT_CONFIG_FILENAME } from '../src/config/constants.js';
 
 describe('Config Loader Integration', () => {
     let tempDir: string;
@@ -29,7 +30,7 @@ technical-accuracy.strictness = 9
 RunRules = BlogPack, SEOPack
 readability.severity = error
 `;
-        writeFileSync(path.join(tempDir, '.vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, DEFAULT_CONFIG_FILENAME), iniContent);
 
         const config = loadConfig(tempDir);
 
@@ -67,7 +68,7 @@ technical-accuracy.depth = high
 [content/archived/**/*.md]
 RunRules = 
 `;
-        writeFileSync(path.join(tempDir, '.vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, DEFAULT_CONFIG_FILENAME), iniContent);
 
         const config = loadConfig(tempDir);
 
@@ -81,7 +82,7 @@ RunRules =
         const iniContent = `
 RulesPath = ./prompts
 `;
-        writeFileSync(path.join(tempDir, '.vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, DEFAULT_CONFIG_FILENAME), iniContent);
 
         expect(() => loadConfig(tempDir)).toThrow(/At least one \[pattern\] path is required/);
     });
@@ -95,7 +96,7 @@ DefaultSeverity = error
 [**/*.md]
 RunRules = VectorLint
 `;
-        writeFileSync(path.join(tempDir, '.vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, DEFAULT_CONFIG_FILENAME), iniContent);
 
         const config = loadConfig(tempDir);
 
@@ -117,7 +118,7 @@ RunRules = Second
 [third/**/*.md]
 RunRules = Third
 `;
-        writeFileSync(path.join(tempDir, '.vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, DEFAULT_CONFIG_FILENAME), iniContent);
 
         const config = loadConfig(tempDir);
 
