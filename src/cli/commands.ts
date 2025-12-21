@@ -29,6 +29,12 @@ export function registerMainCommand(program: Command): void {
     .option('--config <path>', 'Path to custom vectorlint.ini config file')
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
+      // Require explicit paths to prevent accidental full directory scans
+      // Users must provide specific files, directories, or wildcards (e.g., `vectorlint *`)
+      if (paths.length === 0) {
+        program.help();
+        return;
+      }
 
       // Parse and validate CLI options
       let cliOptions;
