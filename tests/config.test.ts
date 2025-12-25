@@ -3,11 +3,54 @@ import { writeFileSync, mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { loadConfig } from '../src/config/config.js';
+import { DEFAULT_CONFIG_FILENAME, LEGACY_CONFIG_FILENAME } from '../src/config/constants.js';
 
-describe('Config (vectorlint.ini)', () => {
+describe('Config (.vectorlint.ini)', () => {
   it('errors when config file is missing', () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
-    expect(() => loadConfig(cwd)).toThrow(/vectorlint\.ini/i);
+    expect(() => loadConfig(cwd)).toThrow(/\.vectorlint\.ini.*vectorlint\.ini/i);
+  });
+
+  it('loads .vectorlint.ini (hidden file) when present', () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
+    const ini = `
+                RulesPath = hidden-prompts
+                [*.md]
+                RunRules=VectorLint
+                `;
+    writeFileSync(path.join(cwd, DEFAULT_CONFIG_FILENAME), ini);
+    const cfg = loadConfig(cwd);
+    expect(cfg.rulesPath).toMatch(/hidden-prompts$/);
+  });
+
+  it('falls back to vectorlint.ini when hidden file is absent', () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
+    const ini = `
+                RulesPath = fallback-prompts
+                [*.md]
+                RunRules=VectorLint
+                `;
+    writeFileSync(path.join(cwd, LEGACY_CONFIG_FILENAME), ini);
+    const cfg = loadConfig(cwd);
+    expect(cfg.rulesPath).toMatch(/fallback-prompts$/);
+  });
+
+  it('hidden file takes precedence when both exist', () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
+    const hiddenIni = `
+                RulesPath = hidden-rules
+                [*.md]
+                RunRules=VectorLint
+                `;
+    const visibleIni = `
+                RulesPath = visible-rules
+                [*.md]
+                RunRules=VectorLint
+                `;
+    writeFileSync(path.join(cwd, DEFAULT_CONFIG_FILENAME), hiddenIni);
+    writeFileSync(path.join(cwd, LEGACY_CONFIG_FILENAME), visibleIni);
+    const cfg = loadConfig(cwd);
+    expect(cfg.rulesPath).toMatch(/hidden-rules$/);
   });
 
   it('parses RulesPath and ScanPaths (PascalCase) and trims values', () => {
@@ -23,7 +66,7 @@ RunRules=VectorLint
 [README.md]
 RunRules=VectorLint
 `;
-    writeFileSync(path.join(cwd, 'vectorlint.ini'), ini);
+    writeFileSync(path.join(cwd, DEFAULT_CONFIG_FILENAME), ini);
     const cfg = loadConfig(cwd);
     expect(cfg.rulesPath).toMatch(/prompts$/);
     expect(cfg.scanPaths).toHaveLength(4);
@@ -35,23 +78,10 @@ RunRules=VectorLint
     ]);
   });
 
-  it('rejects unsupported extensions in ScanPaths', () => {
-    // Note: Validation logic moved to schema or file resolver, but config loader might not enforce extensions strictly anymore 
-    // unless we added that validation back. 
-    // The previous implementation had explicit extension check. 
-    // The new implementation relies on file resolver to filter extensions.
-    // So this test might be testing behavior that no longer exists in loadConfig.
-    // However, let's check if we should still test for invalid patterns if we want to enforce it.
-    // For now, I will update it to expect the new syntax error if we pass the old syntax, 
-    // OR if we want to test extension validation, we should do it on the file resolver level.
-    // But the original test was about "rejects unsupported extensions".
-    // Since we removed the explicit loop checking extensions in config-loader.ts, this test is now obsolete or needs to check something else.
-    // I will remove this test or change it to verify that valid config loads.
-
-    // Actually, let's test that it throws if we use the old syntax, which is what the previous failure showed.
+  it('rejects old ScanPaths syntax', () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'vlint-'));
     const ini = `RulesPath=prompts\nScanPaths=[src/**/*.js]\n`;
-    writeFileSync(path.join(cwd, 'vectorlint.ini'), ini);
+    writeFileSync(path.join(cwd, DEFAULT_CONFIG_FILENAME), ini);
     expect(() => loadConfig(cwd)).toThrow(/Old ScanPaths=\[\.\.\.\] syntax no longer supported/i);
   });
 });

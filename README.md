@@ -64,10 +64,10 @@ VectorLint scores your content using error density and a rubric based system, en
 
 2.  **Configure VectorLint:**
 
-    Create a `vectorlint.ini` configuration file in your project root:
+    Create a `.vectorlint.ini` configuration file in your project root:
 
     ```ini
-    # vectorlint.ini
+    # .vectorlint.ini
     RulesPath=.
     
     # Run the "VectorLint" rule pack on all markdown files

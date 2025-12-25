@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Configuration file schema for vectorlint.ini validation
+// Configuration file schema for .vectorlint.ini validation
 export const CONFIG_SCHEMA = z.object({
   rulesPath: z.string().min(1),
   concurrency: z.number().int().positive().default(4),

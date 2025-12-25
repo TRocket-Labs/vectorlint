@@ -1,15 +1,15 @@
 # VectorLint Configuration Guide
 
-A comprehensive reference for configuring VectorLint using `vectorlint.ini`.
+A comprehensive reference for configuring VectorLint using`.vectorlint.ini`.
 
 ## Configuration File
 
-VectorLint is configured via a `vectorlint.ini` file in the root of your project. This file defines global settings, file associations, and rule overrides.
+VectorLint is configured via a `.vectorlint.ini` file in the root of your project. This file defines global settings, file associations, and rule overrides.
 
 ### Complete Example
 
 ```ini
-# vectorlint.ini
+# .vectorlint.ini
 
 # [Global Settings]
 # Directory containing your rule packs (Required)
