@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { locateQuotedText } from "../src/output/location";
 
-const originalText = `This is the first line.
+const ORIGINAL_TEXT = `This is the first line.
 The quick brown fox jumps over the lazy dog.
 This is the third line with some content.
 Another line here with different text.
@@ -11,7 +11,7 @@ across different paragraphs and sections.`;
 describe("locateQuotedText", () => {
   describe("exact matching", () => {
     it("finds exact match", () => {
-      const result = locateQuotedText(originalText, {
+      const result = locateQuotedText(ORIGINAL_TEXT, {
         quoted_text: "quick brown fox",
       });
       expect(result).not.toBeNull();
@@ -22,7 +22,7 @@ describe("locateQuotedText", () => {
     });
 
     it("uses context to disambiguate multiple matches", () => {
-      const result = locateQuotedText(originalText, {
+      const result = locateQuotedText(ORIGINAL_TEXT, {
         quoted_text: "quick brown fox",
         context_before: "The ",
         context_after: " jumps",
@@ -35,7 +35,7 @@ describe("locateQuotedText", () => {
 
   describe("case-insensitive matching", () => {
     it("finds case-insensitive match", () => {
-      const result = locateQuotedText(originalText, {
+      const result = locateQuotedText(ORIGINAL_TEXT, {
         quoted_text: "QUICK BROWN FOX",
       });
       expect(result).not.toBeNull();
@@ -47,7 +47,7 @@ describe("locateQuotedText", () => {
 
   describe("substring matching", () => {
     it("finds substring when LLM adds/removes words", () => {
-      const result = locateQuotedText(originalText, {
+      const result = locateQuotedText(ORIGINAL_TEXT, {
         quoted_text: "quik brown fox jumps", // typo + extra word
       });
       expect(result).not.toBeNull();
@@ -57,7 +57,7 @@ describe("locateQuotedText", () => {
 
   describe("fuzzy matching", () => {
     it("finds fuzzy match with missing words", () => {
-      const result = locateQuotedText(originalText, {
+      const result = locateQuotedText(ORIGINAL_TEXT, {
         quoted_text: "brown fox over lazy",
       });
       expect(result).not.toBeNull();
@@ -65,7 +65,7 @@ describe("locateQuotedText", () => {
     });
 
     it("finds fuzzy match with word order changed", () => {
-      const result = locateQuotedText(originalText, {
+      const result = locateQuotedText(ORIGINAL_TEXT, {
         quoted_text: "fox brown quick",
       });
       expect(result).not.toBeNull();
@@ -75,14 +75,14 @@ describe("locateQuotedText", () => {
 
   describe("no match", () => {
     it("returns null for completely unrelated text", () => {
-      const result = locateQuotedText(originalText, {
+      const result = locateQuotedText(ORIGINAL_TEXT, {
         quoted_text: "the cat sat on the mat",
       });
       expect(result).toBeNull();
     });
 
     it("returns null for empty quoted_text", () => {
-      const result = locateQuotedText(originalText, {
+      const result = locateQuotedText(ORIGINAL_TEXT, {
         quoted_text: "",
       });
       expect(result).toBeNull();

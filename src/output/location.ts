@@ -166,11 +166,6 @@ export function locateQuotedText(
       // Try exact match on hint line
       const exactIdx = targetLine.indexOf(quotedText);
       if (exactIdx !== -1) {
-        // Calculate the absolute index
-        let lineStartIdx = 0;
-        for (let i = 0; i < lineHint - 1; i++) {
-          lineStartIdx += (lines[i]?.length || 0) + 1;
-        }
         return {
           line: lineHint,
           column: exactIdx + 1,
