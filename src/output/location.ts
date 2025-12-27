@@ -75,8 +75,9 @@ function findBestLineMatch(
       score >= minConfidence &&
       (!bestMatch || score > bestMatch.confidence)
     ) {
+      const leadingWhitespace = line.length - line.trimStart().length;
       bestMatch = {
-        index: currentIndex,
+        index: currentIndex + leadingWhitespace,
         match: line.trim(),
         confidence: score,
       };
@@ -118,8 +119,9 @@ function findBestWindowMatch(
         score >= minConfidence &&
         (!bestMatch || score > bestMatch.confidence)
       ) {
+        const leadingWhitespace = window.length - window.trimStart().length;
         bestMatch = {
-          index: i,
+          index: i + leadingWhitespace,
           match: window.trim(),
           confidence: score,
         };
@@ -187,14 +189,14 @@ export function locateQuotedText(
 
         // Try to find the actual matched portion
         const words = quotedText.split(/\s+/);
-        for (let len = words.length; len >= 1; len--) {
+        wordSearch: for (let len = words.length; len >= 1; len--) {
           for (let start = 0; start <= words.length - len; start++) {
             const substring = words.slice(start, start + len).join(" ");
             const subIdx = targetLine.indexOf(substring);
             if (subIdx !== -1) {
               bestCol = subIdx + 1;
               bestMatch = substring;
-              break;
+              break wordSearch;
             }
           }
         }
