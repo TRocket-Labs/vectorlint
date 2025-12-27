@@ -1,3 +1,5 @@
+import { partial_ratio, token_sort_ratio, ratio } from "fuzzball";
+
 export interface QuotedTextEvidence {
   quoted_text: string;
   context_before?: string;
@@ -12,14 +14,28 @@ export interface Location {
 export interface LocationWithMatch {
   line: number; // 1-based
   column: number; // 1-based
-  match: string; // extracted text between pre and post
+  match: string; // extracted text
+  confidence: number; // 0-100, how confident we are in the match
+  strategy:
+    | "exact"
+    | "context"
+    | "substring"
+    | "case-insensitive"
+    | "fuzzy-line"
+    | "fuzzy-window";
+}
+
+interface FuzzyMatch {
+  index: number;
+  match: string;
+  confidence: number;
 }
 
 function computeLineCol(text: string, index: number): Location {
   let line = 1;
   let lastBreak = -1;
   for (let i = 0; i < index; i++) {
-    // char code for '\n'
+    // check for new line character \n
     if (text.charCodeAt(i) === 10) {
       line++;
       lastBreak = i;
@@ -29,46 +45,109 @@ function computeLineCol(text: string, index: number): Location {
   return { line, column };
 }
 
-// Simple Levenshtein distance calculator for fuzzy matching
-function levenshteinDistance(a: string, b: string): number {
-  const matrix: number[][] = [];
+/**
+ * Find best fuzzy match using line-by-line comparison
+ * This is the fastest strategy and catches most LLM errors
+ */
+function findBestLineMatch(
+  quotedText: string,
+  text: string,
+  minConfidence: number
+): FuzzyMatch | null {
+  const lines = text.split("\n");
+  let bestMatch: FuzzyMatch | null = null;
+  let currentIndex = 0;
 
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i];
+  for (const line of lines) {
+    if (!line.trim()) {
+      currentIndex += line.length + 1;
+      continue;
+    }
+
+    // Try multiple scoring strategies and use the best
+    const partialScore = partial_ratio(quotedText, line);
+    const tokenScore = token_sort_ratio(quotedText, line);
+    const exactScore = ratio(quotedText, line);
+
+    const score = Math.max(partialScore, tokenScore, exactScore);
+
+    if (
+      score >= minConfidence &&
+      (!bestMatch || score > bestMatch.confidence)
+    ) {
+      bestMatch = {
+        index: currentIndex,
+        match: line.trim(),
+        confidence: score,
+      };
+    }
+
+    currentIndex += line.length + 1; // +1 for newline
   }
 
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0]![j] = j;
-  }
+  return bestMatch;
+}
 
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i]![j] = matrix[i - 1]![j - 1]!;
-      } else {
-        matrix[i]![j] = Math.min(
-          matrix[i - 1]![j - 1]! + 1, // substitution
-          matrix[i]![j - 1]! + 1, // insertion
-          matrix[i - 1]![j]! + 1 // deletion
-        );
+/**
+ * Find best fuzzy match using sliding window
+ * Slower but catches quotes that span multiple lines
+ */
+function findBestWindowMatch(
+  quotedText: string,
+  text: string,
+  minConfidence: number
+): FuzzyMatch | null {
+  const quoteLength = quotedText.length;
+  // Allow window to be 50% larger/smaller than quote
+  const minWindow = Math.floor(quoteLength * 0.5);
+  const maxWindow = Math.floor(quoteLength * 1.5);
+
+  let bestMatch: FuzzyMatch | null = null;
+
+  // Try different window sizes
+  for (let windowSize = minWindow; windowSize <= maxWindow; windowSize += 10) {
+    for (let i = 0; i <= text.length - windowSize; i += 5) {
+      // Step by 5 for performance
+      const window = text.substring(i, i + windowSize);
+
+      const partialScore = partial_ratio(quotedText, window);
+      const tokenScore = token_sort_ratio(quotedText, window);
+      const score = Math.max(partialScore, tokenScore);
+
+      if (
+        score >= minConfidence &&
+        (!bestMatch || score > bestMatch.confidence)
+      ) {
+        bestMatch = {
+          index: i,
+          match: window.trim(),
+          confidence: score,
+        };
       }
     }
   }
 
-  return matrix[b.length]![a.length]!;
+  return bestMatch;
 }
 
 /**
  * Locates text using hybrid evidence: quoted_text + optional context_before/after.
- * Algorithm:
- * 1. Find all exact matches of quoted_text
- * 2. If multiple matches, use context to disambiguate
- * 3. If no exact match, try fuzzy matching (Levenshtein distance <= 3)
- * 4. Return null if no match found
+ *
+ * Algorithm (Quote-First with Fuzzy Matching):
+ * 1. Try exact match first (fastest, 100% confidence)
+ * 2. If multiple exact matches, use context to disambiguate
+ * 3. Try progressive substring matching
+ * 4. Try case-insensitive exact match
+ * 5. Try fuzzy matching by line (fast, catches most LLM hallucinations)
+ * 6. Try fuzzy matching with sliding window (slower, catches multi-line issues)
+ *
+ * This implements the "Quote-First with Fuzzy Matching" pattern from Google's LangExtract:
+ * "LLMs extract meaning, while classic algorithms ground that meaning in reality"
  */
 export function locateQuotedText(
   text: string,
-  ev: QuotedTextEvidence
+  ev: QuotedTextEvidence,
+  minConfidence: number = 80
 ): LocationWithMatch | null {
   const quotedText = ev.quoted_text;
   const contextBefore = ev.context_before || "";
@@ -76,7 +155,7 @@ export function locateQuotedText(
 
   if (!quotedText) return null;
 
-  // Find all occurrences of quoted_text
+  // PHASE 1: Exact matching (fastest path)
   const matches: Array<{ index: number; match: string }> = [];
   let searchFrom = 0;
 
@@ -87,15 +166,19 @@ export function locateQuotedText(
     searchFrom = idx + 1;
   }
 
-  // If we found exact matches
   if (matches.length > 0) {
-    // Single match - return it
+    // Single exact match - perfect!
     if (matches.length === 1) {
       const loc = computeLineCol(text, matches[0]!.index);
-      return { ...loc, match: matches[0]!.match };
+      return {
+        ...loc,
+        match: matches[0]!.match,
+        confidence: 100,
+        strategy: "exact",
+      };
     }
 
-    // Multiple matches - use context to disambiguate
+    // Multiple exact matches - use context to disambiguate
     if (contextBefore || contextAfter) {
       for (const match of matches) {
         const beforeIdx = match.index - contextBefore.length;
@@ -113,34 +196,49 @@ export function locateQuotedText(
 
         if (beforeMatches && afterMatches) {
           const loc = computeLineCol(text, match.index);
-          return { ...loc, match: match.match };
+          return {
+            ...loc,
+            match: match.match,
+            confidence: 100,
+            strategy: "context",
+          };
         }
       }
     }
 
-    // Context didn't help, return first match
+    // Context didn't help, return first exact match
     const loc = computeLineCol(text, matches[0]!.index);
-    return { ...loc, match: matches[0]!.match };
+    return {
+      ...loc,
+      match: matches[0]!.match,
+      confidence: 100,
+      strategy: "exact",
+    };
   }
 
-  // No exact match - try substring matching first (LLM may have added/removed words)
-  // Split quoted text into key phrases and search for them
+  // PHASE 2: Progressive substring matching
+  // LLM might have added/removed a few words
   const words = quotedText.split(/\s+/);
   if (words.length >= 3) {
-    // Try progressively smaller substrings of the quoted text
     for (let len = words.length - 1; len >= 3; len--) {
       for (let start = 0; start <= words.length - len; start++) {
         const substring = words.slice(start, start + len).join(" ");
         const idx = text.indexOf(substring);
         if (idx !== -1) {
           const loc = computeLineCol(text, idx);
-          return { ...loc, match: substring };
+          const confidence = Math.round((len / words.length) * 100);
+          return {
+            ...loc,
+            match: substring,
+            confidence,
+            strategy: "substring",
+          };
         }
       }
     }
   }
 
-  // Try case-insensitive matching
+  // PHASE 3: Case-insensitive exact match
   const lowerText = text.toLowerCase();
   const lowerQuoted = quotedText.toLowerCase();
   const caseInsensitiveIdx = lowerText.indexOf(lowerQuoted);
@@ -152,32 +250,47 @@ export function locateQuotedText(
         caseInsensitiveIdx,
         caseInsensitiveIdx + quotedText.length
       ),
+      confidence: 95,
+      strategy: "case-insensitive",
     };
   }
 
-  // Last resort - fuzzy matching on individual words
-  let bestMatch: { index: number; match: string; distance: number } | null =
-    null;
-
-  let currentIndex = 0;
-  for (const word of text.split(/\s+/)) {
-    const distance = levenshteinDistance(
-      quotedText.toLowerCase(),
-      word.toLowerCase()
-    );
-    if (distance <= 3 && (!bestMatch || distance < bestMatch.distance)) {
-      const idx = text.indexOf(word, currentIndex);
-      if (idx !== -1) {
-        bestMatch = { index: idx, match: word, distance };
-      }
-    }
-    currentIndex = text.indexOf(word, currentIndex) + word.length;
+  // PHASE 4: Fuzzy matching by line (fast, handles typos)
+  const lineMatch = findBestLineMatch(quotedText, text, minConfidence);
+  if (lineMatch) {
+    const loc = computeLineCol(text, lineMatch.index);
+    return {
+      ...loc,
+      match: lineMatch.match,
+      confidence: Math.round(lineMatch.confidence),
+      strategy: "fuzzy-line",
+    };
   }
 
-  if (bestMatch) {
-    const loc = computeLineCol(text, bestMatch.index);
-    return { ...loc, match: bestMatch.match };
+  // PHASE 5: Fuzzy matching with sliding window (slower, multi-line quotes)
+  const windowMatch = findBestWindowMatch(quotedText, text, minConfidence);
+  if (windowMatch) {
+    const loc = computeLineCol(text, windowMatch.index);
+    return {
+      ...loc,
+      match: windowMatch.match,
+      confidence: Math.round(windowMatch.confidence),
+      strategy: "fuzzy-window",
+    };
   }
 
+  // No match found above confidence threshold
   return null;
+}
+
+/**
+ * Helper to locate multiple quoted texts in one pass
+ * Useful for batch processing LLM results
+ */
+export function locateMultipleQuotes(
+  text: string,
+  evidences: QuotedTextEvidence[],
+  minConfidence: number = 80
+): Array<LocationWithMatch | null> {
+  return evidences.map((ev) => locateQuotedText(text, ev, minConfidence));
 }
