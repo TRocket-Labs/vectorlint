@@ -18,7 +18,7 @@ import {
   printEvaluationSummaries,
   type EvaluationSummary,
 } from "../output/reporter";
-import { locateEvidenceWithMatch } from "../output/location";
+import { locateQuotedText } from "../output/location";
 import { checkTarget } from "../prompts/target";
 import { isSubjectiveResult } from "../prompts/schema";
 import { handleUnknownError, MissingDependencyError } from "../errors/index";
@@ -211,46 +211,81 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
     scoreText,
     outputFormat,
     jsonFormatter,
+    verbose,
   } = params;
 
   let hadOperationalErrors = false;
 
+  // Locate all violations and filter out those that can't be verified
+  // Then de-duplicate by (quoted_text, line)
+  const seen = new Set<string>();
+  const verifiedViolations: Array<{
+    v: (typeof violations)[0];
+    line: number;
+    column: number;
+    matchedText: string;
+    rowSummary: string;
+  }> = [];
+
   for (const v of violations) {
     if (!v) continue;
 
-    let line = 1;
-    let column = 1;
-    let matchedText = "";
     const rowSummary = (v.analysis || "").trim();
 
     try {
-      const locWithMatch = locateEvidenceWithMatch(content, {
-        pre: v.pre || "",
-        post: v.post || "",
+      const locWithMatch = locateQuotedText(content, {
+        quoted_text: v.quoted_text || "",
+        context_before: v.context_before || "",
+        context_after: v.context_after || "",
       });
-      if (locWithMatch) {
-        line = locWithMatch.line;
-        column = locWithMatch.column;
-        matchedText = locWithMatch.match || "";
 
-        const extracted = extractMatchText({
-          content,
-          line,
-          matchedText,
-          rowSummary,
-        });
-        line = extracted.line;
-        column = extracted.column;
-        matchedText = extracted.match;
-      } else {
+      if (!locWithMatch) {
+        // Can't verify this quote exists - skip it entirely
+        if (verbose) {
+          console.warn(
+            `[vectorlint] Skipping unverifiable quote: "${v.quoted_text}"`
+          );
+        }
         hadOperationalErrors = true;
+        continue;
       }
+
+      let line = locWithMatch.line;
+      let column = locWithMatch.column;
+      let matchedText = locWithMatch.match || "";
+
+      const extracted = extractMatchText({
+        content,
+        line,
+        matchedText,
+        rowSummary,
+      });
+      line = extracted.line;
+      column = extracted.column;
+      matchedText = extracted.match;
+
+      // De-duplicate by (quoted_text, line)
+      const dedupeKey = `${v.quoted_text || ""}:${line}`;
+      if (seen.has(dedupeKey)) {
+        continue; // Skip duplicate
+      }
+      seen.add(dedupeKey);
+
+      verifiedViolations.push({ v, line, column, matchedText, rowSummary });
     } catch (e: unknown) {
-      const err = handleUnknownError(e, "Locating evidence");
-      console.warn(`[vectorlint] Warning: ${err.message}`);
+      handleUnknownError(e, "Locating evidence");
       hadOperationalErrors = true;
     }
+  }
 
+  // Report only verified, unique violations
+  for (const {
+    v,
+    line,
+    column,
+    matchedText,
+    rowSummary,
+  } of verifiedViolations) {
     reportIssue({
       file: relFile,
       line,
@@ -287,6 +322,7 @@ function extractAndReportCriterion(
     meta,
     outputFormat,
     jsonFormatter,
+    verbose,
   } = params;
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -430,6 +466,7 @@ function extractAndReportCriterion(
       scoreText,
       outputFormat,
       jsonFormatter,
+      verbose: !!verbose,
     });
     hadOperationalErrors =
       hadOperationalErrors || violationResult.hadOperationalErrors;
@@ -563,8 +600,15 @@ function validateScores(params: ValidationParams): boolean {
 function routePromptResult(
   params: ProcessPromptResultParams
 ): ErrorTrackingResult {
-  const { promptFile, result, content, relFile, outputFormat, jsonFormatter } =
-    params;
+  const {
+    promptFile,
+    result,
+    content,
+    relFile,
+    outputFormat,
+    jsonFormatter,
+    verbose,
+  } = params;
   const meta = promptFile.meta;
   const promptId = (meta.id || "").toString();
 
@@ -589,6 +633,7 @@ function routePromptResult(
         scoreText: "",
         outputFormat,
         jsonFormatter,
+        verbose: !!verbose,
       });
       hadOperationalErrors =
         hadOperationalErrors || violationResult.hadOperationalErrors;
@@ -743,6 +788,7 @@ async function evaluateFile(
     concurrency,
     scanPaths,
     outputFormat = OutputFormat.Line,
+    verbose,
   } = options;
 
   let hadOperationalErrors = false;
@@ -840,6 +886,7 @@ async function evaluateFile(
       relFile,
       outputFormat,
       jsonFormatter,
+      verbose,
     });
     totalErrors += promptResult.errors;
     totalWarnings += promptResult.warnings;
