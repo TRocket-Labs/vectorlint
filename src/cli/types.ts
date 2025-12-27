@@ -73,19 +73,6 @@ export interface ReportIssueParams {
   match?: string;
 }
 
-export interface ExtractMatchTextParams {
-  content: string;
-  line: number;
-  matchedText: string;
-  rowSummary: string;
-}
-
-export interface LocationMatch {
-  line: number;
-  column: number;
-  match: string;
-}
-
 export interface ProcessViolationsParams extends EvaluationContext {
   violations: Array<{
     line?: number;

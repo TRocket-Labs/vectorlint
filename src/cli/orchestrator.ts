@@ -30,8 +30,6 @@ import type {
   EvaluationResult,
   ErrorTrackingResult,
   ReportIssueParams,
-  ExtractMatchTextParams,
-  LocationMatch,
   ProcessViolationsParams,
   ProcessCriterionParams,
   ProcessCriterionResult,
@@ -139,61 +137,6 @@ function reportIssue(params: ReportIssueParams): void {
 }
 
 /*
- * Extracts the best match text from evidence markers and analysis message.
- */
-function extractMatchText(params: ExtractMatchTextParams): LocationMatch {
-  const { content, line, matchedText, rowSummary } = params;
-
-  const finalLine = line;
-  let finalColumn = 1;
-  let finalMatch = matchedText;
-
-  // Extract quoted text from the analysis message
-  const quotedMatch = rowSummary.match(/'([^']+)'|"([^"]+)"|`([^`]+)`/);
-  const quotedText = quotedMatch
-    ? quotedMatch[1] || quotedMatch[2] || quotedMatch[3]
-    : "";
-
-  if (quotedText) {
-    // Check if the quoted text is in the matched text from pre/post
-    if (matchedText && matchedText.includes(quotedText)) {
-      finalMatch = quotedText;
-      const lines = content.split("\n");
-      if (line >= 1 && line <= lines.length) {
-        const lineContent = lines[line - 1] || "";
-        const quotedIndex = lineContent.indexOf(quotedText);
-        if (quotedIndex !== -1) {
-          finalColumn = quotedIndex + 1;
-        }
-      }
-    } else if (!matchedText || !matchedText.includes(quotedText)) {
-      // Search for quoted text on the same line
-      const lines = content.split("\n");
-      if (line >= 1 && line <= lines.length) {
-        const lineContent = lines[line - 1] || "";
-        const quotedIndex = lineContent.indexOf(quotedText);
-        if (quotedIndex !== -1) {
-          finalColumn = quotedIndex + 1;
-          finalMatch = quotedText;
-        }
-      }
-    }
-  }
-
-  // If still no match, extract a meaningful snippet from the line
-  if (!finalMatch && !quotedText) {
-    const lines = content.split("\n");
-    if (line >= 1 && line <= lines.length) {
-      const lineContent = lines[line - 1] || "";
-      const words = lineContent.trim().split(/\s+/).slice(0, 5).join(" ");
-      finalMatch = words.length > 50 ? words.substring(0, 50) : words;
-    }
-  }
-
-  return { line: finalLine, column: finalColumn, match: finalMatch };
-}
-
-/*
  * Locates and reports each violation using pre/post evidence markers.
  * If location matching fails (missing markers, content mismatch), logs warning
  * and continues processing. Returns hadOperationalErrors=true if any violations
@@ -255,30 +198,25 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
         continue;
       }
 
-      let line = locWithMatch.line;
-      let column = locWithMatch.column;
-      let matchedText = locWithMatch.match || "";
+      const line = locWithMatch.line;
+      const column = locWithMatch.column;
+      const matchedText = locWithMatch.match || "";
 
-      const extracted = extractMatchText({
-        content,
-        line,
-        matchedText,
-        rowSummary,
-      });
-      line = extracted.line;
-      column = extracted.column;
-      matchedText = extracted.match;
-
-      // De-duplicate by (quoted_text, line)
-      const dedupeKey = `${v.quoted_text || ""}:${line}`;
-      if (seen.has(dedupeKey)) {
+      // De-duplicate by (quoted_text, line) - skip if quoted_text is empty
+      const dedupeKey = v.quoted_text ? `${v.quoted_text}:${line}` : null;
+      if (dedupeKey && seen.has(dedupeKey)) {
         continue; // Skip duplicate
       }
-      seen.add(dedupeKey);
+      if (dedupeKey) {
+        seen.add(dedupeKey);
+      }
 
       verifiedViolations.push({ v, line, column, matchedText, rowSummary });
     } catch (e: unknown) {
-      handleUnknownError(e, "Locating evidence");
+      const err = handleUnknownError(e, "Locating evidence");
+      if (verbose) {
+        console.warn(`[vectorlint] Error locating evidence: ${err.message}`);
+      }
       hadOperationalErrors = true;
     }
   }
@@ -459,8 +397,10 @@ function extractAndReportCriterion(
     // Report all violations
     const violationResult = locateAndReportViolations({
       violations: violations as Array<{
-        pre?: string;
-        post?: string;
+        line?: number;
+        quoted_text?: string;
+        context_before?: string;
+        context_after?: string;
         analysis?: string;
         suggestion?: string;
       }>,
@@ -702,6 +642,7 @@ function routePromptResult(
       meta,
       outputFormat,
       jsonFormatter,
+      verbose: !!verbose,
     });
 
     promptErrors += criterionResult.errors;

@@ -22,14 +22,29 @@ describe("locateQuotedText", () => {
     });
 
     it("uses context to disambiguate multiple matches", () => {
-      const result = locateQuotedText(ORIGINAL_TEXT, {
-        quoted_text: "quick brown fox",
-        context_before: "The ",
-        context_after: " jumps",
+      // Text with duplicate "some content" phrase
+      const textWithDuplicates = `First line with some content here.
+Second line with some content there.
+Third line without the phrase.`;
+
+      // Without context, should match first occurrence
+      const resultNoContext = locateQuotedText(textWithDuplicates, {
+        quoted_text: "some content",
       });
-      expect(result).not.toBeNull();
-      expect(result?.line).toBe(2);
-      expect(result?.strategy).toBe("exact");
+      expect(resultNoContext).not.toBeNull();
+      expect(resultNoContext?.line).toBe(1);
+      expect(resultNoContext?.strategy).toBe("exact");
+
+      // With context, should match second occurrence and return "context" strategy
+      const resultWithContext = locateQuotedText(textWithDuplicates, {
+        quoted_text: "some content",
+        context_before: "with ",
+        context_after: " there",
+      });
+      expect(resultWithContext).not.toBeNull();
+      expect(resultWithContext?.line).toBe(2);
+      expect(resultWithContext?.strategy).toBe("context");
+      expect(resultWithContext?.confidence).toBe(100);
     });
   });
 
