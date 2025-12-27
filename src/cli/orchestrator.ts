@@ -694,18 +694,10 @@ function routePromptResult(
 async function runPromptEvaluation(
   params: RunPromptEvaluationParams
 ): Promise<RunPromptEvaluationResult> {
-  const { promptFile, relFile, content, provider, searchProvider, overrides } =
-    params;
+  const { promptFile, relFile, content, provider, searchProvider } = params;
 
   try {
-    const meta = { ...promptFile.meta };
-
-    // Apply overrides
-    if (overrides) {
-      for (const [key, value] of Object.entries(overrides)) {
-        (meta as Record<string, unknown>)[key] = value;
-      }
-    }
+    const meta = promptFile.meta;
 
     const evaluatorType = resolveEvaluatorType(meta.evaluator);
 
@@ -768,10 +760,7 @@ async function evaluateFile(
   }
 
   // Determine applicable prompts for this file
-  const toRun: Array<{
-    prompt: PromptFile;
-    overrides: Record<string, unknown>;
-  }> = [];
+  const toRun: PromptFile[] = [];
 
   if (scanPaths && scanPaths.length > 0) {
     const resolver = new ScanPathResolver();
@@ -786,7 +775,7 @@ async function evaluateFile(
       availablePacks
     );
 
-    // Filter prompts by active packs
+    // Filter prompts by active packs and check if disabled
     const activePrompts = prompts.filter((p) => {
       if (!p.pack || !resolution.packs.includes(p.pack)) return false;
       if (!p.meta?.id) return true;
@@ -798,48 +787,30 @@ async function evaluateFile(
       );
     });
 
-    // Pre-process overrides into a map for O(1) lookup
-    const overrideMap = new Map<string, Record<string, unknown>>();
-    for (const [key, value] of Object.entries(resolution.overrides)) {
-      const dotIndex = key.indexOf(".");
-      if (dotIndex > 0) {
-        const promptId = key.substring(0, dotIndex);
-        const prop = key.substring(dotIndex + 1);
-        if (!overrideMap.has(promptId)) {
-          overrideMap.set(promptId, {});
-        }
-        overrideMap.get(promptId)![prop] = value;
-      }
-    }
-
-    for (const prompt of activePrompts) {
-      const promptOverrides = overrideMap.get(prompt.id) || {};
-      toRun.push({ prompt, overrides: promptOverrides });
-    }
+    toRun.push(...activePrompts);
   } else {
     // Fallback: When no scanPaths configured, run all prompts.
     // This maintains backward compatibility for unconfigured setups.
-    for (const prompt of prompts) {
-      toRun.push({ prompt, overrides: {} });
-    }
+    toRun.push(...prompts);
   }
 
-  const results = await runWithConcurrency(toRun, concurrency, async (item) => {
-    return runPromptEvaluation({
-      promptFile: item.prompt,
-      relFile,
-      content,
-      provider,
-      ...(searchProvider !== undefined && { searchProvider }),
-      overrides: item.overrides,
-    });
-  });
+  const results = await runWithConcurrency(
+    toRun,
+    concurrency,
+    async (prompt) => {
+      return runPromptEvaluation({
+        promptFile: prompt,
+        relFile,
+        content,
+        provider,
+        ...(searchProvider !== undefined && { searchProvider }),
+      });
+    }
+  );
 
   // Aggregate results from each prompt
   for (let idx = 0; idx < toRun.length; idx++) {
-    const item = toRun[idx];
-    if (!item) continue;
-    const p = item.prompt;
+    const p = toRun[idx];
     const r = results[idx];
     if (!p || !r) continue;
 
