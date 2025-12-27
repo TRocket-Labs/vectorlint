@@ -703,11 +703,6 @@ async function runPromptEvaluation(
     // Apply overrides
     if (overrides) {
       for (const [key, value] of Object.entries(overrides)) {
-        // Handle nested properties like "strictness" (which might be top-level in meta or inside criteria?)
-        // The plan says "GrammarChecker.strictness=9".
-        // If the key is "strictness", we update meta.strictness?
-        // Or is it a specific property of the evaluator?
-        // Let's assume it maps to meta properties.
         (meta as Record<string, unknown>)[key] = value;
       }
     }
@@ -796,7 +791,11 @@ async function evaluateFile(
       if (!p.pack || !resolution.packs.includes(p.pack)) return false;
       if (!p.meta?.id) return true;
       const disableKey = `${p.pack}.${p.meta.id}`;
-      return resolution.overrides[disableKey] !== "disabled";
+      const overrideValue = resolution.overrides[disableKey];
+      return (
+        typeof overrideValue !== "string" ||
+        overrideValue.toLowerCase() !== "disabled"
+      );
     });
 
     // Pre-process overrides into a map for O(1) lookup
