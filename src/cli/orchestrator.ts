@@ -233,11 +233,16 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
     const rowSummary = (v.analysis || "").trim();
 
     try {
-      const locWithMatch = locateQuotedText(content, {
-        quoted_text: v.quoted_text || "",
-        context_before: v.context_before || "",
-        context_after: v.context_after || "",
-      });
+      const locWithMatch = locateQuotedText(
+        content,
+        {
+          quoted_text: v.quoted_text || "",
+          context_before: v.context_before || "",
+          context_after: v.context_after || "",
+        },
+        80,
+        v.line
+      );
 
       if (!locWithMatch) {
         // Can't verify this quote exists - skip it entirely

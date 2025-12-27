@@ -28,6 +28,7 @@ export function buildSubjectiveLLMSchema() {
                   type: "object",
                   additionalProperties: false,
                   properties: {
+                    line: { type: "number" },
                     quoted_text: { type: "string" },
                     context_before: { type: "string" },
                     context_after: { type: "string" },
@@ -67,6 +68,7 @@ export function buildSemiObjectiveLLMSchema() {
             type: "object",
             additionalProperties: false,
             properties: {
+              line: { type: "number" },
               quoted_text: { type: "string" },
               context_before: { type: "string" },
               context_after: { type: "string" },

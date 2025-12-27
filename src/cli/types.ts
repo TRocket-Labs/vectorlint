@@ -88,6 +88,7 @@ export interface LocationMatch {
 
 export interface ProcessViolationsParams extends EvaluationContext {
   violations: Array<{
+    line?: number;
     quoted_text?: string;
     context_before?: string;
     context_after?: string;

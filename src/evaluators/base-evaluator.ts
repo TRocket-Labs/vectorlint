@@ -13,6 +13,7 @@ import {
 import { registerEvaluator } from "./evaluator-registry";
 import type { Evaluator } from "./evaluator";
 import { Type, Severity, EvaluationType } from "./types";
+import { prependLineNumbers } from "../output/line-numbering";
 
 /*
  * Core LLM-based evaluator that handles Subjective and Semi-Objective evaluation modes.
@@ -63,10 +64,13 @@ export class BaseEvaluator implements Evaluator {
   ): Promise<SubjectiveResult> {
     const schema = buildSubjectiveLLMSchema();
 
+    // Prepend line numbers for deterministic line reporting
+    const numberedContent = prependLineNumbers(content);
+
     // Step 1: Get raw scores from LLM
     const llmResult =
       await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
-        content,
+        numberedContent,
         this.prompt.body,
         schema
       );
@@ -118,10 +122,13 @@ export class BaseEvaluator implements Evaluator {
   ): Promise<SemiObjectiveResult> {
     const schema = buildSemiObjectiveLLMSchema();
 
+    // Prepend line numbers for deterministic line reporting
+    const numberedContent = prependLineNumbers(content);
+
     // Step 1: Get list of violations from LLM
     const llmResult =
       await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
-        content,
+        numberedContent,
         this.prompt.body,
         schema
       );

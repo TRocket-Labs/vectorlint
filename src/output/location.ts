@@ -134,12 +134,13 @@ function findBestWindowMatch(
  * Locates text using hybrid evidence: quoted_text + optional context_before/after.
  *
  * Algorithm (Quote-First with Fuzzy Matching):
- * 1. Try exact match first (fastest, 100% confidence)
- * 2. If multiple exact matches, use context to disambiguate
- * 3. Try progressive substring matching
- * 4. Try case-insensitive exact match
- * 5. Try fuzzy matching by line (fast, catches most LLM hallucinations)
- * 6. Try fuzzy matching with sliding window (slower, catches multi-line issues)
+ * 1. If lineHint provided, try matching on that line first (fastest path)
+ * 2. Try exact match first (fastest, 100% confidence)
+ * 3. If multiple exact matches, use context to disambiguate
+ * 4. Try progressive substring matching
+ * 5. Try case-insensitive exact match
+ * 6. Try fuzzy matching by line (fast, catches most LLM hallucinations)
+ * 7. Try fuzzy matching with sliding window (slower, catches multi-line issues)
  *
  * This implements the "Quote-First with Fuzzy Matching" pattern from Google's LangExtract:
  * "LLMs extract meaning, while classic algorithms ground that meaning in reality"
@@ -147,7 +148,8 @@ function findBestWindowMatch(
 export function locateQuotedText(
   text: string,
   ev: QuotedTextEvidence,
-  minConfidence: number = 80
+  minConfidence: number = 80,
+  lineHint?: number
 ): LocationWithMatch | null {
   const quotedText = ev.quoted_text;
   const contextBefore = ev.context_before || "";
@@ -155,7 +157,66 @@ export function locateQuotedText(
 
   if (!quotedText) return null;
 
-  // PHASE 1: Exact matching (fastest path)
+  // PHASE 1: If lineHint provided, try matching on that line first
+  if (lineHint && lineHint > 0) {
+    const lines = text.split("\n");
+    if (lineHint <= lines.length) {
+      const targetLine = lines[lineHint - 1] || "";
+
+      // Try exact match on hint line
+      const exactIdx = targetLine.indexOf(quotedText);
+      if (exactIdx !== -1) {
+        // Calculate the absolute index
+        let lineStartIdx = 0;
+        for (let i = 0; i < lineHint - 1; i++) {
+          lineStartIdx += (lines[i]?.length || 0) + 1;
+        }
+        return {
+          line: lineHint,
+          column: exactIdx + 1,
+          match: quotedText,
+          confidence: 100,
+          strategy: "exact",
+        };
+      }
+
+      // Try fuzzy match on hint line
+      const partialScore = partial_ratio(quotedText, targetLine);
+      const tokenScore = token_sort_ratio(quotedText, targetLine);
+      const score = Math.max(partialScore, tokenScore);
+
+      if (score >= minConfidence) {
+        // Find the best matching substring on this line
+        let bestCol = 1;
+        let bestMatch = targetLine.trim();
+
+        // Try to find the actual matched portion
+        const words = quotedText.split(/\s+/);
+        for (let len = words.length; len >= 1; len--) {
+          for (let start = 0; start <= words.length - len; start++) {
+            const substring = words.slice(start, start + len).join(" ");
+            const subIdx = targetLine.indexOf(substring);
+            if (subIdx !== -1) {
+              bestCol = subIdx + 1;
+              bestMatch = substring;
+              break;
+            }
+          }
+        }
+
+        return {
+          line: lineHint,
+          column: bestCol,
+          match: bestMatch,
+          confidence: Math.round(score),
+          strategy: "fuzzy-line",
+        };
+      }
+    }
+    // Line hint didn't work, fall through to full search
+  }
+
+  // PHASE 2: Exact matching (fastest path)
   const matches: Array<{ index: number; match: string }> = [];
   let searchFrom = 0;
 
@@ -216,7 +277,7 @@ export function locateQuotedText(
     };
   }
 
-  // PHASE 2: Progressive substring matching
+  // PHASE 3: Progressive substring matching
   // LLM might have added/removed a few words
   const words = quotedText.split(/\s+/);
   if (words.length >= 3) {
@@ -238,7 +299,7 @@ export function locateQuotedText(
     }
   }
 
-  // PHASE 3: Case-insensitive exact match
+  // PHASE 4: Case-insensitive exact match
   const lowerText = text.toLowerCase();
   const lowerQuoted = quotedText.toLowerCase();
   const caseInsensitiveIdx = lowerText.indexOf(lowerQuoted);
@@ -255,7 +316,7 @@ export function locateQuotedText(
     };
   }
 
-  // PHASE 4: Fuzzy matching by line (fast, handles typos)
+  // PHASE 5: Fuzzy matching by line (fast, handles typos)
   const lineMatch = findBestLineMatch(quotedText, text, minConfidence);
   if (lineMatch) {
     const loc = computeLineCol(text, lineMatch.index);
@@ -267,7 +328,7 @@ export function locateQuotedText(
     };
   }
 
-  // PHASE 5: Fuzzy matching with sliding window (slower, multi-line quotes)
+  // PHASE 6: Fuzzy matching with sliding window (slower, multi-line quotes)
   const windowMatch = findBestWindowMatch(quotedText, text, minConfidence);
   if (windowMatch) {
     const loc = computeLineCol(text, windowMatch.index);
