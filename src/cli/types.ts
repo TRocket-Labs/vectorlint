@@ -56,6 +56,7 @@ export interface EvaluationContext {
   relFile: string;
   outputFormat: OutputFormat;
   jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
+  verbose?: boolean;
 }
 
 export interface ReportIssueParams {
@@ -72,23 +73,12 @@ export interface ReportIssueParams {
   match?: string;
 }
 
-export interface ExtractMatchTextParams {
-  content: string;
-  line: number;
-  matchedText: string;
-  rowSummary: string;
-}
-
-export interface LocationMatch {
-  line: number;
-  column: number;
-  match: string;
-}
-
 export interface ProcessViolationsParams extends EvaluationContext {
   violations: Array<{
-    pre?: string;
-    post?: string;
+    line?: number;
+    quoted_text?: string;
+    context_before?: string;
+    context_after?: string;
     analysis?: string;
     suggestion?: string;
   }>;
