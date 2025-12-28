@@ -1,6 +1,6 @@
 # VectorLint: Prompt it, Lint it! [![npm version](https://img.shields.io/npm/v/vectorlint.svg)](https://www.npmjs.com/package/vectorlint) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-VectorLint is a command-line tool that evaluates and scores content using LLMs. It uses [LLM-as-a-Judge](https://en.wikipedia.org/wiki/LLM-as-a-Judge) to catch content quality issues that typically require human judgement.  
+VectorLint is a command-line tool that evaluates and scores content using LLMs. It uses [LLM-as-a-Judge](https://en.wikipedia.org/wiki/LLM-as-a-Judge) to catch content quality issues that typically require human judgement.
 
 ![VectorLint Screenshot](./assets/VectorLint_screenshot.jpeg)
 
@@ -42,9 +42,11 @@ If you can write a prompt for it, you can lint it with VectorLint.
 👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
 
 ## Quality Scores
+
 VectorLint scores your content using error density and a rubric based system, enabling you to measure quality across documentation. This gives your team a shared understanding of which content needs attention and helps track improvements over time.
-*   **Density-Based Scoring:** For errors that can be counted, scores are calculated based on **error density (errors per 100 words)**, making quality assessment fair across documents of any length.
-*   **Rubric-Based Scoring:** For more subjective quality standards, like flow and completeness, scores are graded on a 1-4 rubric system and then normalized to a **1-10 scale**.
+
+- **Density-Based Scoring:** For errors that can be counted, scores are calculated based on **error density (errors per 100 words)**, making quality assessment fair across documents of any length.
+- **Rubric-Based Scoring:** For more subjective quality standards, like flow and completeness, scores are graded on a 1-4 rubric system and then normalized to a **1-10 scale**.
 
 ## Quick Start
 
@@ -59,6 +61,7 @@ VectorLint scores your content using error density and a rubric based system, en
     description: Grammar Checker
     severity: error
     ---
+
     Check this content for grammar issues, spelling errors, and punctuation mistakes.
     ```
 
@@ -69,7 +72,7 @@ VectorLint scores your content using error density and a rubric based system, en
     ```ini
     # .vectorlint.ini
     RulesPath=.
-    
+
     # Run the "VectorLint" rule pack on all markdown files
     [**/*.md]
     RunRules=VectorLint
@@ -87,7 +90,7 @@ VectorLint scores your content using error density and a rubric based system, en
     LLM_PROVIDER=openai
 
     # - OR -
-    
+
     # Anthropic
     ANTHROPIC_API_KEY=sk-ant-...
     LLM_PROVIDER=anthropic
@@ -106,4 +109,4 @@ We welcome your contributions! Whether it's adding new rules, fixing bugs, or im
 ## Resources
 
 - **[Creating Custom Rules](./CREATING_RULES.md)** - Write your own quality checks in Markdown
-- **[Configuration Guide](./CONFIGURATION.md)** - Complete reference for `vectorlint.ini`
+- **[Configuration Guide](./CONFIGURATION.md)** - Complete reference for `.vectorlint.ini`
