@@ -62,6 +62,11 @@ VectorLint scores your content using error density and a rubric-based system, en
     - **VectorLint Config** (`.vectorlint.ini`): Project-specific settings (rules path, concurrency).
     - **App Config** (`~/.vectorlint/config.toml`): Global API keys and provider settings.
 
+    > **Note:** To re-initialize and overwrite existing files, use the `--force` flag:
+    > ```bash
+    > vectorlint init --force
+    > ```
+
     👉 **[Full configuration reference →](./CONFIGURATION.md)**
 
 2.  **Configure API Keys:**
