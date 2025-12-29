@@ -10,6 +10,8 @@ export const CLI_OPTIONS_SCHEMA = z.object({
   prompts: z.string().optional(),
   evals: z.string().optional(),
   config: z.string().optional(),
+  full: z.boolean().default(false),
+  noCache: z.boolean().default(false),
 });
 
 // Validate command options schema

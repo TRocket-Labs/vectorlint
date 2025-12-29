@@ -25,6 +25,14 @@ import { handleUnknownError, MissingDependencyError } from "../errors/index";
 import { createEvaluator } from "../evaluators/index";
 import { Type, Severity } from "../evaluators/types";
 import { OutputFormat } from "./types";
+import {
+  CacheStore,
+  hashContent,
+  hashPrompts,
+  createCacheKeyString,
+  type CachedIssue,
+  type CachedScore,
+} from "../cache/index";
 import type {
   EvaluationOptions,
   EvaluationResult,
@@ -78,7 +86,10 @@ async function runWithConcurrency<T, R>(
 /*
  * Reports an issue in either line or JSON format.
  */
-function reportIssue(params: ReportIssueParams): void {
+function reportIssue(
+  params: ReportIssueParams,
+  issueCollector?: CachedIssue[]
+): void {
   const {
     file,
     line,
@@ -92,6 +103,19 @@ function reportIssue(params: ReportIssueParams): void {
     scoreText,
     match,
   } = params;
+
+  if (issueCollector) {
+    issueCollector.push({
+      line,
+      column,
+      severity,
+      summary,
+      ruleName,
+      suggestion,
+      scoreText,
+      match,
+    });
+  }
 
   if (outputFormat === OutputFormat.Line) {
     const locStr = `${line}:${column}`;
@@ -155,6 +179,7 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
     outputFormat,
     jsonFormatter,
     verbose,
+    issueCollector,
   } = params;
 
   let hadOperationalErrors = false;
@@ -229,19 +254,22 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
     matchedText,
     rowSummary,
   } of verifiedViolations) {
-    reportIssue({
-      file: relFile,
-      line,
-      column,
-      severity,
-      summary: rowSummary,
-      ruleName,
-      outputFormat,
-      jsonFormatter,
-      ...(v.suggestion !== undefined && { suggestion: v.suggestion }),
-      scoreText,
-      match: matchedText,
-    });
+    reportIssue(
+      {
+        file: relFile,
+        line,
+        column,
+        severity,
+        summary: rowSummary,
+        ruleName,
+        outputFormat,
+        jsonFormatter,
+        ...(v.suggestion !== undefined && { suggestion: v.suggestion }),
+        scoreText,
+        match: matchedText,
+      },
+      issueCollector
+    );
   }
 
   return { hadOperationalErrors };
@@ -266,6 +294,7 @@ function extractAndReportCriterion(
     outputFormat,
     jsonFormatter,
     verbose,
+    issueCollector,
   } = params;
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -303,19 +332,22 @@ function extractAndReportCriterion(
       expTargetSpec?.suggestion ||
       metaTargetSpec?.suggestion ||
       "Add the required target section.";
-    reportIssue({
-      file: relFile,
-      line: 1,
-      column: 1,
-      severity: Severity.ERROR,
-      summary,
-      ruleName,
-      outputFormat,
-      jsonFormatter,
-      suggestion,
-      scoreText: "nil",
-      match: "",
-    });
+    reportIssue(
+      {
+        file: relFile,
+        line: 1,
+        column: 1,
+        severity: Severity.ERROR,
+        summary,
+        ruleName,
+        outputFormat,
+        jsonFormatter,
+        suggestion,
+        scoreText: "nil",
+        match: "",
+      },
+      issueCollector
+    );
     return {
       errors: 1,
       warnings: 0,
@@ -412,6 +444,7 @@ function extractAndReportCriterion(
       outputFormat,
       jsonFormatter,
       verbose: !!verbose,
+      issueCollector,
     });
     hadOperationalErrors =
       hadOperationalErrors || violationResult.hadOperationalErrors;
@@ -429,18 +462,21 @@ function extractAndReportCriterion(
     const words = sum.split(/\s+/).filter(Boolean);
     const limited = words.slice(0, 15).join(" ");
     const summaryText = limited || "No findings";
-    reportIssue({
-      file: relFile,
-      line: 1,
-      column: 1,
-      severity,
-      summary: summaryText,
-      ruleName,
-      outputFormat,
-      jsonFormatter,
-      scoreText,
-      match: "",
-    });
+    reportIssue(
+      {
+        file: relFile,
+        line: 1,
+        column: 1,
+        severity,
+        summary: summaryText,
+        ruleName,
+        outputFormat,
+        jsonFormatter,
+        scoreText,
+        match: "",
+      },
+      issueCollector
+    );
   }
 
   return {
@@ -553,6 +589,7 @@ function routePromptResult(
     outputFormat,
     jsonFormatter,
     verbose,
+    issueCollector,
   } = params;
   const meta = promptFile.meta;
   const promptId = (meta.id || "").toString();
@@ -579,6 +616,7 @@ function routePromptResult(
         outputFormat,
         jsonFormatter,
         verbose: !!verbose,
+        issueCollector,
       });
       hadOperationalErrors =
         hadOperationalErrors || violationResult.hadOperationalErrors;
@@ -588,17 +626,20 @@ function routePromptResult(
       result.message
     ) {
       // For JSON, if there's a message but no violations, report it as a general issue
-      reportIssue({
-        file: relFile,
-        line: 1,
-        column: 1,
-        severity,
-        summary: result.message,
-        ruleName,
-        outputFormat,
-        jsonFormatter,
-        match: "",
-      });
+      reportIssue(
+        {
+          file: relFile,
+          line: 1,
+          column: 1,
+          severity,
+          summary: result.message,
+          ruleName,
+          outputFormat,
+          jsonFormatter,
+          match: "",
+        },
+        issueCollector
+      );
     }
 
     // Create scoreEntry for Quality Scores display
@@ -614,6 +655,7 @@ function routePromptResult(
       hadOperationalErrors,
       hadSeverityErrors: severity === Severity.ERROR,
       scoreEntries: [scoreEntry],
+      scoreComponents: [],
     };
   }
 
@@ -643,6 +685,7 @@ function routePromptResult(
       outputFormat,
       jsonFormatter,
       verbose: !!verbose,
+      issueCollector,
     });
 
     promptErrors += criterionResult.errors;
@@ -673,6 +716,7 @@ function routePromptResult(
     hadOperationalErrors,
     hadSeverityErrors,
     scoreEntries: criterionScores,
+    scoreComponents: scoreComponents,
   };
 }
 
@@ -726,7 +770,8 @@ async function runPromptEvaluation(
 async function evaluateFile(
   params: EvaluateFileParams
 ): Promise<EvaluateFileResult> {
-  const { file, options, jsonFormatter } = params;
+  const { file, options, jsonFormatter, cacheStore, promptsHash, useCache } =
+    params;
   const {
     prompts,
     provider,
@@ -737,15 +782,86 @@ async function evaluateFile(
     verbose,
   } = options;
 
+  const content = readFileSync(file, "utf-8");
+  const relFile = path.relative(process.cwd(), file) || file;
+
+  // Check cache before running evaluations
+  if (useCache && cacheStore && promptsHash) {
+    const contentHash = hashContent(content);
+    const cacheKey = createCacheKeyString(relFile, contentHash, promptsHash);
+    const cached = cacheStore.get(cacheKey);
+
+    if (cached) {
+      // Cache hit - return cached result without running LLM
+      if (outputFormat === OutputFormat.Line) {
+        printFileHeader(relFile);
+        console.log("  (cached)");
+      }
+
+      // Replay cached issues
+      if (cached.issues) {
+        for (const issue of cached.issues) {
+          reportIssue({
+            file: relFile,
+            line: issue.line,
+            column: issue.column,
+            severity: issue.severity,
+            summary: issue.summary,
+            ruleName: issue.ruleName,
+            outputFormat,
+            jsonFormatter,
+            ...(issue.suggestion !== undefined
+              ? { suggestion: issue.suggestion }
+              : {}),
+            ...(issue.scoreText !== undefined
+              ? { scoreText: issue.scoreText }
+              : {}),
+            ...(issue.match !== undefined ? { match: issue.match } : {}),
+          });
+        }
+      }
+
+      if (cached.scores) {
+        if (outputFormat === OutputFormat.Line) {
+          const replayScores = new Map<string, EvaluationSummary[]>();
+          for (const s of cached.scores) {
+            replayScores.set(s.ruleName, s.items);
+          }
+          printEvaluationSummaries(replayScores);
+          console.log("");
+        } else if (outputFormat === OutputFormat.Json) {
+          for (const s of cached.scores) {
+            if (s.components && s.components.length > 0) {
+              (
+                jsonFormatter as JsonFormatter | RdJsonFormatter
+              ).addEvaluationScore(relFile, {
+                id: s.ruleName,
+                scores: s.components,
+              });
+            }
+          }
+        }
+      }
+
+      return {
+        errors: cached.errors,
+        warnings: cached.warnings,
+        requestFailures: cached.requestFailures,
+        hadOperationalErrors: cached.hadOperationalErrors,
+        hadSeverityErrors: cached.hadSeverityErrors,
+        wasCacheHit: true,
+      };
+    }
+  }
+
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
-  const allScores = new Map<string, EvaluationSummary[]>();
-
-  const content = readFileSync(file, "utf-8");
-  const relFile = path.relative(process.cwd(), file) || file;
+  const allScores = new Map<string, CachedScore>();
+  // Collect issues for caching
+  const issueCollector: CachedIssue[] = [];
 
   if (outputFormat === OutputFormat.Line) {
     printFileHeader(relFile);
@@ -833,6 +949,7 @@ async function evaluateFile(
       outputFormat,
       jsonFormatter,
       verbose,
+      issueCollector,
     });
     totalErrors += promptResult.errors;
     totalWarnings += promptResult.warnings;
@@ -842,22 +959,54 @@ async function evaluateFile(
 
     if (promptResult.scoreEntries && promptResult.scoreEntries.length > 0) {
       const ruleName = (p.meta.id || p.filename).toString();
-      allScores.set(ruleName, promptResult.scoreEntries);
+      allScores.set(ruleName, {
+        ruleName,
+        items: promptResult.scoreEntries,
+        ...(promptResult.scoreComponents
+          ? { components: promptResult.scoreComponents }
+          : {}),
+      });
     }
   }
 
   if (outputFormat === OutputFormat.Line) {
-    printEvaluationSummaries(allScores);
+    const summaryMap = new Map<string, EvaluationSummary[]>();
+    for (const [key, val] of allScores.entries()) {
+      summaryMap.set(key, val.items);
+    }
+    printEvaluationSummaries(summaryMap);
     console.log("");
   }
 
-  return {
+  const result: EvaluateFileResult = {
     errors: totalErrors,
     warnings: totalWarnings,
     requestFailures,
     hadOperationalErrors,
     hadSeverityErrors,
+    wasCacheHit: false,
   };
+
+  // Store result in cache
+  if (cacheStore && promptsHash) {
+    const contentHash = hashContent(content);
+    const cacheKey = createCacheKeyString(relFile, contentHash, promptsHash);
+
+    const cachedScores: CachedScore[] = Array.from(allScores.values());
+
+    cacheStore.set(cacheKey, {
+      errors: totalErrors,
+      warnings: totalWarnings,
+      hadOperationalErrors,
+      hadSeverityErrors,
+      requestFailures,
+      issues: issueCollector,
+      scores: cachedScores,
+      timestamp: Date.now(),
+    });
+  }
+
+  return result;
 }
 
 /*
@@ -869,7 +1018,13 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  const { outputFormat = OutputFormat.Line } = options;
+  const {
+    outputFormat = OutputFormat.Line,
+    cacheEnabled = true,
+    forceFullRun = false,
+    prompts,
+    verbose,
+  } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -877,6 +1032,28 @@ export async function evaluateFiles(
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
+  let cacheHits = 0;
+
+  // Initialize cache if enabled
+  const useCache = cacheEnabled && !forceFullRun;
+  let cacheStore: CacheStore | undefined;
+  let promptsHash: string | undefined;
+
+  if (cacheEnabled) {
+    cacheStore = new CacheStore();
+    promptsHash = hashPrompts(prompts);
+
+    if (verbose) {
+      const cacheSize = cacheStore.size();
+      if (forceFullRun) {
+        console.log(
+          `[vectorlint] Cache: --full flag, ignoring ${cacheSize} cached entries`
+        );
+      } else if (cacheSize > 0) {
+        console.log(`[vectorlint] Cache: ${cacheSize} entries loaded`);
+      }
+    }
+  }
 
   let jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
   if (outputFormat === OutputFormat.Json) {
@@ -890,7 +1067,20 @@ export async function evaluateFiles(
   for (const file of targets) {
     try {
       totalFiles += 1;
-      const fileResult = await evaluateFile({ file, options, jsonFormatter });
+      const fileResult = await evaluateFile({
+        file,
+        options,
+        jsonFormatter,
+        cacheStore,
+        promptsHash,
+        useCache,
+      });
+
+      // Track cache hits
+      if (fileResult.wasCacheHit) {
+        cacheHits += 1;
+      }
+
       totalErrors += fileResult.errors;
       totalWarnings += fileResult.warnings;
       requestFailures += fileResult.requestFailures;
@@ -901,6 +1091,17 @@ export async function evaluateFiles(
       const err = handleUnknownError(e, `Processing file ${file}`);
       console.error(`Error processing file ${file}: ${err.message}`);
       hadOperationalErrors = true;
+    }
+  }
+
+  // Save cache after all evaluations
+  if (cacheStore) {
+    cacheStore.save();
+
+    if (verbose && cacheHits > 0) {
+      console.log(
+        `[vectorlint] Cache: ${cacheHits}/${totalFiles} files from cache`
+      );
     }
   }
 

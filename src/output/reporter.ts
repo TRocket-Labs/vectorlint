@@ -6,7 +6,7 @@ import { Severity } from '../evaluators/types';
 export interface EvaluationSummary {
   id: string;
   scoreText: string;
-  score?: number;
+  score?: number | undefined;
 }
 
 export type Status = Severity;
