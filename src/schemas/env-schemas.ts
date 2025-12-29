@@ -44,6 +44,10 @@ export const ENV_SCHEMA = z.discriminatedUnion('LLM_PROVIDER', [
   z.object({ LLM_PROVIDER: z.literal(ProviderType.Gemini) }).merge(GEMINI_CONFIG_SCHEMA),
 ]);
 
+export const GLOBAL_CONFIG_SCHEMA = z.object({
+    env: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+});
+
 // Inferred types
 export type EnvConfig = z.infer<typeof ENV_SCHEMA>;
 export type AzureOpenAIConfig = z.infer<typeof AZURE_OPENAI_CONFIG_SCHEMA>;
