@@ -14,6 +14,7 @@ import { resolveTargets } from "../scan/file-resolver";
 import { parseCliOptions, parseEnvironment } from "../boundaries/index";
 import { handleUnknownError } from "../errors/index";
 import { evaluateFiles } from "./orchestrator";
+import { OutputFormat } from "./types";
 import { DEFAULT_CONFIG_FILENAME } from "../config/constants";
 
 /*
@@ -176,8 +177,15 @@ export function registerMainCommand(program: Command): void {
         ? new PerplexitySearchProvider({ debug: false })
         : undefined;
 
+      // Convert string to OutputFormat enum
+      const outputFormatMap: Record<string, OutputFormat> = {
+        line: OutputFormat.Line,
+        json: OutputFormat.Json,
+        "vale-json": OutputFormat.ValeJson,
+        rdjson: OutputFormat.RdJson,
+      };
       const outputFormat =
-        cliOptions.output === "JSON" ? "json" : cliOptions.output;
+        outputFormatMap[cliOptions.output] || OutputFormat.Line;
 
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
@@ -197,7 +205,7 @@ export function registerMainCommand(program: Command): void {
       });
 
       // Print global summary (only for line format)
-      if (cliOptions.output === "line") {
+      if (outputFormat === OutputFormat.Line) {
         printGlobalSummary(
           result.totalFiles,
           result.totalErrors,
