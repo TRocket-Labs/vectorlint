@@ -1,5 +1,5 @@
-import type { LLMProvider } from '../providers/llm-provider';
-import type { PromptFile } from '../schemas/prompt-schemas';
+import type { LLMProvider } from "../providers/llm-provider";
+import type { PromptFile } from "../schemas/prompt-schemas";
 import {
   buildSubjectiveLLMSchema,
   buildSemiObjectiveLLMSchema,
