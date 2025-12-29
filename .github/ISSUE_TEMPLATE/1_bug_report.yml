@@ -55,7 +55,7 @@ body:
     id: config
     attributes:
       label: Relevant config (optional)
-      description: "Paste the relevant part of your vectorlint.ini or mention PromptsPath/ScanPaths."
+      description: "Paste the relevant part of your .vectorlint.ini or mention PromptsPath/ScanPaths."
       render: yaml
 
   - type: textarea
