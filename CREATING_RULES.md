@@ -51,7 +51,7 @@ Your detailed instructions for the LLM go here...
 
 ### File Location
 
-Organize rules into **pack subdirectories** within `RulesPath` (specified in `vectorlint.ini`):
+Organize rules into **pack subdirectories** within `RulesPath` (specified in `.vectorlint.ini`):
 
 ```
 project/
@@ -64,7 +64,7 @@ project/
 │       │       └── technical-accuracy.md
 │       └── TechCorp/                ← Another company's pack
 │           └── brand-voice.md
-└── vectorlint.ini
+└── .vectorlint.ini
 ```
 
 **Pack Naming:** Use company names (e.g., `Acme`, `TechCorp`, `Stripe`) to indicate which style guide the rules implement.
@@ -396,7 +396,7 @@ Scan for common AI patterns:
 ## Resources
 
 - [VectorLint README](./README.md) - Installation and basic usage
-- [Configuration Guide](./CONFIGURATION.md) - Project configuration reference (`vectorlint.ini`)
+- [Configuration Guide](./CONFIGURATION.md) - Project configuration reference (`.vectorlint.ini`)
 - [Configuration Example](./vectorlint.ini.example) - Starter configuration template
 
 ---
