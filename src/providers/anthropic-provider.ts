@@ -92,7 +92,6 @@ export class AnthropicProvider implements LLMProvider {
       max_tokens: this.config.maxTokens!,
       tools: [toolSchema],
       tool_choice: { type: 'tool', name: schema.name },
-      stream: false,
       maxTokens: this.config.maxTokens!,
       toolChoice: { type: 'tool', name: schema.name },
     };
@@ -129,9 +128,9 @@ export class AnthropicProvider implements LLMProvider {
       messages: params.messages,
       max_tokens: params.max_tokens,
       stream: false,
-      ...(params.system !== undefined && { system: params.system }),
-      ...(params.tools !== undefined && { tools: params.tools }),
-      ...(params.tool_choice !== undefined && { tool_choice: params.tool_choice }),
+      system: systemPrompt,
+      tools: [toolSchema],
+      tool_choice: { type: 'tool', name: schema.name },
       ...(params.temperature !== undefined && { temperature: params.temperature }),
     };
 
