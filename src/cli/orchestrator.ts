@@ -9,7 +9,7 @@ import { printFileHeader, printIssueRow, printEvaluationSummaries, type Evaluati
 import { checkTarget } from '../prompts/target';
 import { isSubjectiveResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
-import { BaseEvaluator, createEvaluator } from '../evaluators/index';
+import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { OutputFormat } from './types';
 import type {
@@ -699,7 +699,7 @@ async function runPromptEvaluation(
     const result = await evaluator.evaluate(relFile, content);
 
 
-    const usage = (evaluator as BaseEvaluator).getLastUsage?.();
+    const usage = evaluator.getLastUsage?.();
 
     const resultObj: RunPromptEvaluationResultSuccess = { ok: true, result };
     if (usage) {
@@ -848,24 +848,10 @@ async function evaluateFile(
     }
   }
 
-  // Calculate costs if output format is Line
-  const pricing = options.pricing || {};
-
   const tokenUsageStats: TokenUsageStats = {
     totalInputTokens,
     totalOutputTokens,
   };
-
-  const cost = calculateCost(
-    {
-      inputTokens: totalInputTokens,
-      outputTokens: totalOutputTokens
-    },
-    pricing
-  );
-  if (cost !== undefined) {
-    tokenUsageStats.totalCost = cost;
-  }
 
   if (outputFormat === OutputFormat.Line) {
     printEvaluationSummaries(allScores);

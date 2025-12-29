@@ -159,6 +159,10 @@ export function registerMainCommand(program: Command): void {
         : undefined;
 
       const outputFormat = cliOptions.output as OutputFormat;
+      if (!Object.values(OutputFormat).includes(outputFormat)) {
+        console.error(`Error: Invalid output format '${cliOptions.output}'. Valid options: line, json, vale-json, rdjson`);
+        process.exit(1);
+      }
 
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {

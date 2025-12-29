@@ -1,4 +1,5 @@
 import type { EvaluationResult } from '../prompts/schema';
+import type { TokenUsage } from '../providers/token-usage';
 
 /*
  * Core evaluator interface for content evaluation.
@@ -6,4 +7,5 @@ import type { EvaluationResult } from '../prompts/schema';
  */
 export interface Evaluator {
   evaluate(file: string, content: string): Promise<EvaluationResult>;
+  getLastUsage?(): TokenUsage | undefined;
 }
