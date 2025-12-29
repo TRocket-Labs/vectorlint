@@ -63,9 +63,10 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     // We delegate to the base evaluator's centralized scoring logic
     if (claims.length === 0) {
       const wordCount = content.trim().split(/\s+/).length || 1;
-      const result = this.calculateSemiObjectiveResult([], wordCount);
-      if (claimUsage) result.usage = claimUsage;
-      return result;
+      return {
+        ...this.calculateSemiObjectiveResult([], wordCount),
+        ...(claimUsage && { usage: claimUsage }),
+      };
     }
 
     // Step 2: Search for evidence for each claim
