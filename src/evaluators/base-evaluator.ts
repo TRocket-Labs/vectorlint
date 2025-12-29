@@ -1,6 +1,5 @@
 import type { LLMProvider } from '../providers/llm-provider';
 import type { PromptFile } from '../schemas/prompt-schemas';
-import type { TokenUsage } from '../providers/token-usage';
 import {
   buildSubjectiveLLMSchema,
   buildSemiObjectiveLLMSchema,
@@ -26,8 +25,6 @@ import { prependLineNumbers } from "../output/line-numbering";
  * while reusing the core evaluation logic.
  */
 export class BaseEvaluator implements Evaluator {
-  protected lastUsage?: TokenUsage;
-
   constructor(
     protected llmProvider: LLMProvider,
     protected prompt: PromptFile,
@@ -42,10 +39,6 @@ export class BaseEvaluator implements Evaluator {
     } else {
       return this.runSemiObjectiveEvaluation(content);
     }
-  }
-
-  getLastUsage(): TokenUsage | undefined {
-    return this.lastUsage;
   }
 
   /*
@@ -80,9 +73,6 @@ export class BaseEvaluator implements Evaluator {
       this.prompt.body,
       schema
     );
-    if (usage) {
-      this.lastUsage = usage;
-    }
 
     // Step 2: Calculate scores locally
     let totalWeightedScore = 0;
@@ -118,6 +108,7 @@ export class BaseEvaluator implements Evaluator {
       type: EvaluationType.SUBJECTIVE,
       final_score: Number(finalScore.toFixed(1)), // Round to 1 decimal
       criteria: criteriaWithCalculations,
+      ...(usage && { usage }),
     };
   }
 
@@ -140,15 +131,18 @@ export class BaseEvaluator implements Evaluator {
       this.prompt.body,
       schema
     );
-    if (usage) {
-      this.lastUsage = usage;
-    }
 
     // Step 2: Calculate scores based on violation density
     // Estimate word count (simple whitespace split)
     const wordCount = content.trim().split(/\s+/).length || 1;
 
-    return this.calculateSemiObjectiveResult(llmResult.violations, wordCount);
+    const result = this.calculateSemiObjectiveResult(llmResult.violations, wordCount);
+
+    if (usage) {
+      result.usage = usage;
+    }
+
+    return result;
   }
 
   /*

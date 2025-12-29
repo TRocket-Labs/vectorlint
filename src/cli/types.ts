@@ -9,7 +9,7 @@ import { JsonFormatter, type ScoreComponent } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
 import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
-import type { TokenUsage, TokenUsageStats, PricingConfig } from '../providers/token-usage';
+import type { TokenUsageStats, PricingConfig } from '../providers/token-usage';
 
 export enum OutputFormat {
     Line = "line",
@@ -120,7 +120,6 @@ export interface RunPromptEvaluationParams {
 export interface RunPromptEvaluationResultSuccess {
     ok: true;
     result: PromptEvaluationResult;
-    usage?: TokenUsage;
 }
 
 export type RunPromptEvaluationResult =

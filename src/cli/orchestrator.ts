@@ -699,12 +699,7 @@ async function runPromptEvaluation(
     const result = await evaluator.evaluate(relFile, content);
 
 
-    const usage = evaluator.getLastUsage?.();
-
     const resultObj: RunPromptEvaluationResultSuccess = { ok: true, result };
-    if (usage) {
-      resultObj.usage = usage;
-    }
 
     return resultObj;
   } catch (e: unknown) {
@@ -822,9 +817,9 @@ async function evaluateFile(
     }
 
     // Accumulate token usage
-    if (r.usage) {
-      totalInputTokens += r.usage.inputTokens;
-      totalOutputTokens += r.usage.outputTokens;
+    if (r.result.usage) {
+      totalInputTokens += r.result.usage.inputTokens;
+      totalOutputTokens += r.result.usage.outputTokens;
     }
 
     const promptResult = routePromptResult({
