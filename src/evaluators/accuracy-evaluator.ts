@@ -4,6 +4,7 @@ import type { LLMProvider } from "../providers/llm-provider";
 import type { SearchProvider } from "../providers/search-provider";
 import type { PromptFile } from "../schemas/prompt-schemas";
 import type { EvaluationResult } from "../prompts/schema";
+import type { TokenUsage } from "../providers/token-usage";
 import { renderTemplate } from "../prompts/template-renderer";
 import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
@@ -23,6 +24,11 @@ const SEARCH_RESULT_SCHEMA = z.object({
 });
 
 type SearchResult = z.infer<typeof SEARCH_RESULT_SCHEMA>;
+
+interface ClaimExtractionResult {
+  claims: string[];
+  usage?: TokenUsage;
+}
 
 /**
  * Technical Accuracy Evaluator - Acts as an orchestrator only.
@@ -51,13 +57,15 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
 
   async evaluate(_file: string, content: string): Promise<EvaluationResult> {
     // Step 1: Extract factual claims from the content
-    const claims = await this.extractClaims(content);
+    const { claims, usage: claimUsage } = await this.extractClaims(content);
 
     // If no claims found, return success (empty items array, perfect score)
     // We delegate to the base evaluator's centralized scoring logic
     if (claims.length === 0) {
       const wordCount = content.trim().split(/\s+/).length || 1;
-      return this.calculateSemiObjectiveResult([], wordCount);
+      const result = this.calculateSemiObjectiveResult([], wordCount);
+      if (claimUsage) result.usage = claimUsage;
+      return result;
     }
 
     // Step 2: Search for evidence for each claim
@@ -82,13 +90,23 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
 
     // Step 6: Use parent's evaluation logic with enriched prompt
     const evaluator = new BaseEvaluator(this.llmProvider, enrichedPrompt, this.defaultSeverity);
-    return evaluator.evaluate(_file, content);
+    const result = await evaluator.evaluate(_file, content);
+
+    if (claimUsage) {
+      const totalUsage: TokenUsage = {
+        inputTokens: claimUsage.inputTokens + (result.usage?.inputTokens || 0),
+        outputTokens: claimUsage.outputTokens + (result.usage?.outputTokens || 0),
+      };
+      result.usage = totalUsage;
+    }
+
+    return result;
   }
 
   /**
    * Extract factual claims from content using the claim extraction prompt.
    */
-  private async extractClaims(content: string): Promise<string[]> {
+  private async extractClaims(content: string): Promise<ClaimExtractionResult> {
     try {
       const claimSchema = {
         name: "ClaimExtraction",
@@ -108,7 +126,7 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
         TechnicalAccuracyEvaluator.CLAIM_EXTRACTION_PROMPT_KEY
       );
 
-      const claimResultRaw =
+      const { data: claimData, usage } =
         await this.llmProvider.runPromptStructured<unknown>(
           content,
           claimExtractionPrompt,
@@ -116,13 +134,13 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
         );
 
       // Validate the response with Zod schema
-      const claimResult = CLAIM_EXTRACTION_SCHEMA.parse(claimResultRaw);
+      const claimResult = CLAIM_EXTRACTION_SCHEMA.parse(claimData);
 
-      return claimResult.claims;
+      return { claims: claimResult.claims, ...(usage && { usage }) };
     } catch (e: unknown) {
       const err = e instanceof Error ? e : new Error(String(e));
       console.warn(`[vectorlint] Claim extraction failed: ${err.message}`);
-      return [];
+      return { claims: [] };
     }
   }
 
