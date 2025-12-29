@@ -93,8 +93,8 @@ describe('Scoring Types', () => {
             const mockLlmResponse: LLMResult<SemiObjectiveLLMResult> = {
                 data: {
                     violations: [
-                        { description: 'Issue 1', analysis: 'fail', suggestion: '', pre: '', post: '' },
-                        { description: 'Issue 2', analysis: 'fail', suggestion: '', pre: '', post: '' },
+                        { description: 'Issue 1', analysis: 'fail', suggestion: '', context_before: '', context_after: '' },
+                        { description: 'Issue 2', analysis: 'fail', suggestion: '', context_before: '', context_after: '' },
                     ],
                 }
             };

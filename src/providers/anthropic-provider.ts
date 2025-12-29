@@ -93,8 +93,6 @@ export class AnthropicProvider implements LLMProvider {
       tools: [toolSchema],
       tool_choice: { type: 'tool', name: schema.name },
       stream: false,
-
-      // E2E mock compatibility aliases (camelCase)
       maxTokens: this.config.maxTokens!,
       toolChoice: { type: 'tool', name: schema.name },
     };
@@ -128,11 +126,12 @@ export class AnthropicProvider implements LLMProvider {
     // Create clean params for Anthropic API (remove E2E mock compatibility fields)
     const anthropicParams: Anthropic.Messages.MessageCreateParams = {
       model: params.model,
-      system: params.system,
       messages: params.messages,
       max_tokens: params.max_tokens,
-      tools: params.tools,
-      tool_choice: params.tool_choice,
+      stream: false,
+      ...(params.system !== undefined && { system: params.system }),
+      ...(params.tools !== undefined && { tools: params.tools }),
+      ...(params.tool_choice !== undefined && { tool_choice: params.tool_choice }),
       ...(params.temperature !== undefined && { temperature: params.temperature }),
     };
 
@@ -229,8 +228,9 @@ export class AnthropicProvider implements LLMProvider {
 
       // Check if response contains text instead of tool use
       const textBlocks = blocks.filter(isTextBlock);
-      if (textBlocks.length > 0) {
-        const textContent = textBlocks[0].text.slice(0, 200);
+      const firstTextBlock = textBlocks[0];
+      if (firstTextBlock) {
+        const textContent = firstTextBlock.text.slice(0, 200);
         throw new Error(`No tool call received for ${expectedToolName}. Response contains text instead: ${textContent}${textContent.length >= 200 ? '...' : ''}`);
       }
 
