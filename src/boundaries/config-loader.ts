@@ -1,9 +1,16 @@
-import { existsSync, readFileSync } from 'fs';
-import * as path from 'path';
-import { CONFIG_SCHEMA, type Config } from '../schemas/config-schemas';
-import { ConfigError, ValidationError, handleUnknownError } from '../errors/index';
-import { DEFAULT_CONFIG_FILENAME } from '../config/constants';
-import { FileSectionParser } from './file-section-parser';
+import { existsSync, readFileSync } from "fs";
+import * as path from "path";
+import { CONFIG_SCHEMA, type Config } from "../schemas/config-schemas";
+import {
+  ConfigError,
+  ValidationError,
+  handleUnknownError,
+} from "../errors/index";
+import {
+  LEGACY_CONFIG_FILENAME,
+  DEFAULT_CONFIG_FILENAME,
+} from "../config/constants";
+import { FileSectionParser } from "./file-section-parser";
 
 function isSupportedPattern(p: string): boolean {
   const last = p.split(/[\\/]/).pop() || p;
@@ -15,23 +22,44 @@ function isSupportedPattern(p: string): boolean {
 }
 
 enum ConfigKey {
-  RULES_PATH = 'RulesPath',
-  SCAN_PATHS = 'ScanPaths',
-  CONCURRENCY = 'Concurrency',
-  DEFAULT_SEVERITY = 'DefaultSeverity',
+  RULES_PATH = "RulesPath",
+  SCAN_PATHS = "ScanPaths",
+  CONCURRENCY = "Concurrency",
+  DEFAULT_SEVERITY = "DefaultSeverity",
+}
+
+function resolveConfigPath(cwd: string, configPath?: string): string {
+  if (configPath) {
+    const explicitPath = path.resolve(cwd, configPath);
+    if (!existsSync(explicitPath)) {
+      throw new ConfigError(`Missing configuration file at ${explicitPath}`);
+    }
+    return explicitPath;
+  }
+
+  const hiddenPath = path.resolve(cwd, DEFAULT_CONFIG_FILENAME);
+  if (existsSync(hiddenPath)) {
+    return hiddenPath;
+  }
+
+  const defaultPath = path.resolve(cwd, LEGACY_CONFIG_FILENAME);
+  if (existsSync(defaultPath)) {
+    return defaultPath;
+  }
+
+  throw new ConfigError(
+    `Missing configuration file. Expected ${DEFAULT_CONFIG_FILENAME} in ${cwd}`
+  );
 }
 
 /**
- * Load and validate configuration from vectorlint.ini file	
+ * Load and validate configuration
  */
-export function loadConfig(cwd: string = process.cwd(), configPath?: string): Config {
-  const iniPath = configPath
-    ? path.resolve(cwd, configPath)
-    : path.resolve(cwd, DEFAULT_CONFIG_FILENAME);
-
-  if (!existsSync(iniPath)) {
-    throw new ConfigError(`Missing configuration file at ${iniPath}`);
-  }
+export function loadConfig(
+  cwd: string = process.cwd(),
+  configPath?: string
+): Config {
+  const iniPath = resolveConfigPath(cwd, configPath);
 
   const configDir = path.dirname(iniPath);
 
@@ -41,12 +69,12 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
   const rawConfigObj: Record<string, unknown> = {};
 
   try {
-    const raw = readFileSync(iniPath, 'utf-8');
+    const raw = readFileSync(iniPath, "utf-8");
     let currentSection: string | null = null;
 
     for (const rawLine of raw.split(/\r?\n/)) {
       const line = rawLine.trim();
-      if (!line || line.startsWith('#') || line.startsWith(';')) continue;
+      if (!line || line.startsWith("#") || line.startsWith(";")) continue;
 
       // Section header
       const sectionMatch = line.match(/^\[(.*)\]$/);
@@ -62,14 +90,18 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
       if (!m || !m[1]) continue;
 
       const key = m[1];
-      const val = m[2] || '';
+      const val = m[2] || "";
       const stripQuotes = (str: string): string =>
-        str.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+        str.replace(/^"|"$/g, "").replace(/^'|'$/g, "");
 
       if (currentSection) {
         // It's a property in a section
         const section = rawConfigObj[currentSection];
-        if (typeof section === 'object' && section !== null && !Array.isArray(section)) {
+        if (
+          typeof section === "object" &&
+          section !== null &&
+          !Array.isArray(section)
+        ) {
           (section as Record<string, unknown>)[key] = stripQuotes(val);
         }
       } else {
@@ -79,7 +111,9 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
             rulesPathRaw = stripQuotes(val);
             break;
           case ConfigKey.SCAN_PATHS as string:
-            throw new ConfigError('Old ScanPaths=[...] syntax no longer supported. Use [pattern] sections instead.');
+            throw new ConfigError(
+              "Old ScanPaths=[...] syntax no longer supported. Use [pattern] sections instead."
+            );
           case ConfigKey.CONCURRENCY as string: {
             const parsed = parseInt(val, 10);
             if (Number.isNaN(parsed)) {
@@ -95,25 +129,29 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
       }
     }
   } catch (e: unknown) {
-    const err = handleUnknownError(e, 'Reading config file');
+    const err = handleUnknownError(e, "Reading config file");
     throw new ConfigError(`Failed to read config file: ${err.message}`);
   }
 
   // Validate required fields
   if (!rulesPathRaw) {
-    throw new ConfigError('RulesPath is required in config file');
+    throw new ConfigError("RulesPath is required in config file");
   }
 
   const scanPaths = new FileSectionParser().parseSections(rawConfigObj);
 
   if (!scanPaths || scanPaths.length === 0) {
-    throw new ConfigError('At least one [pattern] path is required in config file');
+    throw new ConfigError(
+      "At least one [pattern] path is required in config file"
+    );
   }
 
   // Validate scan path patterns
   for (const pattern of scanPaths) {
     if (!isSupportedPattern(pattern.pattern)) {
-      throw new ConfigError(`Only .md, .txt, and .mdx are supported in ScanPaths. Invalid pattern: ${pattern.pattern}`);
+      throw new ConfigError(
+        `Only .md, .txt, and .mdx are supported in ScanPaths. Invalid pattern: ${pattern.pattern}`
+      );
     }
   }
 
@@ -137,11 +175,11 @@ export function loadConfig(cwd: string = process.cwd(), configPath?: string): Co
   try {
     return CONFIG_SCHEMA.parse(configData);
   } catch (e: unknown) {
-    if (e instanceof Error && 'issues' in e) {
+    if (e instanceof Error && "issues" in e) {
       // Zod error
       throw new ValidationError(`Invalid configuration: ${e.message}`);
     }
-    const err = handleUnknownError(e, 'Config validation');
+    const err = handleUnknownError(e, "Config validation");
     throw new ConfigError(`Configuration validation failed: ${err.message}`);
   }
 }
