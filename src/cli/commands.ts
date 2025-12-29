@@ -36,7 +36,8 @@ export function registerMainCommand(program: Command): void {
       "line"
     )
     .option(
-      `--config <path>', 'Path to custom ${DEFAULT_CONFIG_FILENAME} config file`
+      "--config <path>",
+      `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`
     )
     .option("--full", "Force full evaluation, ignore cache")
     .option("--no-cache", "Disable caching entirely")
@@ -147,6 +148,13 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
+      const normalizedScanPaths = config.scanPaths.map(
+        ({ runRules, ...rest }) => ({
+          ...rest,
+          ...(runRules !== undefined ? { runRules } : {}),
+        })
+      );
+
       // Resolve target files
       let targets: string[] = [];
       try {
@@ -154,10 +162,7 @@ export function registerMainCommand(program: Command): void {
           cliArgs: paths,
           cwd: process.cwd(),
           rulesPath,
-          scanPaths: config.scanPaths.map(({ runRules, ...rest }) => ({
-            ...rest,
-            ...(runRules !== undefined ? { runRules } : {}),
-          })),
+          scanPaths: normalizedScanPaths,
           configDir: config.configDir,
         });
       } catch (e: unknown) {
@@ -196,10 +201,7 @@ export function registerMainCommand(program: Command): void {
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
         outputFormat: outputFormat,
-        scanPaths: config.scanPaths.map(({ runRules, ...rest }) => ({
-          ...rest,
-          ...(runRules !== undefined ? { runRules } : {}),
-        })),
+        scanPaths: normalizedScanPaths,
         cacheEnabled: !cliOptions.noCache,
         forceFullRun: cliOptions.full,
       });
