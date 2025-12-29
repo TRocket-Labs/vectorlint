@@ -64,7 +64,7 @@ EXISTING_KEY = "new-value"
         expect(process.env.EXISTING_KEY).toBe('original-value');
     });
 
-    it('should handle missing config file gracefull', () => {
+    it('should handle missing config file gracefully', () => {
         vi.mocked(fs.existsSync).mockReturnValue(false); // Config doesn't exist
 
         loadGlobalConfig();
