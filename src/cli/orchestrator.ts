@@ -1,25 +1,53 @@
-import { readFileSync } from 'fs';
-import * as path from 'path';
-import type { PromptFile } from '../prompts/prompt-loader';
-import { ScanPathResolver } from '../boundaries/scan-path-resolver';
-import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
-import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
-import { RdJsonFormatter } from '../output/rdjson-formatter';
-import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
-import { locateEvidenceWithMatch } from '../output/location';
-import { checkTarget } from '../prompts/target';
-import { isSubjectiveResult } from '../prompts/schema';
-import { handleUnknownError, MissingDependencyError } from '../errors/index';
-import { createEvaluator } from '../evaluators/index';
-import { Type, Severity } from '../evaluators/types';
-import { OutputFormat } from './types';
-import { CacheStore, hashContent, hashPrompts, createCacheKeyString, type CachedIssue, type CachedScore } from '../cache/index';
+import { readFileSync } from "fs";
+import * as path from "path";
+import type { PromptFile } from "../prompts/prompt-loader";
+import { ScanPathResolver } from "../boundaries/scan-path-resolver";
+import {
+  ValeJsonFormatter,
+  type JsonIssue,
+} from "../output/vale-json-formatter";
+import {
+  JsonFormatter,
+  type Issue,
+  type ScoreComponent,
+} from "../output/json-formatter";
+import { RdJsonFormatter } from "../output/rdjson-formatter";
+import {
+  printFileHeader,
+  printIssueRow,
+  printEvaluationSummaries,
+  type EvaluationSummary,
+} from "../output/reporter";
+import { locateQuotedText } from "../output/location";
+import { checkTarget } from "../prompts/target";
+import { isSubjectiveResult } from "../prompts/schema";
+import { handleUnknownError, MissingDependencyError } from "../errors/index";
+import { createEvaluator } from "../evaluators/index";
+import { Type, Severity } from "../evaluators/types";
+import { OutputFormat } from "./types";
+import {
+  CacheStore,
+  hashContent,
+  hashPrompts,
+  createCacheKeyString,
+  type CachedIssue,
+  type CachedScore,
+} from "../cache/index";
 import type {
-  EvaluationOptions, EvaluationResult, ErrorTrackingResult,
-  ReportIssueParams, ExtractMatchTextParams, LocationMatch, ProcessViolationsParams,
-  ProcessCriterionParams, ProcessCriterionResult, ValidationParams, ProcessPromptResultParams,
-  RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult
-} from './types';
+  EvaluationOptions,
+  EvaluationResult,
+  ErrorTrackingResult,
+  ReportIssueParams,
+  ProcessViolationsParams,
+  ProcessCriterionParams,
+  ProcessCriterionResult,
+  ValidationParams,
+  ProcessPromptResultParams,
+  RunPromptEvaluationParams,
+  RunPromptEvaluationResult,
+  EvaluateFileParams,
+  EvaluateFileResult,
+} from "./types";
 
 /*
  * Returns the evaluator type, defaulting to 'base' if not specified.
@@ -39,16 +67,18 @@ async function runWithConcurrency<T, R>(
 ): Promise<R[]> {
   const results: R[] = new Array<R>(items.length);
   let i = 0;
-  const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
-    while (true) {
-      const idx = i++;
-      if (idx >= items.length) break;
-      const item = items[idx];
-      if (item !== undefined) {
-        results[idx] = await worker(item, idx);
+  const workers = new Array(Math.min(limit, items.length))
+    .fill(0)
+    .map(async () => {
+      while (true) {
+        const idx = i++;
+        if (idx >= items.length) break;
+        const item = items[idx];
+        if (item !== undefined) {
+          results[idx] = await worker(item, idx);
+        }
       }
-    }
-  });
+    });
   await Promise.all(workers);
   return results;
 }
@@ -56,7 +86,10 @@ async function runWithConcurrency<T, R>(
 /*
  * Reports an issue in either line or JSON format.
  */
-function reportIssue(params: ReportIssueParams, issueCollector?: CachedIssue[]): void {
+function reportIssue(
+  params: ReportIssueParams,
+  issueCollector?: CachedIssue[]
+): void {
   const {
     file,
     line,
@@ -68,7 +101,7 @@ function reportIssue(params: ReportIssueParams, issueCollector?: CachedIssue[]):
     jsonFormatter,
     suggestion,
     scoreText,
-    match
+    match,
   } = params;
 
   if (issueCollector) {
@@ -80,13 +113,19 @@ function reportIssue(params: ReportIssueParams, issueCollector?: CachedIssue[]):
       ruleName,
       suggestion,
       scoreText,
-      match
+      match,
     });
   }
 
   if (outputFormat === OutputFormat.Line) {
     const locStr = `${line}:${column}`;
-    printIssueRow(locStr, severity, summary, ruleName, suggestion ? { suggestion } : {});
+    printIssueRow(
+      locStr,
+      severity,
+      summary,
+      ruleName,
+      suggestion ? { suggestion } : {}
+    );
   } else if (outputFormat === OutputFormat.ValeJson) {
     const issue: JsonIssue = {
       file,
@@ -95,14 +134,16 @@ function reportIssue(params: ReportIssueParams, issueCollector?: CachedIssue[]):
       severity,
       message: summary,
       rule: ruleName,
-      match: match || '',
+      match: match || "",
       matchLength: match ? match.length : 0,
       ...(suggestion !== undefined ? { suggestion } : {}),
       ...(scoreText !== undefined ? { score: scoreText } : {}),
     };
     (jsonFormatter as ValeJsonFormatter).addIssue(issue);
-  } else if (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.RdJson) {
-
+  } else if (
+    outputFormat === OutputFormat.Json ||
+    outputFormat === OutputFormat.RdJson
+  ) {
     const matchLen = match ? match.length : 0;
     const endColumn = column + matchLen;
     const issue: Issue = {
@@ -112,65 +153,11 @@ function reportIssue(params: ReportIssueParams, issueCollector?: CachedIssue[]):
       severity,
       message: summary,
       rule: ruleName,
-      match: match || '',
-      ...(suggestion ? { suggestion } : {})
+      match: match || "",
+      ...(suggestion ? { suggestion } : {}),
     };
     (jsonFormatter as JsonFormatter | RdJsonFormatter).addIssue(file, issue);
   }
-}
-
-
-/*
- * Extracts the best match text from evidence markers and analysis message.
- */
-function extractMatchText(params: ExtractMatchTextParams): LocationMatch {
-  const { content, line, matchedText, rowSummary } = params;
-
-  const finalLine = line;
-  let finalColumn = 1;
-  let finalMatch = matchedText;
-
-  // Extract quoted text from the analysis message
-  const quotedMatch = rowSummary.match(/'([^']+)'|"([^"]+)"|`([^`]+)`/);
-  const quotedText = quotedMatch ? (quotedMatch[1] || quotedMatch[2] || quotedMatch[3]) : '';
-
-  if (quotedText) {
-    // Check if the quoted text is in the matched text from pre/post
-    if (matchedText && matchedText.includes(quotedText)) {
-      finalMatch = quotedText;
-      const lines = content.split('\n');
-      if (line >= 1 && line <= lines.length) {
-        const lineContent = lines[line - 1] || '';
-        const quotedIndex = lineContent.indexOf(quotedText);
-        if (quotedIndex !== -1) {
-          finalColumn = quotedIndex + 1;
-        }
-      }
-    } else if (!matchedText || !matchedText.includes(quotedText)) {
-      // Search for quoted text on the same line
-      const lines = content.split('\n');
-      if (line >= 1 && line <= lines.length) {
-        const lineContent = lines[line - 1] || '';
-        const quotedIndex = lineContent.indexOf(quotedText);
-        if (quotedIndex !== -1) {
-          finalColumn = quotedIndex + 1;
-          finalMatch = quotedText;
-        }
-      }
-    }
-  }
-
-  // If still no match, extract a meaningful snippet from the line
-  if (!finalMatch && !quotedText) {
-    const lines = content.split('\n');
-    if (line >= 1 && line <= lines.length) {
-      const lineContent = lines[line - 1] || '';
-      const words = lineContent.trim().split(/\s+/).slice(0, 5).join(' ');
-      finalMatch = words.length > 50 ? words.substring(0, 50) : words;
-    }
-  }
-
-  return { line: finalLine, column: finalColumn, match: finalMatch };
 }
 
 /*
@@ -179,52 +166,110 @@ function extractMatchText(params: ExtractMatchTextParams): LocationMatch {
  * and continues processing. Returns hadOperationalErrors=true if any violations
  * couldn't be located, signaling text matching issues vs. content quality issues.
  */
-function locateAndReportViolations(params: ProcessViolationsParams): { hadOperationalErrors: boolean } {
-  const { violations, content, relFile, severity, ruleName, scoreText, outputFormat, jsonFormatter, issueCollector } = params;
+function locateAndReportViolations(params: ProcessViolationsParams): {
+  hadOperationalErrors: boolean;
+} {
+  const {
+    violations,
+    content,
+    relFile,
+    severity,
+    ruleName,
+    scoreText,
+    outputFormat,
+    jsonFormatter,
+    verbose,
+    issueCollector,
+  } = params;
 
   let hadOperationalErrors = false;
+
+  // Locate all violations and filter out those that can't be verified
+  // Then de-duplicate by (quoted_text, line)
+  const seen = new Set<string>();
+  const verifiedViolations: Array<{
+    v: (typeof violations)[0];
+    line: number;
+    column: number;
+    matchedText: string;
+    rowSummary: string;
+  }> = [];
 
   for (const v of violations) {
     if (!v) continue;
 
-    let line = 1;
-    let column = 1;
-    let matchedText = '';
-    const rowSummary = (v.analysis || '').trim();
+    const rowSummary = (v.analysis || "").trim();
 
     try {
-      const locWithMatch = locateEvidenceWithMatch(content, { pre: v.pre || '', post: v.post || '' });
-      if (locWithMatch) {
-        line = locWithMatch.line;
-        column = locWithMatch.column;
-        matchedText = locWithMatch.match || '';
+      const locWithMatch = locateQuotedText(
+        content,
+        {
+          quoted_text: v.quoted_text || "",
+          context_before: v.context_before || "",
+          context_after: v.context_after || "",
+        },
+        80,
+        v.line
+      );
 
-        const extracted = extractMatchText({ content, line, matchedText, rowSummary });
-        line = extracted.line;
-        column = extracted.column;
-        matchedText = extracted.match;
-      } else {
+      if (!locWithMatch) {
+        // Can't verify this quote exists - skip it entirely
+        if (verbose) {
+          console.warn(
+            `[vectorlint] Skipping unverifiable quote: "${v.quoted_text}"`
+          );
+        }
         hadOperationalErrors = true;
+        continue;
       }
+
+      const line = locWithMatch.line;
+      const column = locWithMatch.column;
+      const matchedText = locWithMatch.match || "";
+
+      // De-duplicate by (quoted_text, line) - skip if quoted_text is empty
+      const dedupeKey = v.quoted_text ? `${v.quoted_text}:${line}` : null;
+      if (dedupeKey && seen.has(dedupeKey)) {
+        continue; // Skip duplicate
+      }
+      if (dedupeKey) {
+        seen.add(dedupeKey);
+      }
+
+      verifiedViolations.push({ v, line, column, matchedText, rowSummary });
     } catch (e: unknown) {
-      const err = handleUnknownError(e, 'Locating evidence');
-      console.warn(`[vectorlint] Warning: ${err.message}`);
+      const err = handleUnknownError(e, "Locating evidence");
+      if (verbose) {
+        console.warn(`[vectorlint] Error locating evidence: ${err.message}`);
+      }
       hadOperationalErrors = true;
     }
+  }
 
-    reportIssue({
-      file: relFile,
-      line,
-      column,
-      severity,
-      summary: rowSummary,
-      ruleName,
-      outputFormat,
-      jsonFormatter,
-      ...(v.suggestion !== undefined && { suggestion: v.suggestion }),
-      scoreText,
-      match: matchedText
-    }, issueCollector);
+  // Report only verified, unique violations
+  for (const {
+    v,
+    line,
+    column,
+    matchedText,
+    rowSummary,
+  } of verifiedViolations) {
+    reportIssue(
+      {
+        file: relFile,
+        line,
+        column,
+        severity,
+        summary: rowSummary,
+        ruleName,
+        outputFormat,
+        jsonFormatter,
+        ...(v.suggestion !== undefined && { suggestion: v.suggestion }),
+        scoreText,
+        match: matchedText,
+      },
+      issueCollector
+    );
   }
 
   return { hadOperationalErrors };
@@ -235,14 +280,40 @@ function locateAndReportViolations(params: ProcessViolationsParams): { hadOperat
  * All violations are reported regardless of score.
  * Returns error/warning counts, score entry for Quality Scores, and score components for JSON.
  */
-function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCriterionResult {
-  const { exp, result, content, relFile, promptId, promptFilename, meta, outputFormat, jsonFormatter, issueCollector } = params;
+function extractAndReportCriterion(
+  params: ProcessCriterionParams
+): ProcessCriterionResult {
+  const {
+    exp,
+    result,
+    content,
+    relFile,
+    promptId,
+    promptFilename,
+    meta,
+    outputFormat,
+    jsonFormatter,
+    verbose,
+    issueCollector,
+  } = params;
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
 
-  const nameKey = String(exp.name || exp.id || '');
-  const criterionId = (exp.id ? String(exp.id) : (exp.name ? String(exp.name).replace(/[^A-Za-z0-9]+/g, ' ').split(' ').filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('') : ''));
-  const ruleName = promptId && criterionId ? `${promptId}.${criterionId}` : (promptId || criterionId || promptFilename);
+  const nameKey = String(exp.name || exp.id || "");
+  const criterionId = exp.id
+    ? String(exp.id)
+    : exp.name
+    ? String(exp.name)
+        .replace(/[^A-Za-z0-9]+/g, " ")
+        .split(" ")
+        .filter(Boolean)
+        .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+        .join("")
+    : "";
+  const ruleName =
+    promptId && criterionId
+      ? `${promptId}.${criterionId}`
+      : promptId || criterionId || promptFilename;
 
   const weightNum = exp.weight || 1;
   const maxScore = weightNum;
@@ -255,21 +326,28 @@ function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCrite
 
   if (missingTarget) {
     hadSeverityErrors = true;
-    const summary = 'target not found';
-    const suggestion = (targetCheck.suggestion || expTargetSpec?.suggestion || metaTargetSpec?.suggestion || 'Add the required target section.');
-    reportIssue({
-      file: relFile,
-      line: 1,
-      column: 1,
-      severity: Severity.ERROR,
-      summary,
-      ruleName,
-      outputFormat,
-      jsonFormatter,
-      suggestion,
-      scoreText: 'nil',
-      match: ''
-    }, issueCollector);
+    const summary = "target not found";
+    const suggestion =
+      targetCheck.suggestion ||
+      expTargetSpec?.suggestion ||
+      metaTargetSpec?.suggestion ||
+      "Add the required target section.";
+    reportIssue(
+      {
+        file: relFile,
+        line: 1,
+        column: 1,
+        severity: Severity.ERROR,
+        summary,
+        ruleName,
+        outputFormat,
+        jsonFormatter,
+        suggestion,
+        scoreText: "nil",
+        match: "",
+      },
+      issueCollector
+    );
     return {
       errors: 1,
       warnings: 0,
@@ -277,7 +355,7 @@ function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCrite
       maxScore,
       hadOperationalErrors,
       hadSeverityErrors,
-      scoreEntry: { id: ruleName, scoreText: '0.0/10', score: 0.0 },
+      scoreEntry: { id: ruleName, scoreText: "0.0/10", score: 0.0 },
       scoreComponent: {
         criterion: nameKey,
         rawScore: 0,
@@ -285,12 +363,14 @@ function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCrite
         weightedScore: 0,
         weightedMaxScore: weightNum,
         normalizedScore: 0,
-        normalizedMaxScore: 10
-      }
+        normalizedMaxScore: 10,
+      },
     };
   }
 
-  const got = result.criteria.find(c => c.name === nameKey || c.name.toLowerCase() === nameKey.toLowerCase());
+  const got = result.criteria.find(
+    (c) => c.name === nameKey || c.name.toLowerCase() === nameKey.toLowerCase()
+  );
   if (!got) {
     return {
       errors: 0,
@@ -299,7 +379,7 @@ function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCrite
       maxScore,
       hadOperationalErrors,
       hadSeverityErrors,
-      scoreEntry: { id: ruleName, scoreText: '-', score: 0.0 },
+      scoreEntry: { id: ruleName, scoreText: "-", score: 0.0 },
       scoreComponent: {
         criterion: nameKey,
         rawScore: 0,
@@ -307,8 +387,8 @@ function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCrite
         weightedScore: 0,
         weightedMaxScore: weightNum,
         normalizedScore: 0,
-        normalizedMaxScore: 10
-      }
+        normalizedMaxScore: 10,
+      },
     };
   }
 
@@ -348,7 +428,14 @@ function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCrite
 
     // Report all violations
     const violationResult = locateAndReportViolations({
-      violations: violations as Array<{ pre?: string; post?: string; analysis?: string; suggestion?: string }>,
+      violations: violations as Array<{
+        line?: number;
+        quoted_text?: string;
+        context_before?: string;
+        context_after?: string;
+        analysis?: string;
+        suggestion?: string;
+      }>,
       content,
       relFile,
       severity,
@@ -356,9 +443,11 @@ function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCrite
       scoreText,
       outputFormat,
       jsonFormatter,
-      issueCollector
+      verbose: !!verbose,
+      issueCollector,
     });
-    hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
+    hadOperationalErrors =
+      hadOperationalErrors || violationResult.hadOperationalErrors;
   } else if (score <= 2) {
     // No violations but low score - report with summary
     severity = score <= 1 ? Severity.ERROR : Severity.WARNING;
@@ -371,20 +460,23 @@ function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCrite
 
     const sum = got.summary.trim();
     const words = sum.split(/\s+/).filter(Boolean);
-    const limited = words.slice(0, 15).join(' ');
-    const summaryText = limited || 'No findings';
-    reportIssue({
-      file: relFile,
-      line: 1,
-      column: 1,
-      severity,
-      summary: summaryText,
-      ruleName,
-      outputFormat,
-      jsonFormatter,
-      scoreText,
-      match: ''
-    }, issueCollector);
+    const limited = words.slice(0, 15).join(" ");
+    const summaryText = limited || "No findings";
+    reportIssue(
+      {
+        file: relFile,
+        line: 1,
+        column: 1,
+        severity,
+        summary: summaryText,
+        ruleName,
+        outputFormat,
+        jsonFormatter,
+        scoreText,
+        match: "",
+      },
+      issueCollector
+    );
   }
 
   return {
@@ -402,8 +494,8 @@ function extractAndReportCriterion(params: ProcessCriterionParams): ProcessCrite
       weightedScore: rawWeighted,
       weightedMaxScore: weightNum,
       normalizedScore: normalizedScore,
-      normalizedMaxScore: 10
-    }
+      normalizedMaxScore: 10,
+    },
   };
 }
 
@@ -414,8 +506,12 @@ function validateCriteriaCompleteness(params: ValidationParams): boolean {
   const { meta, result } = params;
   let hadErrors = false;
 
-  const expectedNames = new Set<string>((meta.criteria || []).map((c) => String(c.name || c.id || '')));
-  const returnedNames = new Set(result.criteria.map((c: { name: string }) => c.name));
+  const expectedNames = new Set<string>(
+    (meta.criteria || []).map((c) => String(c.name || c.id || ""))
+  );
+  const returnedNames = new Set(
+    result.criteria.map((c: { name: string }) => c.name)
+  );
 
   // Create normalized maps for case-insensitive lookup
   const expectedNormalized = new Set<string>();
@@ -433,14 +529,18 @@ function validateCriteriaCompleteness(params: ValidationParams): boolean {
 
   for (const norm of expectedNormalized) {
     if (!returnedNormalized.has(norm)) {
-      console.error(`Missing criterion in model output: ${expectedOriginalMap.get(norm)}`);
+      console.error(
+        `Missing criterion in model output: ${expectedOriginalMap.get(norm)}`
+      );
       hadErrors = true;
     }
   }
 
   for (const name of returnedNames) {
     if (!expectedNormalized.has(name.toLowerCase())) {
-      console.warn(`[vectorlint] Extra criterion returned by model (ignored): ${name}`);
+      console.warn(
+        `[vectorlint] Extra criterion returned by model (ignored): ${name}`
+      );
     }
   }
 
@@ -455,11 +555,10 @@ function validateScores(params: ValidationParams): boolean {
   let hadErrors = false;
 
   for (const exp of meta.criteria || []) {
-    const nameKey = String(exp.name || exp.id || '');
+    const nameKey = String(exp.name || exp.id || "");
     const got = result.criteria.find(
-      c => c.name === nameKey
-        ||
-        c.name.toLowerCase() === nameKey.toLowerCase()
+      (c) =>
+        c.name === nameKey || c.name.toLowerCase() === nameKey.toLowerCase()
     );
     if (!got) continue;
 
@@ -479,10 +578,21 @@ function validateScores(params: ValidationParams): boolean {
  * Subjective: Iterates through criteria, validates scores, creates scoreEntry per criterion.
  * Both paths generate scoreEntries for Quality Scores display.
  */
-function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResult {
-  const { promptFile, result, content, relFile, outputFormat, jsonFormatter, issueCollector } = params;
+function routePromptResult(
+  params: ProcessPromptResultParams
+): ErrorTrackingResult {
+  const {
+    promptFile,
+    result,
+    content,
+    relFile,
+    outputFormat,
+    jsonFormatter,
+    verbose,
+    issueCollector,
+  } = params;
   const meta = promptFile.meta;
-  const promptId = (meta.id || '').toString();
+  const promptId = (meta.id || "").toString();
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -492,7 +602,7 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
   // Handle Semi-Objective Result
   if (!isSubjectiveResult(result)) {
     const severity = result.severity;
-    const ruleName = promptId || promptFile.filename.replace(/\.md$/, '');
+    const ruleName = promptId || promptFile.filename.replace(/\.md$/, "");
     const violationCount = result.violations.length;
 
     if (violationCount > 0) {
@@ -502,32 +612,41 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
         relFile,
         severity,
         ruleName,
-        scoreText: '',
+        scoreText: "",
         outputFormat,
         jsonFormatter,
-        issueCollector
+        verbose: !!verbose,
+        issueCollector,
       });
-      hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
-    } else if ((outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson) && result.message) {
+      hadOperationalErrors =
+        hadOperationalErrors || violationResult.hadOperationalErrors;
+    } else if (
+      (outputFormat === OutputFormat.Json ||
+        outputFormat === OutputFormat.ValeJson) &&
+      result.message
+    ) {
       // For JSON, if there's a message but no violations, report it as a general issue
-      reportIssue({
-        file: relFile,
-        line: 1,
-        column: 1,
-        severity,
-        summary: result.message,
-        ruleName,
-        outputFormat,
-        jsonFormatter,
-        match: ''
-      }, issueCollector);
+      reportIssue(
+        {
+          file: relFile,
+          line: 1,
+          column: 1,
+          severity,
+          summary: result.message,
+          ruleName,
+          outputFormat,
+          jsonFormatter,
+          match: "",
+        },
+        issueCollector
+      );
     }
 
     // Create scoreEntry for Quality Scores display
     const scoreEntry: EvaluationSummary = {
       id: ruleName,
       scoreText: `${result.final_score.toFixed(1)}/10`,
-      score: result.final_score
+      score: result.final_score,
     };
 
     return {
@@ -536,14 +655,16 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
       hadOperationalErrors,
       hadSeverityErrors: severity === Severity.ERROR,
       scoreEntries: [scoreEntry],
-      scoreComponents: []
+      scoreComponents: [],
     };
   }
 
   // Handle Subjective Result
   // Validate criterion completeness and scores
-  hadOperationalErrors = validateCriteriaCompleteness({ meta, result }) || hadOperationalErrors;
-  hadOperationalErrors = validateScores({ meta, result }) || hadOperationalErrors;
+  hadOperationalErrors =
+    validateCriteriaCompleteness({ meta, result }) || hadOperationalErrors;
+  hadOperationalErrors =
+    validateScores({ meta, result }) || hadOperationalErrors;
 
   // Reset promptErrors and promptWarnings for subjective results
   promptErrors = 0;
@@ -563,12 +684,14 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
       meta,
       outputFormat,
       jsonFormatter,
-      issueCollector
+      verbose: !!verbose,
+      issueCollector,
     });
 
     promptErrors += criterionResult.errors;
     promptWarnings += criterionResult.warnings;
-    hadOperationalErrors = hadOperationalErrors || criterionResult.hadOperationalErrors;
+    hadOperationalErrors =
+      hadOperationalErrors || criterionResult.hadOperationalErrors;
     hadSeverityErrors = hadSeverityErrors || criterionResult.hadSeverityErrors;
     criterionScores.push(criterionResult.scoreEntry);
 
@@ -578,10 +701,13 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
   }
 
   if (outputFormat === OutputFormat.Json && scoreComponents.length > 0) {
-    (jsonFormatter as JsonFormatter | RdJsonFormatter).addEvaluationScore(relFile, {
-      id: promptId || promptFile.filename.replace(/\.md$/, ''),
-      scores: scoreComponents
-    });
+    (jsonFormatter as JsonFormatter | RdJsonFormatter).addEvaluationScore(
+      relFile,
+      {
+        id: promptId || promptFile.filename.replace(/\.md$/, ""),
+        scores: scoreComponents,
+      }
+    );
   }
 
   return {
@@ -590,7 +716,7 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
     hadOperationalErrors,
     hadSeverityErrors,
     scoreEntries: criterionScores,
-    scoreComponents: scoreComponents
+    scoreComponents: scoreComponents,
   };
 }
 
@@ -600,34 +726,35 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
  * - criteria defined → scored mode
  * - no criteria → basic mode
  */
-async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<RunPromptEvaluationResult> {
-  const { promptFile, relFile, content, provider, searchProvider, overrides } = params;
+async function runPromptEvaluation(
+  params: RunPromptEvaluationParams
+): Promise<RunPromptEvaluationResult> {
+  const { promptFile, relFile, content, provider, searchProvider } = params;
 
   try {
-    const meta = { ...promptFile.meta };
-
-    // Apply overrides
-    if (overrides) {
-      for (const [key, value] of Object.entries(overrides)) {
-        // Handle nested properties like "strictness" (which might be top-level in meta or inside criteria?)
-        // The plan says "GrammarChecker.strictness=9".
-        // If the key is "strictness", we update meta.strictness?
-        // Or is it a specific property of the evaluator?
-        // Let's assume it maps to meta properties.
-        (meta as Record<string, unknown>)[key] = value;
-      }
-    }
+    const meta = promptFile.meta;
 
     const evaluatorType = resolveEvaluatorType(meta.evaluator);
 
     // Specialized evaluators (e.g., technical-accuracy) require criteria
     // BaseEvaluator handles both modes: scored (with criteria) and basic (without)
     if (evaluatorType !== (Type.BASE as string)) {
-      if (!meta || !Array.isArray(meta.criteria) || meta.criteria.length === 0) {
-        throw new Error(`Prompt ${promptFile.filename} has no criteria in frontmatter`);
+      if (
+        !meta ||
+        !Array.isArray(meta.criteria) ||
+        meta.criteria.length === 0
+      ) {
+        throw new Error(
+          `Prompt ${promptFile.filename} has no criteria in frontmatter`
+        );
       }
     }
-    const evaluator = createEvaluator(evaluatorType, provider, promptFile, searchProvider);
+    const evaluator = createEvaluator(
+      evaluatorType,
+      provider,
+      promptFile,
+      searchProvider
+    );
     const result = await evaluator.evaluate(relFile, content);
 
     return { ok: true, result };
@@ -640,11 +767,22 @@ async function runPromptEvaluation(params: RunPromptEvaluationParams): Promise<R
 /*
  * Evaluates a single file with all applicable prompts.
  */
-async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileResult> {
-  const { file, options, jsonFormatter, cacheStore, promptsHash, useCache } = params;
-  const { prompts, provider, searchProvider, concurrency, scanPaths, outputFormat = OutputFormat.Line } = options;
+async function evaluateFile(
+  params: EvaluateFileParams
+): Promise<EvaluateFileResult> {
+  const { file, options, jsonFormatter, cacheStore, promptsHash, useCache } =
+    params;
+  const {
+    prompts,
+    provider,
+    searchProvider,
+    concurrency,
+    scanPaths,
+    outputFormat = OutputFormat.Line,
+    verbose,
+  } = options;
 
-  const content = readFileSync(file, 'utf-8');
+  const content = readFileSync(file, "utf-8");
   const relFile = path.relative(process.cwd(), file) || file;
 
   // Check cache before running evaluations
@@ -657,7 +795,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
       // Cache hit - return cached result without running LLM
       if (outputFormat === OutputFormat.Line) {
         printFileHeader(relFile);
-        console.log('  (cached)');
+        console.log("  (cached)");
       }
 
       // Replay cached issues
@@ -672,9 +810,13 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
             ruleName: issue.ruleName,
             outputFormat,
             jsonFormatter,
-            ...(issue.suggestion !== undefined ? { suggestion: issue.suggestion } : {}),
-            ...(issue.scoreText !== undefined ? { scoreText: issue.scoreText } : {}),
-            ...(issue.match !== undefined ? { match: issue.match } : {})
+            ...(issue.suggestion !== undefined
+              ? { suggestion: issue.suggestion }
+              : {}),
+            ...(issue.scoreText !== undefined
+              ? { scoreText: issue.scoreText }
+              : {}),
+            ...(issue.match !== undefined ? { match: issue.match } : {}),
           });
         }
       }
@@ -686,13 +828,15 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
             replayScores.set(s.ruleName, s.items);
           }
           printEvaluationSummaries(replayScores);
-          console.log('');
+          console.log("");
         } else if (outputFormat === OutputFormat.Json) {
           for (const s of cached.scores) {
             if (s.components && s.components.length > 0) {
-              (jsonFormatter as JsonFormatter | RdJsonFormatter).addEvaluationScore(relFile, {
+              (
+                jsonFormatter as JsonFormatter | RdJsonFormatter
+              ).addEvaluationScore(relFile, {
                 id: s.ruleName,
-                scores: s.components
+                scores: s.components,
               });
             }
           }
@@ -705,7 +849,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
         requestFailures: cached.requestFailures,
         hadOperationalErrors: cached.hadOperationalErrors,
         hadSeverityErrors: cached.hadSeverityErrors,
-        wasCacheHit: true
+        wasCacheHit: true,
       };
     }
   }
@@ -724,60 +868,57 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
   }
 
   // Determine applicable prompts for this file
-  const toRun: Array<{ prompt: PromptFile; overrides: Record<string, unknown> }> = [];
+  const toRun: PromptFile[] = [];
 
   if (scanPaths && scanPaths.length > 0) {
     const resolver = new ScanPathResolver();
     // Extract available packs from loaded prompts
-    const availablePacks = Array.from(new Set(prompts.map(p => p.pack).filter((p): p is string => !!p)));
+    const availablePacks = Array.from(
+      new Set(prompts.map((p) => p.pack).filter((p): p is string => !!p))
+    );
 
-    const resolution = resolver.resolveConfiguration(relFile, scanPaths, availablePacks);
+    const resolution = resolver.resolveConfiguration(
+      relFile,
+      scanPaths,
+      availablePacks
+    );
 
-    // Filter prompts by active packs
-    const activePrompts = prompts.filter(p => p.pack && resolution.packs.includes(p.pack));
+    // Filter prompts by active packs and check if disabled
+    const activePrompts = prompts.filter((p) => {
+      if (!p.pack || !resolution.packs.includes(p.pack)) return false;
+      if (!p.meta?.id) return true;
+      const disableKey = `${p.pack}.${p.meta.id}`;
+      const overrideValue = resolution.overrides[disableKey];
+      return (
+        typeof overrideValue !== "string" ||
+        overrideValue.toLowerCase() !== "disabled"
+      );
+    });
 
-    // Pre-process overrides into a map for O(1) lookup
-    const overrideMap = new Map<string, Record<string, unknown>>();
-    for (const [key, value] of Object.entries(resolution.overrides)) {
-      const dotIndex = key.indexOf('.');
-      if (dotIndex > 0) {
-        const promptId = key.substring(0, dotIndex);
-        const prop = key.substring(dotIndex + 1);
-        if (!overrideMap.has(promptId)) {
-          overrideMap.set(promptId, {});
-        }
-        overrideMap.get(promptId)![prop] = value;
-      }
-    }
-
-    for (const prompt of activePrompts) {
-      const promptOverrides = overrideMap.get(prompt.id) || {};
-      toRun.push({ prompt, overrides: promptOverrides });
-    }
+    toRun.push(...activePrompts);
   } else {
     // Fallback: When no scanPaths configured, run all prompts.
     // This maintains backward compatibility for unconfigured setups.
-    for (const prompt of prompts) {
-      toRun.push({ prompt, overrides: {} });
-    }
+    toRun.push(...prompts);
   }
 
-  const results = await runWithConcurrency(toRun, concurrency, async (item) => {
-    return runPromptEvaluation({
-      promptFile: item.prompt,
-      relFile,
-      content,
-      provider,
-      ...(searchProvider !== undefined && { searchProvider }),
-      overrides: item.overrides
-    });
-  });
+  const results = await runWithConcurrency(
+    toRun,
+    concurrency,
+    async (prompt) => {
+      return runPromptEvaluation({
+        promptFile: prompt,
+        relFile,
+        content,
+        provider,
+        ...(searchProvider !== undefined && { searchProvider }),
+      });
+    }
+  );
 
   // Aggregate results from each prompt
   for (let idx = 0; idx < toRun.length; idx++) {
-    const item = toRun[idx];
-    if (!item) continue;
-    const p = item.prompt;
+    const p = toRun[idx];
     const r = results[idx];
     if (!p || !r) continue;
 
@@ -807,11 +948,13 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
       relFile,
       outputFormat,
       jsonFormatter,
-      issueCollector
+      verbose,
+      issueCollector,
     });
     totalErrors += promptResult.errors;
     totalWarnings += promptResult.warnings;
-    hadOperationalErrors = hadOperationalErrors || promptResult.hadOperationalErrors;
+    hadOperationalErrors =
+      hadOperationalErrors || promptResult.hadOperationalErrors;
     hadSeverityErrors = hadSeverityErrors || promptResult.hadSeverityErrors;
 
     if (promptResult.scoreEntries && promptResult.scoreEntries.length > 0) {
@@ -819,7 +962,9 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
       allScores.set(ruleName, {
         ruleName,
         items: promptResult.scoreEntries,
-        ...(promptResult.scoreComponents ? { components: promptResult.scoreComponents } : {})
+        ...(promptResult.scoreComponents
+          ? { components: promptResult.scoreComponents }
+          : {}),
       });
     }
   }
@@ -830,7 +975,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
       summaryMap.set(key, val.items);
     }
     printEvaluationSummaries(summaryMap);
-    console.log('');
+    console.log("");
   }
 
   const result: EvaluateFileResult = {
@@ -839,7 +984,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
     requestFailures,
     hadOperationalErrors,
     hadSeverityErrors,
-    wasCacheHit: false
+    wasCacheHit: false,
   };
 
   // Store result in cache
@@ -857,7 +1002,7 @@ async function evaluateFile(params: EvaluateFileParams): Promise<EvaluateFileRes
       requestFailures,
       issues: issueCollector,
       scores: cachedScores,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
@@ -873,7 +1018,13 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  const { outputFormat = OutputFormat.Line, cacheEnabled = true, forceFullRun = false, prompts, verbose } = options;
+  const {
+    outputFormat = OutputFormat.Line,
+    cacheEnabled = true,
+    forceFullRun = false,
+    prompts,
+    verbose,
+  } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -895,7 +1046,9 @@ export async function evaluateFiles(
     if (verbose) {
       const cacheSize = cacheStore.size();
       if (forceFullRun) {
-        console.log(`[vectorlint] Cache: --full flag, ignoring ${cacheSize} cached entries`);
+        console.log(
+          `[vectorlint] Cache: --full flag, ignoring ${cacheSize} cached entries`
+        );
       } else if (cacheSize > 0) {
         console.log(`[vectorlint] Cache: ${cacheSize} entries loaded`);
       }
@@ -920,7 +1073,7 @@ export async function evaluateFiles(
         jsonFormatter,
         cacheStore,
         promptsHash,
-        useCache
+        useCache,
       });
 
       // Track cache hits
@@ -931,7 +1084,8 @@ export async function evaluateFiles(
       totalErrors += fileResult.errors;
       totalWarnings += fileResult.warnings;
       requestFailures += fileResult.requestFailures;
-      hadOperationalErrors = hadOperationalErrors || fileResult.hadOperationalErrors;
+      hadOperationalErrors =
+        hadOperationalErrors || fileResult.hadOperationalErrors;
       hadSeverityErrors = hadSeverityErrors || fileResult.hadSeverityErrors;
     } catch (e: unknown) {
       const err = handleUnknownError(e, `Processing file ${file}`);
@@ -945,12 +1099,18 @@ export async function evaluateFiles(
     cacheStore.save();
 
     if (verbose && cacheHits > 0) {
-      console.log(`[vectorlint] Cache: ${cacheHits}/${totalFiles} files from cache`);
+      console.log(
+        `[vectorlint] Cache: ${cacheHits}/${totalFiles} files from cache`
+      );
     }
   }
 
   // Output results based on format (always to stdout for JSON formats)
-  if (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson || outputFormat === OutputFormat.RdJson) {
+  if (
+    outputFormat === OutputFormat.Json ||
+    outputFormat === OutputFormat.ValeJson ||
+    outputFormat === OutputFormat.RdJson
+  ) {
     const jsonStr = jsonFormatter.toJson();
     console.log(jsonStr);
   }
