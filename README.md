@@ -50,7 +50,33 @@ VectorLint scores your content using error density and a rubric-based system, en
 
 ## Quick Start
 
-1.  **Create Your First Rule:**
+1.  **Initialize Configuration:**
+
+    Run the initialization command to generate your configuration files:
+
+    ```bash
+    vectorlint init
+    ```
+
+    This creates two files:
+    - **VectorLint Config** (`.vectorlint.ini`): Project-specific settings (rules path, concurrency).
+    - **App Config** (`~/.vectorlint/config.toml`): Global API keys and provider settings.
+
+    👉 **[Full configuration reference →](./CONFIGURATION.md)**
+
+2.  **Configure API Keys:**
+
+    Open your global **App Config** (`~/.vectorlint/config.toml`) and uncomment the section for your preferred LLM provider (OpenAI, Anthropic, Gemini, or Azure).
+
+    ```toml
+    [env]
+    LLM_PROVIDER = "openai"
+    OPENAI_API_KEY = "sk-..."
+    ```
+
+    *Note: You can also use a local `.env` file in your project, which takes precedence over the global config.*
+
+3.  **Create Your First Rule:**
 
     Create a directory named `VectorLint` and add a file `grammar.md` inside it:
 
@@ -63,37 +89,6 @@ VectorLint scores your content using error density and a rubric-based system, en
     ---
 
     Check this content for grammar issues, spelling errors, and punctuation mistakes.
-    ```
-
-2.  **Configure VectorLint:**
-
-    Create a `.vectorlint.ini` configuration file in your project root:
-
-    ```ini
-    # .vectorlint.ini
-    RulesPath=.
-
-    # Run the "VectorLint" rule pack on all markdown files
-    [**/*.md]
-    RunRules=VectorLint
-    ```
-
-    👉 **[Full configuration reference →](./CONFIGURATION.md)**
-
-3.  **Set An LLM Provider:**
-
-    Create a `.env` file in your project root with your API keys:
-
-    ```bash
-    # OpenAI (Default)
-    OPENAI_API_KEY=sk-...
-    LLM_PROVIDER=openai
-
-    # - OR -
-
-    # Anthropic
-    ANTHROPIC_API_KEY=sk-ant-...
-    LLM_PROVIDER=anthropic
     ```
 
 4.  **Run a check:**
