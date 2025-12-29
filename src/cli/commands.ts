@@ -15,6 +15,7 @@ import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
 import { OutputFormat } from './types';
+import { DEFAULT_CONFIG_FILENAME } from '../config/constants';
 
 /*
  * Registers the main evaluation command with Commander.
@@ -27,7 +28,7 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Print full JSON response from the API')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
-    .option('--config <path>', 'Path to custom vectorlint.ini config file')
+    .option(`--config <path>', 'Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (optional)')
     .action(async (paths: string[] = []) => {
 

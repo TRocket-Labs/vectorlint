@@ -1,72 +1,93 @@
-import { EvaluationType, Severity } from '../evaluators/types';
+import { EvaluationType, Severity } from "../evaluators/types";
 
 export function buildSubjectiveLLMSchema() {
   return {
-    name: 'vectorlint_subjective_result',
+    name: "vectorlint_subjective_result",
     strict: true,
     schema: {
-      type: 'object',
+      type: "object",
       additionalProperties: false,
       properties: {
         criteria: {
-          type: 'array',
+          type: "array",
           items: {
-            type: 'object',
+            type: "object",
             additionalProperties: false,
             properties: {
-              name: { type: 'string' },
-              score: { type: 'number', enum: [1, 2, 3, 4] },
-              summary: { type: 'string' },
-              reasoning: { type: 'string' },
+              reasoning: {
+                type: "string",
+                description:
+                  "Thorough step-by-step logic for the evaluation of this specific criterion.",
+              },
+              name: { type: "string" },
+              summary: { type: "string" },
+              score: { type: "number", enum: [1, 2, 3, 4] },
               violations: {
-                type: 'array',
+                type: "array",
                 items: {
-                  type: 'object',
+                  type: "object",
                   additionalProperties: false,
                   properties: {
-                    pre: { type: 'string' },
-                    post: { type: 'string' },
-                    analysis: { type: 'string' },
-                    suggestion: { type: 'string' },
+                    line: { type: "number" },
+                    quoted_text: { type: "string" },
+                    context_before: { type: "string" },
+                    context_after: { type: "string" },
+                    analysis: { type: "string" },
+                    suggestion: { type: "string" },
                   },
-                  required: ['pre', 'post', 'analysis', 'suggestion'],
+                  required: [
+                    "quoted_text",
+                    "context_before",
+                    "context_after",
+                    "analysis",
+                    "suggestion",
+                  ],
                 },
               },
             },
-            required: ['name', 'score', 'summary', 'reasoning', 'violations'],
+            required: ["reasoning", "name", "score", "summary", "violations"],
           },
         },
       },
-      required: ['criteria'],
+      required: ["criteria"],
     },
   } as const;
 }
 
 export function buildSemiObjectiveLLMSchema() {
   return {
-    name: 'vectorlint_semi_objective_result',
+    name: "vectorlint_semi_objective_result",
     strict: true,
     schema: {
-      type: 'object',
+      type: "object",
       additionalProperties: false,
       properties: {
         violations: {
-          type: 'array',
+          type: "array",
           items: {
-            type: 'object',
+            type: "object",
             additionalProperties: false,
             properties: {
-              description: { type: 'string' },
-              analysis: { type: 'string' },
-              suggestion: { type: 'string' },
-              pre: { type: 'string' },
-              post: { type: 'string' },
+              line: { type: "number" },
+              quoted_text: { type: "string" },
+              context_before: { type: "string" },
+              context_after: { type: "string" },
+              description: { type: "string" },
+              analysis: { type: "string" },
+              suggestion: { type: "string" },
             },
-            required: ['description', 'analysis', 'suggestion', 'pre', 'post'],
+            required: [
+              "quoted_text",
+              "context_before",
+              "context_after",
+              "description",
+              "analysis",
+              "suggestion",
+            ],
           },
         },
       },
-      required: ['violations'],
+      required: ["violations"],
     },
   } as const;
 }
@@ -77,7 +98,13 @@ export type SubjectiveLLMResult = {
     score: 1 | 2 | 3 | 4;
     summary: string;
     reasoning: string;
-    violations: Array<{ pre: string; post: string; analysis: string; suggestion: string }>;
+    violations: Array<{
+      quoted_text: string;
+      context_before: string;
+      context_after: string;
+      analysis: string;
+      suggestion: string;
+    }>;
   }>;
 };
 
@@ -86,8 +113,9 @@ export type SemiObjectiveLLMResult = {
     description: string;
     analysis: string;
     suggestion?: string;
-    pre?: string;
-    post?: string;
+    quoted_text?: string;
+    context_before?: string;
+    context_after?: string;
   }>;
 };
 
@@ -102,7 +130,13 @@ export type SubjectiveResult = {
     weighted_points: number;
     summary: string;
     reasoning: string;
-    violations: Array<{ pre: string; post: string; analysis: string; suggestion: string }>;
+    violations: Array<{
+      quoted_text: string;
+      context_before: string;
+      context_after: string;
+      analysis: string;
+      suggestion: string;
+    }>;
   }>;
 };
 
@@ -110,8 +144,9 @@ export type SemiObjectiveItem = {
   description: string;
   analysis: string;
   suggestion?: string;
-  pre?: string;
-  post?: string;
+  quoted_text?: string;
+  context_before?: string;
+  context_after?: string;
 };
 
 export type SemiObjectiveResult = {
@@ -126,18 +161,23 @@ export type SemiObjectiveResult = {
   violations: Array<{
     analysis: string;
     suggestion?: string;
-    pre?: string;
-    post?: string;
+    quoted_text?: string;
+    context_before?: string;
+    context_after?: string;
     criterionName?: string;
   }>;
 };
 
 export type EvaluationResult = SubjectiveResult | SemiObjectiveResult;
 
-export function isSubjectiveResult(result: EvaluationResult): result is SubjectiveResult {
+export function isSubjectiveResult(
+  result: EvaluationResult
+): result is SubjectiveResult {
   return result.type === EvaluationType.SUBJECTIVE;
 }
 
-export function isSemiObjectiveResult(result: EvaluationResult): result is SemiObjectiveResult {
+export function isSemiObjectiveResult(
+  result: EvaluationResult
+): result is SemiObjectiveResult {
   return result.type === EvaluationType.SEMI_OBJECTIVE;
 }
