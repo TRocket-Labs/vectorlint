@@ -76,7 +76,7 @@ export class BaseEvaluator implements Evaluator {
 
     // Step 1: Get raw scores from LLM
     const { data: llmResult, usage } = await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
-      content,
+      numberedContent,
       this.prompt.body,
       schema
     );
@@ -136,7 +136,7 @@ export class BaseEvaluator implements Evaluator {
 
     // Step 1: Get list of violations from LLM
     const { data: llmResult, usage } = await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
-      content,
+      numberedContent,
       this.prompt.body,
       schema
     );
