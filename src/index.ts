@@ -13,7 +13,7 @@ import "./evaluators/index";
 
 /*
  * Loads environment variables from Global Config and .env files.
- * Hierarchy: CLI/Shell > Global Config > Local .env
+* Hierarchy: CLI/Shell > Local.env > Global Config
  */
 function loadEnvironment(): void {
   // 1. Load Local .env (Project specific overrides)
