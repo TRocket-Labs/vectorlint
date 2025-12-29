@@ -1,5 +1,6 @@
 import type { LLMProvider } from "../providers/llm-provider";
 import type { PromptFile } from "../schemas/prompt-schemas";
+import type { TokenUsage } from "../providers/token-usage";
 import {
   buildSubjectiveLLMSchema,
   buildSemiObjectiveLLMSchema,
@@ -126,7 +127,10 @@ export class BaseEvaluator implements Evaluator {
     const numberedContent = prependLineNumbers(content);
 
     // Step 1: Get list of violations from LLM
-    const { data: llmResult, usage } = await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
+    const { data: llmResult, usage }: {
+      data: SemiObjectiveLLMResult;
+      usage?: TokenUsage
+    } = await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
       numberedContent,
       this.prompt.body,
       schema
@@ -138,11 +142,10 @@ export class BaseEvaluator implements Evaluator {
 
     const result = this.calculateSemiObjectiveResult(llmResult.violations, wordCount);
 
-    if (usage) {
-      result.usage = usage;
-    }
-
-    return result;
+    return {
+      ...result,
+      ...(usage && { usage }),
+    };
   }
 
   /*
