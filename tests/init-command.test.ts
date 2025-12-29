@@ -1,12 +1,19 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { DEFAULT_CONFIG_FILENAME } from '../src/config/constants';
 
+// Mock the global config module
+const mockEnsureGlobalConfig = vi.fn().mockReturnValue('/mock/home/.vectorlint/config.toml');
+
+vi.mock('../src/config/global-config', () => ({
+    ensureGlobalConfig: mockEnsureGlobalConfig,
+    getGlobalConfigPath: () => '/mock/home/.vectorlint/config.toml'
+}));
+
 /**
  * Tests for the init command functionality.
- * 
  */
 describe('Init Command', () => {
     let testDir: string;
@@ -16,11 +23,13 @@ describe('Init Command', () => {
         testDir = mkdtempSync(path.join(tmpdir(), 'vectorlint-init-'));
         originalCwd = process.cwd();
         process.chdir(testDir);
+        vi.clearAllMocks();
     });
 
     afterEach(() => {
         process.chdir(originalCwd);
         rmSync(testDir, { recursive: true, force: true });
+        vi.restoreAllMocks();
     });
 
     describe('File Generation', () => {
@@ -48,7 +57,7 @@ describe('Init Command', () => {
             expect(content).toContain('RunRules=VectorLint');
         });
 
-        it('creates .env.vectorlint with correct template', async () => {
+        it('ensures global configuration is created', async () => {
             const { registerInitCommand } = await import('../src/cli/init-command');
             const { program } = await import('commander');
 
@@ -57,16 +66,7 @@ describe('Init Command', () => {
 
             await testProgram.parseAsync(['node', 'test', 'init']);
 
-            const envPath = path.join(testDir, '.env.vectorlint');
-            expect(existsSync(envPath)).toBe(true);
-
-            const content = readFileSync(envPath, 'utf-8');
-            expect(content).toContain('# VectorLint Environment Configuration');
-            expect(content).toContain('LLM_PROVIDER=azure-openai');
-            expect(content).toContain('LLM_PROVIDER=anthropic');
-            expect(content).toContain('AZURE_OPENAI_API_KEY');
-            expect(content).toContain('ANTHROPIC_API_KEY');
-            expect(content).toContain('PERPLEXITY_API_KEY');
+            expect(mockEnsureGlobalConfig).toHaveBeenCalled();
         });
     });
 
@@ -90,33 +90,13 @@ describe('Init Command', () => {
             // Original content preserved
             expect(readFileSync(configPath, 'utf-8')).toBe('existing content');
         });
-
-        it('refuses to overwrite existing .env.vectorlint without --force', async () => {
-            const envPath = path.join(testDir, '.env.vectorlint');
-            writeFileSync(envPath, 'existing env content');
-
-            const { registerInitCommand } = await import('../src/cli/init-command');
-            const { program } = await import('commander');
-
-            const testProgram = program.createCommand();
-            testProgram.exitOverride();
-            registerInitCommand(testProgram);
-
-            await expect(
-                testProgram.parseAsync(['node', 'test', 'init'])
-            ).rejects.toThrow();
-
-            expect(readFileSync(envPath, 'utf-8')).toBe('existing env content');
-        });
     });
 
     describe('Force Flag', () => {
         it('overwrites existing files when --force is provided', async () => {
             // Create existing files
             const configPath = path.join(testDir, DEFAULT_CONFIG_FILENAME);
-            const envPath = path.join(testDir, '.env.vectorlint');
             writeFileSync(configPath, 'old config');
-            writeFileSync(envPath, 'old env');
 
             const { registerInitCommand } = await import('../src/cli/init-command');
             const { program } = await import('commander');
@@ -128,10 +108,7 @@ describe('Init Command', () => {
 
             // Files should be overwritten with new content
             const configContent = readFileSync(configPath, 'utf-8');
-            const envContent = readFileSync(envPath, 'utf-8');
-
             expect(configContent).toContain('# VectorLint Configuration');
-            expect(envContent).toContain('# VectorLint Environment Configuration');
         });
     });
 });
