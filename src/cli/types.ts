@@ -124,7 +124,7 @@ export interface RunPromptEvaluationResultSuccess {
 }
 
 export type RunPromptEvaluationResult =
-  | { ok: true; result: PromptEvaluationResult }
+  | RunPromptEvaluationResultSuccess
   | { ok: false; error: Error };
 
 export interface EvaluateFileParams {
