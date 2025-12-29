@@ -6,16 +6,17 @@ import { handleUnknownError } from "./errors/index";
 import { registerValidateCommand } from "./cli/validate-command";
 import { registerMainCommand } from "./cli/commands";
 import { registerInitCommand } from "./cli/init-command";
+import { loadGlobalConfig } from "./config/global-config";
 
 // Import evaluators module to trigger self-registration of all evaluators
 import "./evaluators/index";
 
 /*
- * Best-effort .env loader without external dependencies.
- * Loads environment variables from .env or .env.local files.
- * Kept inline to avoid external dependencies and maintain simplicity.
+ * Loads environment variables from Global Config and .env files.
+ * Hierarchy: CLI/Shell > Global Config > Local .env
  */
-function loadDotEnv(): void {
+function loadEnvironment(): void {
+  // 1. Load Local .env (Project specific overrides)
   const candidates = [".env", ".env.local"];
   for (const filename of candidates) {
     const full = path.resolve(process.cwd(), filename);
@@ -49,10 +50,14 @@ function loadDotEnv(): void {
       console.warn(`[vectorlint] Warning: ${err.message}`);
     }
   }
+
+  // 2. Load Global Config (~/.vectorlint/config.toml)
+  loadGlobalConfig();
+
 }
 
 // Load environment variables at startup
-loadDotEnv();
+loadEnvironment();
 
 // Set up Commander program
 program
