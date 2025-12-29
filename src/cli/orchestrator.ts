@@ -937,8 +937,10 @@ export async function evaluateFiles(
   };
 
   // Calculate cost if pricing is configured
-  const pricing = options.pricing || {};
-  const cost = calculateCost({ inputTokens: totalInputTokens, outputTokens: totalOutputTokens }, pricing);
+  const cost = calculateCost({
+    inputTokens: totalInputTokens,
+    outputTokens: totalOutputTokens
+  }, options.pricing);
   if (cost !== undefined) {
     tokenUsage.totalCost = cost;
   }
