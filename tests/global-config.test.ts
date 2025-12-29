@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { loadGlobalConfig, getGlobalConfigPath } from '../src/config/global-config';
+import { loadGlobalConfig } from '../src/config/global-config';
 import { GLOBAL_CONFIG_DIR, GLOBAL_CONFIG_FILE } from '../src/config/constants';
 
 // Mock fs and os
