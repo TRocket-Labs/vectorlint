@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import * as os from 'os';
 import * as path from 'path';
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';

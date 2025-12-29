@@ -5,10 +5,10 @@ import path from 'path';
 import { DEFAULT_CONFIG_FILENAME } from '../src/config/constants';
 
 // Mock the global config module
-const mockEnsureGlobalConfig = vi.fn().mockReturnValue('/mock/home/.vectorlint/config.toml');
+const MOCK_ENSURE_GLOBAL_CONFIG = vi.fn().mockReturnValue('/mock/home/.vectorlint/config.toml');
 
 vi.mock('../src/config/global-config', () => ({
-    ensureGlobalConfig: mockEnsureGlobalConfig,
+    ensureGlobalConfig: MOCK_ENSURE_GLOBAL_CONFIG,
     getGlobalConfigPath: () => '/mock/home/.vectorlint/config.toml'
 }));
 
@@ -66,7 +66,7 @@ describe('Init Command', () => {
 
             await testProgram.parseAsync(['node', 'test', 'init']);
 
-            expect(mockEnsureGlobalConfig).toHaveBeenCalled();
+            expect(MOCK_ENSURE_GLOBAL_CONFIG).toHaveBeenCalled();
         });
     });
 
