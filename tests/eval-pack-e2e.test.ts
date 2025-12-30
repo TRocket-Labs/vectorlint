@@ -5,6 +5,7 @@ import { tmpdir } from 'os';
 import { EvalPackLoader } from '../src/boundaries/eval-pack-loader.js';
 import { loadConfig } from '../src/boundaries/config-loader.js';
 import { ScanPathResolver } from '../src/boundaries/scan-path-resolver.js';
+import { DEFAULT_CONFIG_FILENAME } from '../src/config/constants.js';
 
 describe('Eval Pack System End-to-End', () => {
     let tempDir: string;
@@ -62,7 +63,7 @@ technical-accuracy.strictness = 9
 RunRules = VectorLint, CustomPack
 readability.severity = error
 `;
-        writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, DEFAULT_CONFIG_FILENAME), iniContent);
 
         // 3. Load configuration
         const config = loadConfig(tempDir);
@@ -134,7 +135,7 @@ RunRules = VectorLint, NonExistentPack
 [docs/archived/**/*.md]
 RunRules = 
 `;
-        writeFileSync(path.join(tempDir, 'vectorlint.ini'), iniContent);
+        writeFileSync(path.join(tempDir, DEFAULT_CONFIG_FILENAME), iniContent);
 
         // 3. Load and resolve
         const config = loadConfig(tempDir);

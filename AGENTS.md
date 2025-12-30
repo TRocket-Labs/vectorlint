@@ -19,7 +19,7 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
   - `types/` — TypeScript type definitions
 - `evals/` — user evaluations (.md with YAML frontmatter)
 - `tests/` — Vitest specs for config, scanning, evaluation, providers
-- `vectorlint.example.ini` — template for project config (copy to `vectorlint.ini`)
+- `vectorlint.example.ini` — template for project config (copy to `.vectorlint.ini`)
 
 ## Build, Test, and Development Commands
 
@@ -105,7 +105,7 @@ VectorLint uses a **pack-based organization** for rules:
 
 **File-Centric Configuration:**
 
-Use `[glob/pattern]` sections in `vectorlint.ini` to specify which packs run on which files:
+Use `[glob/pattern]` sections in `.vectorlint.ini` to specify which packs run on which files:
 
 ```ini
 # Global settings
@@ -143,7 +143,7 @@ VectorLint supports multiple output formats via the `--output` flag:
 
 ## Security & Configuration Tips
 
-- Copy `vectorlint.example.ini` → `vectorlint.ini`; set `RulesPath`, `ScanPaths`, `Concurrency`
+- Copy `vectorlint.example.ini` → `.vectorlint.ini`; set `RulesPath`, `ScanPaths`, `Concurrency`
 - Organize evaluations into pack subdirectories (e.g., `RulesPath/VectorLint/`)
 - Use `[glob/pattern]` sections with `RunRules=PackName` to map files to rule packs
 - Copy `.env.example` → `.env` for provider credentials (OpenAI, Anthropic, Azure, Gemini, Perplexity)

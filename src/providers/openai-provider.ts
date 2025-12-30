@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
-import { LLMProvider } from './llm-provider';
+import { LLMProvider, LLMResult } from './llm-provider';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import { OPENAI_RESPONSE_SCHEMA, type OpenAIResponse } from '../schemas/openai-responses';
 import { ValidationError, APIResponseError } from '../errors/validation-errors';
@@ -63,7 +63,7 @@ export class OpenAIProvider implements LLMProvider {
     content: string,
     promptText: string,
     schema: { name: string; schema: Record<string, unknown> }
-  ): Promise<T> {
+  ): Promise<LLMResult<T>> {
     const systemPrompt = this.builder.buildPromptBodyForStructured(promptText);
 
     const params: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
@@ -166,7 +166,17 @@ export class OpenAIProvider implements LLMProvider {
     }
 
     try {
-      return JSON.parse(responseText) as T;
+      const data = JSON.parse(responseText) as T;
+      const usage = validatedResponse.usage;
+
+      const result: LLMResult<T> = { data };
+      if (usage) {
+        result.usage = {
+          inputTokens: usage.prompt_tokens,
+          outputTokens: usage.completion_tokens,
+        };
+      }
+      return result;
     } catch (e: unknown) {
       const err = handleUnknownError(e, 'JSON parsing');
       const preview = responseText.slice(0, 200);

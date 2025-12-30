@@ -8,7 +8,6 @@ import {
   type SubjectiveResult,
   type SemiObjectiveResult,
   type EvaluationResult,
-  type SemiObjectiveItem,
 } from "../prompts/schema";
 import { registerEvaluator } from "./evaluator-registry";
 import type { Evaluator } from "./evaluator";
@@ -96,7 +95,7 @@ export class BaseEvaluator implements Evaluator {
 
     // Single chunk - run directly
     if (chunks.length === 1) {
-      const llmResult =
+      const { data: llmResult } =
         await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
           content,
           this.prompt.body,
@@ -113,7 +112,7 @@ export class BaseEvaluator implements Evaluator {
     const chunkWordCounts: number[] = [];
 
     for (const chunk of chunks) {
-      const llmResult =
+      const { data: llmResult } =
         await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
           chunk.content,
           this.prompt.body,
@@ -147,10 +146,10 @@ export class BaseEvaluator implements Evaluator {
     const totalWordCount = content.trim().split(/\s+/).length || 1;
 
     // Collect all violations from all chunks
-    const allChunkViolations: SemiObjectiveItem[][] = [];
+    const allChunkViolations: SemiObjectiveLLMResult["violations"][] = [];
 
     for (const chunk of chunks) {
-      const llmResult =
+      const { data: llmResult } =
         await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
           chunk.content,
           this.prompt.body,
