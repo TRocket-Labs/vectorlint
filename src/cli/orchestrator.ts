@@ -482,23 +482,56 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
   // Handle Semi-Objective Result
   if (!isSubjectiveResult(result)) {
     const severity = result.severity;
-    const ruleName = buildRuleName(promptFile.pack, promptId, undefined);
     const violationCount = result.violations.length;
 
-    if (violationCount > 0) {
-      const violationResult = locateAndReportViolations({
-        violations: result.violations,
-        content,
-        relFile,
-        severity,
-        ruleName,
-        scoreText: '',
-        outputFormat,
-        jsonFormatter
-      });
-      hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
-    } else if ((outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson) && result.message) {
-      // For JSON, if there's a message but no violations, report it as a general issue
+    // Group violations by criterionName
+    const violationsByCriterion = new Map<string | undefined, typeof result.violations>();
+    for (const v of result.violations) {
+      const criterionName = v.criterionName;
+      if (!violationsByCriterion.has(criterionName)) {
+        violationsByCriterion.set(criterionName, []);
+      }
+      violationsByCriterion.get(criterionName)!.push(v);
+    }
+
+    // Report violations grouped by criterion
+    let totalErrors = 0;
+    let totalWarnings = 0;
+
+    for (const [criterionName, violations] of violationsByCriterion) {
+      // Find criterion ID from meta
+      let criterionId: string | undefined;
+      if (criterionName && meta.criteria) {
+        const criterion = meta.criteria.find(c => c.name === criterionName);
+        criterionId = criterion?.id;
+      }
+
+      const ruleName = buildRuleName(promptFile.pack, promptId, criterionId);
+
+      if (violations.length > 0) {
+        const violationResult = locateAndReportViolations({
+          violations,
+          content,
+          relFile,
+          severity,
+          ruleName,
+          scoreText: '',
+          outputFormat,
+          jsonFormatter
+        });
+        hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
+
+        if (severity === Severity.ERROR) {
+          totalErrors += violations.length;
+        } else {
+          totalWarnings += violations.length;
+        }
+      }
+    }
+
+    // If no violations but we have a message (JSON output), report it
+    if (violationCount === 0 && (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson) && result.message) {
+      const ruleName = buildRuleName(promptFile.pack, promptId, undefined);
       reportIssue({
         file: relFile,
         line: 1,
@@ -514,14 +547,14 @@ function routePromptResult(params: ProcessPromptResultParams): ErrorTrackingResu
 
     // Create scoreEntry for Quality Scores display
     const scoreEntry: EvaluationSummary = {
-      id: ruleName,
+      id: buildRuleName(promptFile.pack, promptId, undefined),
       scoreText: `${result.final_score.toFixed(1)}/10`,
       score: result.final_score
     };
 
     return {
-      errors: severity === Severity.ERROR ? violationCount : 0,
-      warnings: severity === Severity.WARNING ? violationCount : 0,
+      errors: totalErrors,
+      warnings: totalWarnings,
       hadOperationalErrors,
       hadSeverityErrors: severity === Severity.ERROR,
       scoreEntries: [scoreEntry]
