@@ -10,13 +10,15 @@ import { loadConfig } from '../boundaries/config-loader';
 import { loadRuleFile, type PromptFile } from '../prompts/prompt-loader';
 import { RulePackLoader } from '../boundaries/rule-pack-loader';
 import { PresetLoader } from '../config/preset-loader';
-import { printGlobalSummary } from '../output/reporter';
+import { printGlobalSummary, printTokenUsage } from '../output/reporter';
 import { DefaultRequestBuilder } from '../providers/request-builder';
 import { loadDirective } from '../prompts/directive-loader';
 import { resolveTargets } from '../scan/file-resolver';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
+import { OutputFormat } from './types';
+import { DEFAULT_CONFIG_FILENAME } from '../config/constants';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -32,9 +34,15 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Print full JSON response from the API')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
-    .option('--config <path>', 'Path to custom vectorlint.ini config file')
-    .argument('[paths...]', 'files or directories to check (optional)')
+    .option(`--config <path>', 'Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
+    .argument('[paths...]', 'files or directories to check (required)')
     .action(async (paths: string[] = []) => {
+      // Require explicit paths to prevent accidental full directory scans
+      // Users must provide specific files, directories, or wildcards (e.g., `vectorlint *`)
+      if (paths.length === 0) {
+        program.help();
+        return;
+      }
 
       // Parse and validate CLI options
       let cliOptions;
@@ -165,7 +173,11 @@ export function registerMainCommand(program: Command): void {
         ? new PerplexitySearchProvider({ debug: false })
         : undefined;
 
-      const outputFormat = cliOptions.output === 'JSON' ? 'json' : cliOptions.output;
+      const outputFormat = cliOptions.output as OutputFormat;
+      if (!Object.values(OutputFormat).includes(outputFormat)) {
+        console.error(`Error: Invalid output format '${cliOptions.output}'. Valid options: line, json, vale-json, rdjson`);
+        process.exit(1);
+      }
 
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
@@ -177,10 +189,17 @@ export function registerMainCommand(program: Command): void {
         verbose: cliOptions.verbose,
         outputFormat: outputFormat,
         scanPaths: config.scanPaths,
+        pricing: {
+          inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,
+          outputPricePerMillion: env.OUTPUT_PRICE_PER_MILLION,
+        },
       });
 
       // Print global summary (only for line format)
       if (cliOptions.output === 'line') {
+        if (result.tokenUsage) {
+          printTokenUsage(result.tokenUsage);
+        }
         printGlobalSummary(
           result.totalFiles,
           result.totalErrors,

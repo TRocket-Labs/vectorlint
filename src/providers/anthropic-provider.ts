@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { LLMProvider } from './llm-provider';
+import { LLMProvider, LLMResult } from './llm-provider';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import {
   ANTHROPIC_RESPONSE_SCHEMA,
@@ -72,7 +72,7 @@ export class AnthropicProvider implements LLMProvider {
     content: string,
     promptText: string,
     schema: { name: string; schema: Record<string, unknown> }
-  ): Promise<T> {
+  ): Promise<LLMResult<T>> {
     const systemPrompt = this.builder.buildPromptBodyForStructured(promptText);
 
     // Create tool schema for structured response
@@ -92,8 +92,6 @@ export class AnthropicProvider implements LLMProvider {
       max_tokens: this.config.maxTokens!,
       tools: [toolSchema],
       tool_choice: { type: 'tool', name: schema.name },
-
-      // E2E mock compatibility aliases (camelCase)
       maxTokens: this.config.maxTokens!,
       toolChoice: { type: 'tool', name: schema.name },
     };
@@ -127,11 +125,12 @@ export class AnthropicProvider implements LLMProvider {
     // Create clean params for Anthropic API (remove E2E mock compatibility fields)
     const anthropicParams: Anthropic.Messages.MessageCreateParams = {
       model: params.model,
-      system: params.system,
       messages: params.messages,
       max_tokens: params.max_tokens,
-      tools: params.tools,
-      tool_choice: params.tool_choice,
+      stream: false,
+      system: systemPrompt,
+      tools: [toolSchema],
+      tool_choice: { type: 'tool', name: schema.name },
       ...(params.temperature !== undefined && { temperature: params.temperature }),
     };
 
@@ -160,7 +159,15 @@ export class AnthropicProvider implements LLMProvider {
     // Validate the API response structure using schema validation
     const validatedResponse = this.validateResponse(rawResponse);
 
-    return this.extractStructuredResponse<T>(validatedResponse, schema.name);
+    const data = this.extractStructuredResponse<T>(validatedResponse, schema.name);
+
+    return {
+      data,
+      usage: {
+        inputTokens: validatedResponse.usage.input_tokens,
+        outputTokens: validatedResponse.usage.output_tokens,
+      }
+    };
   }
 
   private convertToAnthropicToolSchema(schema: { name: string; schema: Record<string, unknown> }): Anthropic.Messages.Tool {
@@ -220,8 +227,9 @@ export class AnthropicProvider implements LLMProvider {
 
       // Check if response contains text instead of tool use
       const textBlocks = blocks.filter(isTextBlock);
-      if (textBlocks.length > 0) {
-        const textContent = textBlocks[0].text.slice(0, 200);
+      const firstTextBlock = textBlocks[0];
+      if (firstTextBlock) {
+        const textContent = firstTextBlock.text.slice(0, 200);
         throw new Error(`No tool call received for ${expectedToolName}. Response contains text instead: ${textContent}${textContent.length >= 200 ? '...' : ''}`);
       }
 

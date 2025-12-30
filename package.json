@@ -60,8 +60,10 @@
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
     "fast-glob": "^3.3.2",
+    "fuzzball": "^2.2.3",
     "micromatch": "^4.0.5",
     "openai": "^4.0.0",
+    "smol-toml": "^1.6.0",
     "strip-ansi": "^7.1.0",
     "yaml": "^2.5.0",
     "zod": "^3.25.76"

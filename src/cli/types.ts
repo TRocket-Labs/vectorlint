@@ -9,12 +9,13 @@ import { JsonFormatter, type ScoreComponent } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
 import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
+import type { TokenUsageStats, PricingConfig } from '../providers/token-usage';
 
 export enum OutputFormat {
-    Line = 'line',
-    Json = 'json',
-    ValeJson = 'vale-json',
-    RdJson = 'rdjson'
+    Line = "line",
+    Json = "json",
+    ValeJson = "vale-json",
+    RdJson = "rdjson",
 }
 
 export interface EvaluationOptions {
@@ -26,6 +27,7 @@ export interface EvaluationOptions {
     verbose: boolean;
     scanPaths: FilePatternConfig[];
     outputFormat?: OutputFormat;
+    pricing?: PricingConfig;
 }
 
 export interface EvaluationResult {
@@ -35,6 +37,7 @@ export interface EvaluationResult {
     requestFailures: number;
     hadOperationalErrors: boolean;
     hadSeverityErrors: boolean;
+    tokenUsage?: TokenUsageStats;
 }
 
 export interface ErrorTrackingResult {
@@ -50,13 +53,14 @@ export interface EvaluationContext {
     relFile: string;
     outputFormat: OutputFormat;
     jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
+    verbose?: boolean;
 }
 
 export interface ReportIssueParams {
     file: string;
     line: number;
     column: number;
-    severity: Severity
+    severity: Severity;
     summary: string;
     ruleName: string;
     outputFormat: OutputFormat;
@@ -66,23 +70,12 @@ export interface ReportIssueParams {
     match?: string;
 }
 
-export interface ExtractMatchTextParams {
-    content: string;
-    line: number;
-    matchedText: string;
-    rowSummary: string;
-}
-
-export interface LocationMatch {
-    line: number;
-    column: number;
-    match: string;
-}
-
 export interface ProcessViolationsParams extends EvaluationContext {
     violations: Array<{
-        pre?: string;
-        post?: string;
+        line?: number;
+        quoted_text?: string;
+        context_before?: string;
+        context_after?: string;
         analysis?: string;
         suggestion?: string;
     }>;
@@ -123,11 +116,15 @@ export interface RunPromptEvaluationParams {
     content: string;
     provider: LLMProvider;
     searchProvider?: SearchProvider;
-    overrides?: Record<string, unknown>;
+}
+
+export interface RunPromptEvaluationResultSuccess {
+    ok: true;
+    result: PromptEvaluationResult;
 }
 
 export type RunPromptEvaluationResult =
-    | { ok: true; result: PromptEvaluationResult }
+    | RunPromptEvaluationResultSuccess
     | { ok: false; error: Error };
 
 export interface EvaluateFileParams {
@@ -138,4 +135,5 @@ export interface EvaluateFileParams {
 
 export interface EvaluateFileResult extends ErrorTrackingResult {
     requestFailures: number;
+    tokenUsage?: TokenUsageStats;
 }
