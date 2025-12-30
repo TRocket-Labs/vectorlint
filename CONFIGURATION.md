@@ -62,7 +62,9 @@ These settings control the application's core behavior.
 
 ## LLM & Search Providers
 
-VectorLint relies on LLM and Search providers, which are configured via environment variables in your `.env` file. Valid configurations can be found in the [.env.example](.env.example) file.
+VectorLint relies on LLM and Search providers. These are configured globally in `~/.vectorlint/config.toml`, or project scope using a `.env` file (which takes precedence).
+
+You can generate these files using the `vectorlint init` command.
 
 ### LLM Providers
 
