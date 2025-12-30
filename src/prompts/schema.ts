@@ -1,4 +1,5 @@
 import { EvaluationType, Severity } from "../evaluators/types";
+import type { TokenUsage } from "../providers/token-usage";
 
 export function buildSubjectiveLLMSchema() {
   return {
@@ -138,6 +139,7 @@ export type SubjectiveResult = {
       suggestion: string;
     }>;
   }>;
+  usage?: TokenUsage;
 };
 
 export type SemiObjectiveItem = {
@@ -166,6 +168,7 @@ export type SemiObjectiveResult = {
     context_after?: string;
     criterionName?: string;
   }>;
+  usage?: TokenUsage;
 };
 
 export type EvaluationResult = SubjectiveResult | SemiObjectiveResult;

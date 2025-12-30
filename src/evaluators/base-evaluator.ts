@@ -1,5 +1,6 @@
 import type { LLMProvider } from "../providers/llm-provider";
 import type { PromptFile } from "../schemas/prompt-schemas";
+import type { TokenUsage } from "../providers/token-usage";
 import {
   buildSubjectiveLLMSchema,
   buildSemiObjectiveLLMSchema,
@@ -29,7 +30,7 @@ export class BaseEvaluator implements Evaluator {
     protected llmProvider: LLMProvider,
     protected prompt: PromptFile,
     protected defaultSeverity?: Severity
-  ) {}
+  ) { }
 
   async evaluate(_file: string, content: string): Promise<EvaluationResult> {
     const type = this.getEvaluationType();
@@ -68,12 +69,11 @@ export class BaseEvaluator implements Evaluator {
     const numberedContent = prependLineNumbers(content);
 
     // Step 1: Get raw scores from LLM
-    const llmResult =
-      await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
-        numberedContent,
-        this.prompt.body,
-        schema
-      );
+    const { data: llmResult, usage } = await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
+      numberedContent,
+      this.prompt.body,
+      schema
+    );
 
     // Step 2: Calculate scores locally
     let totalWeightedScore = 0;
@@ -109,6 +109,7 @@ export class BaseEvaluator implements Evaluator {
       type: EvaluationType.SUBJECTIVE,
       final_score: Number(finalScore.toFixed(1)), // Round to 1 decimal
       criteria: criteriaWithCalculations,
+      ...(usage && { usage }),
     };
   }
 
@@ -126,18 +127,25 @@ export class BaseEvaluator implements Evaluator {
     const numberedContent = prependLineNumbers(content);
 
     // Step 1: Get list of violations from LLM
-    const llmResult =
-      await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
-        numberedContent,
-        this.prompt.body,
-        schema
-      );
+    const { data: llmResult, usage }: {
+      data: SemiObjectiveLLMResult;
+      usage?: TokenUsage
+    } = await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
+      numberedContent,
+      this.prompt.body,
+      schema
+    );
 
     // Step 2: Calculate scores based on violation density
     // Estimate word count (simple whitespace split)
     const wordCount = content.trim().split(/\s+/).length || 1;
 
-    return this.calculateSemiObjectiveResult(llmResult.violations, wordCount);
+    const result = this.calculateSemiObjectiveResult(llmResult.violations, wordCount);
+
+    return {
+      ...result,
+      ...(usage && { usage }),
+    };
   }
 
   /*
