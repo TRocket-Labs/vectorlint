@@ -1,5 +1,6 @@
 import type { LLMProvider } from "../providers/llm-provider";
 import type { PromptFile } from "../schemas/prompt-schemas";
+import type { TokenUsage } from "../providers/token-usage";
 import {
   buildSubjectiveLLMSchema,
   buildSemiObjectiveLLMSchema,
@@ -18,6 +19,7 @@ import {
   calculateSubjectiveScore,
   averageSubjectiveScores,
 } from "../scoring";
+import { prependLineNumbers } from "../output/line-numbering";
 
 const CHUNKING_THRESHOLD = 600; // Word count threshold for enabling chunking
 const MAX_CHUNK_SIZE = 500; // Maximum words per chunk
@@ -65,8 +67,10 @@ export class BaseEvaluator implements Evaluator {
   protected chunkContent(content: string): Chunk[] {
     const wordCount = content.trim().split(/\s+/).length || 1;
 
-    if (wordCount <= CHUNKING_THRESHOLD) {
-      // Content is small enough, no chunking needed
+    const chunkingEnabled = this.prompt.meta.chunking !== false;
+
+    if (!chunkingEnabled || wordCount <= CHUNKING_THRESHOLD) {
+      // Chunking disabled or content is small enough - return as single chunk
       return [
         {
           content,
@@ -81,30 +85,58 @@ export class BaseEvaluator implements Evaluator {
     return chunker.chunk(content, { maxChunkSize: MAX_CHUNK_SIZE });
   }
 
+  /**
+   * Aggregates token usage from multiple LLM calls.
+   */
+  protected aggregateUsage(
+    usages: (TokenUsage | undefined)[]
+  ): TokenUsage | undefined {
+    const validUsages = usages.filter((u): u is TokenUsage => u !== undefined);
+    if (validUsages.length === 0) return undefined;
+
+    return validUsages.reduce(
+      (acc, u) => ({
+        inputTokens: acc.inputTokens + u.inputTokens,
+        outputTokens: acc.outputTokens + u.outputTokens,
+      }),
+      { inputTokens: 0, outputTokens: 0 }
+    );
+  }
+
   /*
    * Runs subjective evaluation:
-   * 1. Chunk content if needed.
-   * 2. LLM scores each criterion 1-4 for each chunk.
-   * 3. Average scores across chunks (weighted by chunk size).
+   * 1. Prepend line numbers for accurate LLM line reporting.
+   * 2. Chunk content if needed.
+   * 3. LLM scores each criterion 1-4 for each chunk.
+   * 4. Average scores across chunks (weighted by chunk size).
    */
   protected async runSubjectiveEvaluation(
     content: string
   ): Promise<SubjectiveResult> {
     const schema = buildSubjectiveLLMSchema();
-    const chunks = this.chunkContent(content);
+
+    // Prepend line numbers for deterministic line reporting
+    const numberedContent = prependLineNumbers(content);
+    const chunks = this.chunkContent(numberedContent);
+    const usages: (TokenUsage | undefined)[] = [];
 
     // Single chunk - run directly
     if (chunks.length === 1) {
-      const { data: llmResult } =
+      const { data: llmResult, usage } =
         await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
-          content,
+          numberedContent,
           this.prompt.body,
           schema
         );
 
-      return calculateSubjectiveScore(llmResult.criteria, {
+      const result = calculateSubjectiveScore(llmResult.criteria, {
         promptCriteria: this.prompt.meta.criteria,
       });
+
+      return {
+        ...result,
+        ...(usage && { usage }),
+      };
     }
 
     // Multiple chunks - evaluate each and average
@@ -112,12 +144,14 @@ export class BaseEvaluator implements Evaluator {
     const chunkWordCounts: number[] = [];
 
     for (const chunk of chunks) {
-      const { data: llmResult } =
+      const { data: llmResult, usage } =
         await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
           chunk.content,
           this.prompt.body,
           schema
         );
+
+      usages.push(usage);
 
       const result = calculateSubjectiveScore(llmResult.criteria, {
         promptCriteria: this.prompt.meta.criteria,
@@ -128,45 +162,68 @@ export class BaseEvaluator implements Evaluator {
     }
 
     // Average scores across chunks
-    return averageSubjectiveScores(chunkResults, chunkWordCounts);
+    const result = averageSubjectiveScores(chunkResults, chunkWordCounts);
+    const aggregatedUsage = this.aggregateUsage(usages);
+
+    return {
+      ...result,
+      ...(aggregatedUsage && { usage: aggregatedUsage }),
+    };
   }
 
   /*
    * Runs semi-objective evaluation:
-   * 1. Chunk content if needed.
-   * 2. LLM lists violations for each chunk.
-   * 3. Merge all violations across chunks.
-   * 4. Calculate score once from total violations.
+   * 1. Prepend line numbers for accurate LLM line reporting.
+   * 2. Chunk content if needed.
+   * 3. LLM lists violations for each chunk.
+   * 4. Merge all violations across chunks.
+   * 5. Calculate score once from total violations.
    */
   protected async runSemiObjectiveEvaluation(
     content: string
   ): Promise<SemiObjectiveResult> {
     const schema = buildSemiObjectiveLLMSchema();
-    const chunks = this.chunkContent(content);
+
+    // Prepend line numbers for deterministic line reporting
+    const numberedContent = prependLineNumbers(content);
+    const chunks = this.chunkContent(numberedContent);
     const totalWordCount = content.trim().split(/\s+/).length || 1;
 
     // Collect all violations from all chunks
     const allChunkViolations: SemiObjectiveLLMResult["violations"][] = [];
+    const usages: (TokenUsage | undefined)[] = [];
 
     for (const chunk of chunks) {
-      const { data: llmResult } =
+      const { data: llmResult, usage } =
         await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
           chunk.content,
           this.prompt.body,
           schema
         );
       allChunkViolations.push(llmResult.violations);
+      usages.push(usage);
     }
 
     // Merge and deduplicate violations
     const mergedViolations = mergeViolations(allChunkViolations);
 
     // Calculate score once from all violations
-    return calculateSemiObjectiveScore(mergedViolations, totalWordCount, {
-      strictness: this.prompt.meta.strictness,
-      defaultSeverity: this.defaultSeverity,
-      promptSeverity: this.prompt.meta.severity,
-    });
+    const result = calculateSemiObjectiveScore(
+      mergedViolations,
+      totalWordCount,
+      {
+        strictness: this.prompt.meta.strictness,
+        defaultSeverity: this.defaultSeverity,
+        promptSeverity: this.prompt.meta.severity,
+      }
+    );
+
+    const aggregatedUsage = this.aggregateUsage(usages);
+
+    return {
+      ...result,
+      ...(aggregatedUsage && { usage: aggregatedUsage }),
+    };
   }
 }
 
