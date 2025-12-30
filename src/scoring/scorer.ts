@@ -56,8 +56,9 @@ export function calculateSemiObjectiveScore(
   const mappedViolations = violations.map((item) => ({
     analysis: item.analysis,
     ...(item.suggestion && { suggestion: item.suggestion }),
-    ...(item.pre && { pre: item.pre }),
-    ...(item.post && { post: item.post }),
+    ...(item.quoted_text && { quoted_text: item.quoted_text }),
+    ...(item.context_before && { context_before: item.context_before }),
+    ...(item.context_after && { context_after: item.context_after }),
     criterionName: item.description,
   }));
 
@@ -167,8 +168,9 @@ export function averageSubjectiveScores(
       totalWeight: number;
       weight: number;
       violations: Array<{
-        pre: string;
-        post: string;
+        quoted_text: string;
+        context_before: string;
+        context_after: string;
         analysis: string;
         suggestion: string;
       }>;
@@ -203,8 +205,9 @@ export function averageSubjectiveScores(
       // Collect violations with required fields
       for (const v of criterion.violations || []) {
         entry.violations.push({
-          pre: v.pre || "",
-          post: v.post || "",
+          quoted_text: v.quoted_text || "",
+          context_before: v.context_before || "",
+          context_after: v.context_after || "",
           analysis: v.analysis || "",
           suggestion: v.suggestion || "",
         });
