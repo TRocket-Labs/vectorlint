@@ -1,45 +1,30 @@
-import { readFileSync } from "fs";
-import * as path from "path";
-import type { PromptFile } from "../prompts/prompt-loader";
-import { ScanPathResolver } from "../boundaries/scan-path-resolver";
-import {
-  ValeJsonFormatter,
-  type JsonIssue,
-} from "../output/vale-json-formatter";
-import {
-  JsonFormatter,
-  type Issue,
-  type ScoreComponent,
-} from "../output/json-formatter";
-import { RdJsonFormatter } from "../output/rdjson-formatter";
-import {
-  printFileHeader,
-  printIssueRow,
-  printEvaluationSummaries,
-  type EvaluationSummary,
-} from "../output/reporter";
-import { locateQuotedText } from "../output/location";
-import { checkTarget } from "../prompts/target";
-import { isSubjectiveResult } from "../prompts/schema";
-import { handleUnknownError, MissingDependencyError } from "../errors/index";
-import { createEvaluator } from "../evaluators/index";
-import { Type, Severity } from "../evaluators/types";
-import { OutputFormat } from "./types";
+import { readFileSync } from 'fs';
+import * as path from 'path';
+import type { PromptFile } from '../prompts/prompt-loader';
+import { ScanPathResolver } from '../boundaries/scan-path-resolver';
+import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
+import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
+import { RdJsonFormatter } from '../output/rdjson-formatter';
+import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
+import { checkTarget } from '../prompts/target';
+import { isSubjectiveResult } from '../prompts/schema';
+import { handleUnknownError, MissingDependencyError } from '../errors/index';
+import { createEvaluator } from '../evaluators/index';
+import { Type, Severity } from '../evaluators/types';
+import { OutputFormat } from './types';
 import type {
-  EvaluationOptions,
-  EvaluationResult,
-  ErrorTrackingResult,
-  ReportIssueParams,
-  ProcessViolationsParams,
-  ProcessCriterionParams,
-  ProcessCriterionResult,
-  ValidationParams,
-  ProcessPromptResultParams,
-  RunPromptEvaluationParams,
-  RunPromptEvaluationResult,
-  EvaluateFileParams,
-  EvaluateFileResult,
-} from "./types";
+  EvaluationOptions, EvaluationResult, ErrorTrackingResult,
+  ReportIssueParams, ProcessViolationsParams,
+  ProcessCriterionParams, ProcessCriterionResult, ValidationParams, ProcessPromptResultParams,
+  RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult,
+  RunPromptEvaluationResultSuccess
+} from './types';
+import {
+  calculateCost,
+  TokenUsageStats
+} from '../providers/token-usage';
+import { locateQuotedText } from "../output/location";
+
 
 /*
  * Returns the evaluator type, defaulting to 'base' if not specified.
@@ -274,13 +259,13 @@ function extractAndReportCriterion(
   const criterionId = exp.id
     ? String(exp.id)
     : exp.name
-    ? String(exp.name)
+      ? String(exp.name)
         .replace(/[^A-Za-z0-9]+/g, " ")
         .split(" ")
         .filter(Boolean)
         .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
         .join("")
-    : "";
+      : "";
   const ruleName =
     promptId && criterionId
       ? `${promptId}.${criterionId}`
@@ -713,7 +698,10 @@ async function runPromptEvaluation(
     );
     const result = await evaluator.evaluate(relFile, content);
 
-    return { ok: true, result };
+
+    const resultObj: RunPromptEvaluationResultSuccess = { ok: true, result };
+
+    return resultObj;
   } catch (e: unknown) {
     const err = handleUnknownError(e, `Running prompt ${promptFile.filename}`);
     return { ok: false, error: err };
@@ -742,6 +730,9 @@ async function evaluateFile(
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+
   const allScores = new Map<string, EvaluationSummary[]>();
 
   const content = readFileSync(file, "utf-8");
@@ -825,6 +816,12 @@ async function evaluateFile(
       continue;
     }
 
+    // Accumulate token usage
+    if (r.result.usage) {
+      totalInputTokens += r.result.usage.inputTokens;
+      totalOutputTokens += r.result.usage.outputTokens;
+    }
+
     const promptResult = routePromptResult({
       promptFile: p,
       result: r.result,
@@ -846,6 +843,11 @@ async function evaluateFile(
     }
   }
 
+  const tokenUsageStats: TokenUsageStats = {
+    totalInputTokens,
+    totalOutputTokens,
+  };
+
   if (outputFormat === OutputFormat.Line) {
     printEvaluationSummaries(allScores);
     console.log("");
@@ -857,6 +859,7 @@ async function evaluateFile(
     requestFailures,
     hadOperationalErrors,
     hadSeverityErrors,
+    tokenUsage: tokenUsageStats
   };
 }
 
@@ -877,6 +880,8 @@ export async function evaluateFiles(
   let totalErrors = 0;
   let totalWarnings = 0;
   let requestFailures = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
 
   let jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
   if (outputFormat === OutputFormat.Json) {
@@ -897,6 +902,12 @@ export async function evaluateFiles(
       hadOperationalErrors =
         hadOperationalErrors || fileResult.hadOperationalErrors;
       hadSeverityErrors = hadSeverityErrors || fileResult.hadSeverityErrors;
+
+      // Aggregate token usage
+      if (fileResult.tokenUsage) {
+        totalInputTokens += fileResult.tokenUsage.totalInputTokens;
+        totalOutputTokens += fileResult.tokenUsage.totalOutputTokens;
+      }
     } catch (e: unknown) {
       const err = handleUnknownError(e, `Processing file ${file}`);
       console.error(`Error processing file ${file}: ${err.message}`);
@@ -914,6 +925,21 @@ export async function evaluateFiles(
     console.log(jsonStr);
   }
 
+  // Calculate aggregated token usage stats
+  const tokenUsage: TokenUsageStats = {
+    totalInputTokens,
+    totalOutputTokens,
+  };
+
+  // Calculate cost if pricing is configured
+  const cost = calculateCost({
+    inputTokens: totalInputTokens,
+    outputTokens: totalOutputTokens
+  }, options.pricing);
+  if (cost !== undefined) {
+    tokenUsage.totalCost = cost;
+  }
+
   return {
     totalFiles,
     totalErrors,
@@ -921,5 +947,6 @@ export async function evaluateFiles(
     requestFailures,
     hadOperationalErrors,
     hadSeverityErrors,
+    tokenUsage,
   };
 }
