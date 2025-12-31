@@ -79,8 +79,6 @@ export class BaseEvaluator implements Evaluator {
       return [
         {
           content,
-          startOffset: 0,
-          endOffset: content.length,
           index: 0,
         },
       ];

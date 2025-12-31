@@ -14,31 +14,13 @@ export class RecursiveChunker implements ChunkingStrategy {
     const opts = { ...DEFAULT_OPTIONS, ...options };
     const rawChunks = this.recursiveChunk(content, opts.maxChunkSize, 0);
 
-    // Assign indices and calculate offsets
-    const chunks: Chunk[] = [];
-    let currentOffset = 0;
-
-    for (let i = 0; i < rawChunks.length; i++) {
-      const chunkContent = rawChunks[i];
-      if (!chunkContent) continue;
-
-      // Find this chunk in original content
-      const startOffset = content.indexOf(chunkContent, currentOffset);
-      const endOffset = startOffset + chunkContent.length;
-
-      chunks.push({
+    // Assign indices to chunks
+    return rawChunks
+      .filter((chunkContent): chunkContent is string => !!chunkContent)
+      .map((chunkContent, index) => ({
         content: chunkContent,
-        startOffset: startOffset >= 0 ? startOffset : currentOffset,
-        endOffset:
-          startOffset >= 0 ? endOffset : currentOffset + chunkContent.length,
-        index: i,
-      });
-
-      currentOffset =
-        startOffset >= 0 ? endOffset : currentOffset + chunkContent.length;
-    }
-
-    return chunks;
+        index,
+      }));
   }
 
   private recursiveChunk(

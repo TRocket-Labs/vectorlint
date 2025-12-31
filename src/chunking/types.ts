@@ -1,7 +1,5 @@
 export interface Chunk {
   content: string;
-  startOffset: number;
-  endOffset: number;
   index: number;
   context?: string; // Optional header/context from parent sections
 }
