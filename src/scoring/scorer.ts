@@ -248,10 +248,13 @@ export function averageSubjectiveScores(
     totalWeightedScore += weightedPoints;
     totalWeight += entry.weight;
 
-    // Deduplicate violations
+    // Deduplicate violations using composite key
     const seen = new Set<string>();
     const uniqueViolations = entry.violations.filter((v) => {
-      const key = v.analysis?.toLowerCase().trim() || "";
+      const key = [
+        v.quoted_text?.toLowerCase().trim() || "",
+        v.analysis?.toLowerCase().trim() || "",
+      ].join("|");
       if (seen.has(key)) return false;
       seen.add(key);
       return true;

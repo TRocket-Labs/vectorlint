@@ -13,7 +13,12 @@ import {
 import { registerEvaluator } from "./evaluator-registry";
 import type { Evaluator } from "./evaluator";
 import { Type, Severity, EvaluationType } from "./types";
-import { mergeViolations, RecursiveChunker, type Chunk } from "../chunking";
+import {
+  mergeViolations,
+  RecursiveChunker,
+  countWords,
+  type Chunk,
+} from "../chunking";
 import {
   calculateSemiObjectiveScore,
   calculateSubjectiveScore,
@@ -65,7 +70,7 @@ export class BaseEvaluator implements Evaluator {
   }
 
   protected chunkContent(content: string): Chunk[] {
-    const wordCount = content.trim().split(/\s+/).length || 1;
+    const wordCount = countWords(content) || 1;
 
     const chunkingEnabled = this.prompt.meta.chunking !== false;
 
