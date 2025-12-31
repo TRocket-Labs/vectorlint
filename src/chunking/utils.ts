@@ -3,5 +3,8 @@ export function splitIntoWords(text: string): string[] {
 }
 
 export function countWords(text: string): number {
-  return splitIntoWords(text).length;
+  // Strip line number prefixes (e.g., "42\t") before counting
+  // This ensures accurate word count for line-numbered content
+  const cleanText = text.replace(/^\d+\t/gm, "");
+  return splitIntoWords(cleanText).length;
 }
