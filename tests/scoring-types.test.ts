@@ -129,8 +129,7 @@ describe("Scoring Types", () => {
       // Calculation: 2 violations = score of 8 (10 - 2)
       expect(result.final_score).toBe(8.0);
       expect(result.percentage).toBe(80);
-      expect(result.passed_count).toBe(0);
-      expect(result.total_count).toBe(2);
+      expect(result.violation_count).toBe(2);
     });
 
     it("should handle empty violations list (perfect score)", async () => {
@@ -154,7 +153,7 @@ describe("Scoring Types", () => {
       // No violations = perfect score
       expect(result.final_score).toBe(10);
       expect(result.percentage).toBe(100);
-      expect(result.total_count).toBe(0);
+      expect(result.violation_count).toBe(0);
     });
   });
 

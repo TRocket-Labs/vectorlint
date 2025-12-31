@@ -8,8 +8,6 @@ export interface Chunk {
 
 export interface ChunkingOptions {
   maxChunkSize?: number; // Maximum words per chunk
-  overlapFraction?: number; // Fraction of overlap between chunks (default: 0.1 = 10%)
-  preserveSentences?: boolean; // Avoid breaking mid-sentence
 }
 
 export interface ChunkingStrategy {

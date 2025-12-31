@@ -92,8 +92,7 @@ export function calculateSemiObjectiveScore(
     type: EvaluationType.SEMI_OBJECTIVE,
     final_score: Number(finalScore.toFixed(1)),
     percentage: Number(rawScore.toFixed(1)),
-    passed_count: 0,
-    total_count: mappedViolations.length,
+    violation_count: mappedViolations.length,
     items: violations,
     message,
     violations: mappedViolations,
@@ -156,6 +155,14 @@ export function averageSubjectiveScores(
       final_score: 0,
       criteria: [],
     };
+  }
+
+  // Warn if array lengths don't match (indicates a programming error)
+  if (results.length !== chunkWordCounts.length) {
+    console.warn(
+      `[vectorlint] Array length mismatch in averageSubjectiveScores: ` +
+        `${results.length} results vs ${chunkWordCounts.length} word counts`
+    );
   }
 
   const totalWords = chunkWordCounts.reduce((a, b) => a + b, 0);

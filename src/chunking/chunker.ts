@@ -3,8 +3,6 @@ import { countWords, splitIntoWords } from "./utils";
 
 const DEFAULT_OPTIONS: Required<ChunkingOptions> = {
   maxChunkSize: 500,
-  overlapFraction: 0.1,
-  preserveSentences: true,
 };
 
 export class RecursiveChunker implements ChunkingStrategy {

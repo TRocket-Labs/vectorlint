@@ -47,7 +47,7 @@ export const PROMPT_META_SCHEMA = z.object({
   target: TARGET_SPEC_SCHEMA.optional(),
   criteria: z.array(PROMPT_CRITERION_SCHEMA).optional(),
   // When false, disables chunking for rules (e.g. rules that need full document context)
-  chunking: z.boolean().default(true).optional(),
+  chunking: z.boolean().optional().default(true),
 });
 
 // Complete prompt file schema
