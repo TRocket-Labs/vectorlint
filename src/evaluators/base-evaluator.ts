@@ -164,9 +164,7 @@ export class BaseEvaluator implements Evaluator {
 
       chunkResults.push(result);
       // Strip line numbers before counting to get accurate word count
-      chunkWordCounts.push(
-        stripLineNumbers(chunk.content).trim().split(/\s+/).length
-      );
+      chunkWordCounts.push(countWords(stripLineNumbers(chunk.content)));
     }
 
     // Average scores across chunks
@@ -195,7 +193,7 @@ export class BaseEvaluator implements Evaluator {
     // Prepend line numbers for deterministic line reporting
     const numberedContent = prependLineNumbers(content);
     const chunks = this.chunkContent(numberedContent);
-    const totalWordCount = content.trim().split(/\s+/).length || 1;
+    const totalWordCount = countWords(content) || 1;
 
     // Collect all violations from all chunks
     const allChunkViolations: SemiObjectiveLLMResult["violations"][] = [];

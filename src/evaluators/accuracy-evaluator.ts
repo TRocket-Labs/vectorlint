@@ -11,6 +11,7 @@ import { z } from "zod";
 import { Type, type Severity } from "./types";
 import { MissingDependencyError } from "../errors/index";
 import { calculateSemiObjectiveScore } from "../scoring/scorer";
+import { countWords } from "../chunking";
 
 // Schema for claim extraction response
 const CLAIM_EXTRACTION_SCHEMA = z.object({
@@ -63,7 +64,7 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     // If no claims found, return success (empty items array, perfect score)
     // Use the scoring module to calculate result
     if (claims.length === 0) {
-      const wordCount = content.trim().split(/\s+/).length || 1;
+      const wordCount = countWords(content) || 1;
       const result = calculateSemiObjectiveScore([], wordCount, {
         strictness: this.prompt.meta.strictness,
         defaultSeverity: this.defaultSeverity,
