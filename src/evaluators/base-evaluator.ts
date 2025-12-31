@@ -19,7 +19,7 @@ import {
   calculateSubjectiveScore,
   averageSubjectiveScores,
 } from "../scoring";
-import { prependLineNumbers } from "../output/line-numbering";
+import { prependLineNumbers, stripLineNumbers } from "../output/line-numbering";
 
 const CHUNKING_THRESHOLD = 600; // Word count threshold for enabling chunking
 const MAX_CHUNK_SIZE = 500; // Maximum words per chunk
@@ -158,7 +158,10 @@ export class BaseEvaluator implements Evaluator {
       });
 
       chunkResults.push(result);
-      chunkWordCounts.push(chunk.content.trim().split(/\s+/).length);
+      // Strip line numbers before counting to get accurate word count
+      chunkWordCounts.push(
+        stripLineNumbers(chunk.content).trim().split(/\s+/).length
+      );
     }
 
     // Average scores across chunks

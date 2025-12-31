@@ -159,12 +159,11 @@ describe("Scoring Types", () => {
 
   describe("Technical Accuracy Evaluator", () => {
     it("should return perfect score when no claims are found", async () => {
-      // Dynamic import to avoid side effects or need for complex mocking setup at top level if possible
-      // But we need to mock prompt-loader before importing the evaluator if it uses it at top level?
-      // It uses it inside methods.
+      // Reset modules to ensure clean state for test-scoped mocking
+      vi.resetModules();
 
-      // We need to mock getPrompt
-      vi.mock("../src/evaluators/prompt-loader", () => ({
+      // Mock prompt-loader for this test only
+      vi.doMock("../src/evaluators/prompt-loader", () => ({
         getPrompt: vi.fn().mockReturnValue({ body: "Extract claims" }),
       }));
 
