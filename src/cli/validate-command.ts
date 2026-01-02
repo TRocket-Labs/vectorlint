@@ -20,7 +20,7 @@ export function registerValidateCommand(program: Command): void {
   program
     .command('validate')
     .description('Validate prompt configuration files')
-    .option('--evals <dir>', 'override evals directory')
+    .option('--rules <dir>', 'override rules directory')
     .action(async (rawOpts: unknown) => {
       // Parse and validate command options
       let validateOptions;
@@ -33,7 +33,7 @@ export function registerValidateCommand(program: Command): void {
       }
 
       // Determine rules path (from option or config)
-      let rulesPath = validateOptions.evals;
+      let rulesPath = validateOptions.rules;
       if (!rulesPath) {
         try {
           rulesPath = loadConfig().rulesPath;
