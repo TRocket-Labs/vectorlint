@@ -55,7 +55,7 @@ These settings control the application's core behavior.
 
 | Setting           | Type    | Default      | Description                                                        |
 | ----------------- | ------- | ------------ | ------------------------------------------------------------------ |
-| `RulesPath`       | string  | No           | Root directory for custom rule packs. If omitted, only presets are used. |
+| `RulesPath`       | string  | (none)       | Root directory for custom rule packs. If omitted, only presets are used. |
 | `Concurrency`     | integer | `4`          | Number of concurrent evaluations to run.                           |
 | `DefaultSeverity` | string  | `warning`    | Default severity level (`warning` or `error`) for reported issues. |
 
