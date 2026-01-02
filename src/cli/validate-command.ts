@@ -1,13 +1,21 @@
 import type { Command } from 'commander';
 import { existsSync } from 'fs';
 import { loadConfig } from '../boundaries/config-loader';
-import { loadPromptFile, type PromptFile } from '../prompts/prompt-loader';
-import { EvalPackLoader } from '../boundaries/eval-pack-loader';
+import { loadRuleFile, type PromptFile } from '../prompts/prompt-loader';
+import { RulePackLoader } from '../boundaries/rule-pack-loader';
+import { PresetLoader } from '../config/preset-loader';
 import { validateAll } from '../prompts/prompt-validator';
 import { parseValidateOptions } from '../boundaries/index';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import { handleUnknownError } from '../errors/index';
 import { printFileHeader, printValidationRow } from '../output/reporter';
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const __filename = fileURLToPath(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const __dirname = dirname(__filename);
 
 /*
  * Registers the 'validate' command with Commander.
@@ -33,7 +41,10 @@ export function registerValidateCommand(program: Command): void {
       }
 
       // Determine rules path (from option or config)
-      let rulesPath = validateOptions.evals;
+      // CLI paths need to be resolved to absolute; config paths are already absolute
+      let rulesPath = validateOptions.evals
+        ? path.resolve(process.cwd(), validateOptions.evals)
+        : undefined;
       if (!rulesPath) {
         try {
           rulesPath = loadConfig().rulesPath;
@@ -44,8 +55,8 @@ export function registerValidateCommand(program: Command): void {
         }
       }
 
-      // Verify rules path exists
-      if (!existsSync(rulesPath)) {
+      // Verify rules path exists (only if provided)
+      if (rulesPath && !existsSync(rulesPath)) {
         console.error(`Error: rules path does not exist: ${rulesPath}`);
         process.exit(1);
       }
@@ -54,19 +65,19 @@ export function registerValidateCommand(program: Command): void {
       const prompts: PromptFile[] = [];
       const warnings: string[] = [];
       try {
-        const loader = new EvalPackLoader();
-        const packs = await loader.findAllPacks(rulesPath);
+        const presetsDir = path.resolve(__dirname, '../presets');
+        const presetLoader = new PresetLoader(presetsDir);
+        const loader = new RulePackLoader(presetLoader);
 
-        if (packs.length === 0) {
-          console.warn(`[vectorlint] Warning: No rule packs (subdirectories) found in ${rulesPath}.`);
-        }
+        const packs = await loader.listAllPacks(rulesPath);
 
-        for (const packName of packs) {
-          const packRoot = path.join(rulesPath, packName);
-          const evalPaths = await loader.findEvalFiles(packRoot);
 
-          for (const filePath of evalPaths) {
-            const result = loadPromptFile(filePath, packName);
+        for (const pack of packs) {
+          // pack.path is already absolute
+          const rulePaths = await loader.findRuleFiles(pack.path);
+
+          for (const filePath of rulePaths) {
+            const result = loadRuleFile(filePath, pack.name);
             if (result.warning) {
               warnings.push(result.warning);
             }
@@ -77,7 +88,11 @@ export function registerValidateCommand(program: Command): void {
         }
 
         if (prompts.length === 0) {
-          console.error(`Error: no .md prompts found in any packs in ${rulesPath}`);
+          if (!rulesPath) {
+            console.error('Error: no rules found. Either set RulesPath in config or configure RunRules with a valid preset.');
+          } else {
+            console.error(`Error: no .md prompts found in ${rulesPath} or presets.`);
+          }
           process.exit(1);
         }
       } catch (e: unknown) {
@@ -93,11 +108,6 @@ export function registerValidateCommand(program: Command): void {
         console.log('');
       }
 
-      // Ensure at least one prompt was found
-      if (prompts.length === 0) {
-        console.error(`Error: no .md prompts found in ${rulesPath}`);
-        process.exit(1);
-      }
 
       // Validate all prompts
       const result = validateAll(prompts);

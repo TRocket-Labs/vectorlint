@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { loadPrompts } from '../src/prompts/prompt-loader.js';
+import { loadRules } from '../src/prompts/prompt-loader.js';
 import { checkTarget } from '../src/prompts/target.js';
 
 function setupPrompt(yaml: string) {
@@ -10,8 +10,10 @@ function setupPrompt(yaml: string) {
   const promptsDir = path.join(root, 'prompts');
   mkdirSync(promptsDir, { recursive: true });
   writeFileSync(path.join(promptsDir, 'p.md'), `---\n${yaml}\n---\nBody`);
-  const { prompts } = loadPrompts(promptsDir);
-  return { root, promptsDir, prompt: prompts[0] };
+  const { prompts } = loadRules(promptsDir);
+  const prompt = prompts[0];
+  if (!prompt) throw new Error("Failed to setup prompt");
+  return { root, promptsDir, prompt };
 }
 
 describe('Target gating (regex)', () => {
@@ -32,7 +34,8 @@ describe('Target gating (regex)', () => {
     ].join('\n');
     const { prompt } = setupPrompt(yaml);
     const content = 'No heading here';
-    const c = prompt.meta.criteria[0];
+    const c = prompt.meta.criteria?.[0];
+    if (!c) throw new Error("No criteria");
     const res = checkTarget(content, prompt.meta.target, c.target);
     expect(res.missing).toBe(true);
     expect(res.suggestion).toMatch(/H1/);
@@ -53,7 +56,8 @@ describe('Target gating (regex)', () => {
     ].join('\n');
     const { prompt } = setupPrompt(yaml);
     const content = '# Title\n\nBody';
-    const c = prompt.meta.criteria[0];
+    const c = prompt.meta.criteria?.[0];
+    if (!c) throw new Error("No criteria");
     const res = checkTarget(content, prompt.meta.target, c.target);
     expect(res.missing).toBe(false);
   });
@@ -78,7 +82,8 @@ describe('Target gating (regex)', () => {
     ].join('\n');
     const { prompt } = setupPrompt(yaml);
     const content = '# H1 only';
-    const c = prompt.meta.criteria[0];
+    const c = prompt.meta.criteria?.[0];
+    if (!c) throw new Error("No criteria");
     const res = checkTarget(content, prompt.meta.target, c.target);
     expect(res.missing).toBe(true);
     expect(res.suggestion).toMatch(/H2/);
@@ -99,7 +104,8 @@ describe('Target gating (regex)', () => {
     ].join('\n');
     const { prompt } = setupPrompt(yaml);
     const content = '# Title';
-    const c = prompt.meta.criteria[0];
+    const c = prompt.meta.criteria?.[0];
+    if (!c) throw new Error("No criteria");
     const res = checkTarget(content, prompt.meta.target, c.target);
     expect(res.missing).toBe(true);
   });

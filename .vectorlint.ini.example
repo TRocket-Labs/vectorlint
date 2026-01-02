@@ -1,6 +1,10 @@
 # VectorLint Configuration Example
 # Global settings
-RulesPath=path-to-rules
+
+# Optional: Path to custom rules directory
+# If omitted, only preset rules (from RunRules) are used
+# RulesPath=path-to-rules
+
 Concurrency=4
 DefaultSeverity=warning
 
