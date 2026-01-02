@@ -39,7 +39,10 @@ export function registerValidateCommand(program: Command): void {
       }
 
       // Determine rules path (from option or config)
-      let rulesPath = validateOptions.evals;
+      // CLI paths need to be resolved to absolute; config paths are already absolute
+      let rulesPath = validateOptions.evals
+        ? path.resolve(process.cwd(), validateOptions.evals)
+        : undefined;
       if (!rulesPath) {
         try {
           rulesPath = loadConfig().rulesPath;
@@ -103,15 +106,6 @@ export function registerValidateCommand(program: Command): void {
         console.log('');
       }
 
-      // Ensure at least one prompt was found
-      if (prompts.length === 0) {
-        if (!rulesPath) {
-          console.error('Error: no rules found. Either set RulesPath in config or configure RunRules with a valid preset.');
-        } else {
-          console.error(`Error: no .md prompts found in ${rulesPath} or presets.`);
-        }
-        process.exit(1);
-      }
 
       // Validate all prompts
       const result = validateAll(prompts);
