@@ -12,7 +12,9 @@ import { dirname } from 'path';
 import { handleUnknownError } from '../errors/index';
 import { printFileHeader, printValidationRow } from '../output/reporter';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const __filename = fileURLToPath(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const __dirname = dirname(__filename);
 
 /*

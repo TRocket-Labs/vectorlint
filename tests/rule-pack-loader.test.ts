@@ -59,7 +59,9 @@ describe('RulePackLoader', () => {
 
         it('includes unique presets not in user directory', async () => {
             // Preset exists
+            // eslint-disable-next-line @typescript-eslint/unbound-method
             vi.mocked(mockPresetLoader.getAvailablePresets).mockReturnValue(['Standard']);
+            // eslint-disable-next-line @typescript-eslint/unbound-method
             vi.mocked(mockPresetLoader.getPresetPath).mockReturnValue('/mock/preset/path');
 
             // User directory empty
@@ -75,7 +77,9 @@ describe('RulePackLoader', () => {
 
         it('shadows preset with user pack when names match', async () => {
             // Preset exists
+            // eslint-disable-next-line @typescript-eslint/unbound-method
             vi.mocked(mockPresetLoader.getAvailablePresets).mockReturnValue(['VectorLint']);
+            // eslint-disable-next-line @typescript-eslint/unbound-method
             vi.mocked(mockPresetLoader.getPresetPath).mockReturnValue('/mock/preset/path');
 
             // User has same pack
@@ -172,8 +176,10 @@ describe('RulePackLoader', () => {
             const files = await loader.findRuleFiles(packDir);
 
             expect(files).toHaveLength(1);
-            expect(path.isAbsolute(files[0])).toBe(true);
-            expect(files[0]).toBe(path.join(packDir, 'test.md'));
+            const file = files[0];
+            if (!file) throw new Error("File not found");
+            expect(path.isAbsolute(file)).toBe(true);
+            expect(file).toBe(path.join(packDir, 'test.md'));
         });
     });
 });

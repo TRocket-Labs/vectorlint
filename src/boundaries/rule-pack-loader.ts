@@ -46,7 +46,7 @@ export class RulePackLoader {
                 userEntries = entries
                     .filter(entry => entry.isDirectory())
                     .map(entry => entry.name);
-            } catch (e: unknown) {
+            } catch {
                 // It's acceptable if the user rules path doesn't exist yet,
                 // provided we have presets. If neither, the caller might complain later if no rules found.
             }

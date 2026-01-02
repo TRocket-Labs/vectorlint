@@ -264,7 +264,6 @@ function extractAndReportCriterion(
     relFile,
     packName,
     promptId,
-    promptFilename,
     meta,
     outputFormat,
     jsonFormatter,

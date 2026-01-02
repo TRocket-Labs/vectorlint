@@ -20,7 +20,9 @@ import { evaluateFiles } from './orchestrator';
 import { OutputFormat } from './types';
 import { DEFAULT_CONFIG_FILENAME } from '../config/constants';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const __filename = fileURLToPath(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const __dirname = dirname(__filename);
 
 /*
