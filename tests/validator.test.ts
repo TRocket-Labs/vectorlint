@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { loadPrompts, type PromptFile } from '../src/prompts/prompt-loader.js';
+import { loadRules, type PromptFile } from '../src/prompts/prompt-loader.js';
 import { validateAll, validatePrompt } from '../src/prompts/prompt-validator.js';
 
 function writePrompt(dir: string, name: string, yaml: string, body = 'Body') {
@@ -28,7 +28,7 @@ describe('PromptValidator', () => {
       '    weight: 2',
     ].join('\n');
     writePrompt(promptsDir, 'ok.md', yaml);
-    const { prompts } = loadPrompts(promptsDir);
+    const { prompts } = loadRules(promptsDir);
     const res = validateAll(prompts);
     expect(res.errors.length).toBe(0);
   });
@@ -50,7 +50,7 @@ describe('PromptValidator', () => {
       '    weight: 2',
     ].join('\n');
     writePrompt(promptsDir, 'bad.md', yaml);
-    const { prompts } = loadPrompts(promptsDir);
+    const { prompts } = loadRules(promptsDir);
     const res = validateAll(prompts);
     expect(res.errors.some(e => /Invalid regex flags/i.test(e.message))).toBe(true);
     expect(res.errors.some(e => /Invalid global target\.regex/i.test(e.message))).toBe(true);
@@ -60,8 +60,11 @@ describe('PromptValidator', () => {
     const p: PromptFile = {
       id: 'x',
       filename: 'x.md',
+      fullPath: '/path/to/x.md',
       body: '',
       meta: {
+        id: 'x',
+        name: 'X',
         criteria: [
           { id: 'A', name: 'A', weight: 0 },
           { id: 'B', name: 'B', weight: -1 },
