@@ -61,7 +61,6 @@ function loadEnvironment(): void {
 // Load environment variables at startup
 loadEnvironment();
 
-
 // Set up Commander program
 program
   .name("vectorlint")
@@ -77,9 +76,5 @@ registerInitCommand(program);
 registerValidateCommand(program);
 registerMainCommand(program);
 
-// Handle no args - show help
-if (process.argv.length === 2) {
-  program.parse(['node', 'vectorlint', '--help']);
-} else {
-  program.parse();
-}
+// Parse command line arguments
+program.parse();

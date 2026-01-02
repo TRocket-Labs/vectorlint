@@ -28,7 +28,6 @@ export class AzureOpenAIProvider implements LLMProvider {
   private debug?: boolean | undefined;
   private showPrompt?: boolean | undefined;
   private showPromptTrunc?: boolean | undefined;
-
   private builder: RequestBuilder;
 
   constructor(config: AzureOpenAIConfig, builder?: RequestBuilder) {
@@ -43,7 +42,6 @@ export class AzureOpenAIProvider implements LLMProvider {
     this.debug = config.debug;
     this.showPrompt = config.showPrompt;
     this.showPromptTrunc = config.showPromptTrunc;
-
     this.builder = builder ?? new DefaultRequestBuilder();
   }
 
