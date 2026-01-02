@@ -10,7 +10,6 @@ export interface ProviderOptions {
   debug?: boolean;
   showPrompt?: boolean;
   showPromptTrunc?: boolean;
-  debugJson?: boolean;
 }
 
 export enum ProviderType {
@@ -43,7 +42,6 @@ export function createProvider(
         ...(options.debug !== undefined && { debug: options.debug }),
         ...(options.showPrompt !== undefined && { showPrompt: options.showPrompt }),
         ...(options.showPromptTrunc !== undefined && { showPromptTrunc: options.showPromptTrunc }),
-        ...(options.debugJson !== undefined && { debugJson: options.debugJson }),
       };
       return new AzureOpenAIProvider(azureConfig, builder);
     }
@@ -57,7 +55,6 @@ export function createProvider(
         ...(options.debug !== undefined && { debug: options.debug }),
         ...(options.showPrompt !== undefined && { showPrompt: options.showPrompt }),
         ...(options.showPromptTrunc !== undefined && { showPromptTrunc: options.showPromptTrunc }),
-        ...(options.debugJson !== undefined && { debugJson: options.debugJson }),
       };
       return new AnthropicProvider(anthropicConfig, builder);
     }
@@ -70,7 +67,6 @@ export function createProvider(
         ...(options.debug !== undefined && { debug: options.debug }),
         ...(options.showPrompt !== undefined && { showPrompt: options.showPrompt }),
         ...(options.showPromptTrunc !== undefined && { showPromptTrunc: options.showPromptTrunc }),
-        ...(options.debugJson !== undefined && { debugJson: options.debugJson }),
       };
       return new OpenAIProvider(openaiConfig, builder);
     }
@@ -83,7 +79,6 @@ export function createProvider(
         ...(options.debug !== undefined && { debug: options.debug }),
         ...(options.showPrompt !== undefined && { showPrompt: options.showPrompt }),
         ...(options.showPromptTrunc !== undefined && { showPromptTrunc: options.showPromptTrunc }),
-        ...(options.debugJson !== undefined && { debugJson: options.debugJson }),
       };
       return new GeminiProvider(geminiConfig, builder);
     }

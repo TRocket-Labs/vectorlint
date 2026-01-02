@@ -5,16 +5,18 @@ export const CLI_OPTIONS_SCHEMA = z.object({
   verbose: z.boolean().default(false),
   showPrompt: z.boolean().default(false),
   showPromptTrunc: z.boolean().default(false),
-  debugJson: z.boolean().default(false),
   output: z.enum(['line', 'json', 'vale-json', 'rdjson']).default('line'),
   prompts: z.string().optional(),
-  evals: z.string().optional(),
   config: z.string().optional(),
 });
 
 // Validate command options schema
 export const VALIDATE_OPTIONS_SCHEMA = z.object({
-  evals: z.string().optional(),
+  rules: z.string().optional(),
+});
+
+export const PACKAGE_JSON_SCHEMA = z.object({
+  version: z.string(),
 });
 
 // Inferred types

@@ -115,7 +115,6 @@ describe('AnthropicProvider', () => {
         debug: true,
         showPrompt: true,
         showPromptTrunc: false,
-        debugJson: true,
       };
 
       expect(() => new AnthropicProvider(config)).not.toThrow();
@@ -804,48 +803,6 @@ describe('AnthropicProvider', () => {
       expect(consoleSpy).toHaveBeenCalledWith('[vectorlint] User content preview (first 500 chars):');
       expect(consoleSpy).toHaveBeenCalledWith('A'.repeat(500));
       expect(consoleSpy).toHaveBeenCalledWith('... [truncated]');
-    });
-
-    it('shows full JSON response when debugJson is enabled', async () => {
-      const config = {
-        apiKey: 'sk-ant-test-key',
-        debug: true,
-        debugJson: true,
-      };
-
-      const mockResponse: AnthropicMessage = {
-        id: 'msg_123',
-        type: 'message',
-        role: 'assistant',
-        content: [
-          {
-            type: 'tool_use',
-            id: 'tool_123',
-            name: 'test_tool',
-            input: { result: 'success' },
-          },
-        ],
-        model: 'claude-3-sonnet-20240229',
-        stop_reason: 'tool_use',
-        stop_sequence: null,
-        usage: {
-          input_tokens: 100,
-          output_tokens: 50,
-        },
-      };
-
-      SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
-
-      const provider = new AnthropicProvider(config);
-      const schema = {
-        name: 'test_tool',
-        schema: { properties: { result: { type: 'string' } } },
-      };
-
-      await provider.runPromptStructured('Test content', 'Test prompt', schema);
-
-      expect(consoleSpy).toHaveBeenCalledWith('[vectorlint] Full JSON response:');
-      expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify(mockResponse, null, 2));
     });
 
     it('does not log when debug is disabled', async () => {

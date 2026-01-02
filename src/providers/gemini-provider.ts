@@ -10,7 +10,6 @@ export interface GeminiConfig {
     debug?: boolean;
     showPrompt?: boolean;
     showPromptTrunc?: boolean;
-    debugJson?: boolean;
 }
 
 export const GEMINI_DEFAULT_CONFIG = {
@@ -76,10 +75,7 @@ export class GeminiProvider implements LLMProvider {
             const text = response.text();
             const usageMetadata = response.usageMetadata;
 
-            if (this.config.debug && this.config.debugJson) {
-                console.error('[vectorlint] Full JSON response:');
-                console.error(text);
-            }
+
 
             const data = JSON.parse(text) as T;
 

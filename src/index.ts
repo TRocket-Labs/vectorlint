@@ -8,6 +8,8 @@ import { registerMainCommand } from "./cli/commands";
 import { registerInitCommand } from "./cli/init-command";
 import { loadGlobalConfig } from "./config/global-config";
 
+import { CLI_DESCRIPTION, CLI_VERSION } from "./config/constants";
+
 // Import evaluators module to trigger self-registration of all evaluators
 import "./evaluators/index";
 
@@ -62,8 +64,12 @@ loadEnvironment();
 // Set up Commander program
 program
   .name("vectorlint")
-  .description("An LLM-based prose linter")
-  .version("1.0.0");
+  .version(CLI_VERSION)
+  .addHelpText('beforeAll', 'vectorlint - An LLM-powered linter for prose.\n')
+  .usage(`[options] [command] [paths...]
+       vectorlint myfile.md myfile2.md mydir/
+       vectorlint --output=json [paths...]`)
+  .description(CLI_DESCRIPTION);
 
 // Register commands
 registerInitCommand(program);
