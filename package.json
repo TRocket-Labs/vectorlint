@@ -20,6 +20,7 @@
   },
   "files": [
     "dist",
+    "presets",
     "README.md",
     "LICENSE.md"
   ],

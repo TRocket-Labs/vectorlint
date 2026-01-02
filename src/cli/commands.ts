@@ -109,7 +109,7 @@ export function registerMainCommand(program: Command): void {
 
       const prompts: PromptFile[] = [];
       try {
-        const presetsDir = path.resolve(__dirname, '../../presets');
+        const presetsDir = path.resolve(__dirname, '../presets');
         const presetLoader = new PresetLoader(presetsDir);
         const loader = new RulePackLoader(presetLoader);
 
