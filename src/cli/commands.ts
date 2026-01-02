@@ -1,12 +1,15 @@
 import type { Command } from 'commander';
 import { existsSync } from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import { createProvider } from '../providers/provider-factory';
 import { PerplexitySearchProvider } from '../providers/perplexity-provider';
 import type { SearchProvider } from '../providers/search-provider';
 import { loadConfig } from '../boundaries/config-loader';
-import { loadPromptFile, type PromptFile } from '../prompts/prompt-loader';
-import { EvalPackLoader } from '../boundaries/eval-pack-loader';
+import { loadRuleFile, type PromptFile } from '../prompts/prompt-loader';
+import { RulePackLoader } from '../boundaries/rule-pack-loader';
+import { PresetLoader } from '../config/preset-loader';
 import { printGlobalSummary, printTokenUsage } from '../output/reporter';
 import { DefaultRequestBuilder } from '../providers/request-builder';
 import { loadDirective } from '../prompts/directive-loader';
@@ -16,6 +19,11 @@ import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
 import { OutputFormat } from './types';
 import { DEFAULT_CONFIG_FILENAME } from '../config/constants';
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const __filename = fileURLToPath(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const __dirname = dirname(__filename);
 
 /*
  * Registers the main evaluation command with Commander.
@@ -94,27 +102,31 @@ export function registerMainCommand(program: Command): void {
       }
 
       const { rulesPath } = config;
-      if (!existsSync(rulesPath)) {
+      // Only check existence if rulesPath was provided
+      if (rulesPath && !existsSync(rulesPath)) {
         console.error(`Error: rules path does not exist: ${rulesPath}`);
         process.exit(1);
       }
 
       const prompts: PromptFile[] = [];
       try {
-        const loader = new EvalPackLoader();
-        const packs = await loader.findAllPacks(rulesPath);
+        const presetsDir = path.resolve(__dirname, '../presets');
+        const presetLoader = new PresetLoader(presetsDir);
+        const loader = new RulePackLoader(presetLoader);
 
-        if (packs.length === 0) {
-          console.warn(`[vectorlint] Warning: No rule packs (subdirectories) found in ${rulesPath}.`);
-          console.warn(`[vectorlint] Please organize your rules into subdirectories (e.g., ${rulesPath}/VectorLint/ or ${rulesPath}/MyPack/).`);
+        const packs = await loader.listAllPacks(rulesPath);
+
+        if (packs.length === 0 && cliOptions.verbose) {
+          console.warn(`[vectorlint] Warning: No rule packs (subdirectories) found in ${rulesPath} or presets.`);
+          console.warn(`[vectorlint] Please organize your rules into subdirectories or use a valid preset.`);
         }
 
-        for (const packName of packs) {
-          const packRoot = path.join(rulesPath, packName);
-          const evalPaths = await loader.findEvalFiles(packRoot);
+        for (const pack of packs) {
+          // pack.path is already absolute
+          const rulePaths = await loader.findRuleFiles(pack.path);
 
-          for (const filePath of evalPaths) {
-            const result = loadPromptFile(filePath, packName);
+          for (const filePath of rulePaths) {
+            const result = loadRuleFile(filePath, pack.name);
             if (result.warning) {
               if (cliOptions.verbose) console.warn(`[vectorlint] ${result.warning}`);
             }
@@ -125,7 +137,11 @@ export function registerMainCommand(program: Command): void {
         }
 
         if (prompts.length === 0) {
-          console.error(`Error: no .md rules found in any packs in ${rulesPath}`);
+          if (!rulesPath) {
+            console.error('Error: no rules found. Either set RulesPath in config or configure RunRules with a valid preset.');
+          } else {
+            console.error(`Error: no .md rules found in ${rulesPath} or presets.`);
+          }
           process.exit(1);
         }
       } catch (e: unknown) {

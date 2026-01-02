@@ -60,12 +60,7 @@ VectorLint scores your content using error density and a rubric-based system, en
 
     This creates two files:
     - **VectorLint Config** (`.vectorlint.ini`): Project-specific settings (rules path, concurrency).
-    - **App Config** (`~/.vectorlint/config.toml`): Global API keys and provider settings.
-
-    > **Note:** To re-initialize and overwrite existing files, use the `--force` flag:
-    > ```bash
-    > vectorlint init --force
-    > ```
+    - **App Config** (`~/.vectorlint/config.toml`): LLM provider API keys and settings.
 
     👉 **[Full configuration reference →](./CONFIGURATION.md)**
 
@@ -81,26 +76,15 @@ VectorLint scores your content using error density and a rubric-based system, en
 
     *Note: You can also use a local `.env` file in your project, which takes precedence over the global config.*
 
-3.  **Create Your First Rule:**
-
-    Create a directory named `VectorLint` and add a file `grammar.md` inside it:
-
-    ```markdown
-    ---
-    evaluator: base
-    id: GrammarChecker
-    description: Grammar Checker
-    severity: error
-    ---
-
-    Check this content for grammar issues, spelling errors, and punctuation mistakes.
-    ```
-
-4.  **Run a check:**
+3.  **Run a check:**
 
     ```bash
-    vectorlint path/to/article.md
+    vectorlint doc.md
     ```
+
+    VectorLint is bundled with a `VectorLint` preset containing rules for AI pattern detection, directness, and more. The `init` command configures this automatically.
+
+    👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
 
 ## Contributing
 

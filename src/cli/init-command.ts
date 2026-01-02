@@ -64,8 +64,8 @@ export function registerInitCommand(program: Command): void {
 
             // Print success message with next steps
             console.log(`Next steps:`);
-            console.log(`  1. Edit ${DEFAULT_CONFIG_FILENAME} and set RulesPath to your rules directory`);
-            console.log(`  2. Open ${getGlobalConfigPath()} to configure your API keys (e.g., OPENAI_API_KEY)`);
-            console.log(`  3. Run 'vectorlint' to start linting your content`);
+            console.log(`  1. Open ${getGlobalConfigPath()} and configure your API keys (e.g., OPENAI_API_KEY)`);
+            console.log(`  2. Run 'vectorlint <file.md>' to start linting your content`);
+            console.log(`  3. (Optional) Edit ${DEFAULT_CONFIG_FILENAME} to add custom rules or configure strictness`);
         });
 }

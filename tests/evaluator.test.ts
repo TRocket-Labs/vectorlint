@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { loadPrompts } from '../src/prompts/prompt-loader.js';
+import { loadRules } from '../src/prompts/prompt-loader.js';
 
 // Fake provider implementing LLMProvider
 class FakeProvider {
@@ -40,7 +40,7 @@ describe('Evaluation aggregation', () => {
   it('runs all prompts for all files and injects content if placeholder exists', async () => {
     const { promptsDir, files } = setupEnv();
     const provider = new FakeProvider();
-    const { prompts } = loadPrompts(promptsDir);
+    const { prompts } = loadRules(promptsDir);
     // Simulate aggregation: 2 prompts x 2 files = 4 calls
     for (let i = 0; i < files.length; i++) {
       const content = '# test';

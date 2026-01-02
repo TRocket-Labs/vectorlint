@@ -155,8 +155,7 @@ export type SemiObjectiveResult = {
   type: typeof EvaluationType.SEMI_OBJECTIVE;
   final_score: number; // 1-10
   percentage: number;
-  passed_count: number;
-  total_count: number;
+  violation_count: number;
   items: Array<SemiObjectiveItem>;
   severity: typeof Severity.WARNING | typeof Severity.ERROR;
   message: string;

@@ -20,6 +20,7 @@
   },
   "files": [
     "dist",
+    "presets",
     "README.md",
     "LICENSE.md"
   ],
@@ -35,6 +36,8 @@
     "markdown",
     "content QA",
     "prose linter",
+    "presets",
+    "vectorlint.ini.example",
     "vectorlint"
   ],
   "author": "TinyRocket Labs",

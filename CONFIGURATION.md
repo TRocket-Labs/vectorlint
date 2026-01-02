@@ -12,8 +12,9 @@ VectorLint is configured via a `.vectorlint.ini` file in the root of your projec
 # .vectorlint.ini
 
 # [Global Settings]
-# Directory containing your rule packs (Required)
-RulesPath=.github/rules
+# Optional: Path to custom rules directory
+# If omitted, only preset rules (from RunRules) are used
+# RulesPath=.github/rules
 # Number of concurrent evaluations (Default: 4)
 Concurrency=4
 # Default severity for violations (Default: warning)
@@ -54,7 +55,7 @@ These settings control the application's core behavior.
 
 | Setting           | Type    | Default      | Description                                                        |
 | ----------------- | ------- | ------------ | ------------------------------------------------------------------ |
-| `RulesPath`       | string  | **Required** | Root directory containing your rule pack subdirectories.           |
+| `RulesPath`       | string  | (none)       | Root directory for custom rule packs. If omitted, only presets are used. |
 | `Concurrency`     | integer | `4`          | Number of concurrent evaluations to run.                           |
 | `DefaultSeverity` | string  | `warning`    | Default severity level (`warning` or `error`) for reported issues. |
 

@@ -34,6 +34,23 @@ function resolveEvaluatorType(evaluator: string | undefined): string {
 }
 
 /*
+ * Constructs a hierarchical rule name following the pattern:
+ * - With criterion: PackName.RuleId.CriterionId
+ * - Without criterion: PackName.RuleId
+ */
+function buildRuleName(
+  packName: string,
+  ruleId: string,
+  criterionId: string | undefined
+): string {
+  const parts = [packName, ruleId];
+  if (criterionId) {
+    parts.push(criterionId);
+  }
+  return parts.join('.');
+}
+
+/*
  * Generic concurrency runner that executes workers in parallel up to a specified limit.
  * Preserves result order matching input order.
  */
@@ -245,8 +262,8 @@ function extractAndReportCriterion(
     result,
     content,
     relFile,
+    packName,
     promptId,
-    promptFilename,
     meta,
     outputFormat,
     jsonFormatter,
@@ -266,10 +283,7 @@ function extractAndReportCriterion(
         .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
         .join("")
       : "";
-  const ruleName =
-    promptId && criterionId
-      ? `${promptId}.${criterionId}`
-      : promptId || criterionId || promptFilename;
+  const ruleName = buildRuleName(packName, promptId, criterionId);
 
   const weightNum = exp.weight || 1;
   const maxScore = weightNum;
@@ -550,29 +564,57 @@ function routePromptResult(
   // Handle Semi-Objective Result
   if (!isSubjectiveResult(result)) {
     const severity = result.severity;
-    const ruleName = promptId || promptFile.filename.replace(/\.md$/, "");
     const violationCount = result.violations.length;
 
-    if (violationCount > 0) {
-      const violationResult = locateAndReportViolations({
-        violations: result.violations,
-        content,
-        relFile,
-        severity,
-        ruleName,
-        scoreText: "",
-        outputFormat,
-        jsonFormatter,
-        verbose: !!verbose,
-      });
-      hadOperationalErrors =
-        hadOperationalErrors || violationResult.hadOperationalErrors;
-    } else if (
-      (outputFormat === OutputFormat.Json ||
-        outputFormat === OutputFormat.ValeJson) &&
-      result.message
-    ) {
-      // For JSON, if there's a message but no violations, report it as a general issue
+    // Group violations by criterionName
+    const violationsByCriterion = new Map<string | undefined, typeof result.violations>();
+    for (const v of result.violations) {
+      const criterionName = v.criterionName;
+      if (!violationsByCriterion.has(criterionName)) {
+        violationsByCriterion.set(criterionName, []);
+      }
+      violationsByCriterion.get(criterionName)!.push(v);
+    }
+
+    // Report violations grouped by criterion
+    let totalErrors = 0;
+    let totalWarnings = 0;
+
+    for (const [criterionName, violations] of violationsByCriterion) {
+      // Find criterion ID from meta
+      let criterionId: string | undefined;
+      if (criterionName && meta.criteria) {
+        const criterion = meta.criteria.find(c => c.name === criterionName);
+        criterionId = criterion?.id;
+      }
+
+      const ruleName = buildRuleName(promptFile.pack, promptId, criterionId);
+
+      if (violations.length > 0) {
+        const violationResult = locateAndReportViolations({
+          violations,
+          content,
+          relFile,
+          severity,
+          ruleName,
+          scoreText: '',
+          outputFormat,
+          jsonFormatter,
+          verbose: !!verbose,
+        });
+        hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
+
+        if (severity === Severity.ERROR) {
+          totalErrors += violations.length;
+        } else {
+          totalWarnings += violations.length;
+        }
+      }
+    }
+
+    // If no violations but we have a message (JSON output), report it
+    if (violationCount === 0 && (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson) && result.message) {
+      const ruleName = buildRuleName(promptFile.pack, promptId, undefined);
       reportIssue({
         file: relFile,
         line: 1,
@@ -588,14 +630,14 @@ function routePromptResult(
 
     // Create scoreEntry for Quality Scores display
     const scoreEntry: EvaluationSummary = {
-      id: ruleName,
+      id: buildRuleName(promptFile.pack, promptId, undefined),
       scoreText: `${result.final_score.toFixed(1)}/10`,
       score: result.final_score,
     };
 
     return {
-      errors: severity === Severity.ERROR ? violationCount : 0,
-      warnings: severity === Severity.WARNING ? violationCount : 0,
+      errors: totalErrors,
+      warnings: totalWarnings,
       hadOperationalErrors,
       hadSeverityErrors: severity === Severity.ERROR,
       scoreEntries: [scoreEntry],
@@ -622,6 +664,7 @@ function routePromptResult(
       result,
       content,
       relFile,
+      packName: promptFile.pack,
       promptId,
       promptFilename: promptFile.filename,
       meta,
