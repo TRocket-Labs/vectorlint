@@ -17,6 +17,10 @@ export const VALIDATE_OPTIONS_SCHEMA = z.object({
   evals: z.string().optional(),
 });
 
+export const PACKAGE_JSON_SCHEMA = z.object({
+  version: z.string(),
+});
+
 // Inferred types
 export type CliOptions = z.infer<typeof CLI_OPTIONS_SCHEMA>;
 export type ValidateOptions = z.infer<typeof VALIDATE_OPTIONS_SCHEMA>;
