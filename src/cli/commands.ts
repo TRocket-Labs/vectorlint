@@ -74,7 +74,6 @@ export function registerMainCommand(program: Command): void {
           debug: cliOptions.verbose,
           showPrompt: cliOptions.showPrompt,
           showPromptTrunc: cliOptions.showPromptTrunc,
-          debugJson: cliOptions.debugJson,
         },
         new DefaultRequestBuilder(directive)
       );
