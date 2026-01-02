@@ -14,7 +14,7 @@ export const GLOBAL_CONFIG_DIR = '.vectorlint';
 export const GLOBAL_CONFIG_FILE = 'config.toml';
 export const ALLOWED_EXTS = new Set(['.md', '.txt', '.mdx']);
 
-export const CLI_DESCRIPTION = `VectorLint is a command-line tool that evaluates and scores content using LLMs. It uses LLM-as-a-Judge to catch content quality issues that typically require human judgement.
+export const CLI_DESCRIPTION = `VectorLint is a command-line tool that evaluates and scores content using LLMs. It uses LLM-as-a-Judge to catch terminology, technical accuracy, and style issues that require contextual understanding.
 
 To get started, run 'vectorlint init' to create your configuration files.
 
