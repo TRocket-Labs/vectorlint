@@ -26,9 +26,8 @@ export function registerMainCommand(program: Command): void {
     .option('-v, --verbose', 'Enable verbose logging')
     .option('--show-prompt', 'Print full prompt and injected content')
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
-    .option('--debug-json', 'Print full JSON response from the API')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
-    .option(`--config <path>', 'Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
+    .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
     .action(async (paths: string[] = []) => {
       // Require explicit paths to prevent accidental full directory scans
