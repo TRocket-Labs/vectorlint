@@ -46,6 +46,7 @@ severity: error
 ---
 
 # Markdown Body (Instructions for the LLM)
+
 Your detailed instructions for the LLM go here...
 ```
 
@@ -75,19 +76,21 @@ project/
 
 VectorLint uses a single **Base Evaluator** (`evaluator: base`) that operates in two distinct modes, determined by the `type` field:
 
-| Mode | `type` | Use Case | Scoring | Output |
-|------|--------|----------|---------|--------|
+| Mode               | `type`           | Use Case                              | Scoring                     | Output                  |
+| ------------------ | ---------------- | ------------------------------------- | --------------------------- | ----------------------- |
 | **Semi-Objective** | `semi-objective` | Pass/fail checks, counting violations | 10 points - 1 per violation | List of specific issues |
-| **Subjective** | `subjective` | Multi-dimensional quality scoring | 0-4 scale per criterion | Weighted average score |
+| **Subjective**     | `subjective`     | Multi-dimensional quality scoring     | 0-4 scale per criterion     | Weighted average score  |
 
 ### When to Use Each
 
 **Use Semi-Objective when:**
+
 - You need to find specific errors (e.g., "Find all grammar mistakes")
 - The check is binary (Pass/Fail) for each item
 - You want a list of specific violations to fix
 
 **Use Subjective when:**
+
 - You're measuring quality on a spectrum (e.g., "How engaging is this?")
 - You have multiple dimensions (Clarity, Tone, Depth)
 - You need weighted importance (some criteria matter more)
@@ -108,6 +111,7 @@ id: GrammarChecker
 name: Grammar Checker
 severity: error
 ---
+
 Check this content for grammar issues, spelling errors, and punctuation mistakes.
 ```
 
@@ -118,20 +122,22 @@ Check this content for grammar issues, spelling errors, and punctuation mistakes
     VectorLint scores based on **Error Density** (errors per 100 words), ensuring fairness across document lengths.
 
     **The "100 vs 1,000" Rule:**
-    *   **In a 100-word paragraph:** 1 error is a high density (1%). You lose **10 points** (Standard strictness).
-    *   **In a 1,000-word article:** 1 error is a low density (0.1%). You lose only **1 point**.
+
+    - **In a 100-word paragraph:** 1 error is a high density (1%). You lose **10 points** (Standard strictness).
+    - **In a 1,000-word article:** 1 error is a low density (0.1%). You lose only **1 point**.
 
     **Note:** Higher strictness means a higher penalty for the same error density.
 
 3.  **Strictness Levels**:
     You can control the penalty weight in your prompt frontmatter using a number or a preset name:
-    *   **Standard (10):** Lose 10 points per 1% error density.
-    *   **Strict (20):** Lose 20 points per 1% error density.
-    *   **Lenient (5):** Lose 5 points per 1% error density.
+
+    - **Standard (10):** Lose 10 points per 1% error density.
+    - **Strict (20):** Lose 20 points per 1% error density.
+    - **Lenient (5):** Lose 5 points per 1% error density.
 
 4.  **Status**:
-    *   Score < 10.0 = `warning` or `error` (based on severity)
-    *   Score 10.0 = Pass (no output)
+    - Score < 10.0 = `warning` or `error` (based on severity)
+    - Score 10.0 = Pass (no output)
 
 ---
 
@@ -166,9 +172,11 @@ You are a headline evaluator... [Your detailed instructions]
 # Value Communication <weight=12>
 
 ### Excellent <score=4>
+
 Specific, immediately appealing benefit
 
 ### Good <score=3>
+
 Clear benefit but less specific impact
 
 ...
@@ -178,12 +186,12 @@ Clear benefit but less specific impact
 
 VectorLint uses a **1-4 scale** for all subjective criteria, which is then normalized to a 1-10 scale:
 
-| LLM Rating | Meaning | Normalized Score |
-| :--- | :--- | :--- |
-| **4** | Excellent | **10.0** |
-| **3** | Good | **7.0** |
-| **2** | Fair | **4.0** |
-| **1** | Poor | **1.0** |
+| LLM Rating | Meaning   | Normalized Score |
+| :--------- | :-------- | :--------------- |
+| **4**      | Excellent | **10.0**         |
+| **3**      | Good      | **7.0**          |
+| **2**      | Fair      | **4.0**          |
+| **1**      | Poor      | **1.0**          |
 
 ### Score Calculation
 
@@ -191,17 +199,17 @@ VectorLint uses a **1-4 scale** for all subjective criteria, which is then norma
 2.  **Weighted Average**: The final score is the weighted average of all normalized criterion scores.
 
 **Example:**
+
 - Criterion: "Value Communication" (weight=12)
 - Rating: 3 (Good) -> Normalized: 7.0
-- Weighted Points: 7.0 * 12 = 84 points
-
-
+- Weighted Points: 7.0 \* 12 = 84 points
 
 ---
 
 ## Target Specification
 
 The `target` field allows you to:
+
 1. **Specify which part** of content to evaluate (via regex)
 2. **Require certain content** to exist (e.g., "must have an H1 headline")
 3. **Provide helpful suggestions** when content is missing
@@ -210,20 +218,22 @@ The `target` field allows you to:
 
 ```yaml
 target:
-  regex: '^#\s+(.+)$'  # Match H1 headline
-  flags: 'mu'          # Multiline + Unicode
-  group: 1             # Capture group 1 (the headline text)
-  required: true       # Content must match
+  regex: '^#\s+(.+)$' # Match H1 headline
+  flags: "mu" # Multiline + Unicode
+  group: 1 # Capture group 1 (the headline text)
+  required: true # Content must match
   suggestion: Add an H1 headline for the article.
 ```
 
 ### Target Behavior
 
 **When `required: true`:**
+
 - If content matches → Evaluation proceeds normally
 - If no match → Immediate `error` with the suggestion message
 
 **When `required: false` or omitted:**
+
 - If content matches → Evaluate the matched content
 - If no match → Evaluate entire content
 
@@ -233,26 +243,27 @@ target:
 
 ### Frontmatter Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `specVersion` | string/number | No | Rule specification version (use `1.0.0`) |
-| `evaluator` | string | No | Evaluator type: `base`, `technical-accuracy` (default: `base`) |
-| `type` | string | No | Mode: `subjective` or `semi-objective` (default: `semi-objective`) |
-| `id` | string | **Yes** | Unique identifier (used in error reporting) |
-| `name` | string | **Yes** | Human-readable name |
+| Field         | Type          | Required | Description                                                        |
+| ------------- | ------------- | -------- | ------------------------------------------------------------------ |
+| `specVersion` | string/number | No       | Rule specification version (use `1.0.0`)                           |
+| `evaluator`   | string        | No       | Evaluator type: `base`, `technical-accuracy` (default: `base`)     |
+| `type`        | string        | No       | Mode: `subjective` or `semi-objective` (default: `semi-objective`) |
+| `id`          | string        | **Yes**  | Unique identifier (used in error reporting)                        |
+| `name`        | string        | **Yes**  | Human-readable name                                                |
 
 | `severity` | string | No | `error` or `warning` (default: `warning`) |
+| `evaluateAs` | string | No | `document` or `chunk` - whether to evaluate content as a whole or in chunks (default: `chunk`) |
 | `target` | object | No | Content matching specification |
-| `criteria` | array | **Yes*** | List of evaluation criteria (*required for subjective) |
+| `criteria` | array | **Yes\*** | List of evaluation criteria (\*required for subjective) |
 
 ### Criterion Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | **Yes** | Human-readable criterion name |
-| `id` | string | **Yes** | Unique identifier (PascalCase recommended) |
-| `weight` | number | No | Importance weight (default: 1) |
-| `target` | object | No | Criterion-specific content matching |
+| Field    | Type   | Required | Description                                |
+| -------- | ------ | -------- | ------------------------------------------ |
+| `name`   | string | **Yes**  | Human-readable criterion name              |
+| `id`     | string | **Yes**  | Unique identifier (PascalCase recommended) |
+| `weight` | number | No       | Importance weight (default: 1)             |
+| `target` | object | No       | Criterion-specific content matching        |
 
 ---
 
@@ -263,13 +274,16 @@ target:
 Your LLM prompt is the most important part. Be specific:
 
 ❌ **Bad:**
+
 ```markdown
 Check if the headline is good.
 ```
 
 ✅ **Good:**
+
 ```markdown
 You are a headline evaluator for developer blog posts. Assess whether the headline:
+
 1. Clearly communicates a specific benefit
 2. Uses natural, conversational language (avoid buzzwords)
 3. Creates curiosity without being clickbait
@@ -286,7 +300,7 @@ criteria:
   # Technical accuracy is critical
   - name: Technical Accuracy
     weight: 40
-  
+
   # Readability is important
   - name: Readability
     weight: 30
@@ -300,6 +314,7 @@ Help the LLM understand your domain:
 ## CONTEXT BANK
 
 **Developer Audience**: Software engineers, DevOps, QA professionals who value:
+
 - Technical precision over marketing fluff
 - Practical examples over theory
 ```
@@ -318,6 +333,7 @@ id: GrammarChecker
 name: Grammar Checker
 severity: error
 ---
+
 Check this content for grammar issues, spelling errors, and punctuation mistakes.
 Report any errors found with specific examples.
 ```
@@ -335,7 +351,7 @@ name: Headline Evaluator
 severity: error
 target:
   regex: '^#\s+(.+)$'
-  flags: 'mu'
+  flags: "mu"
   group: 1
   required: true
   suggestion: Add an H1 headline for the article.
@@ -358,6 +374,7 @@ You are a headline evaluator. Assess the H1 headline for:
 # Value Communication <weight=10>
 
 ### Excellent <score=4>
+
 Specific, immediately appealing benefit clearly stated
 
 ...
@@ -388,9 +405,10 @@ Detect AI-generated writing patterns in this content.
 ## INSTRUCTION
 
 Scan for common AI patterns:
+
 1. **Buzzwords**: leverage, synergy, elevate
 2. **Formulaic transitions**: Moreover, Furthermore
-...
+   ...
 ```
 
 ## Resources

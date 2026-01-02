@@ -72,7 +72,7 @@ export class BaseEvaluator implements Evaluator {
   protected chunkContent(content: string): Chunk[] {
     const wordCount = countWords(content) || 1;
 
-    const chunkingEnabled = this.prompt.meta.chunking !== false;
+    const chunkingEnabled = this.prompt.meta.evaluateAs !== "document";
 
     if (!chunkingEnabled || wordCount <= CHUNKING_THRESHOLD) {
       // Chunking disabled or content is small enough - return as single chunk
