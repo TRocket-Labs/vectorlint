@@ -10,6 +10,8 @@ import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
 import { Type, type Severity } from "./types";
 import { MissingDependencyError } from "../errors/index";
+import { calculateSemiObjectiveScore } from "../scoring/scorer";
+import { countWords } from "../chunking";
 
 // Schema for claim extraction response
 const CLAIM_EXTRACTION_SCHEMA = z.object({
@@ -60,11 +62,16 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     const { claims, usage: claimUsage } = await this.extractClaims(content);
 
     // If no claims found, return success (empty items array, perfect score)
-    // We delegate to the base evaluator's centralized scoring logic
+    // Use the scoring module to calculate result
     if (claims.length === 0) {
-      const wordCount = content.trim().split(/\s+/).length || 1;
+      const wordCount = countWords(content) || 1;
+      const result = calculateSemiObjectiveScore([], wordCount, {
+        strictness: this.prompt.meta.strictness,
+        defaultSeverity: this.defaultSeverity,
+        promptSeverity: this.prompt.meta.severity,
+      });
       return {
-        ...this.calculateSemiObjectiveResult([], wordCount),
+        ...result,
         ...(claimUsage && { usage: claimUsage }),
       };
     }
@@ -90,13 +97,19 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     };
 
     // Step 6: Use parent's evaluation logic with enriched prompt
-    const evaluator = new BaseEvaluator(this.llmProvider, enrichedPrompt, this.defaultSeverity);
+    const evaluator = new BaseEvaluator(
+      this.llmProvider,
+      enrichedPrompt,
+      this.defaultSeverity
+    );
     const result = await evaluator.evaluate(_file, content);
 
+    // Aggregate token usage from claim extraction + evaluation
     if (claimUsage) {
       const totalUsage: TokenUsage = {
         inputTokens: claimUsage.inputTokens + (result.usage?.inputTokens || 0),
-        outputTokens: claimUsage.outputTokens + (result.usage?.outputTokens || 0),
+        outputTokens:
+          claimUsage.outputTokens + (result.usage?.outputTokens || 0),
       };
       result.usage = totalUsage;
     }
@@ -226,13 +239,21 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
 }
 
 // Self-register on module load using registerEvaluator directly
-registerEvaluator(Type.TECHNICAL_ACCURACY, (llmProvider, prompt, searchProvider, defaultSeverity) => {
-  if (!searchProvider) {
-    throw new MissingDependencyError(
-      "technical-accuracy evaluator requires a search provider",
-      "search-provider",
-      "Configure TAVILY_API_KEY or PERPLEXITY_API_KEY in .env, or remove this eval"
+registerEvaluator(
+  Type.TECHNICAL_ACCURACY,
+  (llmProvider, prompt, searchProvider, defaultSeverity) => {
+    if (!searchProvider) {
+      throw new MissingDependencyError(
+        "technical-accuracy evaluator requires a search provider",
+        "search-provider",
+        "Configure TAVILY_API_KEY or PERPLEXITY_API_KEY in .env, or remove this eval"
+      );
+    }
+    return new TechnicalAccuracyEvaluator(
+      llmProvider,
+      prompt,
+      searchProvider,
+      defaultSeverity
     );
   }
-  return new TechnicalAccuracyEvaluator(llmProvider, prompt, searchProvider, defaultSeverity);
-});
+);
