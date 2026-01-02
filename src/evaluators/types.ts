@@ -12,6 +12,6 @@ export enum Severity {
 }
 
 export enum EvaluationType {
-    SUBJECTIVE = 'subjective',
-    SEMI_OBJECTIVE = 'semi-objective',
+    JUDGE = 'judge',
+    CHECK = 'check',
 }
