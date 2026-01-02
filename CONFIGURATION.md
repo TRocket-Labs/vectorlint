@@ -152,7 +152,7 @@ RunRules=TechDocs
 Grammar.strictness=9
 ```
 
-You can configure the strictness of semi-objective rules (like Grammar or AI Detection) to control how they score content. Strictness determines the penalty weight for error density.
+You can configure the strictness of check rules (like Grammar or AI Detection) to control how they score content. Strictness determines the penalty weight for error density.
 
 ### Syntax
 

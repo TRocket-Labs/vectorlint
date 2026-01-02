@@ -1,6 +1,6 @@
 ---
 specVersion: 1.0.0
-type: semi-objective
+type: check
 severity: warning
 strictness: 50
 name: AI Pattern
