@@ -1,14 +1,16 @@
-import { z } from 'zod';
-import { Severity } from '../evaluators/types';
+import { z } from "zod";
+import { Severity } from "../evaluators/types";
 
 // Target specification schema for regex matching
-export const TARGET_SPEC_SCHEMA = z.object({
-  regex: z.string().optional(),
-  flags: z.string().optional(),
-  group: z.number().int().min(0).optional(),
-  required: z.boolean().optional(),
-  suggestion: z.string().optional(),
-}).strict();
+export const TARGET_SPEC_SCHEMA = z
+  .object({
+    regex: z.string().optional(),
+    flags: z.string().optional(),
+    group: z.number().int().min(0).optional(),
+    required: z.boolean().optional(),
+    suggestion: z.string().optional(),
+  })
+  .strict();
 
 // Prompt criterion specification schema
 export const PROMPT_CRITERION_SCHEMA = z.object({
@@ -34,17 +36,18 @@ export const PROMPT_CRITERION_SCHEMA = z.object({
  */
 export const PROMPT_META_SCHEMA = z.object({
   specVersion: z.union([z.string(), z.number()]).optional(),
-  evaluator: z.enum(['base', 'technical-accuracy']).optional(),
-  type: z.enum(['subjective', 'semi-objective']).optional(),
+  evaluator: z.enum(["base", "technical-accuracy"]).optional(),
+  type: z.enum(["subjective", "semi-objective"]).optional(),
   id: z.string(),
   name: z.string(),
   severity: z.nativeEnum(Severity).optional(),
-  strictness: z.union([
-    z.number().positive(),
-    z.enum(['lenient', 'standard', 'strict'])
-  ]).optional(),
+  strictness: z
+    .union([z.number().positive(), z.enum(["lenient", "standard", "strict"])])
+    .optional(),
   target: TARGET_SPEC_SCHEMA.optional(),
   criteria: z.array(PROMPT_CRITERION_SCHEMA).optional(),
+  // Determines how content is evaluated: 'chunk' (default) for chunked processing, 'document' for full document
+  evaluateAs: z.enum(["document", "chunk"]).optional(),
 });
 
 // Complete prompt file schema
