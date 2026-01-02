@@ -102,7 +102,8 @@ export function registerMainCommand(program: Command): void {
       }
 
       const { rulesPath } = config;
-      if (!existsSync(rulesPath)) {
+      // Only check existence if rulesPath was provided
+      if (rulesPath && !existsSync(rulesPath)) {
         console.error(`Error: rules path does not exist: ${rulesPath}`);
         process.exit(1);
       }
@@ -136,7 +137,11 @@ export function registerMainCommand(program: Command): void {
         }
 
         if (prompts.length === 0) {
-          console.error(`Error: no .md rules found in any packs in ${rulesPath}`);
+          if (!rulesPath) {
+            console.error('Error: no rules found. Either set RulesPath in config or configure RunRules with a valid preset.');
+          } else {
+            console.error(`Error: no .md rules found in ${rulesPath} or presets.`);
+          }
           process.exit(1);
         }
       } catch (e: unknown) {

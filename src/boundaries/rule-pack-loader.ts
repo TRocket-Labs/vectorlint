@@ -19,10 +19,10 @@ export class RulePackLoader {
     /**
      * Discovers all available rule packs, merging user definitions and presets.
      * User rules strictly shadow presets with the same name.
-     * @param userRulesPath The path to the user's local rules directory
+     * @param userRulesPath The path to the user's local rules directory (optional)
      * @returns A list of resolved packs (user or preset)
      */
-    async listAllPacks(userRulesPath: string): Promise<ResolvedPack[]> {
+    async listAllPacks(userRulesPath: string | undefined): Promise<ResolvedPack[]> {
         const packs = new Map<string, ResolvedPack>();
 
         // 1. Load Presets first (lowest priority)
@@ -37,24 +37,27 @@ export class RulePackLoader {
         }
 
         // 2. Load User Rules (highest priority, overwrites presets)
-        let userEntries: string[] = [];
-        try {
-            await fs.access(userRulesPath);
-            const entries = await fs.readdir(userRulesPath, { withFileTypes: true });
-            userEntries = entries
-                .filter(entry => entry.isDirectory())
-                .map(entry => entry.name);
-        } catch (e: unknown) {
-            // It's acceptable if the user rules path doesn't exist yet,
-            // provided we have presets. If neither, the caller might complain later if no rules found.
-        }
+        // Skip if userRulesPath is not provided
+        if (userRulesPath) {
+            let userEntries: string[] = [];
+            try {
+                await fs.access(userRulesPath);
+                const entries = await fs.readdir(userRulesPath, { withFileTypes: true });
+                userEntries = entries
+                    .filter(entry => entry.isDirectory())
+                    .map(entry => entry.name);
+            } catch (e: unknown) {
+                // It's acceptable if the user rules path doesn't exist yet,
+                // provided we have presets. If neither, the caller might complain later if no rules found.
+            }
 
-        for (const entryName of userEntries) {
-            packs.set(entryName, {
-                name: entryName,
-                path: path.join(userRulesPath, entryName),
-                isPreset: false
-            });
+            for (const entryName of userEntries) {
+                packs.set(entryName, {
+                    name: entryName,
+                    path: path.join(userRulesPath, entryName),
+                    isPreset: false
+                });
+            }
         }
 
         return Array.from(packs.values());

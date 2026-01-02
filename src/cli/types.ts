@@ -20,7 +20,7 @@ export enum OutputFormat {
 
 export interface EvaluationOptions {
     prompts: PromptFile[];
-    rulesPath: string;
+    rulesPath: string | undefined;
     provider: LLMProvider;
     searchProvider?: SearchProvider;
     concurrency: number;

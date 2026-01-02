@@ -133,10 +133,7 @@ export function loadConfig(
     throw new ConfigError(`Failed to read config file: ${err.message}`);
   }
 
-  // Validate required fields
-  if (!rulesPathRaw) {
-    throw new ConfigError("RulesPath is required in config file");
-  }
+  // Note: rulesPath is optional - presets can provide rules
 
   const scanPaths = new FileSectionParser().parseSections(rawConfigObj);
 
@@ -155,10 +152,10 @@ export function loadConfig(
     }
   }
 
-  // Resolve paths
-  const rulesPath = path.isAbsolute(rulesPathRaw)
-    ? rulesPathRaw
-    : path.resolve(configDir, rulesPathRaw);
+  // Resolve paths (rulesPath is optional)
+  const rulesPath = rulesPathRaw
+    ? (path.isAbsolute(rulesPathRaw) ? rulesPathRaw : path.resolve(configDir, rulesPathRaw))
+    : undefined;
 
   const concurrency = concurrencyRaw ?? 4;
 

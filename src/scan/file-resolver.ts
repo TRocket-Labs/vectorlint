@@ -12,15 +12,17 @@ function isUnder(filePath: string, dir: string): boolean {
 export function resolveTargets(args: {
   cliArgs: string[];
   cwd: string;
-  rulesPath: string;
+  rulesPath: string | undefined;
   scanPaths: FilePatternConfig[]; // Changed type from string[] to FilePatternConfig[]
   configDir: string;
 }): string[] {
   const { cliArgs, cwd, rulesPath, scanPaths, configDir } = args;
   const exclude = [] as string[];
-  // Exclude rules subtree in globbing
-  const rulesRel = path.relative(cwd, rulesPath) || rulesPath;
-  exclude.push(`${rulesRel.replace(/\\/g, '/')}/**`);
+  // Only exclude rules subtree if rulesPath is defined
+  if (rulesPath) {
+    const rulesRel = path.relative(cwd, rulesPath) || rulesPath;
+    exclude.push(`${rulesRel.replace(/\\/g, '/')}/**`);
+  }
 
   const files: string[] = [];
   if (cliArgs.length > 0) {
@@ -55,7 +57,8 @@ export function resolveTargets(args: {
   for (const f of files) {
     const ext = path.extname(f).toLowerCase();
     if (!ALLOWED_EXTS.has(ext)) continue;
-    if (isUnder(f, rulesPath)) continue;
+    // Only filter out rulesPath if it's defined
+    if (rulesPath && isUnder(f, rulesPath)) continue;
     dedup.add(path.resolve(f));
   }
   return Array.from(dedup);

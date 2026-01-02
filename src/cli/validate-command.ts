@@ -50,8 +50,8 @@ export function registerValidateCommand(program: Command): void {
         }
       }
 
-      // Verify rules path exists
-      if (!existsSync(rulesPath)) {
+      // Verify rules path exists (only if provided)
+      if (rulesPath && !existsSync(rulesPath)) {
         console.error(`Error: rules path does not exist: ${rulesPath}`);
         process.exit(1);
       }
@@ -83,7 +83,11 @@ export function registerValidateCommand(program: Command): void {
         }
 
         if (prompts.length === 0) {
-          console.error(`Error: no .md prompts found in any packs in ${rulesPath}`);
+          if (!rulesPath) {
+            console.error('Error: no rules found. Either set RulesPath in config or configure RunRules with a valid preset.');
+          } else {
+            console.error(`Error: no .md prompts found in ${rulesPath} or presets.`);
+          }
           process.exit(1);
         }
       } catch (e: unknown) {
@@ -101,7 +105,11 @@ export function registerValidateCommand(program: Command): void {
 
       // Ensure at least one prompt was found
       if (prompts.length === 0) {
-        console.error(`Error: no .md prompts found in ${rulesPath}`);
+        if (!rulesPath) {
+          console.error('Error: no rules found. Either set RulesPath in config or configure RunRules with a valid preset.');
+        } else {
+          console.error(`Error: no .md prompts found in ${rulesPath} or presets.`);
+        }
         process.exit(1);
       }
 
