@@ -13,7 +13,6 @@ export interface OpenAIConfig {
   debug?: boolean;
   showPrompt?: boolean;
   showPromptTrunc?: boolean;
-  debugJson?: boolean;
 }
 
 export const OPENAI_DEFAULT_CONFIG = {
@@ -143,15 +142,7 @@ export class OpenAIProvider implements LLMProvider {
           finish_reason: firstChoice?.finish_reason,
         });
       }
-      if (this.config.debugJson) {
-        try {
-          console.log('[vectorlint] Full JSON response:');
-          console.log(JSON.stringify(rawResponse, null, 2));
-        } catch (e: unknown) {
-          const err = handleUnknownError(e, 'JSON stringify for debug');
-          console.warn(`[vectorlint] Warning: ${err.message}`);
-        }
-      }
+
     }
 
     // Type-safe property access with proper null checks

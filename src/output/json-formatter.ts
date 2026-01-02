@@ -1,12 +1,5 @@
-import { z } from 'zod';
 import { Severity } from '../evaluators/types';
-import pkg from '../../package.json';
-
-const PACKAGE_JSON_SCHEMA = z.object({
-  version: z.string(),
-});
-
-const PKG = PACKAGE_JSON_SCHEMA.parse(pkg);
+import { CLI_VERSION } from '../config/constants';
 export interface ScoreComponent {
   criterion?: string;
   rawScore: number;
@@ -85,7 +78,7 @@ export class JsonFormatter {
         warnings: this.warningCount,
       },
       metadata: {
-        version: PKG.version,
+        version: CLI_VERSION,
         timestamp: new Date().toISOString(),
       },
     };

@@ -13,7 +13,6 @@ export interface AzureOpenAIConfig {
   debug?: boolean | undefined;
   showPrompt?: boolean | undefined; // full prompt and content
   showPromptTrunc?: boolean | undefined; // truncated previews (500 chars)
-  debugJson?: boolean | undefined;
 }
 
 export const AZURE_OPENAI_DEFAULT_CONFIG = {
@@ -29,7 +28,6 @@ export class AzureOpenAIProvider implements LLMProvider {
   private debug?: boolean | undefined;
   private showPrompt?: boolean | undefined;
   private showPromptTrunc?: boolean | undefined;
-  private debugJson?: boolean | undefined;
   private builder: RequestBuilder;
 
   constructor(config: AzureOpenAIConfig, builder?: RequestBuilder) {
@@ -44,7 +42,6 @@ export class AzureOpenAIProvider implements LLMProvider {
     this.debug = config.debug;
     this.showPrompt = config.showPrompt;
     this.showPromptTrunc = config.showPromptTrunc;
-    this.debugJson = config.debugJson;
     this.builder = builder ?? new DefaultRequestBuilder();
   }
 
@@ -118,15 +115,7 @@ export class AzureOpenAIProvider implements LLMProvider {
       if (usage || finish) {
         console.log('[vectorlint] LLM response meta:', { usage, finish_reason: finish });
       }
-      if (this.debugJson) {
-        try {
-          console.log('[vectorlint] Full JSON response:');
-          console.log(JSON.stringify(validatedResponse, null, 2));
-        } catch (e: unknown) {
-          const err = handleUnknownError(e, 'JSON stringify for debug');
-          console.warn(`[vectorlint] Warning: ${err.message}`);
-        }
-      }
+
     }
     if (!responseText) {
       throw new Error('Empty response from LLM (no content).');

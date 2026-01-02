@@ -89,7 +89,6 @@ describe('Anthropic End-to-End Integration', () => {
       const provider = createProvider(envConfig, {
         debug: true,
         showPrompt: false,
-        debugJson: false,
       });
       expect(provider).toBeInstanceOf(AnthropicProvider);
 
@@ -577,7 +576,6 @@ describe('Anthropic End-to-End Integration', () => {
       const provider = createProvider(envConfig, {
         debug: true,
         showPrompt: true,
-        debugJson: true,
       });
 
       const mockResponse: AnthropicMessage = {

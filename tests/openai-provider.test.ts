@@ -145,7 +145,6 @@ describe('OpenAIProvider', () => {
         debug: true,
         showPrompt: true,
         showPromptTrunc: false,
-        debugJson: true,
       };
 
       expect(() => new OpenAIProvider(config)).not.toThrow();
@@ -821,43 +820,6 @@ describe('OpenAIProvider', () => {
       expect(consoleSpy).toHaveBeenCalledWith('... [truncated]');
     });
 
-    it('shows full JSON response when debugJson is enabled', async () => {
-      const config = {
-        apiKey: 'sk-test-key',
-        debug: true,
-        debugJson: true,
-      };
-
-      const mockResponse: OpenAIResponse = {
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({ result: 'success' }),
-            },
-            finish_reason: 'stop',
-          },
-        ],
-        usage: {
-          prompt_tokens: 100,
-          completion_tokens: 50,
-          total_tokens: 150,
-        },
-      };
-
-      SHARED_CREATE.mockResolvedValue(mockResponse);
-
-      const provider = new OpenAIProvider(config);
-      const schema = {
-        name: 'test_schema',
-        schema: { properties: { result: { type: 'string' } } },
-      };
-
-      await provider.runPromptStructured('Test content', 'Test prompt', schema);
-
-      expect(consoleSpy).toHaveBeenCalledWith('[vectorlint] Full JSON response:');
-      expect(consoleSpy).toHaveBeenCalledWith(JSON.stringify(mockResponse, null, 2));
-    });
-
     it('does not log when debug is disabled', async () => {
       const config = {
         apiKey: 'sk-test-key',
@@ -888,52 +850,12 @@ describe('OpenAIProvider', () => {
       expect(consoleSpy).not.toHaveBeenCalled();
     });
 
-    it('handles debug JSON stringify errors gracefully', async () => {
-      const config = {
-        apiKey: 'sk-test-key',
-        debug: true,
-        debugJson: true,
-      };
-
-      // Create a response with circular reference to cause JSON.stringify to fail
-      const mockResponse: unknown = {
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({ result: 'success' }),
-            },
-            finish_reason: 'stop',
-          },
-        ],
-      };
-      (mockResponse as Record<string, unknown>).circular = mockResponse; // Create circular reference
-
-      SHARED_CREATE.mockResolvedValue(mockResponse);
-
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
-
-      const provider = new OpenAIProvider(config);
-      const schema = {
-        name: 'test_schema',
-        schema: { properties: { result: { type: 'string' } } },
-      };
-
-      await provider.runPromptStructured('Test content', 'Test prompt', schema);
-
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[vectorlint] Warning:')
-      );
-
-      warnSpy.mockRestore();
-    });
-
     it('never exposes API keys in debug logs', async () => {
       const sensitiveApiKey = 'sk-very-secret-api-key-12345';
       const config = {
         apiKey: sensitiveApiKey,
         debug: true,
         showPrompt: true,
-        debugJson: true,
       };
 
       const mockResponse: OpenAIResponse = {
@@ -976,7 +898,6 @@ describe('OpenAIProvider', () => {
       const config = {
         apiKey: sensitiveApiKey,
         debug: true,
-        debugJson: true,
       };
 
       const openAI = await import('openai');

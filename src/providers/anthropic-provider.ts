@@ -20,7 +20,6 @@ export interface AnthropicConfig {
   debug?: boolean;
   showPrompt?: boolean;
   showPromptTrunc?: boolean;
-  debugJson?: boolean;
 }
 
 export const ANTHROPIC_DEFAULT_CONFIG = {
@@ -195,15 +194,7 @@ export class AnthropicProvider implements LLMProvider {
           stop_reason: stopReason,
         });
       }
-      if (this.config.debugJson) {
-        try {
-          console.log('[vectorlint] Full JSON response:');
-          console.log(JSON.stringify(response, null, 2));
-        } catch (e: unknown) {
-          const err = handleUnknownError(e, 'JSON stringify for debug');
-          console.warn(`[vectorlint] Warning: ${err.message}`);
-        }
-      }
+
     }
 
     // Type-safe content validation - response is already validated by schema
