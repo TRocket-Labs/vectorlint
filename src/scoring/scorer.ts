@@ -11,16 +11,16 @@ export interface SemiObjectiveScoringOptions {
   strictness?: number | "lenient" | "strict" | "standard" | undefined;
   defaultSeverity?: typeof Severity.WARNING | typeof Severity.ERROR | undefined;
   promptSeverity?:
-    | typeof Severity.WARNING
-    | typeof Severity.ERROR
-    | string
-    | undefined;
+  | typeof Severity.WARNING
+  | typeof Severity.ERROR
+  | string
+  | undefined;
 }
 
 export interface SubjectiveScoringOptions {
   promptCriteria?:
-    | Array<{ name: string; weight?: number | undefined }>
-    | undefined;
+  | Array<{ name: string; weight?: number | undefined }>
+  | undefined;
 }
 
 function resolveStrictness(
@@ -41,7 +41,7 @@ function resolveStrictness(
 }
 
 /**
- * Calculates semi-objective score based on violation density.
+ * Calculates check score based on violation density.
  *
  * Formula: Score = (100 - (violations/wordCount * 100 * strictness)) / 10
  */
@@ -83,13 +83,12 @@ export function calculateSemiObjectiveScore(
 
   const message =
     mappedViolations.length > 0
-      ? `Found ${mappedViolations.length} issue${
-          mappedViolations.length > 1 ? "s" : ""
-        }`
+      ? `Found ${mappedViolations.length} issue${mappedViolations.length > 1 ? "s" : ""
+      }`
       : "No issues found";
 
   return {
-    type: EvaluationType.SEMI_OBJECTIVE,
+    type: EvaluationType.CHECK,
     final_score: Number(finalScore.toFixed(1)),
     percentage: Number(rawScore.toFixed(1)),
     violation_count: mappedViolations.length,
@@ -101,7 +100,7 @@ export function calculateSemiObjectiveScore(
 }
 
 /**
- * Calculates subjective score from criteria results.
+ * Calculates judge score from criteria results.
  *
  * Each criterion score (1-4) is normalized to 1-10 scale,
  * then weighted average is calculated.
@@ -138,20 +137,20 @@ export function calculateSubjectiveScore(
   const finalScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 1;
 
   return {
-    type: EvaluationType.SUBJECTIVE,
+    type: EvaluationType.JUDGE,
     final_score: Number(finalScore.toFixed(1)),
     criteria: criteriaWithCalculations,
   };
 }
 
-// Averages subjective scores from multiple chunk evaluations.
+// Averages judge scores from multiple chunk evaluations.
 export function averageSubjectiveScores(
   results: SubjectiveResult[],
   chunkWordCounts: number[]
 ): SubjectiveResult {
   if (results.length === 0) {
     return {
-      type: EvaluationType.SUBJECTIVE,
+      type: EvaluationType.JUDGE,
       final_score: 0,
       criteria: [],
     };
@@ -161,7 +160,7 @@ export function averageSubjectiveScores(
   if (results.length !== chunkWordCounts.length) {
     console.warn(
       `[vectorlint] Array length mismatch in averageSubjectiveScores: ` +
-        `${results.length} results vs ${chunkWordCounts.length} word counts`
+      `${results.length} results vs ${chunkWordCounts.length} word counts`
     );
   }
 
@@ -275,7 +274,7 @@ export function averageSubjectiveScores(
   const finalScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
 
   return {
-    type: EvaluationType.SUBJECTIVE,
+    type: EvaluationType.JUDGE,
     final_score: Number(finalScore.toFixed(1)),
     criteria: aggregatedCriteria,
   };

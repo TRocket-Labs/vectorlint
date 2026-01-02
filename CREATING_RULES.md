@@ -7,8 +7,8 @@ A comprehensive guide to creating powerful, reusable content evaluations using V
 - [Overview](#overview)
 - [Rule Anatomy](#rule-anatomy)
 - [Evaluation Modes](#evaluation-modes)
-- [Semi-Objective Rules](#semi-objective-rules)
-- [Subjective Rules](#subjective-rules)
+- [Check Rules](#check-rules)
+- [Judge Rules](#judge-rules)
 - [Target Specification](#target-specification)
 - [Configuration Reference](#configuration-reference)
 - [Best Practices](#best-practices)
@@ -25,7 +25,7 @@ VectorLint rules are Markdown files with YAML frontmatter that define how your c
 - **Rule = Prompt file** (`.md` file organized in rule packs)
 - **Pack** = Subdirectory containing related rules (typically named after a company/style guide)
 - **Criteria** = Individual quality checks within a rule
-- **Score** = LLM-assigned rating (1-4 scale for subjective, density-based for semi-objective)
+- **Score** = LLM-assigned rating (1-4 scale for judge, density-based for check)
 
 - **Severity** = How failures are reported (`error` or `warning`)
 
@@ -41,7 +41,7 @@ Every rule is a Markdown file with two parts:
 id: MyEval
 name: My Content Evaluator
 evaluator: base
-type: semi-objective
+type: check
 severity: error
 ---
 
@@ -76,20 +76,20 @@ project/
 
 VectorLint uses a single **Base Evaluator** (`evaluator: base`) that operates in two distinct modes, determined by the `type` field:
 
-| Mode               | `type`           | Use Case                              | Scoring                     | Output                  |
-| ------------------ | ---------------- | ------------------------------------- | --------------------------- | ----------------------- |
-| **Semi-Objective** | `semi-objective` | Pass/fail checks, counting violations | 10 points - 1 per violation | List of specific issues |
-| **Subjective**     | `subjective`     | Multi-dimensional quality scoring     | 0-4 scale per criterion     | Weighted average score  |
+| Mode       | `type`  | Use Case                              | Scoring                     | Output                  |
+| ---------- | ------- | ------------------------------------- | --------------------------- | ----------------------- |
+| **Check**  | `check` | Pass/fail checks, counting violations | 10 points - 1 per violation | List of specific issues |
+| **Judge**  | `judge` | Multi-dimensional quality scoring     | 0-4 scale per criterion     | Weighted average score  |
 
 ### When to Use Each
 
-**Use Semi-Objective when:**
+**Use Check when:**
 
 - You need to find specific errors (e.g., "Find all grammar mistakes")
 - The check is binary (Pass/Fail) for each item
 - You want a list of specific violations to fix
 
-**Use Subjective when:**
+**Use Judge when:**
 
 - You're measuring quality on a spectrum (e.g., "How engaging is this?")
 - You have multiple dimensions (Clarity, Tone, Depth)
@@ -97,16 +97,16 @@ VectorLint uses a single **Base Evaluator** (`evaluator: base`) that operates in
 
 ---
 
-## Semi-Objective Rules
+## Check Rules
 
-Semi-objective rules are perfect for finding specific issues. The LLM lists violations, and the score is calculated based on the count of violations.
+Check rules are perfect for finding specific issues. The LLM lists violations, and the score is calculated based on the count of violations.
 
 ### Minimal Example
 
 ```markdown
 ---
 evaluator: base
-type: semi-objective
+type: check
 id: GrammarChecker
 name: Grammar Checker
 severity: error
@@ -141,9 +141,9 @@ Check this content for grammar issues, spelling errors, and punctuation mistakes
 
 ---
 
-## Subjective Rules
+## Judge Rules
 
-Subjective rules use weighted criteria and a 1-4 rubric for sophisticated quality measurement.
+Judge rules use weighted criteria and a 1-4 rubric for sophisticated quality measurement.
 
 ### Structure
 
@@ -151,7 +151,7 @@ Subjective rules use weighted criteria and a 1-4 rubric for sophisticated qualit
 ---
 specVersion: 1.0.0
 evaluator: base
-type: subjective
+type: judge
 id: HeadlineEvaluator
 name: Headline Evaluator
 
@@ -184,7 +184,7 @@ Clear benefit but less specific impact
 
 ### The 1-4 Scoring Scale
 
-VectorLint uses a **1-4 scale** for all subjective criteria, which is then normalized to a 1-10 scale:
+VectorLint uses a **1-4 scale** for all judge criteria, which is then normalized to a 1-10 scale:
 
 | LLM Rating | Meaning   | Normalized Score |
 | :--------- | :-------- | :--------------- |
@@ -247,14 +247,14 @@ target:
 | ------------- | ------------- | -------- | ------------------------------------------------------------------ |
 | `specVersion` | string/number | No       | Rule specification version (use `1.0.0`)                           |
 | `evaluator`   | string        | No       | Evaluator type: `base`, `technical-accuracy` (default: `base`)     |
-| `type`        | string        | No       | Mode: `subjective` or `semi-objective` (default: `semi-objective`) |
+| `type`        | string        | No       | Mode: `judge` or `check` (default: `check`) |
 | `id`          | string        | **Yes**  | Unique identifier (used in error reporting)                        |
 | `name`        | string        | **Yes**  | Human-readable name                                                |
 
 | `severity` | string | No | `error` or `warning` (default: `warning`) |
 | `evaluateAs` | string | No | `document` or `chunk` - whether to evaluate content as a whole or in chunks (default: `chunk`) |
 | `target` | object | No | Content matching specification |
-| `criteria` | array | **Yes\*** | List of evaluation criteria (\*required for subjective) |
+| `criteria` | array | **Yes\*** | List of evaluation criteria (\*required for judge) |
 
 ### Criterion Fields
 
@@ -323,12 +323,12 @@ Help the LLM understand your domain:
 
 ## Examples
 
-### Example 1: Simple Grammar Check (Semi-Objective)
+### Example 1: Simple Grammar Check (Check)
 
 ```markdown
 ---
 evaluator: base
-type: semi-objective
+type: check
 id: GrammarChecker
 name: Grammar Checker
 severity: error
@@ -338,13 +338,13 @@ Check this content for grammar issues, spelling errors, and punctuation mistakes
 Report any errors found with specific examples.
 ```
 
-### Example 2: Headline Evaluator (Subjective)
+### Example 2: Headline Evaluator (Judge)
 
 ```markdown
 ---
 specVersion: 1.0.0
 evaluator: base
-type: subjective
+type: judge
 id: Headline
 name: Headline Evaluator
 
@@ -380,13 +380,13 @@ Specific, immediately appealing benefit clearly stated
 ...
 ```
 
-### Example 3: AI Pattern Detector (Subjective)
+### Example 3: AI Pattern Detector (Judge)
 
 ```markdown
 ---
 specVersion: 1.0.0
 evaluator: base
-type: subjective
+type: judge
 id: AIPatterns
 name: AI Pattern Detector
 

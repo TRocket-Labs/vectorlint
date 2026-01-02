@@ -45,28 +45,29 @@ export class BaseEvaluator implements Evaluator {
     protected llmProvider: LLMProvider,
     protected prompt: PromptFile,
     protected defaultSeverity?: Severity
-  ) {}
+  ) { }
 
   async evaluate(_file: string, content: string): Promise<EvaluationResult> {
     const type = this.getEvaluationType();
 
-    if (type === EvaluationType.SUBJECTIVE) {
-      return this.runSubjectiveEvaluation(content);
+    if (type === EvaluationType.JUDGE) {
+      return this.runJudgeEvaluation(content);
     } else {
-      return this.runSemiObjectiveEvaluation(content);
+      return this.runCheckEvaluation(content);
     }
   }
 
   /*
    * Determines the evaluation type.
-   * Defaults to 'semi-objective' if not specified, for backward compatibility.
+   * Defaults to 'check' if not specified, for backward compatibility.
    */
   protected getEvaluationType():
-    | typeof EvaluationType.SUBJECTIVE
-    | typeof EvaluationType.SEMI_OBJECTIVE {
-    return this.prompt.meta.type === "subjective"
-      ? EvaluationType.SUBJECTIVE
-      : EvaluationType.SEMI_OBJECTIVE;
+    | typeof EvaluationType.JUDGE
+    | typeof EvaluationType.CHECK {
+    // After Zod transform, type will be 'judge' or 'check' (or undefined)
+    return this.prompt.meta.type === "judge"
+      ? EvaluationType.JUDGE
+      : EvaluationType.CHECK;
   }
 
   protected chunkContent(content: string): Chunk[] {
@@ -107,13 +108,13 @@ export class BaseEvaluator implements Evaluator {
   }
 
   /*
-   * Runs subjective evaluation:
+   * Runs judge evaluation:
    * 1. Prepend line numbers for accurate LLM line reporting.
    * 2. Chunk content if needed.
    * 3. LLM scores each criterion 1-4 for each chunk.
    * 4. Average scores across chunks (weighted by chunk size).
    */
-  protected async runSubjectiveEvaluation(
+  protected async runJudgeEvaluation(
     content: string
   ): Promise<SubjectiveResult> {
     const schema = buildSubjectiveLLMSchema();
@@ -175,14 +176,14 @@ export class BaseEvaluator implements Evaluator {
   }
 
   /*
-   * Runs semi-objective evaluation:
+   * Runs check evaluation:
    * 1. Prepend line numbers for accurate LLM line reporting.
    * 2. Chunk content if needed.
    * 3. LLM lists violations for each chunk.
    * 4. Merge all violations across chunks.
    * 5. Calculate score once from total violations.
    */
-  protected async runSemiObjectiveEvaluation(
+  protected async runCheckEvaluation(
     content: string
   ): Promise<SemiObjectiveResult> {
     const schema = buildSemiObjectiveLLMSchema();
