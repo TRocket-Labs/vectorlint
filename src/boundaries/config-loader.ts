@@ -70,7 +70,7 @@ export function loadConfig(
         configDir: cwd,
         scanPaths: [
           {
-            pattern: "**/*.{md,mdx}",
+            pattern: "**/*.{md,txt,mdx}",
             runRules: ["StyleGuide"],
             overrides: {},
           },
