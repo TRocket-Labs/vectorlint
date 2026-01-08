@@ -70,7 +70,7 @@ vectorlint doc.md
 
 ### 2. Full Configuration
 
-For more power (custom rule packs, specific targets), run:
+For a comprehensive setup (custom rule packs, specific targets), run:
 
 ```bash
 vectorlint init
@@ -86,13 +86,13 @@ This creates:
 
 Open your global **App Config** (`~/.vectorlint/config.toml`) and uncomment the section for your preferred LLM provider (OpenAI, Anthropic, Gemini, or Azure).
 
-    ```toml
-    [env]
-    LLM_PROVIDER = "openai"
-    OPENAI_API_KEY = "sk-..."
-    ```
+```toml
+[env]
+LLM_PROVIDER = "openai"
+OPENAI_API_KEY = "sk-..."
+```
 
-    *Note: You can also use a local `.env` file in your project, which takes precedence over the global config.*
+> *Note: You can also use a local `.env` file in your project, which takes precedence over the global config.*
 
 **Run a check:**
 
