@@ -58,7 +58,11 @@ If you just want to check your content against a style guide:
 vectorlint init --quick
 ```
 
-This creates a `VECTORLINT.md` file where you can paste your style guide. Then run:
+This creates a `VECTORLINT.md` file where you can paste your style guide.
+
+> **Note:** You must set up your credentials in `~/.vectorlint/config.toml` (see Step 3) before running checks.
+
+Then run:
 
 ```bash
 vectorlint doc.md

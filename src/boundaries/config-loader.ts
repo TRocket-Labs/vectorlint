@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from "fs";
 import * as path from "path";
-import { z } from "zod";
 import { CONFIG_SCHEMA, type Config } from "../schemas/config-schemas";
 import {
   ConfigError,
@@ -33,13 +32,7 @@ enum ConfigKey {
   DEFAULT_SEVERITY = "DefaultSeverity",
 }
 
-const RESOLVE_CONFIG_PATH_SCHEMA = z.object({
-  cwd: z.string(),
-  configPath: z.string().optional(),
-});
-
 function resolveConfigPath(cwd: string, configPath?: string): string | undefined {
-  RESOLVE_CONFIG_PATH_SCHEMA.parse({ cwd, configPath });
   if (configPath) {
     const explicitPath = path.resolve(cwd, configPath);
     if (!existsSync(explicitPath)) {

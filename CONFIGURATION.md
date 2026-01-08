@@ -69,7 +69,7 @@ You can place a `VECTORLINT.md` file in your project root to define global style
 If no `.vectorlint.ini` exists, VectorLint will automatically:
 1. Detect `VECTORLINT.md`
 2. Create a synthetic "Style Guide Compliance" rule
-3. Evaluate all `.md` files against it
+3. Evaluate your contents against it
 
 ### Combined Mode
 If you have configured rules (via `.vectorlint.ini`), the content of `VECTORLINT.md` is **prepended** to the system prompt for every evaluation. This ensures your global style preferences (tone, terminology) are respected across all specific rules.
