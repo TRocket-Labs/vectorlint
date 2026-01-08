@@ -145,7 +145,6 @@ export function registerMainCommand(program: Command): void {
         }
 
         if (prompts.length === 0) {
-          // Zero-config mode: If we have a style guide but no rules, create a synthetic prompt
           if (styleGuide.content) {
             if (cliOptions.verbose) {
               console.log('[vectorlint] No rules found, but VECTORLINT.md exists. Running in zero-config mode.');
