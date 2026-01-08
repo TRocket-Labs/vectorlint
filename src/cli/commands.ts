@@ -19,7 +19,7 @@ import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
 import { OutputFormat } from './types';
-import { DEFAULT_CONFIG_FILENAME, STYLE_GUIDE_FILENAME } from '../config/constants';
+import { DEFAULT_CONFIG_FILENAME, STYLE_GUIDE_FILENAME, ZERO_CONFIG_PACK_NAME, ZERO_CONFIG_PROMPT_ID } from '../config/constants';
 import { Severity, Type } from '../evaluators/types';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -237,13 +237,13 @@ export function registerMainCommand(program: Command): void {
 
 function createStyleGuidePrompt(fullPath: string): PromptFile {
   return {
-    id: 'style-guide',
+    id: ZERO_CONFIG_PROMPT_ID,
     filename: STYLE_GUIDE_FILENAME,
     fullPath,
     body: 'Evaluate the provided content against the attached Global Style Guide. Report any violations of the rules defined in the style guide.',
-    pack: 'StyleGuide',
+    pack: ZERO_CONFIG_PACK_NAME,
     meta: {
-      id: 'style-guide',
+      id: ZERO_CONFIG_PROMPT_ID,
       name: 'Style Guide Compliance',
       evaluator: Type.BASE,
       severity: Severity.WARNING,

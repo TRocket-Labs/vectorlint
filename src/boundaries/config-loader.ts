@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "fs";
 import * as path from "path";
+import { z } from "zod";
 import { CONFIG_SCHEMA, type Config } from "../schemas/config-schemas";
 import {
   ConfigError,
@@ -10,6 +11,9 @@ import {
   LEGACY_CONFIG_FILENAME,
   DEFAULT_CONFIG_FILENAME,
   STYLE_GUIDE_FILENAME,
+  DEFAULT_CONCURRENCY,
+  ZERO_CONFIG_PACK_NAME,
+  DEFAULT_SCAN_PATTERN,
 } from "../config/constants";
 import { FileSectionParser } from "./file-section-parser";
 
@@ -29,7 +33,13 @@ enum ConfigKey {
   DEFAULT_SEVERITY = "DefaultSeverity",
 }
 
+const RESOLVE_CONFIG_PATH_SCHEMA = z.object({
+  cwd: z.string(),
+  configPath: z.string().optional(),
+});
+
 function resolveConfigPath(cwd: string, configPath?: string): string | undefined {
+  RESOLVE_CONFIG_PATH_SCHEMA.parse({ cwd, configPath });
   if (configPath) {
     const explicitPath = path.resolve(cwd, configPath);
     if (!existsSync(explicitPath)) {
@@ -66,12 +76,12 @@ export function loadConfig(
     if (existsSync(styleGuidePath)) {
       // Return default config for zero-config mode
       const defaultConfig = {
-        concurrency: 4,
+        concurrency: DEFAULT_CONCURRENCY,
         configDir: cwd,
         scanPaths: [
           {
-            pattern: "**/*.{md,txt,mdx}",
-            runRules: ["StyleGuide"],
+            pattern: DEFAULT_SCAN_PATTERN,
+            runRules: [ZERO_CONFIG_PACK_NAME],
             overrides: {},
           },
         ],
@@ -180,7 +190,7 @@ export function loadConfig(
     ? (path.isAbsolute(rulesPathRaw) ? rulesPathRaw : path.resolve(configDir, rulesPathRaw))
     : undefined;
 
-  const concurrency = concurrencyRaw ?? 4;
+  const concurrency = concurrencyRaw ?? DEFAULT_CONCURRENCY;
 
   // Create config object and validate with schema
   const configData = {
