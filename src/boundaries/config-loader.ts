@@ -80,7 +80,7 @@ export function loadConfig(
     }
 
     throw new ConfigError(
-      `Missing configuration file. Expected ${DEFAULT_CONFIG_FILENAME} in ${cwd}`
+      `Missing configuration file. Expected ${DEFAULT_CONFIG_FILENAME} or ${STYLE_GUIDE_FILENAME} in ${cwd}`
     );
   }
 
@@ -182,7 +182,6 @@ export function loadConfig(
 
   const concurrency = concurrencyRaw ?? 4;
 
-  // Create config object and validate with schema
   // Create config object and validate with schema
   const configData = {
     rulesPath,
