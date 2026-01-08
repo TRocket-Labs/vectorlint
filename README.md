@@ -94,15 +94,15 @@ Open your global **App Config** (`~/.vectorlint/config.toml`) and uncomment the 
 
     *Note: You can also use a local `.env` file in your project, which takes precedence over the global config.*
 
-3.  **Run a check:**
+**Run a check:**
 
-    ```bash
-    vectorlint doc.md
-    ```
+```bash
+vectorlint doc.md
+```
 
-    VectorLint is bundled with a `VectorLint` preset containing rules for AI pattern detection, directness, and more. The `init` command configures this automatically.
+VectorLint is bundled with a `VectorLint` preset containing rules for AI pattern detection, directness, and more. The `init` command configures this automatically.
 
-    👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
+👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
 
 ## Contributing
 
