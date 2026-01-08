@@ -50,23 +50,37 @@ VectorLint scores your content using error density and a rubric-based system, en
 
 ## Quick Start
 
-1.  **Initialize Configuration:**
+### 1. Zero-Config Mode (Fastest)
 
-    Run the initialization command to generate your configuration files:
+If you just want to check your content against a style guide:
 
-    ```bash
-    vectorlint init
-    ```
+```bash
+vectorlint init --quick
+```
 
-    This creates two files:
-    - **VectorLint Config** (`.vectorlint.ini`): Project-specific settings (rules path, concurrency).
-    - **App Config** (`~/.vectorlint/config.toml`): LLM provider API keys and settings.
+This creates a `VECTORLINT.md` file where you can paste your style guide. Then run:
 
-    👉 **[Full configuration reference →](./CONFIGURATION.md)**
+```bash
+vectorlint doc.md
+```
 
-2.  **Configure API Keys:**
+### 2. Full Configuration
 
-    Open your global **App Config** (`~/.vectorlint/config.toml`) and uncomment the section for your preferred LLM provider (OpenAI, Anthropic, Gemini, or Azure).
+For more power (custom rule packs, specific targets), run:
+
+```bash
+vectorlint init
+```
+
+This creates:
+- **VectorLint Config** (`.vectorlint.ini`): Project-specific settings.
+- **App Config** (`~/.vectorlint/config.toml`): LLM provider API keys.
+
+👉 **[Full configuration reference →](./CONFIGURATION.md)**
+
+### 3. Configure API Keys
+
+Open your global **App Config** (`~/.vectorlint/config.toml`) and uncomment the section for your preferred LLM provider (OpenAI, Anthropic, Gemini, or Azure).
 
     ```toml
     [env]
