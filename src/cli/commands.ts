@@ -240,7 +240,7 @@ function createStyleGuidePrompt(fullPath: string): PromptFile {
     id: 'style-guide',
     filename: STYLE_GUIDE_FILENAME,
     fullPath,
-    body: 'Evaluate the content against the provided Global Style Guide. Identify any deviations in tone, terminology, or writing style.',
+    body: 'Evaluate the provided content against the attached Global Style Guide. Report any violations of the rules defined in the style guide.',
     pack: 'StyleGuide',
     meta: {
       id: 'style-guide',

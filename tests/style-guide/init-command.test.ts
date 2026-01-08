@@ -31,9 +31,9 @@ describe('Init Command (Style Guide Support)', () => {
 
     it('default: creates only .vectorlint.ini (backward compatibility)', async () => {
         const { registerInitCommand } = await import('../../src/cli/init-command');
-        const { program } = await import('commander');
+        const { Command } = await import('commander');
 
-        const testProgram = program.createCommand();
+        const testProgram = new Command();
         registerInitCommand(testProgram);
 
         await testProgram.parseAsync(['node', 'test', 'init']);
@@ -44,9 +44,9 @@ describe('Init Command (Style Guide Support)', () => {
 
     it('--quick: creates only VECTORLINT.md', async () => {
         const { registerInitCommand } = await import('../../src/cli/init-command');
-        const { program } = await import('commander');
+        const { Command } = await import('commander');
 
-        const testProgram = program.createCommand();
+        const testProgram = new Command();
         registerInitCommand(testProgram);
 
         await testProgram.parseAsync(['node', 'test', 'init', '--quick']);
@@ -60,9 +60,9 @@ describe('Init Command (Style Guide Support)', () => {
 
     it('--full: creates both files', async () => {
         const { registerInitCommand } = await import('../../src/cli/init-command');
-        const { program } = await import('commander');
+        const { Command } = await import('commander');
 
-        const testProgram = program.createCommand();
+        const testProgram = new Command();
         registerInitCommand(testProgram);
 
         await testProgram.parseAsync(['node', 'test', 'init', '--full']);
@@ -76,9 +76,9 @@ describe('Init Command (Style Guide Support)', () => {
         writeFileSync(path.join(testDir, STYLE_GUIDE_FILENAME), 'Original Content');
 
         const { registerInitCommand } = await import('../../src/cli/init-command');
-        const { program } = await import('commander');
+        const { Command } = await import('commander');
 
-        const testProgram = program.createCommand();
+        const testProgram = new Command();
         testProgram.exitOverride(); // Prevent process.exit()
         registerInitCommand(testProgram);
 
@@ -95,9 +95,9 @@ describe('Init Command (Style Guide Support)', () => {
         writeFileSync(path.join(testDir, STYLE_GUIDE_FILENAME), 'Original Content');
 
         const { registerInitCommand } = await import('../../src/cli/init-command');
-        const { program } = await import('commander');
+        const { Command } = await import('commander');
 
-        const testProgram = program.createCommand();
+        const testProgram = new Command();
         registerInitCommand(testProgram);
 
         await testProgram.parseAsync(['node', 'test', 'init', '--quick', '--force']);

@@ -65,7 +65,7 @@ export function loadConfig(
     const styleGuidePath = path.resolve(cwd, STYLE_GUIDE_FILENAME);
     if (existsSync(styleGuidePath)) {
       // Return default config for zero-config mode
-      return {
+      const defaultConfig = {
         concurrency: 4,
         configDir: cwd,
         scanPaths: [
@@ -76,6 +76,7 @@ export function loadConfig(
           },
         ],
       };
+      return CONFIG_SCHEMA.parse(defaultConfig);
     }
 
     throw new ConfigError(
