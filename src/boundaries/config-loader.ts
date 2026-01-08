@@ -9,6 +9,7 @@ import {
 import {
   LEGACY_CONFIG_FILENAME,
   DEFAULT_CONFIG_FILENAME,
+  STYLE_GUIDE_FILENAME,
 } from "../config/constants";
 import { FileSectionParser } from "./file-section-parser";
 
@@ -28,7 +29,7 @@ enum ConfigKey {
   DEFAULT_SEVERITY = "DefaultSeverity",
 }
 
-function resolveConfigPath(cwd: string, configPath?: string): string {
+function resolveConfigPath(cwd: string, configPath?: string): string | undefined {
   if (configPath) {
     const explicitPath = path.resolve(cwd, configPath);
     if (!existsSync(explicitPath)) {
@@ -47,9 +48,7 @@ function resolveConfigPath(cwd: string, configPath?: string): string {
     return defaultPath;
   }
 
-  throw new ConfigError(
-    `Missing configuration file. Expected ${DEFAULT_CONFIG_FILENAME} in ${cwd}`
-  );
+  return undefined;
 }
 
 /**
@@ -60,6 +59,29 @@ export function loadConfig(
   configPath?: string
 ): Config {
   const iniPath = resolveConfigPath(cwd, configPath);
+
+  if (!iniPath) {
+    // Check for VECTORLINT.md for zero-config mode
+    const styleGuidePath = path.resolve(cwd, STYLE_GUIDE_FILENAME);
+    if (existsSync(styleGuidePath)) {
+      // Return default config for zero-config mode
+      return {
+        concurrency: 4,
+        configDir: cwd,
+        scanPaths: [
+          {
+            pattern: "**/*.{md,mdx}",
+            runRules: ["StyleGuide"],
+            overrides: {},
+          },
+        ],
+      };
+    }
+
+    throw new ConfigError(
+      `Missing configuration file. Expected ${DEFAULT_CONFIG_FILENAME} in ${cwd}`
+    );
+  }
 
   const configDir = path.dirname(iniPath);
 
