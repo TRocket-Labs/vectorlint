@@ -10,7 +10,7 @@ import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
 import { Type, type Severity } from "./types";
 import { MissingDependencyError } from "../errors/index";
-import { calculateSemiObjectiveScore } from "../scoring/scorer";
+import { calculateCheckScore } from "../scoring/scorer";
 import { countWords } from "../chunking";
 
 // Schema for claim extraction response
@@ -65,7 +65,7 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     // Use the scoring module to calculate result
     if (claims.length === 0) {
       const wordCount = countWords(content) || 1;
-      const result = calculateSemiObjectiveScore([], wordCount, {
+      const result = calculateCheckScore([], wordCount, {
         strictness: this.prompt.meta.strictness,
         defaultSeverity: this.defaultSeverity,
         promptSeverity: this.prompt.meta.severity,

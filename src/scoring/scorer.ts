@@ -1,12 +1,12 @@
 import type {
-  SemiObjectiveResult,
-  SubjectiveResult,
-  SemiObjectiveItem,
-  SubjectiveLLMResult,
+  CheckResult,
+  JudgeResult,
+  CheckItem,
+  JudgeLLMResult,
 } from "../prompts/schema";
 import { EvaluationType, Severity } from "../evaluators/types";
 
-export interface SemiObjectiveScoringOptions {
+export interface CheckScoringOptions {
   // Strictness factor. Higher = more penalty per violation.
   strictness?: number | "lenient" | "strict" | "standard" | undefined;
   defaultSeverity?: typeof Severity.WARNING | typeof Severity.ERROR | undefined;
@@ -17,7 +17,7 @@ export interface SemiObjectiveScoringOptions {
   | undefined;
 }
 
-export interface SubjectiveScoringOptions {
+export interface JudgeScoringOptions {
   promptCriteria?:
   | Array<{ name: string; weight?: number | undefined }>
   | undefined;
@@ -45,11 +45,11 @@ function resolveStrictness(
  *
  * Formula: Score = (100 - (violations/wordCount * 100 * strictness)) / 10
  */
-export function calculateSemiObjectiveScore(
-  violations: SemiObjectiveItem[],
+export function calculateCheckScore(
+  violations: CheckItem[],
   wordCount: number,
-  options: SemiObjectiveScoringOptions = {}
-): SemiObjectiveResult {
+  options: CheckScoringOptions = {}
+): CheckResult {
   const strictness = resolveStrictness(options.strictness);
 
   // Map items to violation format
@@ -105,10 +105,10 @@ export function calculateSemiObjectiveScore(
  * Each criterion score (1-4) is normalized to 1-10 scale,
  * then weighted average is calculated.
  */
-export function calculateSubjectiveScore(
-  criteria: SubjectiveLLMResult["criteria"],
-  options: SubjectiveScoringOptions = {}
-): SubjectiveResult {
+export function calculateJudgeScore(
+  criteria: JudgeLLMResult["criteria"],
+  options: JudgeScoringOptions = {}
+): JudgeResult {
   let totalWeightedScore = 0;
   let totalWeight = 0;
 
@@ -144,10 +144,10 @@ export function calculateSubjectiveScore(
 }
 
 // Averages judge scores from multiple chunk evaluations.
-export function averageSubjectiveScores(
-  results: SubjectiveResult[],
+export function averageJudgeScores(
+  results: JudgeResult[],
   chunkWordCounts: number[]
-): SubjectiveResult {
+): JudgeResult {
   if (results.length === 0) {
     return {
       type: EvaluationType.JUDGE,
@@ -159,7 +159,7 @@ export function averageSubjectiveScores(
   // Warn if array lengths don't match (indicates a programming error)
   if (results.length !== chunkWordCounts.length) {
     console.warn(
-      `[vectorlint] Array length mismatch in averageSubjectiveScores: ` +
+      `[vectorlint] Array length mismatch in averageJudgeScores: ` +
       `${results.length} results vs ${chunkWordCounts.length} word counts`
     );
   }
@@ -229,7 +229,7 @@ export function averageSubjectiveScores(
   }
 
   // Build aggregated criteria
-  const aggregatedCriteria: SubjectiveResult["criteria"] = [];
+  const aggregatedCriteria: JudgeResult["criteria"] = [];
   let totalWeightedScore = 0;
   let totalWeight = 0;
 

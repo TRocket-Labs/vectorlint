@@ -4,8 +4,8 @@ import { EvaluationType } from "../src/evaluators/types";
 import type { LLMProvider, LLMResult } from "../src/providers/llm-provider";
 import type { PromptFile } from "../src/schemas/prompt-schemas";
 import type {
-  SubjectiveLLMResult,
-  SemiObjectiveLLMResult,
+  JudgeLLMResult,
+  CheckLLMResult,
 } from "../src/prompts/schema";
 import type { SearchProvider } from "../src/providers/search-provider";
 
@@ -36,7 +36,7 @@ describe("Scoring Types", () => {
       const evaluator = new BaseEvaluator(mockLlmProvider, judgePrompt);
 
       // Mock LLM returning raw scores (0-4) wrapped in LLMResult
-      const mockLlmResponse: LLMResult<SubjectiveLLMResult> = {
+      const mockLlmResponse: LLMResult<JudgeLLMResult> = {
         data: {
           criteria: [
             {
@@ -95,7 +95,7 @@ describe("Scoring Types", () => {
       const evaluator = new BaseEvaluator(mockLlmProvider, checkPrompt);
 
       // Mock LLM returning violations only wrapped in LLMResult
-      const mockLlmResponse: LLMResult<SemiObjectiveLLMResult> = {
+      const mockLlmResponse: LLMResult<CheckLLMResult> = {
         data: {
           violations: [
             {
@@ -137,7 +137,7 @@ describe("Scoring Types", () => {
     it("should handle empty violations list (perfect score)", async () => {
       const evaluator = new BaseEvaluator(mockLlmProvider, checkPrompt);
 
-      const mockLlmResponse: LLMResult<SemiObjectiveLLMResult> = {
+      const mockLlmResponse: LLMResult<CheckLLMResult> = {
         data: {
           violations: [],
         },
