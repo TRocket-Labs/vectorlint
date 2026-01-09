@@ -8,7 +8,7 @@ import {
   type CheckLLMResult,
   type JudgeResult,
   type CheckResult,
-  type EvaluationResult,
+  type PromptEvaluationResult,
 } from "../prompts/schema";
 import { registerEvaluator } from "./evaluator-registry";
 import type { Evaluator } from "./evaluator";
@@ -47,7 +47,7 @@ export class BaseEvaluator implements Evaluator {
     protected defaultSeverity?: Severity
   ) { }
 
-  async evaluate(_file: string, content: string): Promise<EvaluationResult> {
+  async evaluate(_file: string, content: string): Promise<PromptEvaluationResult> {
     const type = this.getEvaluationType();
 
     if (type === EvaluationType.JUDGE) {

@@ -170,16 +170,16 @@ export type CheckResult = {
   usage?: TokenUsage;
 };
 
-export type EvaluationResult = JudgeResult | CheckResult;
+export type PromptEvaluationResult = JudgeResult | CheckResult;
 
 export function isJudgeResult(
-  result: EvaluationResult
+  result: PromptEvaluationResult
 ): result is JudgeResult {
   return result.type === EvaluationType.JUDGE;
 }
 
 export function isCheckResult(
-  result: EvaluationResult
+  result: PromptEvaluationResult
 ): result is CheckResult {
   return result.type === EvaluationType.CHECK;
 }

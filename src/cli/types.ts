@@ -7,7 +7,7 @@ import type { EvaluationSummary } from '../output/reporter';
 import { ValeJsonFormatter } from '../output/vale-json-formatter';
 import { JsonFormatter, type ScoreComponent } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
-import type { EvaluationResult as PromptEvaluationResult, JudgeResult } from '../prompts/schema';
+import type { PromptEvaluationResult, JudgeResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
 import type { TokenUsageStats, PricingConfig } from '../providers/token-usage';
 

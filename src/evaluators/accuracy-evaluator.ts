@@ -3,7 +3,7 @@ import { registerEvaluator } from "./evaluator-registry";
 import type { LLMProvider } from "../providers/llm-provider";
 import type { SearchProvider } from "../providers/search-provider";
 import type { PromptFile } from "../schemas/prompt-schemas";
-import type { EvaluationResult } from "../prompts/schema";
+import type { PromptEvaluationResult } from "../prompts/schema";
 import type { TokenUsage } from "../providers/token-usage";
 import { renderTemplate } from "../prompts/template-renderer";
 import { getPrompt } from "./prompt-loader";
@@ -57,7 +57,7 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     super(llmProvider, prompt, defaultSeverity);
   }
 
-  async evaluate(_file: string, content: string): Promise<EvaluationResult> {
+  async evaluate(_file: string, content: string): Promise<PromptEvaluationResult> {
     // Step 1: Extract factual claims from the content
     const { claims, usage: claimUsage } = await this.extractClaims(content);
 
