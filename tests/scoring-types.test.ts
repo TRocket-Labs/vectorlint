@@ -79,14 +79,14 @@ describe("Scoring Types", () => {
 
   describe("Check Evaluation", () => {
     const checkPrompt: PromptFile = {
-      id: "test-semi",
+      id: "test-check",
       filename: "test.md",
       fullPath: "/test.md",
       body: "Count things.",
       pack: "test",
       meta: {
-        id: "test-semi",
-        name: "Test Semi",
+        id: "test-check",
+        name: "Test Check",
         type: "check",
       },
     };
