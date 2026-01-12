@@ -12,4 +12,5 @@ vectorlint.ini
 # .agent/
 /.idea
 /npm
+VECTORLINT.md
 
