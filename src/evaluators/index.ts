@@ -26,6 +26,9 @@ export {
 // Prompt loader for evaluator-specific prompts
 export { getPrompt } from './prompt-loader';
 
+// Retry utility for LLM operations with logging
+export { withRetry, type RetryOptions, type RetryResult } from './retry';
+
 // Import specialized evaluators to trigger their self-registration
 // These must be imported after base-evaluator to ensure registry is ready
 import './accuracy-evaluator';

@@ -1,0 +1,149 @@
+[
+  {
+    "category": "infrastructure",
+    "description": "Extend LLM Provider Interface with unstructured call support",
+    "steps": [
+      "Add runPromptUnstructured method signature to src/providers/llm-provider.ts",
+      "Implement runPromptUnstructured in src/providers/openai-provider.ts",
+      "Implement runPromptUnstructured in src/providers/anthropic-provider.ts",
+      "Implement runPromptUnstructured in src/providers/azure-openai-provider.ts",
+      "Implement runPromptUnstructured in src/providers/gemini-provider.ts",
+      "Write unit tests for unstructured provider methods",
+      "Verify npm test passes for new tests"
+    ],
+    "passes": true
+  },
+  {
+    "category": "infrastructure",
+    "description": "Implement retry utility with logging",
+    "steps": [
+      "Create src/evaluators/retry.ts with withRetry function",
+      "Accept operation, maxRetries (default 3), and context string parameters",
+      "Log each retry attempt with context for debugging",
+      "Throw after all retries exhausted",
+      "Write property test for retry mechanism (Property 5)"
+    ],
+    "passes": true
+  },
+  {
+    "category": "detection",
+    "description": "Add detection phase prompt template",
+    "steps": [
+      "Add detection-phase key to src/evaluators/prompts.json",
+      "Include guided format instructions for output",
+      "Include output template with Issue N format",
+      "Verify template includes criteria placeholder"
+    ],
+    "passes": false
+  },
+  {
+    "category": "detection",
+    "description": "Create DetectionPhaseRunner class",
+    "steps": [
+      "Create src/evaluators/detection-phase.ts",
+      "Implement run(content: string): Promise<DetectionResult>",
+      "Build detection prompt with criteria from PromptFile",
+      "Use runPromptUnstructured for LLM call",
+      "Integrate retry logic from retry.ts",
+      "Verify npm run build compiles without errors"
+    ],
+    "passes": false
+  },
+  {
+    "category": "detection",
+    "description": "Implement detection response parser",
+    "steps": [
+      "Parse markdown-style sections from LLM response",
+      "Extract quotedText, contextBefore, contextAfter, line, criterionName, analysis",
+      "Handle malformed responses gracefully",
+      "Write property test for detection parsing (Property 2)",
+      "Verify npm test passes for parser tests"
+    ],
+    "passes": false
+  },
+  {
+    "category": "suggestion",
+    "description": "Add suggestion phase prompt template",
+    "steps": [
+      "Add suggestion-phase key to src/evaluators/prompts.json",
+      "Create universal template for all rule types",
+      "Include placeholders for content, issues, and criteria",
+      "Verify template instructs one suggestion per issue"
+    ],
+    "passes": false
+  },
+  {
+    "category": "suggestion",
+    "description": "Create suggestion LLM schema",
+    "steps": [
+      "Add buildSuggestionLLMSchema to src/prompts/schema.ts",
+      "Define schema for array of {issueIndex, suggestion}",
+      "Ensure strict mode is enabled",
+      "Verify schema compiles with npm run build"
+    ],
+    "passes": false
+  },
+  {
+    "category": "suggestion",
+    "description": "Create SuggestionPhaseRunner class",
+    "steps": [
+      "Create src/evaluators/suggestion-phase.ts",
+      "Implement run(content, issues, criteria): Promise<SuggestionResult>",
+      "Build prompt with full document, issues, and criteria",
+      "Use runPromptStructured for LLM call",
+      "Integrate retry logic from retry.ts",
+      "Write property test for suggestion-to-issue matching (Property 4)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "integration",
+    "description": "Create ResultAssembler class",
+    "steps": [
+      "Create src/evaluators/result-assembler.ts",
+      "Implement assembleCheckResult method",
+      "Implement assembleJudgeResult method",
+      "Merge detection issues with matched suggestions",
+      "Aggregate token usage from both phases",
+      "Write property test for result schema conformance (Property 6)",
+      "Write property test for token usage aggregation (Property 7)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "integration",
+    "description": "Integrate two-phase flow into BaseEvaluator",
+    "steps": [
+      "Update src/evaluators/base-evaluator.ts",
+      "Instantiate DetectionPhaseRunner and SuggestionPhaseRunner",
+      "Update runCheckEvaluation to use two-phase flow",
+      "Update runJudgeEvaluation to use two-phase flow",
+      "Pass full document to suggestion phase even when chunking",
+      "Write property test for two-phase execution flow (Property 1)",
+      "Write property test for full document context (Property 3)",
+      "Verify all npm tests pass"
+    ],
+    "passes": false
+  },
+  {
+    "category": "testing",
+    "description": "Update existing evaluator tests for two-phase flow",
+    "steps": [
+      "Modify tests in tests/ to account for two-phase behavior",
+      "Mock both detection and suggestion LLM calls",
+      "Verify backward compatibility of output format",
+      "Run npm test:ci to ensure all tests pass"
+    ],
+    "passes": false
+  },
+  {
+    "category": "documentation",
+    "description": "Update documentation for two-phase evaluation",
+    "steps": [
+      "Update AGENTS.md with new evaluator architecture",
+      "Document new two-phase flow in comments",
+      "Verify documentation accurately reflects implementation"
+    ],
+    "passes": false
+  }
+]

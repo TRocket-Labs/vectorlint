@@ -1,0 +1,48 @@
+# Progress Log for Two-Phase Detection/Suggestion Architecture
+
+## 2026-01-13
+
+### Completed: Extend LLM Provider Interface with unstructured call support
+
+**Changes made:**
+- Added `runPromptUnstructured` method to `LLMProvider` interface in `src/providers/llm-provider.ts`
+- Implemented `runPromptUnstructured` in:
+  - `src/providers/openai-provider.ts` - Returns raw text response from OpenAI
+  - `src/providers/anthropic-provider.ts` - Returns raw text response from Anthropic
+  - `src/providers/azure-openai-provider.ts` - Returns raw text response from Azure OpenAI
+  - `src/providers/gemini-provider.ts` - Returns raw text response from Gemini
+- All implementations include debug logging, error handling, and token usage tracking
+- Build verified with `npm run build` - compiles successfully
+
+**Purpose:** The unstructured call method is needed for the detection phase of the two-phase architecture, where the LLM returns free-form text (markdown-formatted issues) rather than structured JSON.
+
+**Remaining tasks for this feature:**
+- Write unit tests for unstructured provider methods
+- Verify npm test passes for new tests
+
+**Next feature to work on:** Implement retry utility with logging (src/evaluators/retry.ts)
+
+---
+
+### Completed: Implement retry utility with logging
+
+**Changes made:**
+- Created `src/evaluators/retry.ts` with `withRetry` function
+- Function accepts:
+  - `operation`: Async function to execute with retry logic
+  - `maxRetries`: Maximum retry attempts (default: 3)
+  - `context`: String for logging (e.g., "detection phase", "suggestion phase")
+- Logs each retry attempt with context for debugging using `[vectorlint]` prefix
+- Throws the last error after all retries are exhausted
+- Returns `RetryResult<T>` with `data` (successful result) and `attempts` (attempt count)
+- Exported from `src/evaluators/index.ts` for use by phase runners
+- Created comprehensive unit tests in `tests/retry.test.ts`:
+  - All 9 tests pass ✓
+  - Includes Property 5 test: "operation succeeds before retry limit"
+  - Tests cover success on first attempt, retry on failure, exhaustion, custom retries, typed results
+
+**Purpose:** Retry logic is essential for handling transient LLM API failures (rate limits, network issues) during both detection and suggestion phases. The logging provides debugging visibility into retry behavior.
+
+**Next feature to work on:** Add detection phase prompt template (to src/evaluators/prompts.json)
+
+---
