@@ -47,7 +47,7 @@
       "Integrate retry logic from retry.ts",
       "Verify npm run build compiles without errors"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "detection",

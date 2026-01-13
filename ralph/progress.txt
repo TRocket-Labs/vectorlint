@@ -63,3 +63,26 @@
 **Next feature to work on:** Create DetectionPhaseRunner class (src/evaluators/detection-phase.ts)
 
 ---
+
+### Completed: Create DetectionPhaseRunner class
+
+**Changes made:**
+- Created `src/evaluators/detection-phase.ts` with `DetectionPhaseRunner` class
+- Implemented `run(content, criteria, options): Promise<DetectionResult>` method
+- `buildPrompt(criteria)` method inserts criteria into the detection-phase template
+- Uses `runPromptUnstructured` for LLM call to get free-form text response
+- Integrated `withRetry` logic from `retry.ts` for transient failure handling
+- Includes basic markdown parser to extract issues from LLM response:
+  - Parses `## Issue N` sections
+  - Extracts quotedText, contextBefore, contextAfter, line, criterionName, analysis
+  - Handles "No issues found" responses
+  - Gracefully handles malformed sections by returning null
+- Defines types: `RawDetectionIssue`, `DetectionResult`, `DetectionPhaseOptions`
+- Exported from `src/evaluators/index.ts` for use by other components
+- Build verified with `npm run build` - compiles successfully
+
+**Purpose:** The DetectionPhaseRunner is the first phase of the two-phase detection/suggestion architecture. It identifies issues in content based on evaluation criteria using an unstructured LLM prompt. The parsed issues are then passed to the suggestion phase for generating specific fixes.
+
+**Next feature to work on:** Implement detection response parser (Property 2 test coverage)
+
+---
