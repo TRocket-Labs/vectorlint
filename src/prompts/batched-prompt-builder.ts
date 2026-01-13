@@ -12,10 +12,7 @@ export interface BatchedRuleContext {
   body: string;
 }
 
-const BATCHED_SYSTEM_PREAMBLE = `You are a content evaluator performing a multi-step compliance audit.
-
-## MISSION
-You must evaluate the content against ${"{num_rules}"} distinct rules. You must execute this as ${"{num_rules}"} separate evaluation tasks.
+const BATCHED_SYSTEM_PREAMBLE = `Evaluate the content against ${"{num_rules}"} distinct rules.
 
 ## PROTOCOL
 For each rule listed below, you must:
