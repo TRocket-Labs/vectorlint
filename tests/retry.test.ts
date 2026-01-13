@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { withRetry, type RetryResult } from '../src/evaluators/retry';
+import { withRetry } from '../src/evaluators/retry';
 
 describe('withRetry', () => {
   it('should return result on first successful attempt', async () => {
@@ -122,12 +122,12 @@ describe('withRetry', () => {
     const successOnAttempt = 3; // Will succeed on the 3rd attempt
 
     let attemptCount = 0;
-    const operation = vi.fn().mockImplementation(async () => {
+    const operation = vi.fn().mockImplementation(() => {
       attemptCount++;
       if (attemptCount < successOnAttempt) {
         throw new Error('not yet');
       }
-      return `success at attempt ${attemptCount}`;
+      return Promise.resolve(`success at attempt ${attemptCount}`);
     });
 
     const result = await withRetry(operation, {

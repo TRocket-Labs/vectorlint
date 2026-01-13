@@ -15,11 +15,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { LLMProvider } from "../src/providers/llm-provider";
 import type { PromptFile } from "../src/schemas/prompt-schemas";
 import { Severity, EvaluationType } from "../src/evaluators/types";
-import type { TokenUsage } from "../src/providers/token-usage";
 import { BaseEvaluator } from "../src/evaluators/base-evaluator";
 
 // Mock prompt file with criteria
-const mockPromptFile: PromptFile = {
+const MOCK_PROMPT_FILE: PromptFile = {
   id: "test-prompt",
   filename: "test-prompt.md",
   fullPath: "/mock/path/test-prompt.md",
@@ -37,16 +36,16 @@ const mockPromptFile: PromptFile = {
   pack: "test",
 };
 
-const mockPromptFileJudge: PromptFile = {
-  ...mockPromptFile,
+const MOCK_PROMPT_FILE_JUDGE: PromptFile = {
+  ...MOCK_PROMPT_FILE,
   meta: {
-    ...mockPromptFile.meta,
+    ...MOCK_PROMPT_FILE.meta,
     type: "judge",
   },
 };
 
 // Mock LLM provider
-const createMockLLMProvider = (): LLMProvider => {
+const CREATE_MOCK_LLM_PROVIDER = (): LLMProvider => {
   return {
     runPromptStructured: vi.fn().mockResolvedValue({
       data: {
@@ -73,8 +72,8 @@ describe("BaseEvaluator - Two-Phase Architecture", () => {
   let evaluator: BaseEvaluator;
 
   beforeEach(() => {
-    mockLLM = createMockLLMProvider();
-    evaluator = new BaseEvaluator(mockLLM, mockPromptFile);
+    mockLLM = CREATE_MOCK_LLM_PROVIDER();
+    evaluator = new BaseEvaluator(mockLLM, MOCK_PROMPT_FILE);
   });
 
   describe("Property 1: Two-phase execution flow", () => {
@@ -135,7 +134,7 @@ This violates the criterion.`;
       });
 
       const content = "Content with issues.";
-      const result = await evaluator.evaluate("test.md", content);
+      await evaluator.evaluate("test.md", content);
 
       // Verify both phases were called
       const unstructuredCalls = (mockLLM.runPromptUnstructured as ReturnType<typeof vi.fn>).mock.calls;
@@ -217,7 +216,7 @@ This violates the criterion.`;
 
   describe("Property 1: Two-phase execution flow (Judge evaluation)", () => {
     beforeEach(() => {
-      evaluator = new BaseEvaluator(mockLLM, mockPromptFileJudge);
+      evaluator = new BaseEvaluator(mockLLM, MOCK_PROMPT_FILE_JUDGE);
     });
 
     it("should call both phases for judge evaluation", async () => {
@@ -349,7 +348,7 @@ This violates the criterion.`;
       // Track what content is passed to suggestion phase
       let suggestionPhaseContent: string | undefined;
       (mockLLM.runPromptStructured as ReturnType<typeof vi.fn>).mockImplementation(
-        async (content: string) => {
+        (content: string) => {
           suggestionPhaseContent = content;
           return {
             data: {
@@ -419,7 +418,7 @@ Issue 2 analysis`;
 
       let suggestionPhaseIssues: string | undefined;
       (mockLLM.runPromptStructured as ReturnType<typeof vi.fn>).mockImplementation(
-        async (_content: string, prompt: string) => {
+        (_content: string, prompt: string) => {
           suggestionPhaseIssues = prompt;
           return {
             data: {
@@ -459,7 +458,7 @@ Issue 2 analysis`;
       // Track number of detection calls
       let detectionCallCount = 0;
       (mockLLM.runPromptUnstructured as ReturnType<typeof vi.fn>).mockImplementation(
-        async () => {
+        () => {
           detectionCallCount++;
           return {
             data: "## Issue 1\n\n**quotedText:**\n> problem\n\n**line:** 42\n\n**criterionName:** Criterion 1\n\n**analysis:**\nIssue",
@@ -470,7 +469,7 @@ Issue 2 analysis`;
 
       let suggestionCallCount = 0;
       (mockLLM.runPromptStructured as ReturnType<typeof vi.fn>).mockImplementation(
-        async () => {
+        () => {
           suggestionCallCount++;
           return {
             data: {
@@ -499,11 +498,11 @@ Issue 2 analysis`;
 
   describe("Criteria string building", () => {
     it("should build criteria string from prompt metadata", async () => {
-      const evaluatorWithCriteria = new BaseEvaluator(mockLLM, mockPromptFile);
+      const evaluatorWithCriteria = new BaseEvaluator(mockLLM, MOCK_PROMPT_FILE);
 
       let detectionPrompt: string | undefined;
       (mockLLM.runPromptUnstructured as ReturnType<typeof vi.fn>).mockImplementation(
-        async (_content: string, prompt: string) => {
+        (_content: string, prompt: string) => {
           detectionPrompt = prompt;
           return {
             data: "No issues found.",
@@ -524,9 +523,9 @@ Issue 2 analysis`;
 
     it("should handle empty criteria gracefully", async () => {
       const promptWithoutCriteria: PromptFile = {
-        ...mockPromptFile,
+        ...MOCK_PROMPT_FILE,
         meta: {
-          ...mockPromptFile.meta,
+          ...MOCK_PROMPT_FILE.meta,
           criteria: undefined,
         },
       };
@@ -535,7 +534,7 @@ Issue 2 analysis`;
 
       let detectionPrompt: string | undefined;
       (mockLLM.runPromptUnstructured as ReturnType<typeof vi.fn>).mockImplementation(
-        async (_content: string, prompt: string) => {
+        (_content: string, prompt: string) => {
           detectionPrompt = prompt;
           return {
             data: "No issues found.",
@@ -609,7 +608,7 @@ This is bad`;
     });
 
     it("should assemble judge result with suggestions", async () => {
-      const evaluatorJudge = new BaseEvaluator(mockLLM, mockPromptFileJudge);
+      const evaluatorJudge = new BaseEvaluator(mockLLM, MOCK_PROMPT_FILE_JUDGE);
 
       const detectionResponse = `## Issue 1
 
@@ -656,8 +655,9 @@ This is bad`;
 
       // Verify suggestions are in criteria violations
       if (result.criteria && result.criteria.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const criterion = result.criteria[0];
-        if (criterion.violations && criterion.violations.length > 0) {
+        if (criterion && criterion.violations && criterion.violations.length > 0) {
           expect(criterion.violations[0].suggestion).toBe("good text");
         }
       }
@@ -667,9 +667,9 @@ This is bad`;
   describe("Severity and strictness handling", () => {
     it("should use default severity when none specified", async () => {
       const promptNoSeverity: PromptFile = {
-        ...mockPromptFile,
+        ...MOCK_PROMPT_FILE,
         meta: {
-          ...mockPromptFile.meta,
+          ...MOCK_PROMPT_FILE.meta,
           severity: undefined,
         },
       };
@@ -689,9 +689,9 @@ This is bad`;
 
     it("should use prompt severity when specified", async () => {
       const promptWithSeverity: PromptFile = {
-        ...mockPromptFile,
+        ...MOCK_PROMPT_FILE,
         meta: {
-          ...mockPromptFile.meta,
+          ...MOCK_PROMPT_FILE.meta,
           severity: Severity.ERROR,
         },
       };
@@ -741,9 +741,9 @@ This is bad`;
 
     it("should override prompt severity with defaultSeverity constructor param", async () => {
       const promptWithSeverity: PromptFile = {
-        ...mockPromptFile,
+        ...MOCK_PROMPT_FILE,
         meta: {
-          ...mockPromptFile.meta,
+          ...MOCK_PROMPT_FILE.meta,
           severity: Severity.ERROR,
         },
       };
@@ -794,9 +794,9 @@ This is bad`;
 
     it("should normalize strictness string values to numbers", async () => {
       const promptWithStrictness: PromptFile = {
-        ...mockPromptFile,
+        ...MOCK_PROMPT_FILE,
         meta: {
-          ...mockPromptFile.meta,
+          ...MOCK_PROMPT_FILE.meta,
           strictness: "strict",
         },
       };

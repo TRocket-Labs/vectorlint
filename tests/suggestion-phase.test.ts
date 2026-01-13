@@ -133,7 +133,7 @@ describe('SuggestionPhaseRunner', () => {
       const runner = new SuggestionPhaseRunner(mockProvider);
 
       // Access private method via type assertion for testing
-      const formatted = (runner as any).formatIssues(sampleIssues);
+      const formatted = (runner as unknown as { formatIssues: (i: RawDetectionIssue[]) => string }).formatIssues(sampleIssues);
 
       expect(formatted).toContain('## Issue 1');
       expect(formatted).toContain('The data was processed by the system');
@@ -147,7 +147,7 @@ describe('SuggestionPhaseRunner', () => {
       const mockProvider = createMockProvider({ suggestions: [] });
       const runner = new SuggestionPhaseRunner(mockProvider);
 
-      const formatted = (runner as any).formatIssues([]);
+      const formatted = (runner as unknown as { formatIssues: (i: RawDetectionIssue[]) => string }).formatIssues([]);
 
       expect(formatted).toBe('No issues found.');
     });

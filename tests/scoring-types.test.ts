@@ -1,12 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { BaseEvaluator } from "../src/evaluators/base-evaluator";
 import { EvaluationType } from "../src/evaluators/types";
-import type { LLMProvider, LLMResult } from "../src/providers/llm-provider";
+import type { LLMProvider } from "../src/providers/llm-provider";
 import type { PromptFile } from "../src/schemas/prompt-schemas";
-import type {
-  JudgeLLMResult,
-  CheckLLMResult,
-} from "../src/prompts/schema";
 import type { SearchProvider } from "../src/providers/search-provider";
 
 describe("Scoring Types", () => {
@@ -17,7 +13,9 @@ describe("Scoring Types", () => {
 
   beforeEach(() => {
     // Clear mock call history but preserve implementations
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     vi.mocked(mockLlmProvider.runPromptStructured).mockClear();
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     vi.mocked(mockLlmProvider.runPromptUnstructured).mockClear();
   });
 
@@ -43,6 +41,7 @@ describe("Scoring Types", () => {
       const evaluator = new BaseEvaluator(mockLlmProvider, judgePrompt);
 
       // Mock detection phase returning issues for each criterion
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const mockUnstructured = vi.mocked(mockLlmProvider.runPromptUnstructured);
       mockUnstructured.mockResolvedValue({
         data: `## Issue 1
@@ -102,6 +101,7 @@ Third issue found`,
       });
 
       // Mock suggestion phase
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const mockStructured = vi.mocked(mockLlmProvider.runPromptStructured);
       mockStructured.mockResolvedValue({
         data: {
@@ -144,6 +144,7 @@ Third issue found`,
       const evaluator = new BaseEvaluator(mockLlmProvider, judgePrompt);
 
       // Mock detection phase returning no issues
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const mockUnstructured = vi.mocked(mockLlmProvider.runPromptUnstructured);
       mockUnstructured.mockResolvedValue({
         data: "No issues found.",
@@ -151,6 +152,7 @@ Third issue found`,
       });
 
       // Suggestion phase should not be called
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const mockStructured = vi.mocked(mockLlmProvider.runPromptStructured);
 
       const result = await evaluator.evaluate("file.md", "content");
@@ -182,6 +184,7 @@ Third issue found`,
       const evaluator = new BaseEvaluator(mockLlmProvider, checkPrompt);
 
       // Mock detection phase returning issues
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const mockUnstructured = vi.mocked(mockLlmProvider.runPromptUnstructured);
       mockUnstructured.mockResolvedValue({
         data: `## Issue 1
@@ -223,6 +226,7 @@ Second issue found`,
       });
 
       // Mock suggestion phase
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const mockStructured = vi.mocked(mockLlmProvider.runPromptStructured);
       mockStructured.mockResolvedValue({
         data: {
@@ -258,6 +262,7 @@ Second issue found`,
       const evaluator = new BaseEvaluator(mockLlmProvider, checkPrompt);
 
       // Mock detection phase returning no issues
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const mockUnstructured = vi.mocked(mockLlmProvider.runPromptUnstructured);
       mockUnstructured.mockResolvedValue({
         data: "No issues found.",
@@ -265,6 +270,7 @@ Second issue found`,
       });
 
       // Suggestion phase should not be called when no issues are detected
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const mockStructured = vi.mocked(mockLlmProvider.runPromptStructured);
 
       const result = await evaluator.evaluate("file.md", "content");
@@ -316,6 +322,7 @@ Second issue found`,
       );
 
       // Mock detection phase - no issues found
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const mockUnstructured = vi.mocked(mockLlmProvider.runPromptUnstructured);
       mockUnstructured.mockResolvedValue({
         data: "No issues found.",

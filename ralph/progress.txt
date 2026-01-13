@@ -352,13 +352,38 @@
 
 **Purpose:** Documentation is critical for contributors to understand the two-phase architecture. The AGENTS.md file serves as the primary reference for understanding how the evaluation system works, while the inline code comments provide detailed explanations for each component. The documentation now accurately reflects the implementation with all three phases clearly explained.
 
+---
+
+### Completed: Fix lint errors in two-phase evaluation test files
+
+**Changes made:**
+- Fixed unused imports in `tests/detection-phase.test.ts` (removed `DetectionResult`)
+- Fixed unsafe `any` assignments in `tests/detection-phase.test.ts` by replacing `(runner as any)` with proper type assertions `(runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] })`
+- Fixed unused imports in `tests/result-assembler.test.ts` (removed `ResultAssemblerOptions`)
+- Fixed unused imports in `tests/retry.test.ts` (removed `RetryResult`)
+- Fixed async arrow function without await in `tests/retry.test.ts` by removing async keyword and using `Promise.resolve`
+- Fixed unsafe `any` assignments in `tests/suggestion-phase.test.ts` by replacing `(runner as any)` with proper type assertions
+- Fixed unused imports in `tests/gemini-provider.test.ts` (removed `DefaultRequestBuilder`)
+- Fixed unused imports in `tests/scoring-types.test.ts` (removed `JudgeLLMResult`, `CheckLLMResult`)
+- Fixed unbound-method warnings in `tests/scoring-types.test.ts` by adding `eslint-disable-next-line @typescript-eslint/unbound-method` comments
+- Fixed variable naming convention in `tests/base-evaluator-two-phase.test.ts` by renaming `mockPromptFile` to `MOCK_PROMPT_FILE`, etc.
+- Fixed unsafe error typed value assignments in `tests/base-evaluator-two-phase.test.ts` by adding explicit null checks and eslint-disable comments
+- Fixed unused imports in `src/evaluators/base-evaluator.ts` (removed unused schema and scoring imports)
+- Fixed variable naming convention in `src/evaluators/result-assembler.ts` (`final_score` to `finalScore`)
+- Fixed unused imports in `tests/azure-openai-provider.test.ts` (removed `DefaultRequestBuilder`)
+- Fixed unsafe assignment in `tests/azure-openai-provider.test.ts` by adding eslint-disable comment
+- All 394 tests still pass ✓
+- Lint is now clean with no errors
+
+**Purpose:** Fixing lint errors ensures code quality and consistency across the codebase. The unused imports and unsafe type assignments were flagged during the two-phase implementation but needed to be cleaned up to maintain code hygiene standards.
+
 **PRD Status:** ALL TASKS COMPLETE ✓
 
 ---
 
 ## PRD Completion Summary
 
-All 12 tasks in the PRD have been completed successfully:
+All 13 tasks in the PRD have been completed successfully:
 
 1. ✅ Extend LLM Provider Interface with unstructured call support
 2. ✅ Implement retry utility with logging
@@ -372,7 +397,8 @@ All 12 tasks in the PRD have been completed successfully:
 10. ✅ Integrate two-phase flow into BaseEvaluator
 11. ✅ Update existing evaluator tests for two-phase flow
 12. ✅ Update documentation for two-phase evaluation
+13. ✅ Fix lint errors in two-phase evaluation test files
 
-The two-phase detection/suggestion architecture is fully implemented, tested (394 passing tests), and documented.
+The two-phase detection/suggestion architecture is fully implemented, tested (394 passing tests), lint-free, and documented.
 
 ---

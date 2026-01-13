@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   DetectionPhaseRunner,
   type RawDetectionIssue,
-  type DetectionResult,
 } from '../src/evaluators/detection-phase';
 
 describe('DetectionPhaseRunner', () => {
@@ -39,7 +38,7 @@ Some text after
 This uses passive voice which should be avoided.`;
 
       // Access private method via type assertion for testing
-      const issues = (runner as any).parseResponse(response);
+      const issues = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(response);
 
       expect(issues).toHaveLength(1);
       expect(issues[0]).toEqual({
@@ -91,7 +90,7 @@ After second
 **analysis:**
 Analysis for second issue`;
 
-      const issues = (runner as any).parseResponse(response);
+      const issues = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(response);
 
       expect(issues).toHaveLength(2);
       expect(issues[0].line).toBe(10);
@@ -105,7 +104,7 @@ Analysis for second issue`;
 
       const response = 'No issues found in this content.';
 
-      const issues = (runner as any).parseResponse(response);
+      const issues = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(response);
 
       expect(issues).toHaveLength(0);
     });
@@ -115,7 +114,7 @@ Analysis for second issue`;
 
       const response = 'After analysis, NO ISSUES FOUND were detected.';
 
-      const issues = (runner as any).parseResponse(response);
+      const issues = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(response);
 
       expect(issues).toHaveLength(0);
     });
@@ -132,7 +131,7 @@ Some before text
 **contextAfter:**
 Some after text`;
 
-      const issues = (runner as any).parseResponse(response);
+      const issues = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(response);
 
       expect(issues).toHaveLength(0);
     });
@@ -181,7 +180,7 @@ After 3
 **analysis:**
 Valid analysis 3`;
 
-      const issues = (runner as any).parseResponse(response);
+      const issues = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(response);
 
       expect(issues).toHaveLength(2);
       expect(issues[0].line).toBe(10);
@@ -209,7 +208,7 @@ After
 **analysis:**
 Handles special characters`;
 
-      const issues = (runner as any).parseResponse(response);
+      const issues = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(response);
 
       expect(issues).toHaveLength(1);
       expect(issues[0].quotedText).toContain('quotes');
@@ -239,7 +238,7 @@ This is the first paragraph of analysis.
 This is the second paragraph with more details.
 And a third line.`;
 
-      const issues = (runner as any).parseResponse(response);
+      const issues = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(response);
 
       expect(issues).toHaveLength(1);
       expect(issues[0].analysis).toContain('first paragraph');
@@ -261,7 +260,7 @@ And a third line.`;
 **analysis:**
 Minimal issue without context`;
 
-      const issues = (runner as any).parseResponse(response);
+      const issues = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(response);
 
       expect(issues).toHaveLength(1);
       expect(issues[0].contextBefore).toBe('');
@@ -394,7 +393,7 @@ start the process, press the button.
 **analysis:**
 "In order to" is wordy. Use "To" instead.`;
 
-      const issues: RawDetectionIssue[] = (runner as any).parseResponse(
+      const issues: RawDetectionIssue[] = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(
         wellFormedResponse
       );
 
@@ -509,7 +508,7 @@ After 5
 **analysis:**
 Third valid analysis`;
 
-      const issues: RawDetectionIssue[] = (runner as any).parseResponse(
+      const issues: RawDetectionIssue[] = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(
         mixedQualityResponse
       );
 
@@ -551,7 +550,7 @@ Third valid analysis`;
       ];
 
       for (const testCase of edgeCases) {
-        const issues: RawDetectionIssue[] = (runner as any).parseResponse(
+        const issues: RawDetectionIssue[] = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(
           testCase.response
         );
         expect(issues).toHaveLength(testCase.expectedCount);
@@ -582,7 +581,7 @@ After with tabs	and spaces
 
 `;
 
-      const issues: RawDetectionIssue[] = (runner as any).parseResponse(response);
+      const issues: RawDetectionIssue[] = (runner as unknown as { parseResponse: (r: string) => RawDetectionIssue[] }).parseResponse(response);
 
       expect(issues).toHaveLength(1);
       // Whitespace should be trimmed as per implementation

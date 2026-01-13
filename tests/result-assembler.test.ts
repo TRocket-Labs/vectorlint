@@ -16,10 +16,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import {
-  ResultAssembler,
-  type ResultAssemblerOptions,
-} from "../src/evaluators/result-assembler";
+import { ResultAssembler } from "../src/evaluators/result-assembler";
 import { EvaluationType, Severity } from "../src/evaluators/types";
 import type { RawDetectionIssue } from "../src/evaluators/detection-phase";
 import type { Suggestion } from "../src/evaluators/suggestion-phase";

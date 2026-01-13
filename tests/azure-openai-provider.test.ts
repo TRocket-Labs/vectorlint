@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AzureOpenAIProvider } from '../src/providers/azure-openai-provider';
-import { DefaultRequestBuilder } from '../src/providers/request-builder';
 import type { OpenAIResponse } from '../src/schemas/api-schemas';
 
 // Shared mock function
@@ -411,7 +410,8 @@ describe('AzureOpenAIProvider', () => {
       expect(consoleSpy).toHaveBeenCalledWith(
         '[vectorlint] LLM response meta:',
         expect.objectContaining({
-          usage: expect.any(Object),
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          usage: expect.anything(),
           finish_reason: 'stop',
         })
       );

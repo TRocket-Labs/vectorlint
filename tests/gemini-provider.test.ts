@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GeminiProvider } from '../src/providers/gemini-provider';
-import { DefaultRequestBuilder } from '../src/providers/request-builder';
 
 // Shared mock function
 const SHARED_GENERATE_CONTENT = vi.fn();

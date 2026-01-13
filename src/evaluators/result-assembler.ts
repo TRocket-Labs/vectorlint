@@ -222,11 +222,11 @@ export class ResultAssembler {
     );
 
     // Calculate final weighted score
-    const final_score = this.calculateFinalScore(criteria);
+    const finalScore = this.calculateFinalScore(criteria);
 
     return {
       type: EvaluationType.JUDGE,
-      final_score,
+      final_score: finalScore,
       criteria,
     };
   }

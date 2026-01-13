@@ -2,10 +2,6 @@ import type { LLMProvider } from "../providers/llm-provider";
 import type { PromptFile, PromptCriterionSpec } from "../schemas/prompt-schemas";
 import type { TokenUsage } from "../providers/token-usage";
 import {
-  buildJudgeLLMSchema,
-  buildCheckLLMSchema,
-  type JudgeLLMResult,
-  type CheckLLMResult,
   type JudgeResult,
   type CheckResult,
   type PromptEvaluationResult,
@@ -14,16 +10,10 @@ import { registerEvaluator } from "./evaluator-registry";
 import type { Evaluator } from "./evaluator";
 import { Type, Severity, EvaluationType } from "./types";
 import {
-  mergeViolations,
   RecursiveChunker,
   countWords,
   type Chunk,
 } from "../chunking";
-import {
-  calculateCheckScore,
-  calculateJudgeScore,
-  averageJudgeScores,
-} from "../scoring";
 import { prependLineNumbers } from "../output/line-numbering";
 import { DetectionPhaseRunner, type DetectionResult } from "./detection-phase";
 import { SuggestionPhaseRunner, type Suggestion } from "./suggestion-phase";

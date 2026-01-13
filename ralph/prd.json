@@ -145,5 +145,21 @@
       "Verify documentation accurately reflects implementation"
     ],
     "passes": true
+  },
+  {
+    "category": "quality",
+    "description": "Fix lint errors in two-phase evaluation test files",
+    "steps": [
+      "Fix unused imports in tests/detection-phase.test.ts (DetectionResult)",
+      "Fix unsafe 'any' assignments in tests/detection-phase.test.ts by adding proper type assertions",
+      "Fix unused imports in tests/result-assembler.test.ts (ResultAssemblerOptions)",
+      "Fix unused imports in tests/retry.test.ts (RetryResult) and async arrow function warning",
+      "Fix unsafe 'any' assignments in tests/suggestion-phase.test.ts",
+      "Fix unused imports in tests/gemini-provider.test.ts (DefaultRequestBuilder)",
+      "Fix unused imports and unbound-method warnings in tests/scoring-types.test.ts",
+      "Fix error typed value assignments in tests/base-evaluator-two-phase.test.ts",
+      "Run npm run lint to verify all errors are resolved"
+    ],
+    "passes": true
   }
 ]
