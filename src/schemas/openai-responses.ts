@@ -33,7 +33,7 @@ export const OPENAI_RESPONSE_SCHEMA = z.object({
   model: z.string().optional(),
   choices: z.array(OPENAI_CHOICE_SCHEMA).min(1),
   usage: OPENAI_USAGE_SCHEMA.optional(),
-  system_fingerprint: z.string().optional(),
+  system_fingerprint: z.string().nullable().optional(),
 });
 
 // Inferred TypeScript types
