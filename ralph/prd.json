@@ -70,7 +70,7 @@
       "Include placeholders for content, issues, and criteria",
       "Verify template instructs one suggestion per issue"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "suggestion",

@@ -113,3 +113,26 @@
 **Next feature to work on:** Add suggestion phase prompt template (to src/evaluators/prompts.json)
 
 ---
+
+### Completed: Add suggestion phase prompt template
+
+**Changes made:**
+- Added `suggestion-phase` key to `src/evaluators/prompts.json`
+- Created universal template for all rule types (check, judge, style guide rules)
+- Template includes three required placeholders:
+  - `{content}` - The full document being analyzed
+  - `{issues}` - The detected issues from the detection phase
+  - `{criteria}` - The evaluation criteria for reference
+- Output format specifies `## Issue N` format matching detection phase indexing
+- Each suggestion includes:
+  - `suggestion:` - Specific, actionable text to replace problematic content
+  - `explanation:` - Brief explanation of how the suggestion addresses the issue
+- Template instructs exactly one suggestion per issue
+- Includes guidelines for preserving voice/tone, avoiding over-editing, and handling edge cases
+- Build verified with `npm run build` - compiles successfully
+
+**Purpose:** The suggestion phase prompt template is used by the SuggestionPhaseRunner (to be implemented) to instruct the LLM on how to generate actionable fixes for each detected issue. The template provides full document context to ensure suggestions are coherent and consistent with the overall content.
+
+**Next feature to work on:** Create suggestion LLM schema (src/prompts/schema.ts)
+
+---
