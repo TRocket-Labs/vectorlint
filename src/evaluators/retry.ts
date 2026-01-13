@@ -12,13 +12,6 @@ export interface RetryOptions {
   context: string;
 }
 
-export interface RetryResult<T> {
-  /** The successful result */
-  data: T;
-  /** Number of attempts made (including successful attempt) */
-  attempts: number;
-}
-
 /**
  * Wraps an async operation with retry logic and logging.
  *
@@ -27,23 +20,13 @@ export interface RetryResult<T> {
  *
  * @param operation - Async function to execute with retry logic
  * @param options - Retry configuration options
- * @returns Promise resolving to the operation result with attempt count
+ * @returns Promise resolving to the operation result
  * @throws The last error encountered after all retries exhausted
- *
- * @example
- * ```ts
- * const result = await withRetry(
- *   () => llmProvider.runPromptUnstructured(content, prompt),
- *   { maxRetries: 3, context: "detection phase" }
- * );
- * console.log(result.data); // The LLM response
- * console.log(result.attempts); // Number of attempts (1-3)
- * ```
  */
 export async function withRetry<T>(
   operation: () => Promise<T>,
   options: RetryOptions
-): Promise<RetryResult<T>> {
+): Promise<T> {
   const { maxRetries = 3, context } = options;
   let lastError: unknown;
 
@@ -55,7 +38,7 @@ export async function withRetry<T>(
           `[vectorlint] ${context}: Success on attempt ${attempt}/${maxRetries}`
         );
       }
-      return { data, attempts: attempt };
+      return data;
     } catch (error) {
       lastError = error;
       if (attempt < maxRetries) {

@@ -8,7 +8,7 @@ dist/
 coverage/
 *.tsbuildinfo
 vectorlint.ini
-.kiro/
+# .kiro/
 # .agent/
 /.idea
 /npm

@@ -27,7 +27,7 @@ export {
 export { getPrompt } from './prompt-loader';
 
 // Retry utility for LLM operations with logging
-export { withRetry, type RetryOptions, type RetryResult } from './retry';
+export { withRetry, type RetryOptions } from './retry';
 
 // Two-phase detection/suggestion architecture
 export {

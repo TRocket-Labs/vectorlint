@@ -66,13 +66,6 @@ export interface SuggestionPhaseOptions {
  * The suggestion phase receives the full document content to ensure suggestions
  * are coherent with the overall content, even when chunking is used in the
  * detection phase.
- *
- * @example
- * ```ts
- * const runner = new SuggestionPhaseRunner(llmProvider);
- * const result = await runner.run(fullContent, detectedIssues, criteria);
- * console.log(`Generated ${result.suggestions.length} suggestions`);
- * ```
  */
 export class SuggestionPhaseRunner {
   constructor(private readonly llmProvider: LLMProvider) {}
@@ -101,7 +94,7 @@ export class SuggestionPhaseRunner {
     const schema = buildSuggestionLLMSchema();
 
     // Run LLM call with retry logic for transient failures
-    const { data: llmResult } = await withRetry(
+    const llmResult = await withRetry(
       () =>
         this.llmProvider.runPromptStructured<SuggestionLLMResult>(
           content,

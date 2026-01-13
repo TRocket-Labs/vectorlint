@@ -65,13 +65,6 @@ export interface DetectionPhaseOptions {
  *
  * The actual parsing of the markdown response into structured issues
  * is handled by a separate DetectionResponseParser (to be implemented).
- *
- * @example
- * ```ts
- * const runner = new DetectionPhaseRunner(llmProvider);
- * const result = await runner.run(content, criteria);
- * console.log(`Found ${result.issues.length} issues`);
- * ```
  */
 export class DetectionPhaseRunner {
   constructor(private readonly llmProvider: LLMProvider) {}
@@ -95,7 +88,7 @@ export class DetectionPhaseRunner {
     const prompt = this.buildPrompt(criteria);
 
     // Run LLM call with retry logic for transient failures
-    const { data: llmResult } = await withRetry(
+    const llmResult = await withRetry(
       () => this.llmProvider.runPromptUnstructured(content, prompt),
       { maxRetries, context: "detection phase" }
     );

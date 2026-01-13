@@ -6,8 +6,7 @@ describe('withRetry', () => {
     const operation = vi.fn().mockResolvedValue('success');
     const result = await withRetry(operation, { context: 'test operation' });
 
-    expect(result.data).toBe('success');
-    expect(result.attempts).toBe(1);
+    expect(result).toBe('success');
     expect(operation).toHaveBeenCalledTimes(1);
   });
 
@@ -22,8 +21,7 @@ describe('withRetry', () => {
       context: 'test operation',
     });
 
-    expect(result.data).toBe('success');
-    expect(result.attempts).toBe(2);
+    expect(result).toBe('success');
     expect(operation).toHaveBeenCalledTimes(2);
   });
 
@@ -46,8 +44,7 @@ describe('withRetry', () => {
 
     const result = await withRetry(operation, { context: 'test operation' });
 
-    expect(result.data).toBe('success');
-    expect(result.attempts).toBe(3);
+    expect(result).toBe('success');
     expect(operation).toHaveBeenCalledTimes(3);
   });
 
@@ -64,9 +61,9 @@ describe('withRetry', () => {
       context: 'typed operation',
     });
 
-    expect(result.data).toEqual(expectedData);
-    expect(result.data.id).toBe(1);
-    expect(result.data.name).toBe('test');
+    expect(result).toEqual(expectedData);
+    expect(result.id).toBe(1);
+    expect(result.name).toBe('test');
   });
 
   it('should handle custom maxRetries value', async () => {
@@ -82,8 +79,7 @@ describe('withRetry', () => {
       context: 'custom retries',
     });
 
-    expect(result.data).toBe('success');
-    expect(result.attempts).toBe(4);
+    expect(result).toBe('success');
     expect(operation).toHaveBeenCalledTimes(4);
   });
 
@@ -135,8 +131,7 @@ describe('withRetry', () => {
       context: 'property test',
     });
 
-    expect(result.data).toBe('success at attempt 3');
-    expect(result.attempts).toBe(successOnAttempt);
+    expect(result).toBe('success at attempt 3');
     expect(operation).toHaveBeenCalledTimes(successOnAttempt);
   });
 });

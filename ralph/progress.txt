@@ -432,3 +432,39 @@ The two-phase detection/suggestion architecture is fully implemented, tested (39
 **Next feature to work on:** Use typed catch blocks in detection-phase.ts (src/evaluators/detection-phase.ts line 228)
 
 ---
+
+### Completed: Reduce two-phase evaluation code bloat
+
+**Changes made:**
+- In `src/evaluators/result-assembler.ts`:
+  - Inlined `buildCheckMessage()` into `assembleCheckResult()` (4-line string builder)
+  - Inlined `buildCriterionSummary()` into `assembleJudgeResult()` (trivial ternary)
+  - Inlined `buildCriterionReasoning()` into `assembleJudgeResult()` (simple join)
+  - Inlined `normalizeStrictness()` into `assembleCheckResult()` (simple switch)
+  - Inlined `calculateCriterionScore()` into `assembleJudgeResult()` (4 if statements)
+  - Removed dead method definitions after inlining (6 methods removed total)
+  - Removed `@example` JSDoc block from `ResultAssembler` class
+- In `src/evaluators/retry.ts`:
+  - Removed `RetryResult<T>` wrapper interface
+  - Changed `withRetry()` to return `T` directly instead of `RetryResult<T>`
+  - Removed unused `attempts` field from return value
+- Updated `src/evaluators/index.ts` to remove `RetryResult` export
+- Updated `src/evaluators/detection-phase.ts` to use new `withRetry()` signature (no destructuring)
+- Updated `src/evaluators/suggestion-phase.ts` to use new `withRetry()` signature (no destructuring)
+- Removed `@example` JSDoc blocks from `DetectionPhaseRunner` and `SuggestionPhaseRunner` classes
+- Updated all tests in `tests/retry.test.ts` to use new direct return signature (9 tests updated)
+
+**Line count reduction:**
+- Before: ~955 lines (result-assembler: 448, retry: 75, detection-phase: 234, suggestion-phase: 198)
+- After: 822 lines (result-assembler: 347, retry: 57, detection-phase: 227, suggestion-phase: 191)
+- Reduction: 133 lines (~14% reduction)
+
+**All 398 tests pass ✓**
+**Build verified with `npm run build` - compiles successfully**
+**Lint verified with `npm run lint` - no errors**
+
+**Purpose:** Reducing code bloat improves maintainability by eliminating unnecessary abstraction layers. The inlined helper methods were simple enough that their extraction added more overhead (in terms of lines of code and cognitive load) than benefit. The `RetryResult` wrapper's `attempts` field was unused anywhere in the codebase, so removing it simplified the retry interface. Removing excessive `@example` blocks from exported classes reduced documentation noise while keeping essential JSDoc comments for public APIs.
+
+**PRD Status:** ALL 15 TASKS COMPLETE ✓
+
+---
