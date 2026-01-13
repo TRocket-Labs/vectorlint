@@ -327,3 +327,52 @@
 **Next feature to work on:** Update documentation for two-phase evaluation (AGENTS.md)
 
 ---
+
+### Completed: Update documentation for two-phase evaluation
+
+**Changes made:**
+- Updated `AGENTS.md` with new two-phase detection/suggestion architecture documentation:
+  - Added "Two-Phase Detection/Suggestion Architecture" section with detailed explanations
+  - Documented all three phases: Detection, Suggestion, and Assembly
+  - Added table of key components with file locations and purposes
+  - Documented all 7 property tests that validate the architecture
+  - Updated "LLM Provider Methods" subsection to document both `runPromptStructured` and `runPromptUnstructured`
+  - Updated "Project Structure & Module Organization" to include new evaluator files:
+    - `detection-phase.ts` — Phase 1: issue detection using unstructured LLM calls
+    - `suggestion-phase.ts` — Phase 2: suggestion generation using structured LLM calls
+    - `result-assembler.ts` — Phase 3: combines detection and suggestion results
+    - `retry.ts` — retry utility with logging for transient LLM failures
+- Verified existing code documentation comments are comprehensive:
+  - `BaseEvaluator` class documents two-phase architecture flow
+  - `DetectionPhaseRunner` has detailed JSDoc comments explaining purpose
+  - `SuggestionPhaseRunner` has detailed JSDoc comments explaining purpose
+  - `ResultAssembler` has detailed JSDoc comments explaining purpose
+- Build verified with `npm run build` - compiles successfully
+- All 394 tests pass ✓
+
+**Purpose:** Documentation is critical for contributors to understand the two-phase architecture. The AGENTS.md file serves as the primary reference for understanding how the evaluation system works, while the inline code comments provide detailed explanations for each component. The documentation now accurately reflects the implementation with all three phases clearly explained.
+
+**PRD Status:** ALL TASKS COMPLETE ✓
+
+---
+
+## PRD Completion Summary
+
+All 12 tasks in the PRD have been completed successfully:
+
+1. ✅ Extend LLM Provider Interface with unstructured call support
+2. ✅ Implement retry utility with logging
+3. ✅ Add detection phase prompt template
+4. ✅ Create DetectionPhaseRunner class
+5. ✅ Implement detection response parser
+6. ✅ Add suggestion phase prompt template
+7. ✅ Create suggestion LLM schema
+8. ✅ Create SuggestionPhaseRunner class
+9. ✅ Create ResultAssembler class
+10. ✅ Integrate two-phase flow into BaseEvaluator
+11. ✅ Update existing evaluator tests for two-phase flow
+12. ✅ Update documentation for two-phase evaluation
+
+The two-phase detection/suggestion architecture is fully implemented, tested (394 passing tests), and documented.
+
+---
