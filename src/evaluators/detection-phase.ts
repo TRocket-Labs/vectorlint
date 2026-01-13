@@ -225,8 +225,9 @@ export class DetectionPhaseRunner {
       }
 
       return null;
-    } catch {
-      // Gracefully handle malformed sections
+    } catch (_e: unknown) {
+      // Error is intentionally ignored for graceful degradation of malformed sections
+      void _e;
       return null;
     }
   }
