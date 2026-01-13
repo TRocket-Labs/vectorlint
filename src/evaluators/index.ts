@@ -37,6 +37,13 @@ export {
   type DetectionPhaseOptions,
 } from './detection-phase';
 
+export {
+  SuggestionPhaseRunner,
+  type Suggestion,
+  type SuggestionResult,
+  type SuggestionPhaseOptions,
+} from './suggestion-phase';
+
 // Import specialized evaluators to trigger their self-registration
 // These must be imported after base-evaluator to ensure registry is ready
 import './accuracy-evaluator';

@@ -158,3 +158,34 @@
 **Next feature to work on:** Create SuggestionPhaseRunner class (src/evaluators/suggestion-phase.ts)
 
 ---
+
+### Completed: Create SuggestionPhaseRunner class
+
+**Changes made:**
+- Created `src/evaluators/suggestion-phase.ts` with `SuggestionPhaseRunner` class
+- Implemented `run(content, issues, criteria): Promise<SuggestionResult>` method
+- `buildPrompt(content, issues, criteria)` method inserts content, issues, and criteria into the suggestion-phase template
+- `formatIssues(issues)` method converts RawDetectionIssue array to markdown format for prompt inclusion
+- Uses `runPromptStructured` with `buildSuggestionLLMSchema()` for LLM call to get structured JSON response
+- Integrated `withRetry` logic from `retry.ts` for transient failure handling
+- Defines types: `Suggestion`, `SuggestionResult`, `SuggestionPhaseOptions`
+- Exported from `src/evaluators/index.ts` for use by other components
+- Build verified with `npm run build` - compiles successfully
+- Created comprehensive test suite in `tests/suggestion-phase.test.ts` with 12 tests:
+  - Tests for run method integration with LLM provider
+  - Tests for suggestion result mapping and metadata
+  - Tests for formatIssues with various inputs
+  - **Property 4 tests:**
+    - Correct matching of suggestions to issues by 1-based index
+    - Handling partial suggestion sets (some issues without suggestions)
+    - Preserving LLM response order (including non-sequential)
+    - Single issue/suggestion handling
+    - Empty issues array handling
+    - All required fields with proper type validation
+- All 12 tests pass ✓
+
+**Purpose:** The SuggestionPhaseRunner is the second phase of the two-phase detection/suggestion architecture. It receives the full document content (not just chunks) and detected issues from the detection phase, then generates actionable suggestions for each issue using a structured LLM call. The structured JSON response ensures reliable matching of suggestions to their corresponding issues by index.
+
+**Next feature to work on:** Create ResultAssembler class (src/evaluators/result-assembler.ts)
+
+---
