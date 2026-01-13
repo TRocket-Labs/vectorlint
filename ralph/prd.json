@@ -34,7 +34,7 @@
       "Include output template with Issue N format",
       "Verify template includes criteria placeholder"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "detection",

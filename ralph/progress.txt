@@ -46,3 +46,20 @@
 **Next feature to work on:** Add detection phase prompt template (to src/evaluators/prompts.json)
 
 ---
+
+### Completed: Add detection phase prompt template
+
+**Changes made:**
+- Added `detection-phase` key to `src/evaluators/prompts.json`
+- Template includes guided format instructions for output with markdown code block example
+- Output template specifies `## Issue N` format (Issue 1, Issue 2, etc.)
+- Includes `{criteria}` placeholder for dynamic criteria insertion
+- Template defines required fields: quotedText, contextBefore, contextAfter, line, criterionName, analysis
+- Includes guidelines for issue ordering, context requirements, and "No issues found" handling
+- Build verified with `npm run build` - compiles successfully
+
+**Purpose:** The detection phase prompt template is used by the DetectionPhaseRunner to instruct the LLM on how to identify and format issues found in content. The unstructured output format (markdown with Issue N sections) is designed to be parsed by the detection response parser.
+
+**Next feature to work on:** Create DetectionPhaseRunner class (src/evaluators/detection-phase.ts)
+
+---
