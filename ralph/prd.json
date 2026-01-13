@@ -123,7 +123,7 @@
       "Write property test for full document context (Property 3)",
       "Verify all npm tests pass"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "testing",

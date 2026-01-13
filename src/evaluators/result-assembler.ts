@@ -16,6 +16,7 @@ import { EvaluationType, Severity } from "./types";
 import type { CheckResult, JudgeResult } from "../prompts/schema";
 import type { RawDetectionIssue } from "./detection-phase";
 import type { Suggestion } from "./suggestion-phase";
+import type { PromptCriterionSpec } from "../schemas/prompt-schemas";
 
 /**
  * Options for configuring result assembly.
@@ -25,10 +26,10 @@ export interface ResultAssemblerOptions {
   severity?: Severity;
   /** Total word count of the evaluated content (for score calculation) */
   totalWordCount?: number;
-  /** Strictness level for check results (affects score calculation) */
-  strictness?: number;
-  /** Prompt criteria metadata (for judge results) */
-  promptCriteria?: Array<{ name: string; weight?: number }>;
+  /** Strictness level for check results (affects score calculation) - can be number or string enum */
+  strictness?: number | "lenient" | "standard" | "strict";
+  /** Prompt criteria metadata (for judge results) - accepts full PromptCriterionSpec */
+  promptCriteria?: PromptCriterionSpec[];
 }
 
 /**
@@ -66,8 +67,11 @@ export class ResultAssembler {
     const {
       severity = Severity.WARNING,
       totalWordCount = 1,
-      strictness = 1,
+      strictness: rawStrictness = 1,
     } = options;
+
+    // Convert strictness from string or number to number
+    const strictness = this.normalizeStrictness(rawStrictness);
 
     // Merge detection issues with suggestions by issue index
     const mergedItems = this.mergeIssuesWithSuggestions(
@@ -416,5 +420,29 @@ export class ResultAssembler {
     }
 
     return parts.join("\n");
+  }
+
+  /**
+   * Normalize strictness from string or number to number.
+   *
+   * @param strictness - Strictness value as number or string enum
+   * @returns Normalized strictness as number (default: 1)
+   */
+  private normalizeStrictness(
+    strictness: number | "lenient" | "standard" | "strict" | undefined
+  ): number {
+    if (typeof strictness === "number") {
+      return strictness;
+    }
+    switch (strictness) {
+      case "lenient":
+        return 0.5;
+      case "standard":
+        return 1;
+      case "strict":
+        return 2;
+      default:
+        return 1;
+    }
   }
 }

@@ -248,3 +248,52 @@
 **Next feature to work on:** Integrate two-phase flow into BaseEvaluator (src/evaluators/base-evaluator.ts)
 
 ---
+
+### Completed: Integrate two-phase flow into BaseEvaluator
+
+**Changes made:**
+- Updated `src/evaluators/base-evaluator.ts` with two-phase detection/suggestion architecture:
+  - Added imports for `DetectionPhaseRunner`, `SuggestionPhaseRunner`, `ResultAssembler`, and `PromptCriterionSpec`
+  - Added private readonly fields for `detectionRunner`, `suggestionRunner`, and `resultAssembler`
+  - Updated constructor to instantiate all three phase runners
+- Completely rewrote `runCheckEvaluation` method to use two-phase flow:
+  - Phase 1 (Detection): Runs detection phase on each chunk, collecting all issues
+  - Phase 2 (Suggestion): Runs suggestion phase with full document context (not chunks)
+  - Phase 3 (Assembly): Assembles final CheckResult with suggestions and aggregated token usage
+  - Properly handles empty detection (skips suggestion phase)
+- Completely rewrote `runJudgeEvaluation` method to use two-phase flow:
+  - Same three-phase pattern as check evaluation
+  - Uses `assembleJudgeResult` for judge-specific output format
+- Added `buildCriteriaString()` helper method:
+  - Converts prompt's `criteria` metadata to formatted string for phase runners
+  - Handles missing/empty criteria with default message
+  - Includes weights in the output format
+- Updated `src/evaluators/result-assembler.ts` to handle strictness and criteria types:
+  - Modified `ResultAssemblerOptions.strictness` to accept `number | "lenient" | "standard" | "strict"`
+  - Modified `ResultAssemblerOptions.promptCriteria` to accept `PromptCriterionSpec[]`
+  - Added `normalizeStrictness()` method to convert string strictness values to numbers
+- Created comprehensive test suite in `tests/base-evaluator-two-phase.test.ts` with 17 tests:
+  - **Property 1 tests (Two-phase execution flow):**
+    - Detection phase is called for each chunk
+    - Both phases are called when issues are detected
+    - Token usage is aggregated from both phases
+    - Suggestion phase is skipped when no issues are detected
+    - Judge evaluation also uses two-phase flow with proper token aggregation
+  - **Property 3 tests (Full document context):**
+    - Full document is passed to suggestion phase even with chunking
+    - All detected issues are passed to suggestion phase
+    - Detection handles multiple chunks with single suggestion call
+  - Additional test coverage:
+    - Criteria string building from prompt metadata
+    - Empty criteria handling
+    - Result assembly for both check and judge evaluations
+    - Severity handling (default, prompt-level, constructor override)
+    - Strictness normalization from string to number
+- All 17 tests pass ✓
+- Build verified with `npm run build` - compiles successfully
+
+**Purpose:** Integrating the two-phase flow into BaseEvaluator is the critical final step that makes the detection/suggestion architecture functional. The BaseEvaluator now orchestrates the complete flow: detection (chunked) → suggestion (full document) → assembly. This ensures that suggestions have access to the full document context even when detection operates on chunks, resulting in more coherent and consistent suggestions. Property 1 verifies the correct execution order, while Property 3 ensures full document context is maintained.
+
+**Next feature to work on:** Update existing evaluator tests for two-phase flow (tests/)
+
+---
