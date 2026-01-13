@@ -1019,6 +1019,8 @@ describe('OpenAIProvider', () => {
 });
 
 describe('OpenAIProvider - Unstructured Response Handling', () => {
+  let mockValidateApiResponse: ReturnType<typeof vi.fn>;
+
   beforeEach(async () => {
     vi.clearAllMocks();
 

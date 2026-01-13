@@ -50,16 +50,15 @@ vi.mock('openai', () => {
     chat: { completions: { create: SHARED_CREATE } },
   }));
 
+  // Attach error classes to the constructor
+  azureOpenAI.APIError = APIError;
+  azureOpenAI.AuthenticationError = AuthenticationError;
+  azureOpenAI.RateLimitError = RateLimitError;
+
   return {
     __esModule: true,
     AzureOpenAI: azureOpenAI,
     default: azureOpenAI,
-    // @ts-expect-error - Mock needs to add error classes to constructor function
-    azureOpenAI.APIError: APIError,
-    // @ts-expect-error - Mock needs to add error classes to constructor function
-    azureOpenAI.AuthenticationError: AuthenticationError,
-    // @ts-expect-error - Mock needs to add error classes to constructor function
-    azureOpenAI.RateLimitError: RateLimitError,
   };
 });
 
@@ -169,9 +168,9 @@ describe('AzureOpenAIProvider', () => {
 
       const provider = new AzureOpenAIProvider(config);
 
-      const result = await provider.runPromptUnstructured('Test content', 'Test prompt');
-
-      expect(result.data).toBe('');
+      await expect(
+        provider.runPromptUnstructured('Test content', 'Test prompt')
+      ).rejects.toThrow('Empty response from LLM');
     });
 
     it('handles null content gracefully', async () => {
@@ -196,9 +195,9 @@ describe('AzureOpenAIProvider', () => {
 
       const provider = new AzureOpenAIProvider(config);
 
-      const result = await provider.runPromptUnstructured('Test content', 'Test prompt');
-
-      expect(result.data).toBe('');
+      await expect(
+        provider.runPromptUnstructured('Test content', 'Test prompt')
+      ).rejects.toThrow('Empty response from LLM');
     });
 
     it('does not attempt JSON parsing for unstructured response', async () => {
@@ -357,7 +356,7 @@ describe('AzureOpenAIProvider', () => {
 
       await expect(
         provider.runPromptUnstructured('Test content', 'Test prompt')
-      ).rejects.toThrow('Invalid API response structure');
+      ).rejects.toThrow('Received streaming response when expecting unstructured response');
     });
   });
 

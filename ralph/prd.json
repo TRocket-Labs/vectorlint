@@ -134,7 +134,7 @@
       "Verify backward compatibility of output format",
       "Run npm test:ci to ensure all tests pass"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "documentation",

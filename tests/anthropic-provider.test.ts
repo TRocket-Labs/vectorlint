@@ -46,12 +46,21 @@ vi.mock('@anthropic-ai/sdk', () => {
     }
   }
 
+  // Create the mock constructor function
+  const mockConstructor = vi.fn((): MockAnthropicClient => ({
+    messages: {
+      create: SHARED_MOCK_CREATE,
+    },
+  }));
+
+  // Attach error classes to the constructor for instanceof checks
+  mockConstructor.APIError = APIError;
+  mockConstructor.RateLimitError = RateLimitError;
+  mockConstructor.AuthenticationError = AuthenticationError;
+  mockConstructor.BadRequestError = BadRequestError;
+
   return {
-    default: vi.fn((): MockAnthropicClient => ({
-      messages: {
-        create: SHARED_MOCK_CREATE,
-      },
-    })),
+    default: mockConstructor,
     APIError,
     RateLimitError,
     AuthenticationError,
@@ -848,6 +857,7 @@ describe('AnthropicProvider', () => {
 });
 
 describe('AnthropicProvider - Unstructured Response Handling', () => {
+  let mockValidateAnthropicResponse: ReturnType<typeof vi.fn>;
   let consoleSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {

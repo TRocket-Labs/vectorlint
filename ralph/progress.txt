@@ -297,3 +297,33 @@
 **Next feature to work on:** Update existing evaluator tests for two-phase flow (tests/)
 
 ---
+
+### Completed: Update existing evaluator tests for two-phase flow
+
+**Changes made:**
+- Fixed syntax error in `tests/azure-openai-provider.test.ts`:
+  - Changed invalid `azureOpenAI.APIError:` syntax to proper `azureOpenAI.APIError =` assignment
+  - Updated error handling tests to expect correct error messages for empty/null content
+  - Updated validation error test to expect "Received streaming response" error
+- Fixed mock variable scope issue in `tests/anthropic-provider.test.ts`:
+  - Added `mockValidateAnthropicResponse` variable declaration in second describe block
+  - Fixed mock constructor to attach error classes for instanceof checks
+- Fixed mock variable scope issue in `tests/openai-provider.test.ts`:
+  - Added `mockValidateApiResponse` variable declaration in second describe block
+- Updated `tests/scoring-types.test.ts` for two-phase architecture:
+  - Added `runPromptUnstructured` to mock provider interface
+  - Updated all tests to mock both detection and suggestion phases
+  - Fixed detection response format to match parser expectations (with `>` prefix and proper newlines)
+  - Updated score expectations to match new scoring formula:
+    - Old: `score = 10 - violationCount`
+    - New: `score = max(1, 10 - (violationCount / wordCount * 100 * strictness * 2))`
+  - Added `beforeEach` hook to clear mocks between tests
+  - Added new test for judge evaluation returning perfect score when no issues found
+- All 394 tests pass ✓
+- Build verified with `npm run build` - compiles successfully
+
+**Purpose:** The existing evaluator tests were written for a single-phase architecture where the LLM returned complete results directly. With the two-phase architecture, the tests needed to be updated to mock both the detection phase (unstructured LLM call) and suggestion phase (structured LLM call). The scoring formula also changed from a simple violation count to a density-based calculation (violations per 100 words). Updating these tests ensures that the new two-phase flow is properly validated and that backward compatibility is maintained where possible.
+
+**Next feature to work on:** Update documentation for two-phase evaluation (AGENTS.md)
+
+---
