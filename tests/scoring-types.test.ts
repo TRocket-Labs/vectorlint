@@ -14,26 +14,26 @@ describe("Scoring Types", () => {
     runPromptStructured: vi.fn(),
   } as unknown as LLMProvider;
 
-  describe("Subjective Evaluation", () => {
-    const subjectivePrompt: PromptFile = {
-      id: "test-subjective",
+  describe("Judge Evaluation", () => {
+    const judgePrompt: PromptFile = {
+      id: "test-judge",
       filename: "test.md",
       fullPath: "/test.md",
       body: "Evaluate this.",
+      pack: "TestPack",
       meta: {
-        id: "test-subjective",
-        name: "Test Subjective",
-        type: "subjective",
+        id: "test-judge",
+        name: "Test Judge",
+        type: "judge",
         criteria: [
           { id: "c1", name: "Criterion 1", weight: 50 },
           { id: "c2", name: "Criterion 2", weight: 50 },
         ],
       },
-      pack: "TestPack",
     };
 
     it("should calculate weighted average correctly", async () => {
-      const evaluator = new BaseEvaluator(mockLlmProvider, subjectivePrompt);
+      const evaluator = new BaseEvaluator(mockLlmProvider, judgePrompt);
 
       // Mock LLM returning raw scores (0-4) wrapped in LLMResult
       const mockLlmResponse: LLMResult<SubjectiveLLMResult> = {
@@ -63,7 +63,7 @@ describe("Scoring Types", () => {
 
       const result = await evaluator.evaluate("file.md", "content");
 
-      if (result.type !== EvaluationType.SUBJECTIVE)
+      if (result.type !== EvaluationType.JUDGE)
         throw new Error("Wrong result type");
 
       // Calculation:
@@ -77,22 +77,22 @@ describe("Scoring Types", () => {
     });
   });
 
-  describe("Semi-Objective Evaluation", () => {
-    const semiObjectivePrompt: PromptFile = {
+  describe("Check Evaluation", () => {
+    const checkPrompt: PromptFile = {
       id: "test-semi",
       filename: "test.md",
       fullPath: "/test.md",
       body: "Count things.",
+      pack: "TestPack",
       meta: {
         id: "test-semi",
         name: "Test Semi",
-        type: "semi-objective",
+        type: "check",
       },
-      pack: "TestPack",
     };
 
     it("should calculate score correctly based on violation count", async () => {
-      const evaluator = new BaseEvaluator(mockLlmProvider, semiObjectivePrompt);
+      const evaluator = new BaseEvaluator(mockLlmProvider, checkPrompt);
 
       // Mock LLM returning violations only wrapped in LLMResult
       const mockLlmResponse: LLMResult<SemiObjectiveLLMResult> = {
@@ -127,7 +127,7 @@ describe("Scoring Types", () => {
       const content = new Array(100).fill("word").join(" ");
       const result = await evaluator.evaluate("file.md", content);
 
-      if (result.type !== EvaluationType.SEMI_OBJECTIVE)
+      if (result.type !== EvaluationType.CHECK)
         throw new Error("Wrong result type");
 
       // Calculation: 2 violations = score of 8 (10 - 2)
@@ -137,7 +137,7 @@ describe("Scoring Types", () => {
     });
 
     it("should handle empty violations list (perfect score)", async () => {
-      const evaluator = new BaseEvaluator(mockLlmProvider, semiObjectivePrompt);
+      const evaluator = new BaseEvaluator(mockLlmProvider, checkPrompt);
 
       const mockLlmResponse: LLMResult<SemiObjectiveLLMResult> = {
         data: {
@@ -151,7 +151,7 @@ describe("Scoring Types", () => {
 
       const result = await evaluator.evaluate("file.md", "content");
 
-      if (result.type !== EvaluationType.SEMI_OBJECTIVE)
+      if (result.type !== EvaluationType.CHECK)
         throw new Error("Wrong result type");
 
       // No violations = perfect score
@@ -184,8 +184,8 @@ describe("Scoring Types", () => {
         filename: "tech.md",
         fullPath: "/tech.md",
         body: "Check accuracy",
-        meta: { id: "tech-acc", name: "Tech Acc", type: "semi-objective" },
         pack: "TestPack",
+        meta: { id: "tech-acc", name: "Tech Acc", type: "check" },
       };
 
       const evaluator = new TechnicalAccuracyEvaluator(
@@ -201,7 +201,7 @@ describe("Scoring Types", () => {
 
       const result = await evaluator.evaluate("file.md", "content");
 
-      if (result.type !== EvaluationType.SEMI_OBJECTIVE)
+      if (result.type !== EvaluationType.CHECK)
         throw new Error("Wrong result type");
       expect(result.final_score).toBe(10);
       expect(result.items).toEqual([]);

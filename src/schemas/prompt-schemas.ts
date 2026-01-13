@@ -27,17 +27,29 @@ export const PROMPT_CRITERION_SCHEMA = z.object({
  * - 'technical-accuracy': specialized evaluator with claim extraction + search
  *
  * Evaluation type:
- * - 'subjective': 1-4 scores per criterion, normalized to 1-10
- * - 'semi-objective': density-based scoring (errors per 100 words)
+ * - 'judge': 1-4 scores per criterion, normalized to 1-10
+ * - 'check': density-based scoring (errors per 100 words)
  *
- * Strictness factor for semi-objective scoring:
+ * Deprecated aliases (still supported):
+ * - 'subjective' → 'judge'
+ * - 'semi-objective' → 'check'
+ *
+ * Strictness factor for check scoring:
  * - Determines penalty weight per 1% error density.
  * - Default: 10
  */
 export const PROMPT_META_SCHEMA = z.object({
   specVersion: z.union([z.string(), z.number()]).optional(),
   evaluator: z.enum(["base", "technical-accuracy"]).optional(),
-  type: z.enum(["subjective", "semi-objective"]).optional(),
+  type: z
+    .enum(["judge", "check", "subjective", "semi-objective"])
+    .transform((val) => {
+      // Map deprecated values to new canonical values
+      if (val === "subjective") return "judge" as const;
+      if (val === "semi-objective") return "check" as const;
+      return val;
+    })
+    .optional(),
   id: z.string(),
   name: z.string(),
   severity: z.nativeEnum(Severity).optional(),
@@ -49,6 +61,7 @@ export const PROMPT_META_SCHEMA = z.object({
   // Determines how content is evaluated: 'chunk' (default) for chunked processing, 'document' for full document
   evaluateAs: z.enum(["document", "chunk"]).optional(),
 });
+
 
 // Complete prompt file schema
 export const PROMPT_FILE_SCHEMA = z.object({

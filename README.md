@@ -46,45 +46,63 @@ If you can write a prompt for it, you can lint it with VectorLint.
 VectorLint scores your content using error density and a rubric-based system, enabling you to measure quality across documentation. This gives your team a shared understanding of which content needs attention and helps track improvements over time.
 
 - **Density-Based Scoring:** For errors that can be counted, scores are calculated based on **error density (errors per 100 words)**, making quality assessment fair across documents of any length.
-- **Rubric-Based Scoring:** For more subjective quality standards, like flow and completeness, scores are graded on a 1-4 rubric system and then normalized to a **1-10 scale**.
+- **Rubric-Based Scoring:** For more nuanced quality standards, like flow and completeness, scores are graded on a 1-4 rubric system and then normalized to a **1-10 scale**.
 
 ## Quick Start
 
-1.  **Initialize Configuration:**
+### 1. Zero-Config Mode (Fastest)
 
-    Run the initialization command to generate your configuration files:
+If you just want to check your content against a style guide:
 
-    ```bash
-    vectorlint init
-    ```
+```bash
+vectorlint init --quick
+```
 
-    This creates two files:
-    - **VectorLint Config** (`.vectorlint.ini`): Project-specific settings (rules path, concurrency).
-    - **App Config** (`~/.vectorlint/config.toml`): LLM provider API keys and settings.
+This creates a `VECTORLINT.md` file where you can paste your style guide.
 
-    👉 **[Full configuration reference →](./CONFIGURATION.md)**
+> **Note:** You must set up your credentials in `~/.vectorlint/config.toml` (see Step 3) before running checks.
 
-2.  **Configure API Keys:**
+Then run:
 
-    Open your global **App Config** (`~/.vectorlint/config.toml`) and uncomment the section for your preferred LLM provider (OpenAI, Anthropic, Gemini, or Azure).
+```bash
+vectorlint doc.md
+```
 
-    ```toml
-    [env]
-    LLM_PROVIDER = "openai"
-    OPENAI_API_KEY = "sk-..."
-    ```
+### 2. Full Configuration
 
-    *Note: You can also use a local `.env` file in your project, which takes precedence over the global config.*
+For a comprehensive setup (custom rule packs, specific targets), run:
 
-3.  **Run a check:**
+```bash
+vectorlint init
+```
 
-    ```bash
-    vectorlint doc.md
-    ```
+This creates:
+- **VectorLint Config** (`.vectorlint.ini`): Project-specific settings.
+- **App Config** (`~/.vectorlint/config.toml`): LLM provider API keys.
 
-    VectorLint is bundled with a `VectorLint` preset containing rules for AI pattern detection, directness, and more. The `init` command configures this automatically.
+👉 **[Full configuration reference →](./CONFIGURATION.md)**
 
-    👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
+### 3. Configure API Keys
+
+Open your global **App Config** (`~/.vectorlint/config.toml`) and uncomment the section for your preferred LLM provider (OpenAI, Anthropic, Gemini, or Azure).
+
+```toml
+[env]
+LLM_PROVIDER = "openai"
+OPENAI_API_KEY = "sk-..."
+```
+
+> *Note: You can also use a local `.env` file in your project, which takes precedence over the global config.*
+
+**Run a check:**
+
+```bash
+vectorlint doc.md
+```
+
+VectorLint is bundled with a `VectorLint` preset containing rules for AI pattern detection, directness, and more. The `init` command configures this automatically.
+
+👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
 
 ## Contributing
 

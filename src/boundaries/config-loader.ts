@@ -9,6 +9,10 @@ import {
 import {
   LEGACY_CONFIG_FILENAME,
   DEFAULT_CONFIG_FILENAME,
+  STYLE_GUIDE_FILENAME,
+  DEFAULT_CONCURRENCY,
+  ZERO_CONFIG_PACK_NAME,
+  DEFAULT_SCAN_PATTERN,
 } from "../config/constants";
 import { FileSectionParser } from "./file-section-parser";
 
@@ -28,7 +32,7 @@ enum ConfigKey {
   DEFAULT_SEVERITY = "DefaultSeverity",
 }
 
-function resolveConfigPath(cwd: string, configPath?: string): string {
+function resolveConfigPath(cwd: string, configPath?: string): string | undefined {
   if (configPath) {
     const explicitPath = path.resolve(cwd, configPath);
     if (!existsSync(explicitPath)) {
@@ -47,9 +51,7 @@ function resolveConfigPath(cwd: string, configPath?: string): string {
     return defaultPath;
   }
 
-  throw new ConfigError(
-    `Missing configuration file. Expected ${DEFAULT_CONFIG_FILENAME} in ${cwd}`
-  );
+  return undefined;
 }
 
 /**
@@ -60,6 +62,30 @@ export function loadConfig(
   configPath?: string
 ): Config {
   const iniPath = resolveConfigPath(cwd, configPath);
+
+  if (!iniPath) {
+    // Check for VECTORLINT.md for zero-config mode
+    const styleGuidePath = path.resolve(cwd, STYLE_GUIDE_FILENAME);
+    if (existsSync(styleGuidePath)) {
+      // Return default config for zero-config mode
+      const defaultConfig = {
+        concurrency: DEFAULT_CONCURRENCY,
+        configDir: cwd,
+        scanPaths: [
+          {
+            pattern: DEFAULT_SCAN_PATTERN,
+            runRules: [ZERO_CONFIG_PACK_NAME],
+            overrides: {},
+          },
+        ],
+      };
+      return CONFIG_SCHEMA.parse(defaultConfig);
+    }
+
+    throw new ConfigError(
+      `Missing configuration file. Expected ${DEFAULT_CONFIG_FILENAME} or ${STYLE_GUIDE_FILENAME} in ${cwd}`
+    );
+  }
 
   const configDir = path.dirname(iniPath);
 
@@ -157,9 +183,8 @@ export function loadConfig(
     ? (path.isAbsolute(rulesPathRaw) ? rulesPathRaw : path.resolve(configDir, rulesPathRaw))
     : undefined;
 
-  const concurrency = concurrencyRaw ?? 4;
+  const concurrency = concurrencyRaw ?? DEFAULT_CONCURRENCY;
 
-  // Create config object and validate with schema
   // Create config object and validate with schema
   const configData = {
     rulesPath,

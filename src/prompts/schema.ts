@@ -3,7 +3,7 @@ import type { TokenUsage } from "../providers/token-usage";
 
 export function buildSubjectiveLLMSchema() {
   return {
-    name: "vectorlint_subjective_result",
+    name: "vectorlint_judge_result",
     strict: true,
     schema: {
       type: "object",
@@ -59,7 +59,7 @@ export function buildSubjectiveLLMSchema() {
 
 export function buildSemiObjectiveLLMSchema() {
   return {
-    name: "vectorlint_semi_objective_result",
+    name: "vectorlint_check_result",
     strict: true,
     schema: {
       type: "object",
@@ -127,7 +127,7 @@ export type SemiObjectiveLLMResult = {
 };
 
 export type SubjectiveResult = {
-  type: typeof EvaluationType.SUBJECTIVE;
+  type: typeof EvaluationType.JUDGE;
   final_score: number; // 1-10
   criteria: Array<{
     name: string;
@@ -160,7 +160,7 @@ export type SemiObjectiveItem = {
 };
 
 export type SemiObjectiveResult = {
-  type: typeof EvaluationType.SEMI_OBJECTIVE;
+  type: typeof EvaluationType.CHECK;
   final_score: number; // 1-10
   percentage: number;
   violation_count: number;
@@ -184,11 +184,11 @@ export type EvaluationResult = SubjectiveResult | SemiObjectiveResult;
 export function isSubjectiveResult(
   result: EvaluationResult
 ): result is SubjectiveResult {
-  return result.type === EvaluationType.SUBJECTIVE;
+  return result.type === EvaluationType.JUDGE;
 }
 
 export function isSemiObjectiveResult(
   result: EvaluationResult
 ): result is SemiObjectiveResult {
-  return result.type === EvaluationType.SEMI_OBJECTIVE;
+  return result.type === EvaluationType.CHECK;
 }
