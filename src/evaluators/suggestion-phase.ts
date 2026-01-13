@@ -13,7 +13,11 @@
 import type { LLMProvider } from "../providers/llm-provider";
 import type { TokenUsage } from "../providers/token-usage";
 import type { RawDetectionIssue } from "./detection-phase";
-import { buildSuggestionLLMSchema, type SuggestionLLMResult } from "../prompts/schema";
+import {
+  buildSuggestionLLMSchema,
+  SUGGESTION_LLM_RESULT_SCHEMA,
+  type SuggestionLLMResult,
+} from "../prompts/schema";
 import { getPrompt } from "./prompt-loader";
 import { withRetry } from "./retry";
 
@@ -107,7 +111,8 @@ export class SuggestionPhaseRunner {
       { maxRetries, context: "suggestion phase" }
     );
 
-    const rawResponse = llmResult.data;
+    // Runtime validation of LLM response using Zod schema
+    const rawResponse = SUGGESTION_LLM_RESULT_SCHEMA.parse(llmResult.data);
     const usage = llmResult.usage;
 
     // Map the LLM result to our Suggestion interface

@@ -1,5 +1,6 @@
 import { EvaluationType, Severity } from "../evaluators/types";
 import type { TokenUsage } from "../providers/token-usage";
+import { z } from "zod";
 
 export function buildJudgeLLMSchema() {
   return {
@@ -163,6 +164,23 @@ export type SuggestionLLMResult = {
     explanation: string;
   }>;
 };
+
+/**
+ * Zod runtime validation schema for suggestion LLM response.
+ *
+ * This schema validates the structure of the LLM response from the suggestion phase
+ * to ensure it conforms to the expected format before processing. This provides
+ * an additional layer of safety beyond the structured output schema.
+ */
+export const SUGGESTION_LLM_RESULT_SCHEMA = z.object({
+  suggestions: z.array(
+    z.object({
+      issueIndex: z.number().int().positive().describe("The 1-based index of the issue this suggestion addresses"),
+      suggestion: z.string().min(1).describe("Specific, actionable text to replace the problematic content"),
+      explanation: z.string().min(1).describe("Brief explanation of how this suggestion addresses the issue"),
+    })
+  ).min(0).describe("Array of suggestions, one per detected issue"),
+});
 
 export type JudgeResult = {
   type: typeof EvaluationType.JUDGE;

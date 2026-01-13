@@ -402,3 +402,33 @@ All 13 tasks in the PRD have been completed successfully:
 The two-phase detection/suggestion architecture is fully implemented, tested (394 passing tests), lint-free, and documented.
 
 ---
+
+### Completed: Add Zod runtime validation for suggestion LLM response
+
+**Changes made:**
+- Added Zod import to `src/prompts/schema.ts`
+- Created `SUGGESTION_LLM_RESULT_SCHEMA` Zod schema with runtime validation:
+  - Validates `suggestions` array
+  - Each suggestion requires:
+    - `issueIndex`: positive integer (z.number().int().positive())
+    - `suggestion`: non-empty string (z.string().min(1))
+    - `explanation`: non-empty string (z.string().min(1))
+- Exported the Zod schema for use in suggestion-phase.ts
+- Updated `src/evaluators/suggestion-phase.ts`:
+  - Added `SUGGESTION_LLM_RESULT_SCHEMA` to imports
+  - Replaced direct assignment with `SUGGESTION_LLM_RESULT_SCHEMA.parse(llmResult.data)` at line 115
+  - Added comment explaining runtime validation
+- Added comprehensive test suite in `tests/suggestion-phase.test.ts` with 4 new tests:
+  - Test for missing required field (`explanation`)
+  - Test for wrong type (`issueIndex` as string instead of number)
+  - Test for invalid value (`issueIndex` is 0, not positive)
+  - Test for empty string (`suggestion` is empty)
+- All 398 tests pass ✓ (increased from 394 to 398)
+- Build verified with `npm run build` - compiles successfully
+- Lint verified with `npm run lint` - no errors
+
+**Purpose:** Zod runtime validation adds an additional layer of safety for the suggestion phase LLM response. Even though the structured output schema defines the expected format, runtime validation ensures that any malformed responses from the LLM are caught and throw a clear error rather than causing undefined behavior downstream. This is especially important for production reliability when dealing with LLM responses that may occasionally deviate from the expected schema.
+
+**Next feature to work on:** Use typed catch blocks in detection-phase.ts (src/evaluators/detection-phase.ts line 228)
+
+---

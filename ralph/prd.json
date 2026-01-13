@@ -161,5 +161,29 @@
       "Run npm run lint to verify all errors are resolved"
     ],
     "passes": true
+  },
+  {
+    "category": "quality",
+    "description": "[P1] Add Zod runtime validation for suggestion LLM response",
+    "steps": [
+      "Create SUGGESTION_LLM_RESULT_SCHEMA Zod schema in src/prompts/schema.ts with suggestions array containing issueIndex (number), suggestion (string), and explanation (string)",
+      "Export the Zod schema alongside the existing buildSuggestionLLMSchema function",
+      "Update src/evaluators/suggestion-phase.ts to import SUGGESTION_LLM_RESULT_SCHEMA",
+      "Validate llmResult.data with SUGGESTION_LLM_RESULT_SCHEMA.parse() before using it (around line 110)",
+      "Add test case in tests/suggestion-phase.test.ts to verify validation throws on malformed LLM response",
+      "Run npm run build and npm test to verify changes work correctly"
+    ],
+    "passes": true
+  },
+  {
+    "category": "quality",
+    "description": "[P1] Use typed catch blocks in detection-phase.ts",
+    "steps": [
+      "Update catch block in src/evaluators/detection-phase.ts line 228 from 'catch {' to 'catch (_e: unknown) {'",
+      "Add comment explaining the error is intentionally ignored for graceful degradation",
+      "Run npm run lint to verify no new lint errors introduced",
+      "Run npm test to ensure parsing still works correctly"
+    ],
+    "passes": false
   }
 ]

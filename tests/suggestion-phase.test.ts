@@ -365,4 +365,102 @@ describe('SuggestionPhaseRunner', () => {
       expect(Number.isInteger(suggestion.issueIndex)).toBe(true);
     });
   });
+
+  describe('Zod Runtime Validation', () => {
+    it('should throw ZodError when LLM returns malformed response (missing required field)', async () => {
+      // Malformed response: missing 'explanation' field
+      const malformedResponse = {
+        suggestions: [
+          {
+            issueIndex: 1,
+            suggestion: 'The system processed the data',
+            // 'explanation' is missing
+          },
+        ],
+      };
+      const mockProvider = {
+        runPromptStructured: vi.fn().mockResolvedValue({
+          data: malformedResponse,
+          usage: { inputTokens: 200, outputTokens: 100 },
+        }),
+      };
+      const runner = new SuggestionPhaseRunner(mockProvider);
+
+      await expect(
+        runner.run('Content', sampleIssues.slice(0, 1), 'Criteria')
+      ).rejects.toThrow();
+    });
+
+    it('should throw ZodError when LLM returns malformed response (wrong type)', async () => {
+      // Malformed response: issueIndex is string instead of number
+      const malformedResponse = {
+        suggestions: [
+          {
+            issueIndex: '1' as unknown as number, // Wrong type
+            suggestion: 'The system processed the data',
+            explanation: 'Changed to active voice',
+          },
+        ],
+      };
+      const mockProvider = {
+        runPromptStructured: vi.fn().mockResolvedValue({
+          data: malformedResponse,
+          usage: { inputTokens: 200, outputTokens: 100 },
+        }),
+      };
+      const runner = new SuggestionPhaseRunner(mockProvider);
+
+      await expect(
+        runner.run('Content', sampleIssues.slice(0, 1), 'Criteria')
+      ).rejects.toThrow();
+    });
+
+    it('should throw ZodError when LLM returns malformed response (zero or negative issueIndex)', async () => {
+      // Malformed response: issueIndex is 0 (not positive)
+      const malformedResponse = {
+        suggestions: [
+          {
+            issueIndex: 0, // Not positive
+            suggestion: 'The system processed the data',
+            explanation: 'Changed to active voice',
+          },
+        ],
+      };
+      const mockProvider = {
+        runPromptStructured: vi.fn().mockResolvedValue({
+          data: malformedResponse,
+          usage: { inputTokens: 200, outputTokens: 100 },
+        }),
+      };
+      const runner = new SuggestionPhaseRunner(mockProvider);
+
+      await expect(
+        runner.run('Content', sampleIssues.slice(0, 1), 'Criteria')
+      ).rejects.toThrow();
+    });
+
+    it('should throw ZodError when LLM returns malformed response (empty suggestion string)', async () => {
+      // Malformed response: suggestion is empty string
+      const malformedResponse = {
+        suggestions: [
+          {
+            issueIndex: 1,
+            suggestion: '', // Empty string
+            explanation: 'Changed to active voice',
+          },
+        ],
+      };
+      const mockProvider = {
+        runPromptStructured: vi.fn().mockResolvedValue({
+          data: malformedResponse,
+          usage: { inputTokens: 200, outputTokens: 100 },
+        }),
+      };
+      const runner = new SuggestionPhaseRunner(mockProvider);
+
+      await expect(
+        runner.run('Content', sampleIssues.slice(0, 1), 'Criteria')
+      ).rejects.toThrow();
+    });
+  });
 });
