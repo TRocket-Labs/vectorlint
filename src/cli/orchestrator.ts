@@ -9,7 +9,7 @@ import { printFileHeader, printIssueRow, printEvaluationSummaries, type Evaluati
 import { checkTarget } from '../prompts/target';
 import { isSubjectiveResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
-import { createEvaluator } from '../evaluators/index';
+import { createEvaluator, BatchedCheckEvaluator, partitionRulesByBatchability } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { OutputFormat } from './types';
 import type {
@@ -17,7 +17,7 @@ import type {
   ReportIssueParams, ProcessViolationsParams,
   ProcessCriterionParams, ProcessCriterionResult, ValidationParams, ProcessPromptResultParams,
   RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult,
-  RunPromptEvaluationResultSuccess
+  RunPromptEvaluationResultSuccess, EvaluateBatchedRulesParams, EvaluateBatchedRulesResult
 } from './types';
 import {
   calculateCost,
@@ -752,7 +752,98 @@ async function runPromptEvaluation(
 }
 
 /*
+ * Evaluates a batch of Check rules together.
+ * Returns evaluation stats and any fallback rules if batching fails.
+ */
+async function evaluateBatchedRules(
+  params: EvaluateBatchedRulesParams
+): Promise<EvaluateBatchedRulesResult> {
+  const { provider, batchable, maxRulesPerBatch, relFile, content, outputFormat, jsonFormatter, verbose } = params;
+
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let errors = 0;
+  let warnings = 0;
+  let requestFailures = 0;
+  let hadOperationalErrors = false;
+  let hadSeverityErrors = false;
+  const scores = new Map<string, EvaluationSummary[]>();
+  const fallbackRules: PromptFile[] = [];
+
+  try {
+    const batchedEvaluator = new BatchedCheckEvaluator(provider, batchable, {
+      maxRulesPerBatch,
+    });
+    const batchedResults = await batchedEvaluator.evaluate(relFile, content);
+
+    // Process each batched result
+    for (const rule of batchable) {
+      const ruleId = (rule.meta.id || rule.filename.replace(/\.md$/, "")).toString();
+      const result = batchedResults.get(ruleId);
+
+      if (!result) {
+        if (verbose) {
+          console.warn(`[vectorlint] No result for batched rule: ${ruleId}`);
+        }
+        hadOperationalErrors = true;
+        continue;
+      }
+
+      // Accumulate token usage
+      if (result.usage) {
+        inputTokens += result.usage.inputTokens;
+        outputTokens += result.usage.outputTokens;
+      }
+
+      const promptResult = routePromptResult({
+        promptFile: rule,
+        result,
+        content,
+        relFile,
+        outputFormat,
+        jsonFormatter,
+        verbose,
+      });
+
+      errors += promptResult.errors;
+      warnings += promptResult.warnings;
+      hadOperationalErrors = hadOperationalErrors || promptResult.hadOperationalErrors;
+      hadSeverityErrors = hadSeverityErrors || promptResult.hadSeverityErrors;
+
+      if (promptResult.scoreEntries && promptResult.scoreEntries.length > 0) {
+        const ruleName = (rule.meta.id || rule.filename).toString();
+        scores.set(ruleName, promptResult.scoreEntries);
+      }
+    }
+  } catch (e: unknown) {
+    const err = handleUnknownError(e, "Batched rule evaluation");
+    console.error(`[vectorlint] Batched evaluation failed: ${err.message}`);
+    hadOperationalErrors = true;
+    requestFailures += 1;
+
+    // Fall back to individual evaluation for all batchable rules
+    if (verbose) {
+      console.warn("[vectorlint] Falling back to individual evaluation for batched rules");
+    }
+    fallbackRules.push(...batchable);
+  }
+
+  return {
+    inputTokens,
+    outputTokens,
+    errors,
+    warnings,
+    requestFailures,
+    hadOperationalErrors,
+    hadSeverityErrors,
+    scores,
+    fallbackRules
+  };
+}
+
+/*
  * Evaluates a single file with all applicable prompts.
+ * Supports batched evaluation for Check rules when enabled.
  */
 async function evaluateFile(
   params: EvaluateFileParams
@@ -766,6 +857,8 @@ async function evaluateFile(
     scanPaths,
     outputFormat = OutputFormat.Line,
     verbose,
+    batchRules,
+    maxRulesPerBatch = 5,
   } = options;
 
   let hadOperationalErrors = false;
@@ -820,69 +913,107 @@ async function evaluateFile(
     toRun.push(...prompts);
   }
 
-  const results = await runWithConcurrency(
-    toRun,
-    concurrency,
-    async (prompt) => {
-      return runPromptEvaluation({
-        promptFile: prompt,
-        relFile,
-        content,
-        provider,
-        ...(searchProvider !== undefined && { searchProvider }),
-      });
-    }
-  );
+  // Partition rules for batching
+  const { batchable, nonBatchable } = batchRules
+    ? partitionRulesByBatchability(toRun)
+    : { batchable: [], nonBatchable: toRun };
 
-  // Aggregate results from each prompt
-  for (let idx = 0; idx < toRun.length; idx++) {
-    const p = toRun[idx];
-    const r = results[idx];
-    if (!p || !r) continue;
-
-    if (r.ok !== true) {
-      // Check if this is a missing dependency error - if so, skip gracefully
-      if (r.error instanceof MissingDependencyError) {
-        console.warn(`[vectorlint] Skipping ${p.filename}: ${r.error.message}`);
-        if (r.error.hint) {
-          console.warn(`[vectorlint] Hint: ${r.error.hint}`);
-        }
-        // Skip this evaluation entirely - don't count it as a failure
-        continue;
-      }
-
-      // Other errors are actual failures
-      console.error(`  Prompt failed: ${p.filename}`);
-      console.error(r.error);
-      hadOperationalErrors = true;
-      requestFailures += 1;
-      continue;
-    }
-
-    // Accumulate token usage
-    if (r.result.usage) {
-      totalInputTokens += r.result.usage.inputTokens;
-      totalOutputTokens += r.result.usage.outputTokens;
-    }
-
-    const promptResult = routePromptResult({
-      promptFile: p,
-      result: r.result,
-      content,
+  // Process batchable Check rules together
+  if (batchable.length > 0) {
+    const batchResult = await evaluateBatchedRules({
+      provider,
+      batchable,
+      maxRulesPerBatch,
       relFile,
+      content,
       outputFormat,
       jsonFormatter,
       verbose,
     });
-    totalErrors += promptResult.errors;
-    totalWarnings += promptResult.warnings;
-    hadOperationalErrors =
-      hadOperationalErrors || promptResult.hadOperationalErrors;
-    hadSeverityErrors = hadSeverityErrors || promptResult.hadSeverityErrors;
 
-    if (promptResult.scoreEntries && promptResult.scoreEntries.length > 0) {
-      const ruleName = (p.meta.id || p.filename).toString();
-      allScores.set(ruleName, promptResult.scoreEntries);
+    totalInputTokens += batchResult.inputTokens;
+    totalOutputTokens += batchResult.outputTokens;
+    totalErrors += batchResult.errors;
+    totalWarnings += batchResult.warnings;
+    requestFailures += batchResult.requestFailures;
+    hadOperationalErrors = hadOperationalErrors || batchResult.hadOperationalErrors;
+    hadSeverityErrors = hadSeverityErrors || batchResult.hadSeverityErrors;
+
+    for (const [key, val] of batchResult.scores) {
+      allScores.set(key, val);
+    }
+
+    if (batchResult.fallbackRules.length > 0) {
+      nonBatchable.push(...batchResult.fallbackRules);
+    }
+  }
+
+  // Process non-batchable rules individually (Judge rules, special evaluators, etc.)
+  if (nonBatchable.length > 0) {
+    const results = await runWithConcurrency(
+      nonBatchable,
+      concurrency,
+      async (prompt) => {
+        return runPromptEvaluation({
+          promptFile: prompt,
+          relFile,
+          content,
+          provider,
+          ...(searchProvider !== undefined && { searchProvider }),
+        });
+      }
+    );
+
+    // Aggregate results from each prompt
+    for (let idx = 0; idx < nonBatchable.length; idx++) {
+      const p = nonBatchable[idx];
+      const r = results[idx];
+      if (!p || !r) continue;
+
+      if (r.ok !== true) {
+        // Check if this is a missing dependency error - if so, skip gracefully
+        if (r.error instanceof MissingDependencyError) {
+          console.warn(`[vectorlint] Skipping ${p.filename}: ${r.error.message}`);
+          if (r.error.hint) {
+            console.warn(`[vectorlint] Hint: ${r.error.hint}`);
+          }
+          // Skip this evaluation entirely - don't count it as a failure
+          continue;
+        }
+
+        // Other errors are actual failures
+        console.error(`  Prompt failed: ${p.filename}`);
+        console.error(r.error);
+        hadOperationalErrors = true;
+        requestFailures += 1;
+        continue;
+      }
+
+      // Accumulate token usage
+      if (r.result.usage) {
+        totalInputTokens += r.result.usage.inputTokens;
+        totalOutputTokens += r.result.usage.outputTokens;
+      }
+
+      const promptResult = routePromptResult({
+        promptFile: p,
+        result: r.result,
+        content,
+        relFile,
+        outputFormat,
+        jsonFormatter,
+        verbose,
+      });
+      totalErrors += promptResult.errors;
+      totalWarnings += promptResult.warnings;
+      hadOperationalErrors =
+        hadOperationalErrors || promptResult.hadOperationalErrors;
+      hadSeverityErrors = hadSeverityErrors || promptResult.hadSeverityErrors;
+
+      if (promptResult.scoreEntries && promptResult.scoreEntries.length > 0) {
+        const ruleName = (p.meta.id || p.filename).toString();
+        allScores.set(ruleName, promptResult.scoreEntries);
+      }
     }
   }
 
