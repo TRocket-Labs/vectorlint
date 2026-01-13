@@ -3,14 +3,14 @@ import { registerEvaluator } from "./evaluator-registry";
 import type { LLMProvider } from "../providers/llm-provider";
 import type { SearchProvider } from "../providers/search-provider";
 import type { PromptFile } from "../schemas/prompt-schemas";
-import type { EvaluationResult } from "../prompts/schema";
+import type { PromptEvaluationResult } from "../prompts/schema";
 import type { TokenUsage } from "../providers/token-usage";
 import { renderTemplate } from "../prompts/template-renderer";
 import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
 import { Type, type Severity } from "./types";
 import { MissingDependencyError } from "../errors/index";
-import { calculateSemiObjectiveScore } from "../scoring/scorer";
+import { calculateCheckScore } from "../scoring/scorer";
 import { countWords } from "../chunking";
 
 // Schema for claim extraction response
@@ -57,7 +57,7 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     super(llmProvider, prompt, defaultSeverity);
   }
 
-  async evaluate(_file: string, content: string): Promise<EvaluationResult> {
+  async evaluate(_file: string, content: string): Promise<PromptEvaluationResult> {
     // Step 1: Extract factual claims from the content
     const { claims, usage: claimUsage } = await this.extractClaims(content);
 
@@ -65,7 +65,7 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     // Use the scoring module to calculate result
     if (claims.length === 0) {
       const wordCount = countWords(content) || 1;
-      const result = calculateSemiObjectiveScore([], wordCount, {
+      const result = calculateCheckScore([], wordCount, {
         strictness: this.prompt.meta.strictness,
         defaultSeverity: this.defaultSeverity,
         promptSeverity: this.prompt.meta.severity,

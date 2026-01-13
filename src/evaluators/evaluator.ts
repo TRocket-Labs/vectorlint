@@ -1,9 +1,9 @@
-import type { EvaluationResult } from '../prompts/schema';
+import type { PromptEvaluationResult } from '../prompts/schema';
 
 /*
  * Core evaluator interface for content evaluation.
  * Implementations receive a file path and content, returning structured evaluation results.
  */
 export interface Evaluator {
-  evaluate(file: string, content: string): Promise<EvaluationResult>;
+  evaluate(file: string, content: string): Promise<PromptEvaluationResult>;
 }
