@@ -6,6 +6,8 @@ export const CONFIG_SCHEMA = z.object({
   concurrency: z.number().int().positive().default(4),
   configDir: z.string().min(1),
   defaultSeverity: z.enum(['warning', 'error']).optional(),
+  batchRules: z.boolean().default(false),
+  maxRulesPerBatch: z.number().int().min(1).max(20).default(5),
   scanPaths: z.array(z.object({
     pattern: z.string(),
     runRules: z.array(z.string()).default([]),
