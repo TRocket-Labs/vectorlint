@@ -238,4 +238,105 @@ export class AnthropicProvider implements LLMProvider {
 
     return input as T;
   }
+
+  async runPromptUnstructured(content: string, promptText: string): Promise<LLMResult<string>> {
+    const systemPrompt = this.builder.buildPromptBodyForStructured(promptText);
+
+    const params: Anthropic.Messages.MessageCreateParams = {
+      model: this.config.model!,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: `Input:\n\n${content}`,
+        },
+      ],
+      max_tokens: this.config.maxTokens!,
+      stream: false,
+    };
+
+    if (this.config.temperature !== undefined) {
+      params.temperature = this.config.temperature;
+    }
+
+    if (this.config.debug) {
+      console.log('[vectorlint] Sending unstructured request to Anthropic:', {
+        model: this.config.model,
+        maxTokens: this.config.maxTokens,
+        temperature: this.config.temperature,
+      });
+
+      if (this.config.showPrompt) {
+        console.log('[vectorlint] System prompt (full):');
+        console.log(systemPrompt);
+        console.log('[vectorlint] User content (full):');
+        console.log(content);
+      } else if (this.config.showPromptTrunc) {
+        console.log('[vectorlint] System prompt (first 500 chars):');
+        console.log(systemPrompt.slice(0, 500));
+        if (systemPrompt.length > 500) console.log('... [truncated]');
+        const preview = content.slice(0, 500);
+        console.log('[vectorlint] User content preview (first 500 chars):');
+        console.log(preview);
+        if (content.length > 500) console.log('... [truncated]');
+      }
+    }
+
+    let rawResponse: unknown;
+    try {
+      rawResponse = await this.client.messages.create(params);
+    } catch (e: unknown) {
+      if (e instanceof Anthropic.APIError) {
+        throw new Error(`Anthropic API error (${e.status}): ${e.message}`);
+      }
+      if (e instanceof Anthropic.RateLimitError) {
+        throw new Error(`Anthropic rate limit exceeded: ${e.message}`);
+      }
+      if (e instanceof Anthropic.AuthenticationError) {
+        throw new Error(`Anthropic authentication failed: ${e.message}`);
+      }
+      if (e instanceof Anthropic.BadRequestError) {
+        throw new Error(`Anthropic bad request: ${e.message}`);
+      }
+
+      const err = handleUnknownError(e, 'Anthropic API call');
+      throw new Error(`Anthropic API call failed: ${err.message}`);
+    }
+
+    const validatedResponse = this.validateResponse(rawResponse);
+
+    if (this.config.debug) {
+      const usage = validatedResponse.usage;
+      const stopReason = validatedResponse.stop_reason;
+      if (usage || stopReason) {
+        console.log('[vectorlint] LLM response meta:', {
+          usage: {
+            input_tokens: usage.input_tokens,
+            output_tokens: usage.output_tokens,
+          },
+          stop_reason: stopReason,
+        });
+      }
+    }
+
+    const blocks = validatedResponse.content;
+    if (blocks.length === 0) {
+      throw new Error('Empty response from Anthropic API (no content blocks).');
+    }
+
+    const textBlocks = blocks.filter(isTextBlock);
+    if (textBlocks.length === 0) {
+      throw new Error('No text content received from Anthropic API.');
+    }
+
+    const responseText = textBlocks.map(block => block.text).join('').trim();
+
+    const result: LLMResult<string> = { data: responseText };
+    result.usage = {
+      inputTokens: validatedResponse.usage.input_tokens,
+      outputTokens: validatedResponse.usage.output_tokens,
+    };
+
+    return result;
+  }
 }

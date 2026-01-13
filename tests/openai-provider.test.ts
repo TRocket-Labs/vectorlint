@@ -1017,3 +1017,365 @@ describe('OpenAIProvider', () => {
     });
   });
 });
+
+describe('OpenAIProvider - Unstructured Response Handling', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+
+    // Get reference to the mocked validation function
+    const apiClient = await import('../src/boundaries/api-client');
+    mockValidateApiResponse = vi.mocked(apiClient.validateApiResponse);
+
+    // Default mock behavior - return the response as-is
+    mockValidateApiResponse.mockImplementation((response: unknown) => response as OpenAIResponse);
+  });
+
+  it('successfully returns raw text response', async () => {
+    const config = {
+      apiKey: 'sk-test-key',
+    };
+
+    const mockResponse: OpenAIResponse = {
+      choices: [
+        {
+          message: {
+            content: 'This is a free-form text response',
+          },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: {
+        prompt_tokens: 50,
+        completion_tokens: 20,
+        total_tokens: 70,
+      },
+    };
+
+    SHARED_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new OpenAIProvider(config);
+    const result = await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    expect(result.data).toBe('This is a free-form text response');
+    expect(result.usage).toBeDefined();
+    if (result.usage) {
+      expect(result.usage.inputTokens).toBe(50);
+      expect(result.usage.outputTokens).toBe(20);
+    }
+  });
+
+  it('handles empty content gracefully', async () => {
+    const config = {
+      apiKey: 'sk-test-key',
+    };
+
+    const mockResponse: OpenAIResponse = {
+      choices: [
+        {
+          message: {
+            content: '',
+          },
+          finish_reason: 'stop',
+        },
+      ],
+    };
+
+    SHARED_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new OpenAIProvider(config);
+
+    const result = await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    expect(result.data).toBe('');
+  });
+
+  it('handles null content gracefully', async () => {
+    const config = {
+      apiKey: 'sk-test-key',
+    };
+
+    const mockResponse: OpenAIResponse = {
+      choices: [
+        {
+          message: {
+            content: null,
+          },
+          finish_reason: 'stop',
+        },
+      ],
+    };
+
+    SHARED_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new OpenAIProvider(config);
+
+    const result = await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    expect(result.data).toBe('');
+  });
+
+  it('does not attempt JSON parsing for unstructured response', async () => {
+    const config = {
+      apiKey: 'sk-test-key',
+    };
+
+    const mockResponse: OpenAIResponse = {
+      choices: [
+        {
+          message: {
+            content: 'This looks like JSON but is treated as text: {"key": "value"}',
+          },
+          finish_reason: 'stop',
+        },
+      ],
+    };
+
+    SHARED_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new OpenAIProvider(config);
+    const result = await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    expect(result.data).toBe('This looks like JSON but is treated as text: {"key": "value"}');
+  });
+
+  it('returns markdown formatted text as-is', async () => {
+    const config = {
+      apiKey: 'sk-test-key',
+    };
+
+    const markdownResponse = `# Issue 1
+
+**Quoted text:** "foo bar"
+
+**Line:** 42
+
+**Analysis:** This is a problem`;
+
+    const mockResponse: OpenAIResponse = {
+      choices: [
+        {
+          message: {
+            content: markdownResponse,
+          },
+          finish_reason: 'stop',
+        },
+      ],
+    };
+
+    SHARED_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new OpenAIProvider(config);
+    const result = await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    expect(result.data).toBe(markdownResponse);
+  });
+
+  it('uses default temperature for unstructured calls', async () => {
+    const config = {
+      apiKey: 'sk-test-key',
+    };
+
+    const mockResponse: OpenAIResponse = {
+      choices: [
+        {
+          message: {
+            content: 'Response text',
+          },
+          finish_reason: 'stop',
+        },
+      ],
+    };
+
+    SHARED_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new OpenAIProvider(config);
+    await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    const callArgs = SHARED_CREATE.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(callArgs?.temperature).toBe(0.2);
+  });
+
+  it('uses custom temperature for unstructured calls', async () => {
+    const config = {
+      apiKey: 'sk-test-key',
+      temperature: 0.8,
+    };
+
+    const mockResponse: OpenAIResponse = {
+      choices: [
+        {
+          message: {
+            content: 'Response text',
+          },
+          finish_reason: 'stop',
+        },
+      ],
+    };
+
+    SHARED_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new OpenAIProvider(config);
+    await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    expect(SHARED_CREATE).toHaveBeenCalledWith(
+      expect.objectContaining({
+        temperature: 0.8,
+      })
+    );
+  });
+
+  it('handles API errors in unstructured calls', async () => {
+    const config = {
+      apiKey: 'sk-test-key',
+    };
+
+    const openAI = await import('openai');
+    // @ts-expect-error - Mock constructor signature differs from real SDK
+    SHARED_CREATE.mockRejectedValue(new openAI.APIError({
+      message: 'API request failed',
+      status: 500
+    }));
+
+    const provider = new OpenAIProvider(config);
+
+    await expect(
+      provider.runPromptUnstructured('Test content', 'Test prompt')
+    ).rejects.toThrow('OpenAI API error (500): API request failed');
+  });
+
+  it('handles rate limit errors in unstructured calls', async () => {
+    const config = {
+      apiKey: 'sk-test-key',
+    };
+
+    const openAI = await import('openai');
+    // @ts-expect-error - Mock constructor signature differs from real SDK
+    SHARED_CREATE.mockRejectedValue(new openAI.RateLimitError({
+      message: 'Rate limit exceeded'
+    }));
+
+    const provider = new OpenAIProvider(config);
+
+    await expect(
+      provider.runPromptUnstructured('Test content', 'Test prompt')
+    ).rejects.toThrow('OpenAI rate limit exceeded: Rate limit exceeded');
+  });
+
+  it('handles authentication errors in unstructured calls', async () => {
+    const config = {
+      apiKey: 'sk-test-key',
+    };
+
+    const openAI = await import('openai');
+    // @ts-expect-error - Mock constructor signature differs from real SDK
+    SHARED_CREATE.mockRejectedValue(new openAI.AuthenticationError({
+      message: 'Invalid API key'
+    }));
+
+    const provider = new OpenAIProvider(config);
+
+    await expect(
+      provider.runPromptUnstructured('Test content', 'Test prompt')
+    ).rejects.toThrow('OpenAI authentication failed: Invalid API key');
+  });
+
+  it('logs debug information for unstructured calls', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+
+    const config = {
+      apiKey: 'sk-test-key',
+      debug: true,
+    };
+
+    const mockResponse: OpenAIResponse = {
+      choices: [
+        {
+          message: {
+            content: 'Response text',
+          },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: {
+        prompt_tokens: 50,
+        completion_tokens: 20,
+        total_tokens: 70,
+      },
+    };
+
+    SHARED_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new OpenAIProvider(config);
+    await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[vectorlint] Sending unstructured request to OpenAI:',
+      expect.objectContaining({
+        model: 'gpt-4o',
+        temperature: 0.2,
+      })
+    );
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[vectorlint] LLM response meta:',
+      expect.objectContaining({
+        usage: {
+          prompt_tokens: 50,
+          completion_tokens: 20,
+          total_tokens: 70,
+        },
+        finish_reason: 'stop',
+      })
+    );
+
+    consoleSpy.mockRestore();
+  });
+
+  it('does not include response_format in unstructured calls', async () => {
+    const config = {
+      apiKey: 'sk-test-key',
+    };
+
+    const mockResponse: OpenAIResponse = {
+      choices: [
+        {
+          message: {
+            content: 'Response text',
+          },
+          finish_reason: 'stop',
+        },
+      ],
+    };
+
+    SHARED_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new OpenAIProvider(config);
+    await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    const callArgs = SHARED_CREATE.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(callArgs?.response_format).toBeUndefined();
+  });
+
+  it('handles response validation errors in unstructured calls', async () => {
+    const config = {
+      apiKey: 'sk-test-key',
+    };
+
+    const invalidResponse = {
+      // Missing required 'choices' field
+      usage: {
+        prompt_tokens: 10,
+        completion_tokens: 20,
+        total_tokens: 30,
+      },
+    };
+
+    SHARED_CREATE.mockResolvedValue(invalidResponse);
+
+    const provider = new OpenAIProvider(config);
+
+    await expect(
+      provider.runPromptUnstructured('Test content', 'Test prompt')
+    ).rejects.toThrow('API Response Error: Invalid OpenAI API response structure');
+  });
+});

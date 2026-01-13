@@ -846,3 +846,393 @@ describe('AnthropicProvider', () => {
     });
   });
 });
+
+describe('AnthropicProvider - Unstructured Response Handling', () => {
+  let consoleSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+
+    // Get reference to the mocked validation function
+    const apiClient = await import('../src/boundaries/api-client');
+    mockValidateAnthropicResponse = vi.mocked(apiClient.validateAnthropicResponse);
+
+    // Default mock behavior - return the response as-is
+    mockValidateAnthropicResponse.mockImplementation((response: unknown) => response as AnthropicMessage);
+  });
+
+  afterEach(() => {
+    if (consoleSpy) {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('successfully returns raw text response from text blocks', async () => {
+    const config = {
+      apiKey: 'sk-ant-test-key',
+    };
+
+    const mockResponse: AnthropicMessage = {
+      id: 'msg_123',
+      type: 'message',
+      role: 'assistant',
+      content: [
+        {
+          type: 'text',
+          text: 'This is a free-form text response',
+        },
+      ],
+      model: 'claude-3-sonnet-20240229',
+      stop_reason: 'end_turn',
+      stop_sequence: null,
+      usage: {
+        input_tokens: 50,
+        output_tokens: 20,
+      },
+    };
+
+    SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new AnthropicProvider(config);
+    const result = await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    expect(result.data).toBe('This is a free-form text response');
+    expect(result.usage).toBeDefined();
+    if (result.usage) {
+      expect(result.usage.inputTokens).toBe(50);
+      expect(result.usage.outputTokens).toBe(20);
+    }
+  });
+
+  it('combines multiple text blocks into single response', async () => {
+    const config = {
+      apiKey: 'sk-ant-test-key',
+    };
+
+    const mockResponse: AnthropicMessage = {
+      id: 'msg_123',
+      type: 'message',
+      role: 'assistant',
+      content: [
+        {
+          type: 'text',
+          text: 'First part of response',
+        },
+        {
+          type: 'text',
+          text: ' Second part of response',
+        },
+      ],
+      model: 'claude-3-sonnet-20240229',
+      stop_reason: 'end_turn',
+      stop_sequence: null,
+      usage: {
+        input_tokens: 50,
+        output_tokens: 30,
+      },
+    };
+
+    SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new AnthropicProvider(config);
+    const result = await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    expect(result.data).toBe('First part of response Second part of response');
+  });
+
+  it('returns markdown formatted text as-is', async () => {
+    const config = {
+      apiKey: 'sk-ant-test-key',
+    };
+
+    const markdownResponse = `# Issue 1
+
+**Quoted text:** "foo bar"
+
+**Line:** 42
+
+**Analysis:** This is a problem`;
+
+    const mockResponse: AnthropicMessage = {
+      id: 'msg_123',
+      type: 'message',
+      role: 'assistant',
+      content: [
+        {
+          type: 'text',
+          text: markdownResponse,
+        },
+      ],
+      model: 'claude-3-sonnet-20240229',
+      stop_reason: 'end_turn',
+      stop_sequence: null,
+      usage: {
+        input_tokens: 50,
+        output_tokens: 40,
+      },
+    };
+
+    SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new AnthropicProvider(config);
+    const result = await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    expect(result.data).toBe(markdownResponse);
+  });
+
+  it('trims whitespace from response', async () => {
+    const config = {
+      apiKey: 'sk-ant-test-key',
+    };
+
+    const mockResponse: AnthropicMessage = {
+      id: 'msg_123',
+      type: 'message',
+      role: 'assistant',
+      content: [
+        {
+          type: 'text',
+          text: '  Response with leading and trailing whitespace  ',
+        },
+      ],
+      model: 'claude-3-sonnet-20240229',
+      stop_reason: 'end_turn',
+      stop_sequence: null,
+      usage: {
+        input_tokens: 50,
+        output_tokens: 20,
+      },
+    };
+
+    SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new AnthropicProvider(config);
+    const result = await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    expect(result.data).toBe('Response with leading and trailing whitespace');
+  });
+
+  it('throws error when no content blocks exist', async () => {
+    const config = {
+      apiKey: 'sk-ant-test-key',
+    };
+
+    const mockResponse: AnthropicMessage = {
+      id: 'msg_123',
+      type: 'message',
+      role: 'assistant',
+      content: [],
+      model: 'claude-3-sonnet-20240229',
+      stop_reason: 'end_turn',
+      stop_sequence: null,
+      usage: {
+        input_tokens: 50,
+        output_tokens: 0,
+      },
+    };
+
+    SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new AnthropicProvider(config);
+
+    await expect(
+      provider.runPromptUnstructured('Test content', 'Test prompt')
+    ).rejects.toThrow('Empty response from Anthropic API (no content blocks).');
+  });
+
+  it('throws error when no text blocks exist', async () => {
+    const config = {
+      apiKey: 'sk-ant-test-key',
+    };
+
+    const mockResponse: AnthropicMessage = {
+      id: 'msg_123',
+      type: 'message',
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool_use',
+          id: 'tool_123',
+          name: 'some_tool',
+          input: { result: 'unexpected tool use' },
+        },
+      ],
+      model: 'claude-3-sonnet-20240229',
+      stop_reason: 'tool_use',
+      stop_sequence: null,
+      usage: {
+        input_tokens: 50,
+        output_tokens: 20,
+      },
+    };
+
+    SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new AnthropicProvider(config);
+
+    await expect(
+      provider.runPromptUnstructured('Test content', 'Test prompt')
+    ).rejects.toThrow('No text content received from Anthropic API.');
+  });
+
+  it('handles API errors in unstructured calls', async () => {
+    const config = {
+      apiKey: 'sk-ant-test-key',
+    };
+
+    const anthropic = await import('@anthropic-ai/sdk');
+    const mockApiError = anthropic.APIError as unknown as new (params: MockAPIErrorParams) => Error;
+    SHARED_MOCK_CREATE.mockRejectedValue(new mockApiError({
+      message: 'API request failed',
+      status: 500
+    }));
+
+    const provider = new AnthropicProvider(config);
+
+    await expect(
+      provider.runPromptUnstructured('Test content', 'Test prompt')
+    ).rejects.toThrow('Anthropic API error (500): API request failed');
+  });
+
+  it('handles rate limit errors in unstructured calls', async () => {
+    const config = {
+      apiKey: 'sk-ant-test-key',
+    };
+
+    const anthropic = await import('@anthropic-ai/sdk');
+    const mockRateLimitError = anthropic.RateLimitError as unknown as new (params: Partial<MockRateLimitErrorParams>) => Error;
+    SHARED_MOCK_CREATE.mockRejectedValue(new mockRateLimitError({
+      message: 'Rate limit exceeded'
+    }));
+
+    const provider = new AnthropicProvider(config);
+
+    await expect(
+      provider.runPromptUnstructured('Test content', 'Test prompt')
+    ).rejects.toThrow('Anthropic rate limit exceeded: Rate limit exceeded');
+  });
+
+  it('handles authentication errors in unstructured calls', async () => {
+    const config = {
+      apiKey: 'sk-ant-test-key',
+    };
+
+    const anthropic = await import('@anthropic-ai/sdk');
+    const mockAuthenticationError = anthropic.AuthenticationError as unknown as new (params: Partial<MockAuthenticationErrorParams>) => Error;
+    SHARED_MOCK_CREATE.mockRejectedValue(new mockAuthenticationError({
+      message: 'Invalid API key'
+    }));
+
+    const provider = new AnthropicProvider(config);
+
+    await expect(
+      provider.runPromptUnstructured('Test content', 'Test prompt')
+    ).rejects.toThrow('Anthropic authentication failed: Invalid API key');
+  });
+
+  it('logs debug information for unstructured calls', async () => {
+    consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+
+    const config = {
+      apiKey: 'sk-ant-test-key',
+      debug: true,
+    };
+
+    const mockResponse: AnthropicMessage = {
+      id: 'msg_123',
+      type: 'message',
+      role: 'assistant',
+      content: [
+        {
+          type: 'text',
+          text: 'Response text',
+        },
+      ],
+      model: 'claude-3-sonnet-20240229',
+      stop_reason: 'end_turn',
+      stop_sequence: null,
+      usage: {
+        input_tokens: 50,
+        output_tokens: 20,
+      },
+    };
+
+    SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new AnthropicProvider(config);
+    await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[vectorlint] Sending unstructured request to Anthropic:',
+      expect.objectContaining({
+        model: 'claude-3-sonnet-20240229',
+        maxTokens: 4096,
+        temperature: 0.2,
+      })
+    );
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[vectorlint] LLM response meta:',
+      expect.objectContaining({
+        usage: {
+          input_tokens: 50,
+          output_tokens: 20,
+        },
+        stop_reason: 'end_turn',
+      })
+    );
+  });
+
+  it('does not include tools in unstructured calls', async () => {
+    const config = {
+      apiKey: 'sk-ant-test-key',
+    };
+
+    const mockResponse: AnthropicMessage = {
+      id: 'msg_123',
+      type: 'message',
+      role: 'assistant',
+      content: [
+        {
+          type: 'text',
+          text: 'Response text',
+        },
+      ],
+      model: 'claude-3-sonnet-20240229',
+      stop_reason: 'end_turn',
+      stop_sequence: null,
+      usage: {
+        input_tokens: 50,
+        output_tokens: 20,
+      },
+    };
+
+    SHARED_MOCK_CREATE.mockResolvedValue(mockResponse);
+
+    const provider = new AnthropicProvider(config);
+    await provider.runPromptUnstructured('Test content', 'Test prompt');
+
+    const callArgs = SHARED_MOCK_CREATE.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(callArgs?.tools).toBeUndefined();
+    expect(callArgs?.tool_choice).toBeUndefined();
+  });
+
+  it('handles response validation errors in unstructured calls', async () => {
+    const config = {
+      apiKey: 'sk-ant-test-key',
+    };
+
+    const invalidResponse = {
+      // Missing required fields like 'id', 'type', 'role', 'content', etc.
+      model: 'claude-3-sonnet-20240229',
+    };
+
+    SHARED_MOCK_CREATE.mockResolvedValue(invalidResponse);
+
+    const provider = new AnthropicProvider(config);
+
+    await expect(
+      provider.runPromptUnstructured('Test content', 'Test prompt')
+    ).rejects.toThrow('API Response Error: Invalid Anthropic API response structure');
+  });
+});

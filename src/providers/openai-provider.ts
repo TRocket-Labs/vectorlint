@@ -177,4 +177,94 @@ export class OpenAIProvider implements LLMProvider {
       );
     }
   }
+
+  async runPromptUnstructured(content: string, promptText: string): Promise<LLMResult<string>> {
+    const systemPrompt = this.builder.buildPromptBodyForStructured(promptText);
+
+    const params: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
+      model: this.config.model!,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Input:\n\n${content}` }
+      ],
+    };
+
+    if (this.config.temperature !== undefined) {
+      params.temperature = this.config.temperature;
+    }
+
+    if (this.config.debug) {
+      console.log('[vectorlint] Sending unstructured request to OpenAI:', {
+        model: this.config.model,
+        temperature: this.config.temperature,
+      });
+
+      if (this.config.showPrompt) {
+        console.log('[vectorlint] System prompt (full):');
+        console.log(systemPrompt);
+        console.log('[vectorlint] User content (full):');
+        console.log(content);
+      } else if (this.config.showPromptTrunc) {
+        console.log('[vectorlint] System prompt (first 500 chars):');
+        console.log(systemPrompt.slice(0, 500));
+        if (systemPrompt.length > 500) console.log('... [truncated]');
+        const preview = content.slice(0, 500);
+        console.log('[vectorlint] User content preview (first 500 chars):');
+        console.log(preview);
+        if (content.length > 500) console.log('... [truncated]');
+      }
+    }
+
+    let rawResponse: unknown;
+    try {
+      rawResponse = await this.client.chat.completions.create(params);
+    } catch (e: unknown) {
+      if (e instanceof OpenAI.RateLimitError) {
+        throw new Error(`OpenAI rate limit exceeded: ${e.message}`);
+      }
+      if (e instanceof OpenAI.AuthenticationError) {
+        throw new Error(`OpenAI authentication failed: ${e.message}`);
+      }
+      if (e instanceof OpenAI.APIError) {
+        throw new Error(`OpenAI API error (${e.status}): ${e.message}`);
+      }
+
+      const err = handleUnknownError(e, 'OpenAI API call');
+      throw new Error(`OpenAI API call failed: ${err.message}`);
+    }
+
+    const validatedResponse = this.validateResponse(rawResponse);
+
+    if (this.config.debug) {
+      const usage = validatedResponse.usage;
+      const firstChoice = validatedResponse.choices[0];
+      if (usage || firstChoice) {
+        console.log('[vectorlint] LLM response meta:', {
+          usage: usage ? {
+            prompt_tokens: usage.prompt_tokens,
+            completion_tokens: usage.completion_tokens,
+            total_tokens: usage.total_tokens,
+          } : undefined,
+          finish_reason: firstChoice?.finish_reason,
+        });
+      }
+    }
+
+    const firstChoice = validatedResponse.choices[0];
+    if (!firstChoice) {
+      throw new Error('Empty response from OpenAI API (no choices).');
+    }
+
+    const responseText = firstChoice.message.content?.trim() ?? '';
+    const usage = validatedResponse.usage;
+
+    const result: LLMResult<string> = { data: responseText };
+    if (usage) {
+      result.usage = {
+        inputTokens: usage.prompt_tokens,
+        outputTokens: usage.completion_tokens,
+      };
+    }
+    return result;
+  }
 }

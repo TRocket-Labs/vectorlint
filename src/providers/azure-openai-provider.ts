@@ -138,4 +138,86 @@ export class AzureOpenAIProvider implements LLMProvider {
       throw new Error(`Failed to parse structured JSON response: ${err.message}. Preview: ${preview}${responseText.length > 200 ? ' ...' : ''}`);
     }
   }
+
+  async runPromptUnstructured(content: string, promptText: string): Promise<LLMResult<string>> {
+    const prompt = this.builder.buildPromptBodyForStructured(promptText);
+
+    const params: Parameters<typeof this.client.chat.completions.create>[0] = {
+      model: this.deploymentName,
+      messages: [
+        { role: 'system', content: prompt },
+        { role: 'user', content: `Input:\n\n${content}` }
+      ],
+    };
+    if (this.temperature !== undefined) {
+      params.temperature = this.temperature;
+    }
+
+    if (this.debug) {
+      console.log('[vectorlint] Sending unstructured request to Azure OpenAI:', {
+        model: this.deploymentName,
+        apiVersion: this.apiVersion || AZURE_OPENAI_DEFAULT_CONFIG.apiVersion,
+        temperature: this.temperature,
+      });
+      if (this.showPrompt) {
+        console.log('[vectorlint] Prompt (full):');
+        console.log(prompt);
+        console.log('[vectorlint] Injected content (full):');
+        console.log(content);
+      } else if (this.showPromptTrunc) {
+        console.log('[vectorlint] Prompt (first 500 chars):');
+        console.log(prompt.slice(0, 500));
+        if (prompt.length > 500) console.log('... [truncated]');
+        const preview = content.slice(0, 500);
+        console.log('[vectorlint] Injected content preview (first 500 chars):');
+        console.log(preview);
+        if (content.length > 500) console.log('... [truncated]');
+      }
+    }
+
+    let response;
+    try {
+      response = await this.client.chat.completions.create(params);
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'OpenAI API call');
+      throw new Error(`OpenAI API call failed: ${err.message}`);
+    }
+
+    if (!('choices' in response)) {
+      throw new Error('Received streaming response when expecting unstructured response');
+    }
+
+    let validatedResponse;
+    try {
+      validatedResponse = validateApiResponse(response);
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'API response validation');
+      throw new Error(`Invalid API response structure: ${err.message}`);
+    }
+
+    const responseTextRaw = validatedResponse.choices[0]?.message?.content;
+    const responseText = (responseTextRaw ?? '').trim();
+
+    if (this.debug) {
+      const usage = validatedResponse.usage;
+      const finish = validatedResponse.choices[0]?.finish_reason;
+      if (usage || finish) {
+        console.log('[vectorlint] LLM response meta:', { usage, finish_reason: finish });
+      }
+    }
+
+    if (!responseText) {
+      throw new Error('Empty response from LLM (no content).');
+    }
+
+    const usage = validatedResponse.usage;
+    const result: LLMResult<string> = { data: responseText };
+    if (usage) {
+      result.usage = {
+        inputTokens: usage.prompt_tokens,
+        outputTokens: usage.completion_tokens,
+      };
+    }
+    return result;
+  }
 }
