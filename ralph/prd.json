@@ -108,7 +108,7 @@
       "Write property test for result schema conformance (Property 6)",
       "Write property test for token usage aggregation (Property 7)"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "integration",

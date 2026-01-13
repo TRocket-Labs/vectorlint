@@ -186,6 +186,65 @@
 
 **Purpose:** The SuggestionPhaseRunner is the second phase of the two-phase detection/suggestion architecture. It receives the full document content (not just chunks) and detected issues from the detection phase, then generates actionable suggestions for each issue using a structured LLM call. The structured JSON response ensures reliable matching of suggestions to their corresponding issues by index.
 
-**Next feature to work on:** Create ResultAssembler class (src/evaluators/result-assembler.ts)
+---
+
+### Completed: Create ResultAssembler class
+
+**Changes made:**
+- Created `src/evaluators/result-assembler.ts` with `ResultAssembler` class
+- Implemented `assembleCheckResult(detectionIssues, suggestions, options): CheckResult` method:
+  - Merges detection issues with suggestions by 1-based index
+  - Builds violations array matching CheckLLMResult format
+  - Calculates violation-based score (errors per 100 words)
+  - Builds appropriate message based on violation count
+  - Returns CheckResult compatible with existing evaluator output
+- Implemented `assembleJudgeResult(detectionIssues, suggestions, options): JudgeResult` method:
+  - Groups issues by criterion name for judge format
+  - Calculates criterion scores on 1-4 scale based on violation count
+  - Computes weighted final score across all criteria
+  - Returns JudgeResult compatible with existing evaluator output
+- Implemented `aggregateTokenUsage(detectionUsage, suggestionUsage): TokenUsage | undefined` method:
+  - Correctly sums inputTokens and outputTokens from both phases
+  - Returns undefined when both inputs are undefined
+  - Handles cases where only one phase has usage data
+- Defines `ResultAssemblerOptions` interface for configuration:
+  - `severity`: Severity level for check results (default: WARNING)
+  - `totalWordCount`: Total word count for score calculation
+  - `strictness`: Strictness multiplier for check results
+  - `promptCriteria`: Prompt criteria metadata for judge results
+- Exported from `src/evaluators/index.ts` for use by other components
+- Build verified with `npm run build` - compiles successfully
+- Created comprehensive test suite in `tests/result-assembler.test.ts` with 22 tests:
+  - Tests for `assembleCheckResult`:
+    - Produces valid CheckResult with all required fields
+    - Items array matches CheckItem schema
+    - Violations array with correct structure
+    - Handles missing suggestions correctly
+    - Handles empty detection issues
+    - Handles partial suggestion matching
+  - Tests for `assembleJudgeResult`:
+    - Produces valid JudgeResult with all required fields
+    - Criteria array matching JudgeResult schema
+    - Groups violations by criterion name
+    - Calculates scores based on violation count
+    - Handles empty detection issues
+    - Provides default suggestions when missing
+  - **Property 6 tests (Result schema conformance):**
+    - All required fields present and correctly typed
+    - Optional fields handled correctly
+    - CheckResult and JudgeResult output matches expected schema
+  - **Property 7 tests (Token usage aggregation):**
+    - Correctly combines detection and suggestion usage
+    - Returns undefined when both inputs are undefined
+    - Returns only detection usage when suggestion is undefined
+    - Returns only suggestion usage when detection is undefined
+    - Correctly sums input and output tokens
+    - Handles zero values and large token counts
+  - Integration scenarios testing complete two-phase flow
+- All 22 tests pass ✓
+
+**Purpose:** The ResultAssembler is responsible for combining the output from both phases of the two-phase detection/suggestion architecture into the final CheckResult or JudgeResult format that the rest of the system expects. It merges detection issues with their corresponding suggestions, aggregates token usage from both phases, and produces properly structured output compatible with the existing evaluator infrastructure. Property 6 ensures the output conforms to the expected schema, while Property 7 verifies correct token usage aggregation.
+
+**Next feature to work on:** Integrate two-phase flow into BaseEvaluator (src/evaluators/base-evaluator.ts)
 
 ---

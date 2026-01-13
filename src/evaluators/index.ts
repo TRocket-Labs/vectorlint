@@ -44,6 +44,11 @@ export {
   type SuggestionPhaseOptions,
 } from './suggestion-phase';
 
+export {
+  ResultAssembler,
+  type ResultAssemblerOptions,
+} from './result-assembler';
+
 // Import specialized evaluators to trigger their self-registration
 // These must be imported after base-evaluator to ensure registry is ready
 import './accuracy-evaluator';
