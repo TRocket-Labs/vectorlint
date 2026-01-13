@@ -1,30 +1,47 @@
-import { readFileSync } from 'fs';
-import * as path from 'path';
-import type { PromptFile } from '../prompts/prompt-loader';
-import { ScanPathResolver } from '../boundaries/scan-path-resolver';
-import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
-import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
-import { RdJsonFormatter } from '../output/rdjson-formatter';
-import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
-import { checkTarget } from '../prompts/target';
-import { isSubjectiveResult } from '../prompts/schema';
-import { handleUnknownError, MissingDependencyError } from '../errors/index';
-import { createEvaluator } from '../evaluators/index';
-import { Type, Severity } from '../evaluators/types';
-import { OutputFormat } from './types';
-import type {
-  EvaluationOptions, EvaluationResult, ErrorTrackingResult,
-  ReportIssueParams, ProcessViolationsParams,
-  ProcessCriterionParams, ProcessCriterionResult, ValidationParams, ProcessPromptResultParams,
-  RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult,
-  RunPromptEvaluationResultSuccess
-} from './types';
+import { readFileSync } from "fs";
+import * as path from "path";
+import type { PromptFile } from "../prompts/prompt-loader";
+import { ScanPathResolver } from "../boundaries/scan-path-resolver";
 import {
-  calculateCost,
-  TokenUsageStats
-} from '../providers/token-usage';
+  ValeJsonFormatter,
+  type JsonIssue,
+} from "../output/vale-json-formatter";
+import {
+  JsonFormatter,
+  type Issue,
+  type ScoreComponent,
+} from "../output/json-formatter";
+import { RdJsonFormatter } from "../output/rdjson-formatter";
+import {
+  printFileHeader,
+  printIssueRow,
+  printEvaluationSummaries,
+  type EvaluationSummary,
+} from "../output/reporter";
+import { checkTarget } from "../prompts/target";
+import { isSubjectiveResult } from "../prompts/schema";
+import { handleUnknownError, MissingDependencyError } from "../errors/index";
+import { createEvaluator } from "../evaluators/index";
+import { Type, Severity } from "../evaluators/types";
+import { OutputFormat } from "./types";
+import type {
+  EvaluationOptions,
+  EvaluationResult,
+  ErrorTrackingResult,
+  ReportIssueParams,
+  ProcessViolationsParams,
+  ProcessCriterionParams,
+  ProcessCriterionResult,
+  ValidationParams,
+  ProcessPromptResultParams,
+  RunPromptEvaluationParams,
+  RunPromptEvaluationResult,
+  EvaluateFileParams,
+  EvaluateFileResult,
+  RunPromptEvaluationResultSuccess,
+} from "./types";
+import { calculateCost, TokenUsageStats } from "../providers/token-usage";
 import { locateQuotedText } from "../output/location";
-
 
 /*
  * Returns the evaluator type, defaulting to 'base' if not specified.
@@ -47,7 +64,7 @@ function buildRuleName(
   if (criterionId) {
     parts.push(criterionId);
   }
-  return parts.join('.');
+  return parts.join(".");
 }
 
 /*
@@ -157,6 +174,7 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
     outputFormat,
     jsonFormatter,
     verbose,
+    suggest,
   } = params;
 
   let hadOperationalErrors = false;
@@ -175,7 +193,7 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
   for (const v of violations) {
     if (!v) continue;
 
-    const rowSummary = (v.analysis || "").trim();
+    const rowSummary = (v.message || "").trim();
 
     try {
       const locWithMatch = locateQuotedText(
@@ -224,6 +242,10 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
   }
 
   // Report only verified, unique violations
+  // For line output, only show suggestions when --suggest flag is used
+  // For JSON formats, always include suggestions (machine consumption)
+  const includeSuggestion = outputFormat !== OutputFormat.Line || suggest;
+
   for (const {
     v,
     line,
@@ -240,7 +262,8 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
       ruleName,
       outputFormat,
       jsonFormatter,
-      ...(v.suggestion !== undefined && { suggestion: v.suggestion }),
+      ...(includeSuggestion &&
+        v.suggestion !== undefined && { suggestion: v.suggestion }),
       scoreText,
       match: matchedText,
     });
@@ -268,6 +291,7 @@ function extractAndReportCriterion(
     outputFormat,
     jsonFormatter,
     verbose,
+    suggest,
   } = params;
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -276,13 +300,13 @@ function extractAndReportCriterion(
   const criterionId = exp.id
     ? String(exp.id)
     : exp.name
-      ? String(exp.name)
+    ? String(exp.name)
         .replace(/[^A-Za-z0-9]+/g, " ")
         .split(" ")
         .filter(Boolean)
         .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
         .join("")
-      : "";
+    : "";
   const ruleName = buildRuleName(packName, promptId, criterionId);
 
   const weightNum = exp.weight || 1;
@@ -302,6 +326,8 @@ function extractAndReportCriterion(
       expTargetSpec?.suggestion ||
       metaTargetSpec?.suggestion ||
       "Add the required target section.";
+    // For line output, only show suggestions when --suggest flag is used
+    const includeSuggestion = outputFormat !== OutputFormat.Line || suggest;
     reportIssue({
       file: relFile,
       line: 1,
@@ -311,7 +337,7 @@ function extractAndReportCriterion(
       ruleName,
       outputFormat,
       jsonFormatter,
-      suggestion,
+      ...(includeSuggestion && { suggestion }),
       scoreText: "nil",
       match: "",
     });
@@ -400,7 +426,8 @@ function extractAndReportCriterion(
         quoted_text?: string;
         context_before?: string;
         context_after?: string;
-        analysis?: string;
+        issue?: string;
+        message?: string;
         suggestion?: string;
       }>,
       content,
@@ -411,6 +438,7 @@ function extractAndReportCriterion(
       outputFormat,
       jsonFormatter,
       verbose: !!verbose,
+      suggest: !!suggest,
     });
     hadOperationalErrors =
       hadOperationalErrors || violationResult.hadOperationalErrors;
@@ -552,6 +580,7 @@ function routePromptResult(
     outputFormat,
     jsonFormatter,
     verbose,
+    suggest,
   } = params;
   const meta = promptFile.meta;
   const promptId = (meta.id || "").toString();
@@ -567,7 +596,10 @@ function routePromptResult(
     const violationCount = result.violations.length;
 
     // Group violations by criterionName
-    const violationsByCriterion = new Map<string | undefined, typeof result.violations>();
+    const violationsByCriterion = new Map<
+      string | undefined,
+      typeof result.violations
+    >();
     for (const v of result.violations) {
       const criterionName = v.criterionName;
       if (!violationsByCriterion.has(criterionName)) {
@@ -584,7 +616,7 @@ function routePromptResult(
       // Find criterion ID from meta
       let criterionId: string | undefined;
       if (criterionName && meta.criteria) {
-        const criterion = meta.criteria.find(c => c.name === criterionName);
+        const criterion = meta.criteria.find((c) => c.name === criterionName);
         criterionId = criterion?.id;
       }
 
@@ -597,12 +629,14 @@ function routePromptResult(
           relFile,
           severity,
           ruleName,
-          scoreText: '',
+          scoreText: "",
           outputFormat,
           jsonFormatter,
           verbose: !!verbose,
+          suggest: !!suggest,
         });
-        hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
+        hadOperationalErrors =
+          hadOperationalErrors || violationResult.hadOperationalErrors;
 
         if (severity === Severity.ERROR) {
           totalErrors += violations.length;
@@ -613,7 +647,12 @@ function routePromptResult(
     }
 
     // If no violations but we have a message (JSON output), report it
-    if (violationCount === 0 && (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson) && result.message) {
+    if (
+      violationCount === 0 &&
+      (outputFormat === OutputFormat.Json ||
+        outputFormat === OutputFormat.ValeJson) &&
+      result.message
+    ) {
       const ruleName = buildRuleName(promptFile.pack, promptId, undefined);
       reportIssue({
         file: relFile,
@@ -671,6 +710,7 @@ function routePromptResult(
       outputFormat,
       jsonFormatter,
       verbose: !!verbose,
+      suggest: !!suggest,
     });
 
     promptErrors += criterionResult.errors;
@@ -741,7 +781,6 @@ async function runPromptEvaluation(
     );
     const result = await evaluator.evaluate(relFile, content);
 
-
     const resultObj: RunPromptEvaluationResultSuccess = { ok: true, result };
 
     return resultObj;
@@ -766,6 +805,7 @@ async function evaluateFile(
     scanPaths,
     outputFormat = OutputFormat.Line,
     verbose,
+    suggest,
   } = options;
 
   let hadOperationalErrors = false;
@@ -873,6 +913,7 @@ async function evaluateFile(
       outputFormat,
       jsonFormatter,
       verbose,
+      suggest: !!suggest,
     });
     totalErrors += promptResult.errors;
     totalWarnings += promptResult.warnings;
@@ -902,7 +943,7 @@ async function evaluateFile(
     requestFailures,
     hadOperationalErrors,
     hadSeverityErrors,
-    tokenUsage: tokenUsageStats
+    tokenUsage: tokenUsageStats,
   };
 }
 
@@ -975,10 +1016,13 @@ export async function evaluateFiles(
   };
 
   // Calculate cost if pricing is configured
-  const cost = calculateCost({
-    inputTokens: totalInputTokens,
-    outputTokens: totalOutputTokens
-  }, options.pricing);
+  const cost = calculateCost(
+    {
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+    },
+    options.pricing
+  );
   if (cost !== undefined) {
     tokenUsage.totalCost = cost;
   }

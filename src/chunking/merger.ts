@@ -5,13 +5,13 @@ export function mergeViolations(
 ): SemiObjectiveItem[] {
   const all = chunkViolations.flat();
 
-  // Deduplicate using composite key (quoted_text + description + analysis)
+  // Deduplicate using composite key (quoted_text + description + message)
   const seen = new Set<string>();
   return all.filter((v) => {
     const key = [
       v.quoted_text?.toLowerCase().trim() || "",
       v.description?.toLowerCase().trim() || "",
-      v.analysis?.toLowerCase().trim() || "",
+      v.message?.toLowerCase().trim() || "",
     ].join("|");
     if (seen.has(key)) return false;
     seen.add(key);

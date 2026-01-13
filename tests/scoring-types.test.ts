@@ -29,6 +29,7 @@ describe("Scoring Types", () => {
           { id: "c2", name: "Criterion 2", weight: 50 },
         ],
       },
+      pack: "TestPack",
     };
 
     it("should calculate weighted average correctly", async () => {
@@ -87,6 +88,7 @@ describe("Scoring Types", () => {
         name: "Test Semi",
         type: "semi-objective",
       },
+      pack: "TestPack",
     };
 
     it("should calculate score correctly based on violation count", async () => {
@@ -98,7 +100,8 @@ describe("Scoring Types", () => {
           violations: [
             {
               description: "Issue 1",
-              analysis: "First issue found",
+              issue: "First issue found",
+              message: "First issue found",
               suggestion: "",
               quoted_text: "",
               context_before: "",
@@ -106,7 +109,8 @@ describe("Scoring Types", () => {
             },
             {
               description: "Issue 2",
-              analysis: "Second issue found",
+              issue: "Second issue found",
+              message: "Second issue found",
               suggestion: "",
               quoted_text: "",
               context_before: "",
@@ -181,6 +185,7 @@ describe("Scoring Types", () => {
         fullPath: "/tech.md",
         body: "Check accuracy",
         meta: { id: "tech-acc", name: "Tech Acc", type: "semi-objective" },
+        pack: "TestPack",
       };
 
       const evaluator = new TechnicalAccuracyEvaluator(

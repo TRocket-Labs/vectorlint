@@ -33,14 +33,16 @@ export function buildSubjectiveLLMSchema() {
                     quoted_text: { type: "string" },
                     context_before: { type: "string" },
                     context_after: { type: "string" },
-                    analysis: { type: "string" },
+                    issue: { type: "string" },
+                    message: { type: "string" },
                     suggestion: { type: "string" },
                   },
                   required: [
                     "quoted_text",
                     "context_before",
                     "context_after",
-                    "analysis",
+                    "issue",
+                    "message",
                     "suggestion",
                   ],
                 },
@@ -74,7 +76,8 @@ export function buildSemiObjectiveLLMSchema() {
               context_before: { type: "string" },
               context_after: { type: "string" },
               description: { type: "string" },
-              analysis: { type: "string" },
+              issue: { type: "string" },
+              message: { type: "string" },
               suggestion: { type: "string" },
             },
             required: [
@@ -82,7 +85,8 @@ export function buildSemiObjectiveLLMSchema() {
               "context_before",
               "context_after",
               "description",
-              "analysis",
+              "issue",
+              "message",
               "suggestion",
             ],
           },
@@ -103,7 +107,8 @@ export type SubjectiveLLMResult = {
       quoted_text: string;
       context_before: string;
       context_after: string;
-      analysis: string;
+      issue: string;
+      message: string;
       suggestion: string;
     }>;
   }>;
@@ -112,7 +117,8 @@ export type SubjectiveLLMResult = {
 export type SemiObjectiveLLMResult = {
   violations: Array<{
     description: string;
-    analysis: string;
+    issue: string;
+    message: string;
     suggestion?: string;
     quoted_text?: string;
     context_before?: string;
@@ -135,7 +141,8 @@ export type SubjectiveResult = {
       quoted_text: string;
       context_before: string;
       context_after: string;
-      analysis: string;
+      issue: string;
+      message: string;
       suggestion: string;
     }>;
   }>;
@@ -144,7 +151,8 @@ export type SubjectiveResult = {
 
 export type SemiObjectiveItem = {
   description: string;
-  analysis: string;
+  issue: string;
+  message: string;
   suggestion?: string;
   quoted_text?: string;
   context_before?: string;
@@ -160,7 +168,8 @@ export type SemiObjectiveResult = {
   severity: typeof Severity.WARNING | typeof Severity.ERROR;
   message: string;
   violations: Array<{
-    analysis: string;
+    issue: string;
+    message: string;
     suggestion?: string;
     quoted_text?: string;
     context_before?: string;
