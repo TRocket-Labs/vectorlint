@@ -194,6 +194,8 @@ export function registerMainCommand(program: Command): void {
         verbose: cliOptions.verbose,
         outputFormat: outputFormat,
         scanPaths: config.scanPaths,
+        batchRules: config.batchRules,
+        maxRulesPerBatch: config.maxRulesPerBatch,
         pricing: {
           inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,
           outputPricePerMillion: env.OUTPUT_PRICE_PER_MILLION,

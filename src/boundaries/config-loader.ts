@@ -26,6 +26,8 @@ enum ConfigKey {
   SCAN_PATHS = "ScanPaths",
   CONCURRENCY = "Concurrency",
   DEFAULT_SEVERITY = "DefaultSeverity",
+  BATCH_RULES = "BatchRules",
+  MAX_RULES_PER_BATCH = "MaxRulesPerBatch",
 }
 
 function resolveConfigPath(cwd: string, configPath?: string): string {
@@ -66,6 +68,8 @@ export function loadConfig(
   let rulesPathRaw: string | undefined;
   let concurrencyRaw: number | undefined;
   let defaultSeverityRaw: string | undefined;
+  let batchRulesRaw: boolean | undefined;
+  let maxRulesPerBatchRaw: number | undefined;
   const rawConfigObj: Record<string, unknown> = {};
 
   try {
@@ -125,6 +129,19 @@ export function loadConfig(
           case ConfigKey.DEFAULT_SEVERITY as string:
             defaultSeverityRaw = stripQuotes(val);
             break;
+          case ConfigKey.BATCH_RULES as string: {
+            const normalizedVal = stripQuotes(val).toLowerCase();
+            batchRulesRaw = normalizedVal === "true" || normalizedVal === "1";
+            break;
+          }
+          case ConfigKey.MAX_RULES_PER_BATCH as string: {
+            const parsed = parseInt(val, 10);
+            if (Number.isNaN(parsed) || parsed < 1 || parsed > 20) {
+              throw new ConfigError(`Invalid MaxRulesPerBatch value: ${val}. Must be between 1 and 20.`);
+            }
+            maxRulesPerBatchRaw = parsed;
+            break;
+          }
         }
       }
     }
@@ -167,6 +184,8 @@ export function loadConfig(
     concurrency,
     configDir,
     defaultSeverity: defaultSeverityRaw,
+    batchRules: batchRulesRaw,
+    maxRulesPerBatch: maxRulesPerBatchRaw,
   };
 
   try {

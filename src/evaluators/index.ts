@@ -1,11 +1,12 @@
 /*
  * Evaluators module - exports evaluator interface, base class, and registry.
- * 
+ *
  * Import this module to:
  * - Access the Evaluator interface for type definitions
  * - Use BaseEvaluator as a base class for custom evaluators
  * - Use registry functions to create and register evaluators
- * 
+ * - Use BatchedCheckEvaluator for batched rule evaluation
+ *
  * Importing this module also triggers self-registration of all built-in evaluators.
  */
 
@@ -14,6 +15,15 @@ export type { Evaluator } from './evaluator';
 
 // Base evaluator class (also triggers 'base' registration on import)
 export { BaseEvaluator } from './base-evaluator';
+
+// Batched evaluator for multiple Check rules
+export {
+  BatchedCheckEvaluator,
+  canBatchRule,
+  partitionRulesByBatchability,
+  type BatchedRuleResult,
+  type BatchedCheckEvaluatorOptions,
+} from './batched-check-evaluator';
 
 // Registry functions
 export {
