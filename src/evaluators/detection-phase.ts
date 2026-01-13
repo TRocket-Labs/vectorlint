@@ -201,8 +201,8 @@ export class DetectionPhaseRunner {
         issue.criterionName = criterionNameMatch[1].trim();
       }
 
-      // Extract analysis
-      const analysisMatch = section.match(/\*\*analysis:\*\*\s*\n(.+?)(?=\n\s*##|\n\s*$)/s);
+      // Extract analysis - matches everything until the next ## or end of content
+      const analysisMatch = section.match(/\*\*analysis:\*\*\s*\n(.+?)(?=\n\s*##|$)/s);
       if (analysisMatch?.[1]) {
         issue.analysis = analysisMatch[1].trim();
       }
