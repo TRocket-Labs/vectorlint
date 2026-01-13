@@ -1,11 +1,12 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // CLI options schema for command line argument validation
 export const CLI_OPTIONS_SCHEMA = z.object({
   verbose: z.boolean().default(false),
   showPrompt: z.boolean().default(false),
   showPromptTrunc: z.boolean().default(false),
-  output: z.enum(['line', 'json', 'vale-json', 'rdjson']).default('line'),
+  suggest: z.boolean().default(false),
+  output: z.enum(["line", "json", "vale-json", "rdjson"]).default("line"),
   prompts: z.string().optional(),
   config: z.string().optional(),
 });

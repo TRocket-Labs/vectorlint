@@ -54,7 +54,8 @@ export function calculateSemiObjectiveScore(
 
   // Map items to violation format
   const mappedViolations = violations.map((item) => ({
-    analysis: item.analysis,
+    issue: item.issue,
+    message: item.message,
     ...(item.suggestion && { suggestion: item.suggestion }),
     ...(item.quoted_text && { quoted_text: item.quoted_text }),
     ...(item.context_before && { context_before: item.context_before }),
@@ -177,7 +178,8 @@ export function averageSubjectiveScores(
         quoted_text: string;
         context_before: string;
         context_after: string;
-        analysis: string;
+        issue: string;
+        message: string;
         suggestion: string;
       }>;
       summaries: string[];
@@ -214,7 +216,8 @@ export function averageSubjectiveScores(
           quoted_text: v.quoted_text || "",
           context_before: v.context_before || "",
           context_after: v.context_after || "",
-          analysis: v.analysis || "",
+          issue: v.issue || "",
+          message: v.message || "",
           suggestion: v.suggestion || "",
         });
       }
@@ -252,7 +255,7 @@ export function averageSubjectiveScores(
     const uniqueViolations = entry.violations.filter((v) => {
       const key = [
         v.quoted_text?.toLowerCase().trim() || "",
-        v.analysis?.toLowerCase().trim() || "",
+        v.message?.toLowerCase().trim() || "",
       ].join("|");
       if (seen.has(key)) return false;
       seen.add(key);

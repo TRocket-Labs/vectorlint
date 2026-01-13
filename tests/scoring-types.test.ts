@@ -20,7 +20,7 @@ describe("Scoring Types", () => {
       filename: "test.md",
       fullPath: "/test.md",
       body: "Evaluate this.",
-      pack: "test",
+      pack: "TestPack",
       meta: {
         id: "test-judge",
         name: "Test Judge",
@@ -83,7 +83,7 @@ describe("Scoring Types", () => {
       filename: "test.md",
       fullPath: "/test.md",
       body: "Count things.",
-      pack: "test",
+      pack: "TestPack",
       meta: {
         id: "test-semi",
         name: "Test Semi",
@@ -100,7 +100,8 @@ describe("Scoring Types", () => {
           violations: [
             {
               description: "Issue 1",
-              analysis: "First issue found",
+              issue: "First issue found",
+              message: "First issue found",
               suggestion: "",
               quoted_text: "",
               context_before: "",
@@ -108,7 +109,8 @@ describe("Scoring Types", () => {
             },
             {
               description: "Issue 2",
-              analysis: "Second issue found",
+              issue: "Second issue found",
+              message: "Second issue found",
               suggestion: "",
               quoted_text: "",
               context_before: "",
@@ -182,7 +184,7 @@ describe("Scoring Types", () => {
         filename: "tech.md",
         fullPath: "/tech.md",
         body: "Check accuracy",
-        pack: "test",
+        pack: "TestPack",
         meta: { id: "tech-acc", name: "Tech Acc", type: "check" },
       };
 
