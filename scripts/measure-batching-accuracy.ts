@@ -76,11 +76,17 @@ function normalizeQuotedText(text: string | undefined): string {
 
 function createViolationKey(
   ruleId: string,
-  violation: { quoted_text?: string; description?: string }
+  violation: { quoted_text?: string; description?: string; line?: number }
 ): string {
+  // Primary Match: Rule + Line Number
+  // This is the most robust way to compare findings. If the LLM flags the same line
+  // for the same rule, it "found" the issue, regardless of how it quoted the text.
+  if (violation.line && violation.line > 0) {
+    return `${ruleId}|Line:${violation.line}`;
+  }
+
+  // Fallback: Rule + Normalized Quote (if line detection failed)
   const normalizedQuote = normalizeQuotedText(violation.quoted_text);
-  // Relaxed matching: We ONLY compare RuleID and Quoted Text.
-  // We ignore the 'description' because LLMs phrase things differently every time.
   return `${ruleId}|${normalizedQuote}`;
 }
 

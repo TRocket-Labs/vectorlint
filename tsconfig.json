@@ -18,6 +18,6 @@
     "sourceMap": true,
     "types": ["node"]
   },
-  "include": ["src/**/*", "*.config.{js,mjs,ts}"],
+  "include": ["src/**/*", "scripts/**/*", "*.config.{js,mjs,ts}"],
   "exclude": ["node_modules", "dist", "tests"]
 }
