@@ -119,7 +119,7 @@ export type SemiObjectiveLLMResult = {
     description: string;
     issue: string;
     message: string;
-    suggestion?: string;
+    suggestion: string;
     quoted_text?: string;
     context_before?: string;
     context_after?: string;

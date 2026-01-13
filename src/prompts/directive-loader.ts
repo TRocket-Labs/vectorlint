@@ -34,7 +34,7 @@ WORD-level (quoted_text is 1-4 words) — message INCLUDES quoted_text:
 ✓ quoted_text: "ensure" → message: "ensure" is a common AI buzzword
 ✓ quoted_text: "game-changer" → message: "game-changer" is a buzzword phrase
 
-SENTENCE-level (quoted_text is >5 words) — message does NOT include quoted_text:
+SENTENCE-level (quoted_text is >4 words) — message does NOT include quoted_text:
 ✓ quoted_text: "LLM-based chunking uses a large language model..." → message: Buzzword-heavy sentence
 ✓ quoted_text: "In this article, we will explore..." → message: Opens with meta-commentary
 
