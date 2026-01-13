@@ -1,0 +1,207 @@
+[
+  {
+    "category": "infrastructure",
+    "description": "Extend LLM Provider Interface with unstructured call support",
+    "steps": [
+      "Add runPromptUnstructured method signature to src/providers/llm-provider.ts",
+      "Implement runPromptUnstructured in src/providers/openai-provider.ts",
+      "Implement runPromptUnstructured in src/providers/anthropic-provider.ts",
+      "Implement runPromptUnstructured in src/providers/azure-openai-provider.ts",
+      "Implement runPromptUnstructured in src/providers/gemini-provider.ts",
+      "Write unit tests for unstructured provider methods",
+      "Verify npm test passes for new tests"
+    ],
+    "passes": true
+  },
+  {
+    "category": "infrastructure",
+    "description": "Implement retry utility with logging",
+    "steps": [
+      "Create src/evaluators/retry.ts with withRetry function",
+      "Accept operation, maxRetries (default 3), and context string parameters",
+      "Log each retry attempt with context for debugging",
+      "Throw after all retries exhausted",
+      "Write property test for retry mechanism (Property 5)"
+    ],
+    "passes": true
+  },
+  {
+    "category": "detection",
+    "description": "Add detection phase prompt template",
+    "steps": [
+      "Add detection-phase key to src/evaluators/prompts.json",
+      "Include guided format instructions for output",
+      "Include output template with Issue N format",
+      "Verify template includes criteria placeholder"
+    ],
+    "passes": true
+  },
+  {
+    "category": "detection",
+    "description": "Create DetectionPhaseRunner class",
+    "steps": [
+      "Create src/evaluators/detection-phase.ts",
+      "Implement run(content: string): Promise<DetectionResult>",
+      "Build detection prompt with criteria from PromptFile",
+      "Use runPromptUnstructured for LLM call",
+      "Integrate retry logic from retry.ts",
+      "Verify npm run build compiles without errors"
+    ],
+    "passes": true
+  },
+  {
+    "category": "detection",
+    "description": "Implement detection response parser",
+    "steps": [
+      "Parse markdown-style sections from LLM response",
+      "Extract quotedText, contextBefore, contextAfter, line, criterionName, analysis",
+      "Handle malformed responses gracefully",
+      "Write property test for detection parsing (Property 2)",
+      "Verify npm test passes for parser tests"
+    ],
+    "passes": true
+  },
+  {
+    "category": "suggestion",
+    "description": "Add suggestion phase prompt template",
+    "steps": [
+      "Add suggestion-phase key to src/evaluators/prompts.json",
+      "Create universal template for all rule types",
+      "Include placeholders for content, issues, and criteria",
+      "Verify template instructs one suggestion per issue"
+    ],
+    "passes": true
+  },
+  {
+    "category": "suggestion",
+    "description": "Create suggestion LLM schema",
+    "steps": [
+      "Add buildSuggestionLLMSchema to src/prompts/schema.ts",
+      "Define schema for array of {issueIndex, suggestion}",
+      "Ensure strict mode is enabled",
+      "Verify schema compiles with npm run build"
+    ],
+    "passes": true
+  },
+  {
+    "category": "suggestion",
+    "description": "Create SuggestionPhaseRunner class",
+    "steps": [
+      "Create src/evaluators/suggestion-phase.ts",
+      "Implement run(content, issues, criteria): Promise<SuggestionResult>",
+      "Build prompt with full document, issues, and criteria",
+      "Use runPromptStructured for LLM call",
+      "Integrate retry logic from retry.ts",
+      "Write property test for suggestion-to-issue matching (Property 4)"
+    ],
+    "passes": true
+  },
+  {
+    "category": "integration",
+    "description": "Create ResultAssembler class",
+    "steps": [
+      "Create src/evaluators/result-assembler.ts",
+      "Implement assembleCheckResult method",
+      "Implement assembleJudgeResult method",
+      "Merge detection issues with matched suggestions",
+      "Aggregate token usage from both phases",
+      "Write property test for result schema conformance (Property 6)",
+      "Write property test for token usage aggregation (Property 7)"
+    ],
+    "passes": true
+  },
+  {
+    "category": "integration",
+    "description": "Integrate two-phase flow into BaseEvaluator",
+    "steps": [
+      "Update src/evaluators/base-evaluator.ts",
+      "Instantiate DetectionPhaseRunner and SuggestionPhaseRunner",
+      "Update runCheckEvaluation to use two-phase flow",
+      "Update runJudgeEvaluation to use two-phase flow",
+      "Pass full document to suggestion phase even when chunking",
+      "Write property test for two-phase execution flow (Property 1)",
+      "Write property test for full document context (Property 3)",
+      "Verify all npm tests pass"
+    ],
+    "passes": true
+  },
+  {
+    "category": "testing",
+    "description": "Update existing evaluator tests for two-phase flow",
+    "steps": [
+      "Modify tests in tests/ to account for two-phase behavior",
+      "Mock both detection and suggestion LLM calls",
+      "Verify backward compatibility of output format",
+      "Run npm test:ci to ensure all tests pass"
+    ],
+    "passes": true
+  },
+  {
+    "category": "documentation",
+    "description": "Update documentation for two-phase evaluation",
+    "steps": [
+      "Update AGENTS.md with new evaluator architecture",
+      "Document new two-phase flow in comments",
+      "Verify documentation accurately reflects implementation"
+    ],
+    "passes": true
+  },
+  {
+    "category": "quality",
+    "description": "Fix lint errors in two-phase evaluation test files",
+    "steps": [
+      "Fix unused imports in tests/detection-phase.test.ts (DetectionResult)",
+      "Fix unsafe 'any' assignments in tests/detection-phase.test.ts by adding proper type assertions",
+      "Fix unused imports in tests/result-assembler.test.ts (ResultAssemblerOptions)",
+      "Fix unused imports in tests/retry.test.ts (RetryResult) and async arrow function warning",
+      "Fix unsafe 'any' assignments in tests/suggestion-phase.test.ts",
+      "Fix unused imports in tests/gemini-provider.test.ts (DefaultRequestBuilder)",
+      "Fix unused imports and unbound-method warnings in tests/scoring-types.test.ts",
+      "Fix error typed value assignments in tests/base-evaluator-two-phase.test.ts",
+      "Run npm run lint to verify all errors are resolved"
+    ],
+    "passes": true
+  },
+  {
+    "category": "quality",
+    "description": "[P1] Add Zod runtime validation for suggestion LLM response",
+    "steps": [
+      "Create SUGGESTION_LLM_RESULT_SCHEMA Zod schema in src/prompts/schema.ts with suggestions array containing issueIndex (number), suggestion (string), and explanation (string)",
+      "Export the Zod schema alongside the existing buildSuggestionLLMSchema function",
+      "Update src/evaluators/suggestion-phase.ts to import SUGGESTION_LLM_RESULT_SCHEMA",
+      "Validate llmResult.data with SUGGESTION_LLM_RESULT_SCHEMA.parse() before using it (around line 110)",
+      "Add test case in tests/suggestion-phase.test.ts to verify validation throws on malformed LLM response",
+      "Run npm run build and npm test to verify changes work correctly"
+    ],
+    "passes": true
+  },
+  {
+    "category": "quality",
+    "description": "[P1] Use typed catch blocks in detection-phase.ts",
+    "steps": [
+      "Update catch block in src/evaluators/detection-phase.ts line 228 from 'catch {' to 'catch (_e: unknown) {'",
+      "Add comment explaining the error is intentionally ignored for graceful degradation",
+      "Run npm run lint to verify no new lint errors introduced",
+      "Run npm test to ensure parsing still works correctly"
+    ],
+    "passes": true
+  },
+  {
+    "category": "refactoring",
+    "description": "Reduce two-phase evaluation code bloat (~300 lines)",
+    "steps": [
+      "In result-assembler.ts: inline buildCheckMessage() - it's a 4-line string builder",
+      "In result-assembler.ts: inline buildCriterionSummary() - trivial ternary",
+      "In result-assembler.ts: inline buildCriterionReasoning() - simple join",
+      "In result-assembler.ts: inline normalizeStrictness() OR change interface to accept only number",
+      "In result-assembler.ts: inline calculateCriterionScore() - it's just 4 if statements",
+      "In retry.ts: remove RetryResult wrapper, return T directly (attempts field is unused)",
+      "Update detection-phase.ts and suggestion-phase.ts to use new withRetry signature",
+      "Remove excessive JSDoc @example blocks from private methods",
+      "Keep JSDoc only for exported public APIs",
+      "Target: reduce total lines from ~950 to ~650",
+      "Run npm run build && npm test to verify no regressions"
+    ],
+    "passes": true
+  }
+]

@@ -7,4 +7,5 @@ export interface LLMResult<T> {
 
 export interface LLMProvider {
   runPromptStructured<T = unknown>(content: string, promptText: string, schema: { name: string; schema: Record<string, unknown> }): Promise<LLMResult<T>>;
+  runPromptUnstructured(content: string, promptText: string): Promise<LLMResult<string>>;
 }

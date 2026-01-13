@@ -92,4 +92,48 @@ export class GeminiProvider implements LLMProvider {
             throw new Error(`Gemini API call failed: ${err.message}`);
         }
     }
+
+    async runPromptUnstructured(content: string, promptText: string): Promise<LLMResult<string>> {
+        const systemPrompt = this.builder.buildPromptBodyForStructured(promptText);
+
+        const fullPrompt = `${systemPrompt}
+
+            Input:
+            ${content}
+        `;
+
+        if (this.config.debug) {
+            console.error('[vectorlint] Sending unstructured request to Gemini:', {
+                model: this.config.model,
+                temperature: this.config.temperature,
+            });
+            if (this.config.showPrompt) {
+                console.error('[vectorlint] Full prompt:');
+                console.error(fullPrompt);
+            } else if (this.config.showPromptTrunc) {
+                console.error('[vectorlint] Prompt preview (first 500 chars):');
+                console.error(fullPrompt.slice(0, 500));
+                if (fullPrompt.length > 500) console.error('... [truncated]');
+            }
+        }
+
+        try {
+            const result = await this.model.generateContent(fullPrompt);
+            const response = result.response;
+            const text = response.text();
+            const usageMetadata = response.usageMetadata;
+
+            const llmResult: LLMResult<string> = { data: text.trim() };
+            if (usageMetadata) {
+                llmResult.usage = {
+                    inputTokens: usageMetadata.promptTokenCount ?? 0,
+                    outputTokens: usageMetadata.candidatesTokenCount ?? 0,
+                };
+            }
+            return llmResult;
+        } catch (e: unknown) {
+            const err = handleUnknownError(e, 'Gemini API call');
+            throw new Error(`Gemini API call failed: ${err.message}`);
+        }
+    }
 }

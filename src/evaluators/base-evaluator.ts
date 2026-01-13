@@ -1,11 +1,7 @@
 import type { LLMProvider } from "../providers/llm-provider";
-import type { PromptFile } from "../schemas/prompt-schemas";
+import type { PromptFile, PromptCriterionSpec } from "../schemas/prompt-schemas";
 import type { TokenUsage } from "../providers/token-usage";
 import {
-  buildJudgeLLMSchema,
-  buildCheckLLMSchema,
-  type JudgeLLMResult,
-  type CheckLLMResult,
   type JudgeResult,
   type CheckResult,
   type PromptEvaluationResult,
@@ -14,17 +10,14 @@ import { registerEvaluator } from "./evaluator-registry";
 import type { Evaluator } from "./evaluator";
 import { Type, Severity, EvaluationType } from "./types";
 import {
-  mergeViolations,
   RecursiveChunker,
   countWords,
   type Chunk,
 } from "../chunking";
-import {
-  calculateCheckScore,
-  calculateJudgeScore,
-  averageJudgeScores,
-} from "../scoring";
 import { prependLineNumbers } from "../output/line-numbering";
+import { DetectionPhaseRunner, type DetectionResult } from "./detection-phase";
+import { SuggestionPhaseRunner, type Suggestion } from "./suggestion-phase";
+import { ResultAssembler } from "./result-assembler";
 
 const CHUNKING_THRESHOLD = 600; // Word count threshold for enabling chunking
 const MAX_CHUNK_SIZE = 500; // Maximum words per chunk
@@ -35,17 +28,31 @@ const MAX_CHUNK_SIZE = 500; // Maximum words per chunk
  * - 'judge': Weighted average of 1-4 scores per criterion, normalized to 1-10.
  * - 'check': Density-based scoring (errors per 100 words).
  *
+ * Uses a two-phase detection/suggestion architecture:
+ * 1. Detection phase: Identifies issues in content using unstructured LLM calls
+ * 2. Suggestion phase: Generates actionable suggestions for detected issues
+ *
  * Content is automatically chunked for documents >600 words to improve accuracy.
+ * The full document is always passed to the suggestion phase to ensure suggestions
+ * are coherent and consistent with the overall content.
  *
  * Subclasses can override protected methods to customize evaluation behavior
  * while reusing the core evaluation logic.
  */
 export class BaseEvaluator implements Evaluator {
+  private readonly detectionRunner: DetectionPhaseRunner;
+  private readonly suggestionRunner: SuggestionPhaseRunner;
+  private readonly resultAssembler: ResultAssembler;
+
   constructor(
     protected llmProvider: LLMProvider,
     protected prompt: PromptFile,
     protected defaultSeverity?: Severity
-  ) { }
+  ) {
+    this.detectionRunner = new DetectionPhaseRunner(llmProvider);
+    this.suggestionRunner = new SuggestionPhaseRunner(llmProvider);
+    this.resultAssembler = new ResultAssembler();
+  }
 
   async evaluate(_file: string, content: string): Promise<PromptEvaluationResult> {
     const type = this.getEvaluationType();
@@ -108,126 +115,184 @@ export class BaseEvaluator implements Evaluator {
   }
 
   /*
-   * Runs judge evaluation:
-   * 1. Prepend line numbers for accurate LLM line reporting.
-   * 2. Chunk content if needed.
-   * 3. LLM scores each criterion 1-4 for each chunk.
-   * 4. Average scores across chunks (weighted by chunk size).
+   * Runs judge evaluation using two-phase detection/suggestion architecture:
+   * 1. Detection phase: Identifies issues in content (chunked if needed)
+   * 2. Suggestion phase: Generates actionable suggestions for detected issues
+   * 3. Assemble final judge result from detection + suggestions
+   *
+   * The full document is always passed to the suggestion phase to ensure
+   * suggestions are coherent and consistent with the overall content.
    */
   protected async runJudgeEvaluation(
     content: string
   ): Promise<JudgeResult> {
-    const schema = buildJudgeLLMSchema();
-
     // Prepend line numbers for deterministic line reporting
     const numberedContent = prependLineNumbers(content);
     const chunks = this.chunkContent(numberedContent);
-    const usages: (TokenUsage | undefined)[] = [];
 
-    // Single chunk - run directly
-    if (chunks.length === 1) {
-      const { data: llmResult, usage } =
-        await this.llmProvider.runPromptStructured<JudgeLLMResult>(
-          numberedContent,
-          this.prompt.body,
-          schema
-        );
+    // Build criteria string for phase runners
+    const criteriaString = this.buildCriteriaString();
 
-      const result = calculateJudgeScore(llmResult.criteria, {
-        promptCriteria: this.prompt.meta.criteria,
-      });
-
-      return {
-        ...result,
-        ...(usage && { usage }),
-      };
-    }
-
-    // Multiple chunks - evaluate each and average
-    const chunkResults: JudgeResult[] = [];
-    const chunkWordCounts: number[] = [];
+    // Phase 1: Detection - identify issues in each chunk
+    const allDetectionResults: DetectionResult[] = [];
+    const detectionUsages: (TokenUsage | undefined)[] = [];
 
     for (const chunk of chunks) {
-      const { data: llmResult, usage } =
-        await this.llmProvider.runPromptStructured<JudgeLLMResult>(
-          chunk.content,
-          this.prompt.body,
-          schema
-        );
-
-      usages.push(usage);
-
-      const result = calculateJudgeScore(llmResult.criteria, {
-        promptCriteria: this.prompt.meta.criteria,
-      });
-
-      chunkResults.push(result);
-      chunkWordCounts.push(countWords(chunk.content));
+      const detectionResult = await this.detectionRunner.run(
+        chunk.content,
+        criteriaString
+      );
+      allDetectionResults.push(detectionResult);
+      detectionUsages.push(detectionResult.usage);
     }
 
-    // Average scores across chunks
-    const result = averageJudgeScores(chunkResults, chunkWordCounts);
-    const aggregatedUsage = this.aggregateUsage(usages);
+    // Flatten all detection issues from all chunks
+    const flatDetectionIssues = allDetectionResults.flatMap((result) => result.issues);
+
+    // Phase 2: Suggestion - generate suggestions using full document context
+    // Always use the original (non-chunked) numbered content for suggestion phase
+    let suggestionUsage: TokenUsage | undefined;
+    let suggestions: Suggestion[] = [];
+
+    if (flatDetectionIssues.length > 0) {
+      const suggestionResult = await this.suggestionRunner.run(
+        numberedContent, // Full document, not chunks
+        flatDetectionIssues,
+        criteriaString
+      );
+      suggestions = suggestionResult.suggestions;
+      suggestionUsage = suggestionResult.usage;
+    }
+
+    // Phase 3: Assemble final judge result
+    const judgeOptions: {
+      promptCriteria?: PromptCriterionSpec[];
+    } = {};
+    if (this.prompt.meta.criteria) {
+      judgeOptions.promptCriteria = this.prompt.meta.criteria;
+    }
+    const result = this.resultAssembler.assembleJudgeResult(
+      flatDetectionIssues,
+      suggestions,
+      judgeOptions
+    );
+
+    // Aggregate token usage from both phases
+    const aggregatedDetectionUsage = this.aggregateUsage(detectionUsages);
+    const totalUsage = this.resultAssembler.aggregateTokenUsage(
+      aggregatedDetectionUsage,
+      suggestionUsage
+    );
 
     return {
       ...result,
-      ...(aggregatedUsage && { usage: aggregatedUsage }),
+      ...(totalUsage && { usage: totalUsage }),
     };
   }
 
   /*
-   * Runs check evaluation:
-   * 1. Prepend line numbers for accurate LLM line reporting.
-   * 2. Chunk content if needed.
-   * 3. LLM lists violations for each chunk.
-   * 4. Merge all violations across chunks.
-   * 5. Calculate score once from total violations.
+   * Runs check evaluation using two-phase detection/suggestion architecture:
+   * 1. Detection phase: Identifies issues in content (chunked if needed)
+   * 2. Suggestion phase: Generates actionable suggestions for detected issues
+   * 3. Assemble final check result from detection + suggestions
+   *
+   * The full document is always passed to the suggestion phase to ensure
+   * suggestions are coherent and consistent with the overall content.
    */
   protected async runCheckEvaluation(
     content: string
   ): Promise<CheckResult> {
-    const schema = buildCheckLLMSchema();
-
     // Prepend line numbers for deterministic line reporting
     const numberedContent = prependLineNumbers(content);
     const chunks = this.chunkContent(numberedContent);
     const totalWordCount = countWords(content) || 1;
 
-    // Collect all violations from all chunks
-    const allChunkViolations: CheckLLMResult["violations"][] = [];
-    const usages: (TokenUsage | undefined)[] = [];
+    // Build criteria string for phase runners
+    const criteriaString = this.buildCriteriaString();
+
+    // Phase 1: Detection - identify issues in each chunk
+    const allDetectionResults: DetectionResult[] = [];
+    const detectionUsages: (TokenUsage | undefined)[] = [];
 
     for (const chunk of chunks) {
-      const { data: llmResult, usage } =
-        await this.llmProvider.runPromptStructured<CheckLLMResult>(
-          chunk.content,
-          this.prompt.body,
-          schema
-        );
-      allChunkViolations.push(llmResult.violations);
-      usages.push(usage);
+      const detectionResult = await this.detectionRunner.run(
+        chunk.content,
+        criteriaString
+      );
+      allDetectionResults.push(detectionResult);
+      detectionUsages.push(detectionResult.usage);
     }
 
-    // Merge and deduplicate violations
-    const mergedViolations = mergeViolations(allChunkViolations);
+    // Flatten all detection issues from all chunks
+    const flatDetectionIssues = allDetectionResults.flatMap((result) => result.issues);
 
-    // Calculate score once from all violations
-    const result = calculateCheckScore(
-      mergedViolations,
+    // Phase 2: Suggestion - generate suggestions using full document context
+    // Always use the original (non-chunked) numbered content for suggestion phase
+    let suggestionUsage: TokenUsage | undefined;
+    let suggestions: Suggestion[] = [];
+
+    if (flatDetectionIssues.length > 0) {
+      const suggestionResult = await this.suggestionRunner.run(
+        numberedContent, // Full document, not chunks
+        flatDetectionIssues,
+        criteriaString
+      );
+      suggestions = suggestionResult.suggestions;
+      suggestionUsage = suggestionResult.usage;
+    }
+
+    // Phase 3: Assemble final check result
+    const checkOptions: {
+      severity?: Severity;
+      totalWordCount: number;
+      strictness?: number | "lenient" | "standard" | "strict";
+    } = {
       totalWordCount,
-      {
-        strictness: this.prompt.meta.strictness,
-        defaultSeverity: this.defaultSeverity,
-        promptSeverity: this.prompt.meta.severity,
-      }
+    };
+    const resolvedSeverity = this.defaultSeverity ?? this.prompt.meta.severity;
+    if (resolvedSeverity !== undefined) {
+      checkOptions.severity = resolvedSeverity;
+    }
+    if (this.prompt.meta.strictness !== undefined) {
+      checkOptions.strictness = this.prompt.meta.strictness;
+    }
+    const result = this.resultAssembler.assembleCheckResult(
+      flatDetectionIssues,
+      suggestions,
+      checkOptions
     );
 
-    const aggregatedUsage = this.aggregateUsage(usages);
+    // Aggregate token usage from both phases
+    const aggregatedDetectionUsage = this.aggregateUsage(detectionUsages);
+    const totalUsage = this.resultAssembler.aggregateTokenUsage(
+      aggregatedDetectionUsage,
+      suggestionUsage
+    );
 
     return {
       ...result,
-      ...(aggregatedUsage && { usage: aggregatedUsage }),
+      ...(totalUsage && { usage: totalUsage }),
     };
+  }
+
+  /**
+   * Build a criteria string from the prompt's criteria metadata.
+   * Used by detection and suggestion phase runners.
+   *
+   * @returns Formatted criteria string for LLM prompts
+   */
+  private buildCriteriaString(): string {
+    const criteria = this.prompt.meta.criteria;
+    if (!criteria || criteria.length === 0) {
+      return "No specific criteria provided.";
+    }
+
+    return criteria
+      .map((c) => {
+        const weightText = c.weight ? ` (weight: ${c.weight})` : "";
+        return `- ${c.name}${weightText}`;
+      })
+      .join("\n");
   }
 }
 

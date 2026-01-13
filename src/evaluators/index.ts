@@ -26,6 +26,29 @@ export {
 // Prompt loader for evaluator-specific prompts
 export { getPrompt } from './prompt-loader';
 
+// Retry utility for LLM operations with logging
+export { withRetry, type RetryOptions } from './retry';
+
+// Two-phase detection/suggestion architecture
+export {
+  DetectionPhaseRunner,
+  type DetectionResult,
+  type RawDetectionIssue,
+  type DetectionPhaseOptions,
+} from './detection-phase';
+
+export {
+  SuggestionPhaseRunner,
+  type Suggestion,
+  type SuggestionResult,
+  type SuggestionPhaseOptions,
+} from './suggestion-phase';
+
+export {
+  ResultAssembler,
+  type ResultAssemblerOptions,
+} from './result-assembler';
+
 // Import specialized evaluators to trigger their self-registration
 // These must be imported after base-evaluator to ensure registry is ready
 import './accuracy-evaluator';

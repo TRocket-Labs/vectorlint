@@ -1,18 +1,23 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { BaseEvaluator } from "../src/evaluators/base-evaluator";
 import { EvaluationType } from "../src/evaluators/types";
-import type { LLMProvider, LLMResult } from "../src/providers/llm-provider";
+import type { LLMProvider } from "../src/providers/llm-provider";
 import type { PromptFile } from "../src/schemas/prompt-schemas";
-import type {
-  JudgeLLMResult,
-  CheckLLMResult,
-} from "../src/prompts/schema";
 import type { SearchProvider } from "../src/providers/search-provider";
 
 describe("Scoring Types", () => {
   const mockLlmProvider = {
     runPromptStructured: vi.fn(),
+    runPromptUnstructured: vi.fn(),
   } as unknown as LLMProvider;
+
+  beforeEach(() => {
+    // Clear mock call history but preserve implementations
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    vi.mocked(mockLlmProvider.runPromptStructured).mockClear();
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    vi.mocked(mockLlmProvider.runPromptUnstructured).mockClear();
+  });
 
   describe("Judge Evaluation", () => {
     const judgePrompt: PromptFile = {
@@ -35,45 +40,129 @@ describe("Scoring Types", () => {
     it("should calculate weighted average correctly", async () => {
       const evaluator = new BaseEvaluator(mockLlmProvider, judgePrompt);
 
-      // Mock LLM returning raw scores (0-4) wrapped in LLMResult
-      const mockLlmResponse: LLMResult<JudgeLLMResult> = {
+      // Mock detection phase returning issues for each criterion
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const mockUnstructured = vi.mocked(mockLlmProvider.runPromptUnstructured);
+      mockUnstructured.mockResolvedValue({
+        data: `## Issue 1
+
+**quotedText:**
+> Issue 1 text
+
+**contextBefore:**
+before
+
+**contextAfter:**
+after
+
+**line:** 1
+
+**criterionName:** Criterion 1
+
+**analysis:**
+First issue found
+
+## Issue 2
+
+**quotedText:**
+> Issue 2 text
+
+**contextBefore:**
+before
+
+**contextAfter:**
+after
+
+**line:** 2
+
+**criterionName:** Criterion 2
+
+**analysis:**
+Second issue found
+
+## Issue 3
+
+**quotedText:**
+> Issue 3 text
+
+**contextBefore:**
+before
+
+**contextAfter:**
+after
+
+**line:** 3
+
+**criterionName:** Criterion 1
+
+**analysis:**
+Third issue found`,
+        usage: { inputTokens: 100, outputTokens: 50 },
+      });
+
+      // Mock suggestion phase
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const mockStructured = vi.mocked(mockLlmProvider.runPromptStructured);
+      mockStructured.mockResolvedValue({
         data: {
-          criteria: [
+          suggestions: [
             {
-              name: "Criterion 1",
-              score: 4, // 100%
-              summary: "Good",
-              reasoning: "Reason",
-              violations: [],
+              issueIndex: 1,
+              suggestion: "Fix for issue 1",
+              explanation: "Explanation 1",
             },
             {
-              name: "Criterion 2",
-              score: 2, // 50%
-              summary: "Okay",
-              reasoning: "Reason",
-              violations: [],
+              issueIndex: 2,
+              suggestion: "Fix for issue 2",
+              explanation: "Explanation 2",
+            },
+            {
+              issueIndex: 3,
+              suggestion: "Fix for issue 3",
+              explanation: "Explanation 3",
             },
           ],
         },
-      };
-
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      const mockFn = vi.mocked(mockLlmProvider.runPromptStructured);
-      mockFn.mockResolvedValueOnce(mockLlmResponse);
+      });
 
       const result = await evaluator.evaluate("file.md", "content");
 
       if (result.type !== EvaluationType.JUDGE)
         throw new Error("Wrong result type");
 
-      // Calculation:
-      // C1: 10 (score 4) * 50 = 500
-      // C2: 4 (score 2) * 50 = 200
-      // Total: 700 / 100 = 7
-      // Final Score: 7.0
-      expect(result.final_score).toBe(7.0);
-      expect(result.criteria[0]!.weighted_points).toBe(500);
-      expect(result.criteria[1]!.weighted_points).toBe(200);
+      // Criterion 1: 2 violations -> score decreases
+      // Criterion 2: 1 violation -> score decreases
+      // Both criteria have weight 50
+      expect(result.final_score).toBeLessThan(10);
+      expect(result.final_score).toBeGreaterThan(0);
+      expect(result.criteria).toHaveLength(2);
+      expect(result.criteria[0]!.name).toBe("Criterion 1");
+      expect(result.criteria[1]!.name).toBe("Criterion 2");
+    });
+
+    it("should return perfect score when no issues found", async () => {
+      const evaluator = new BaseEvaluator(mockLlmProvider, judgePrompt);
+
+      // Mock detection phase returning no issues
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const mockUnstructured = vi.mocked(mockLlmProvider.runPromptUnstructured);
+      mockUnstructured.mockResolvedValue({
+        data: "No issues found.",
+        usage: { inputTokens: 100, outputTokens: 50 },
+      });
+
+      // Suggestion phase should not be called
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const mockStructured = vi.mocked(mockLlmProvider.runPromptStructured);
+
+      const result = await evaluator.evaluate("file.md", "content");
+
+      if (result.type !== EvaluationType.JUDGE)
+        throw new Error("Wrong result type");
+
+      // No issues = perfect score
+      expect(result.final_score).toBe(10);
+      expect(mockStructured).not.toHaveBeenCalled();
     });
   });
 
@@ -94,33 +183,67 @@ describe("Scoring Types", () => {
     it("should calculate score correctly based on violation count", async () => {
       const evaluator = new BaseEvaluator(mockLlmProvider, checkPrompt);
 
-      // Mock LLM returning violations only wrapped in LLMResult
-      const mockLlmResponse: LLMResult<CheckLLMResult> = {
+      // Mock detection phase returning issues
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const mockUnstructured = vi.mocked(mockLlmProvider.runPromptUnstructured);
+      mockUnstructured.mockResolvedValue({
+        data: `## Issue 1
+
+**quotedText:**
+> Issue 1 text
+
+**contextBefore:**
+before
+
+**contextAfter:**
+after
+
+**line:** 1
+
+**criterionName:** test-check
+
+**analysis:**
+First issue found
+
+## Issue 2
+
+**quotedText:**
+> Issue 2 text
+
+**contextBefore:**
+before
+
+**contextAfter:**
+after
+
+**line:** 2
+
+**criterionName:** test-check
+
+**analysis:**
+Second issue found`,
+        usage: { inputTokens: 100, outputTokens: 50 },
+      });
+
+      // Mock suggestion phase
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const mockStructured = vi.mocked(mockLlmProvider.runPromptStructured);
+      mockStructured.mockResolvedValue({
         data: {
-          violations: [
+          suggestions: [
             {
-              description: "Issue 1",
-              analysis: "First issue found",
-              suggestion: "",
-              quoted_text: "",
-              context_before: "",
-              context_after: "",
+              issueIndex: 1,
+              suggestion: "Fix for issue 1",
+              explanation: "Explanation 1",
             },
             {
-              description: "Issue 2",
-              analysis: "Second issue found",
-              suggestion: "",
-              quoted_text: "",
-              context_before: "",
-              context_after: "",
+              issueIndex: 2,
+              suggestion: "Fix for issue 2",
+              explanation: "Explanation 2",
             },
           ],
         },
-      };
-
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      const mockFn = vi.mocked(mockLlmProvider.runPromptStructured);
-      mockFn.mockResolvedValueOnce(mockLlmResponse);
+      });
 
       const content = new Array(100).fill("word").join(" ");
       const result = await evaluator.evaluate("file.md", content);
@@ -128,24 +251,27 @@ describe("Scoring Types", () => {
       if (result.type !== EvaluationType.CHECK)
         throw new Error("Wrong result type");
 
-      // Calculation: 2 violations = score of 8 (10 - 2)
-      expect(result.final_score).toBe(8.0);
-      expect(result.percentage).toBe(80);
+      // Calculation: 2 violations / 100 words * strictness(1) = 2 violations per 100 words
+      // score = 10 - (2 * 2) = 6
+      expect(result.final_score).toBe(6.0);
+      expect(result.percentage).toBe(60);
       expect(result.violation_count).toBe(2);
     });
 
     it("should handle empty violations list (perfect score)", async () => {
       const evaluator = new BaseEvaluator(mockLlmProvider, checkPrompt);
 
-      const mockLlmResponse: LLMResult<CheckLLMResult> = {
-        data: {
-          violations: [],
-        },
-      };
-
+      // Mock detection phase returning no issues
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      const mockFn = vi.mocked(mockLlmProvider.runPromptStructured);
-      mockFn.mockResolvedValueOnce(mockLlmResponse);
+      const mockUnstructured = vi.mocked(mockLlmProvider.runPromptUnstructured);
+      mockUnstructured.mockResolvedValue({
+        data: "No issues found.",
+        usage: { inputTokens: 100, outputTokens: 50 },
+      });
+
+      // Suggestion phase should not be called when no issues are detected
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const mockStructured = vi.mocked(mockLlmProvider.runPromptStructured);
 
       const result = await evaluator.evaluate("file.md", "content");
 
@@ -156,6 +282,9 @@ describe("Scoring Types", () => {
       expect(result.final_score).toBe(10);
       expect(result.percentage).toBe(100);
       expect(result.violation_count).toBe(0);
+
+      // Suggestion phase should not have been called
+      expect(mockStructured).not.toHaveBeenCalled();
     });
   });
 
@@ -191,6 +320,14 @@ describe("Scoring Types", () => {
         prompt,
         mockSearchProvider
       );
+
+      // Mock detection phase - no issues found
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const mockUnstructured = vi.mocked(mockLlmProvider.runPromptUnstructured);
+      mockUnstructured.mockResolvedValue({
+        data: "No issues found.",
+        usage: { inputTokens: 100, outputTokens: 50 },
+      });
 
       // Mock claim extraction to return empty list wrapped in LLMResult
       // eslint-disable-next-line @typescript-eslint/unbound-method

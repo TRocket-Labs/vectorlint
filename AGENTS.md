@@ -11,6 +11,10 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
   - `config/` — configuration loading and management
   - `errors/` — custom error types and validation errors
   - `evaluators/` — evaluation logic (base evaluator, registry, specific evaluators)
+    - `detection-phase.ts` — Phase 1: issue detection using unstructured LLM calls
+    - `suggestion-phase.ts` — Phase 2: suggestion generation using structured LLM calls
+    - `result-assembler.ts` — Phase 3: combines detection and suggestion results
+    - `retry.ts` — retry utility with logging for transient LLM failures
   - `output/` — TTY formatting (reporter, evidence location)
   - `prompts/` — YAML frontmatter parsing, schema validation, eval loading and mapping
   - `providers/` — LLM abstractions (OpenAI, Anthropic, Azure, Perplexity), request builder, provider factory
@@ -151,6 +155,48 @@ VectorLint supports multiple output formats via the `--output` flag:
 - Never commit secrets; `.env` is gitignored
 - Evals must include YAML frontmatter; the tool appends evidence instructions automatically
 
+## Two-Phase Detection/Suggestion Architecture
+
+VectorLint evaluators use a two-phase architecture for content evaluation:
+
+### Phase 1: Detection
+- Identifies issues in content based on evaluation criteria
+- Uses **unstructured LLM calls** (`runPromptUnstructured`)
+- LLM returns free-form markdown text with `## Issue N` sections
+- Content is **chunked** for documents >600 words to improve accuracy
+- Parses markdown response into structured `RawDetectionIssue` objects
+
+### Phase 2: Suggestion
+- Generates actionable suggestions for each detected issue
+- Uses **structured LLM calls** (`runPromptStructured`) with JSON schema
+- LLM returns structured JSON with suggestions matched by issue index
+- Always receives the **full document context** (not chunks) for coherent suggestions
+
+### Phase 3: Assembly
+- Merges detection issues with their corresponding suggestions
+- Aggregates token usage from both phases
+- Produces final `CheckResult` or `JudgeResult` format
+
+### Key Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `DetectionPhaseRunner` | `src/evaluators/detection-phase.ts` | Runs phase 1 - identifies issues |
+| `SuggestionPhaseRunner` | `src/evaluators/suggestion-phase.ts` | Runs phase 2 - generates suggestions |
+| `ResultAssembler` | `src/evaluators/result-assembler.ts` | Runs phase 3 - combines results |
+| `withRetry` | `src/evaluators/retry.ts` | Retry logic for transient LLM failures |
+
+### Property Tests
+
+The two-phase architecture is validated by property-based tests:
+- **Property 1**: Two-phase execution flow (both phases called, token aggregation)
+- **Property 2**: Detection response parser handles all formats gracefully
+- **Property 3**: Full document passed to suggestion phase (even with chunking)
+- **Property 4**: Suggestions correctly matched to issues by index
+- **Property 5**: Retry mechanism succeeds before limit exhaustion
+- **Property 6**: Result schema conformance (CheckResult/JudgeResult)
+- **Property 7**: Token usage aggregation from both phases
+
 ## Provider Support
 
 ### LLM Providers
@@ -159,6 +205,11 @@ VectorLint supports multiple output formats via the `--output` flag:
 - Anthropic: Claude models (Opus, Sonnet, Haiku)
 - Azure OpenAI: Azure-hosted OpenAI models
 - Google Gemini: Gemini Pro and other Gemini models
+
+### LLM Provider Methods
+
+- `runPromptStructured<T>(content, prompt, schema)`: Structured JSON response with schema validation
+- `runPromptUnstructured(content, prompt)`: Free-form text response (used by detection phase)
 
 ### Search Providers
 
