@@ -2,13 +2,13 @@ import type { LLMProvider } from "../providers/llm-provider";
 import type { PromptFile } from "../schemas/prompt-schemas";
 import type { TokenUsage } from "../providers/token-usage";
 import {
-  buildSubjectiveLLMSchema,
-  buildSemiObjectiveLLMSchema,
-  type SubjectiveLLMResult,
-  type SemiObjectiveLLMResult,
-  type SubjectiveResult,
-  type SemiObjectiveResult,
-  type EvaluationResult,
+  buildJudgeLLMSchema,
+  buildCheckLLMSchema,
+  type JudgeLLMResult,
+  type CheckLLMResult,
+  type JudgeResult,
+  type CheckResult,
+  type PromptEvaluationResult,
 } from "../prompts/schema";
 import { registerEvaluator } from "./evaluator-registry";
 import type { Evaluator } from "./evaluator";
@@ -20,9 +20,9 @@ import {
   type Chunk,
 } from "../chunking";
 import {
-  calculateSemiObjectiveScore,
-  calculateSubjectiveScore,
-  averageSubjectiveScores,
+  calculateCheckScore,
+  calculateJudgeScore,
+  averageJudgeScores,
 } from "../scoring";
 import { prependLineNumbers } from "../output/line-numbering";
 
@@ -30,10 +30,10 @@ const CHUNKING_THRESHOLD = 600; // Word count threshold for enabling chunking
 const MAX_CHUNK_SIZE = 500; // Maximum words per chunk
 
 /*
- * Core LLM-based evaluator that handles Subjective and Semi-Objective evaluation modes.
+ * Core LLM-based evaluator that handles Judge and Check evaluation modes.
  * Mode is determined by prompt frontmatter 'type' field:
- * - 'subjective': Weighted average of 1-4 scores per criterion, normalized to 1-10.
- * - 'semi-objective': Density-based scoring (errors per 100 words).
+ * - 'judge': Weighted average of 1-4 scores per criterion, normalized to 1-10.
+ * - 'check': Density-based scoring (errors per 100 words).
  *
  * Content is automatically chunked for documents >600 words to improve accuracy.
  *
@@ -47,7 +47,7 @@ export class BaseEvaluator implements Evaluator {
     protected defaultSeverity?: Severity
   ) { }
 
-  async evaluate(_file: string, content: string): Promise<EvaluationResult> {
+  async evaluate(_file: string, content: string): Promise<PromptEvaluationResult> {
     const type = this.getEvaluationType();
 
     if (type === EvaluationType.JUDGE) {
@@ -116,8 +116,8 @@ export class BaseEvaluator implements Evaluator {
    */
   protected async runJudgeEvaluation(
     content: string
-  ): Promise<SubjectiveResult> {
-    const schema = buildSubjectiveLLMSchema();
+  ): Promise<JudgeResult> {
+    const schema = buildJudgeLLMSchema();
 
     // Prepend line numbers for deterministic line reporting
     const numberedContent = prependLineNumbers(content);
@@ -127,13 +127,13 @@ export class BaseEvaluator implements Evaluator {
     // Single chunk - run directly
     if (chunks.length === 1) {
       const { data: llmResult, usage } =
-        await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
+        await this.llmProvider.runPromptStructured<JudgeLLMResult>(
           numberedContent,
           this.prompt.body,
           schema
         );
 
-      const result = calculateSubjectiveScore(llmResult.criteria, {
+      const result = calculateJudgeScore(llmResult.criteria, {
         promptCriteria: this.prompt.meta.criteria,
       });
 
@@ -144,12 +144,12 @@ export class BaseEvaluator implements Evaluator {
     }
 
     // Multiple chunks - evaluate each and average
-    const chunkResults: SubjectiveResult[] = [];
+    const chunkResults: JudgeResult[] = [];
     const chunkWordCounts: number[] = [];
 
     for (const chunk of chunks) {
       const { data: llmResult, usage } =
-        await this.llmProvider.runPromptStructured<SubjectiveLLMResult>(
+        await this.llmProvider.runPromptStructured<JudgeLLMResult>(
           chunk.content,
           this.prompt.body,
           schema
@@ -157,7 +157,7 @@ export class BaseEvaluator implements Evaluator {
 
       usages.push(usage);
 
-      const result = calculateSubjectiveScore(llmResult.criteria, {
+      const result = calculateJudgeScore(llmResult.criteria, {
         promptCriteria: this.prompt.meta.criteria,
       });
 
@@ -166,7 +166,7 @@ export class BaseEvaluator implements Evaluator {
     }
 
     // Average scores across chunks
-    const result = averageSubjectiveScores(chunkResults, chunkWordCounts);
+    const result = averageJudgeScores(chunkResults, chunkWordCounts);
     const aggregatedUsage = this.aggregateUsage(usages);
 
     return {
@@ -185,8 +185,8 @@ export class BaseEvaluator implements Evaluator {
    */
   protected async runCheckEvaluation(
     content: string
-  ): Promise<SemiObjectiveResult> {
-    const schema = buildSemiObjectiveLLMSchema();
+  ): Promise<CheckResult> {
+    const schema = buildCheckLLMSchema();
 
     // Prepend line numbers for deterministic line reporting
     const numberedContent = prependLineNumbers(content);
@@ -194,12 +194,12 @@ export class BaseEvaluator implements Evaluator {
     const totalWordCount = countWords(content) || 1;
 
     // Collect all violations from all chunks
-    const allChunkViolations: SemiObjectiveLLMResult["violations"][] = [];
+    const allChunkViolations: CheckLLMResult["violations"][] = [];
     const usages: (TokenUsage | undefined)[] = [];
 
     for (const chunk of chunks) {
       const { data: llmResult, usage } =
-        await this.llmProvider.runPromptStructured<SemiObjectiveLLMResult>(
+        await this.llmProvider.runPromptStructured<CheckLLMResult>(
           chunk.content,
           this.prompt.body,
           schema
@@ -212,7 +212,7 @@ export class BaseEvaluator implements Evaluator {
     const mergedViolations = mergeViolations(allChunkViolations);
 
     // Calculate score once from all violations
-    const result = calculateSemiObjectiveScore(
+    const result = calculateCheckScore(
       mergedViolations,
       totalWordCount,
       {

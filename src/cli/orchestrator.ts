@@ -7,7 +7,7 @@ import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-f
 import { RdJsonFormatter } from '../output/rdjson-formatter';
 import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
 import { checkTarget } from '../prompts/target';
-import { isSubjectiveResult } from '../prompts/schema';
+import { isJudgeResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
@@ -536,9 +536,9 @@ function validateScores(params: ValidationParams): boolean {
 }
 
 /*
- * Routes evaluation results through semi-objective or subjective processing paths.
- * Semi-objective: Reports violations, creates scoreEntry using final_score.
- * Subjective: Iterates through criteria, validates scores, creates scoreEntry per criterion.
+ * Routes evaluation results through check or judge processing paths.
+ * Check: Reports violations, creates scoreEntry using final_score.
+ * Judge: Iterates through criteria, validates scores, creates scoreEntry per criterion.
  * Both paths generate scoreEntries for Quality Scores display.
  */
 function routePromptResult(
@@ -561,8 +561,8 @@ function routePromptResult(
   let promptErrors = 0;
   let promptWarnings = 0;
 
-  // Handle Semi-Objective Result
-  if (!isSubjectiveResult(result)) {
+  // Handle Check Result
+  if (!isJudgeResult(result)) {
     const severity = result.severity;
     const violationCount = result.violations.length;
 
@@ -644,7 +644,7 @@ function routePromptResult(
     };
   }
 
-  // Handle Subjective Result
+  // Handle Judge Result
   // Validate criterion completeness and scores
   hadOperationalErrors =
     validateCriteriaCompleteness({ meta, result }) || hadOperationalErrors;

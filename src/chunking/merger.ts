@@ -1,8 +1,8 @@
-import type { SemiObjectiveItem } from "../prompts/schema";
+import type { CheckItem } from "../prompts/schema";
 
 export function mergeViolations(
-  chunkViolations: SemiObjectiveItem[][]
-): SemiObjectiveItem[] {
+  chunkViolations: CheckItem[][]
+): CheckItem[] {
   const all = chunkViolations.flat();
 
   // Deduplicate using composite key (quoted_text + description + analysis)

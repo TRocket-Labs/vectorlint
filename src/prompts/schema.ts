@@ -1,7 +1,7 @@
 import { EvaluationType, Severity } from "../evaluators/types";
 import type { TokenUsage } from "../providers/token-usage";
 
-export function buildSubjectiveLLMSchema() {
+export function buildJudgeLLMSchema() {
   return {
     name: "vectorlint_judge_result",
     strict: true,
@@ -55,7 +55,7 @@ export function buildSubjectiveLLMSchema() {
   } as const;
 }
 
-export function buildSemiObjectiveLLMSchema() {
+export function buildCheckLLMSchema() {
   return {
     name: "vectorlint_check_result",
     strict: true,
@@ -93,7 +93,7 @@ export function buildSemiObjectiveLLMSchema() {
   } as const;
 }
 
-export type SubjectiveLLMResult = {
+export type JudgeLLMResult = {
   criteria: Array<{
     name: string;
     score: 1 | 2 | 3 | 4;
@@ -109,7 +109,7 @@ export type SubjectiveLLMResult = {
   }>;
 };
 
-export type SemiObjectiveLLMResult = {
+export type CheckLLMResult = {
   violations: Array<{
     description: string;
     analysis: string;
@@ -120,7 +120,7 @@ export type SemiObjectiveLLMResult = {
   }>;
 };
 
-export type SubjectiveResult = {
+export type JudgeResult = {
   type: typeof EvaluationType.JUDGE;
   final_score: number; // 1-10
   criteria: Array<{
@@ -142,7 +142,7 @@ export type SubjectiveResult = {
   usage?: TokenUsage;
 };
 
-export type SemiObjectiveItem = {
+export type CheckItem = {
   description: string;
   analysis: string;
   suggestion?: string;
@@ -151,12 +151,12 @@ export type SemiObjectiveItem = {
   context_after?: string;
 };
 
-export type SemiObjectiveResult = {
+export type CheckResult = {
   type: typeof EvaluationType.CHECK;
   final_score: number; // 1-10
   percentage: number;
   violation_count: number;
-  items: Array<SemiObjectiveItem>;
+  items: Array<CheckItem>;
   severity: typeof Severity.WARNING | typeof Severity.ERROR;
   message: string;
   violations: Array<{
@@ -170,16 +170,16 @@ export type SemiObjectiveResult = {
   usage?: TokenUsage;
 };
 
-export type EvaluationResult = SubjectiveResult | SemiObjectiveResult;
+export type PromptEvaluationResult = JudgeResult | CheckResult;
 
-export function isSubjectiveResult(
-  result: EvaluationResult
-): result is SubjectiveResult {
+export function isJudgeResult(
+  result: PromptEvaluationResult
+): result is JudgeResult {
   return result.type === EvaluationType.JUDGE;
 }
 
-export function isSemiObjectiveResult(
-  result: EvaluationResult
-): result is SemiObjectiveResult {
+export function isCheckResult(
+  result: PromptEvaluationResult
+): result is CheckResult {
   return result.type === EvaluationType.CHECK;
 }

@@ -7,7 +7,7 @@ import type { EvaluationSummary } from '../output/reporter';
 import { ValeJsonFormatter } from '../output/vale-json-formatter';
 import { JsonFormatter, type ScoreComponent } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
-import type { EvaluationResult as PromptEvaluationResult, SubjectiveResult } from '../prompts/schema';
+import type { PromptEvaluationResult, JudgeResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
 import type { TokenUsageStats, PricingConfig } from '../providers/token-usage';
 
@@ -86,7 +86,7 @@ export interface ProcessViolationsParams extends EvaluationContext {
 
 export interface ProcessCriterionParams extends EvaluationContext {
     exp: PromptCriterionSpec;
-    result: SubjectiveResult;
+    result: JudgeResult;
     packName: string;
     promptId: string;
     promptFilename: string;
@@ -102,7 +102,7 @@ export interface ProcessCriterionResult extends ErrorTrackingResult {
 
 export interface ValidationParams {
     meta: PromptMeta;
-    result: SubjectiveResult;
+    result: JudgeResult;
 }
 
 export interface ProcessPromptResultParams extends EvaluationContext {

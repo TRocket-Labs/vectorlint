@@ -1,7 +1,7 @@
 export {
-  type SemiObjectiveScoringOptions,
-  type SubjectiveScoringOptions,
-  calculateSemiObjectiveScore,
-  calculateSubjectiveScore,
-  averageSubjectiveScores,
+  type CheckScoringOptions,
+  type JudgeScoringOptions,
+  calculateCheckScore,
+  calculateJudgeScore,
+  averageJudgeScores,
 } from "./scorer";
