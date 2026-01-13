@@ -28,6 +28,8 @@ export interface EvaluationOptions {
     scanPaths: FilePatternConfig[];
     outputFormat?: OutputFormat;
     pricing?: PricingConfig;
+    batchRules?: boolean;
+    maxRulesPerBatch?: number;
 }
 
 export interface EvaluationResult {
@@ -136,4 +138,23 @@ export interface EvaluateFileParams {
 export interface EvaluateFileResult extends ErrorTrackingResult {
     requestFailures: number;
     tokenUsage?: TokenUsageStats;
+}
+
+export interface EvaluateBatchedRulesParams {
+    provider: LLMProvider;
+    batchable: PromptFile[];
+    maxRulesPerBatch: number;
+    relFile: string;
+    content: string;
+    outputFormat: OutputFormat;
+    jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
+    verbose: boolean;
+}
+
+export interface EvaluateBatchedRulesResult extends ErrorTrackingResult {
+    inputTokens: number;
+    outputTokens: number;
+    requestFailures: number;
+    scores: Map<string, EvaluationSummary[]>;
+    fallbackRules: PromptFile[];
 }

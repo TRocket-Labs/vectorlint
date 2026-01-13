@@ -93,6 +93,64 @@ export function buildSemiObjectiveLLMSchema() {
   } as const;
 }
 
+/**
+ * Builds the JSON schema for batched Check evaluation.
+ * The schema requires the LLM to output violations grouped by rule_id.
+ * @param ruleIds - Array of rule IDs that will be evaluated in this batch
+ */
+export function buildBatchedCheckLLMSchema(ruleIds: string[]) {
+  return {
+    name: "vectorlint_batched_check_result",
+    strict: true,
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        rules: {
+          type: "array",
+          description: `Evaluation results for each rule. Must include an entry for each rule: ${ruleIds.join(", ")}`,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              rule_id: {
+                type: "string",
+                description: `The rule ID being evaluated. Must be one of: ${ruleIds.join(", ")}`,
+              },
+              violations: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    line: { type: "number" },
+                    quoted_text: { type: "string" },
+                    context_before: { type: "string" },
+                    context_after: { type: "string" },
+                    description: { type: "string" },
+                    analysis: { type: "string" },
+                    suggestion: { type: "string" },
+                  },
+                  required: [
+                    "quoted_text",
+                    "context_before",
+                    "context_after",
+                    "description",
+                    "analysis",
+                    "suggestion",
+                  ],
+                },
+              },
+            },
+            required: ["rule_id", "violations"],
+          },
+        },
+      },
+      required: ["rules"],
+    },
+  } as const;
+}
+
 export type SubjectiveLLMResult = {
   criteria: Array<{
     name: string;
@@ -117,6 +175,25 @@ export type SemiObjectiveLLMResult = {
     quoted_text?: string;
     context_before?: string;
     context_after?: string;
+  }>;
+};
+
+/**
+ * LLM result schema for batched Check evaluation.
+ * Multiple rules are evaluated in a single LLM call.
+ * Each rule's violations are tagged with its rule_id.
+ */
+export type BatchedCheckLLMResult = {
+  rules: Array<{
+    rule_id: string;
+    violations: Array<{
+      description: string;
+      analysis: string;
+      suggestion?: string;
+      quoted_text?: string;
+      context_before?: string;
+      context_after?: string;
+    }>;
   }>;
 };
 
