@@ -93,6 +93,42 @@ export function buildCheckLLMSchema() {
   } as const;
 }
 
+export function buildSuggestionLLMSchema() {
+  return {
+    name: "vectorlint_suggestion_result",
+    strict: true,
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        suggestions: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              issueIndex: {
+                type: "number",
+                description: "The index of the issue this suggestion addresses (1-based, matching Issue 1, Issue 2, etc.)",
+              },
+              suggestion: {
+                type: "string",
+                description: "Specific, actionable text to replace the problematic content",
+              },
+              explanation: {
+                type: "string",
+                description: "Brief explanation of how this suggestion addresses the issue",
+              },
+            },
+            required: ["issueIndex", "suggestion", "explanation"],
+          },
+        },
+      },
+      required: ["suggestions"],
+    },
+  } as const;
+}
+
 export type JudgeLLMResult = {
   criteria: Array<{
     name: string;
@@ -117,6 +153,14 @@ export type CheckLLMResult = {
     quoted_text?: string;
     context_before?: string;
     context_after?: string;
+  }>;
+};
+
+export type SuggestionLLMResult = {
+  suggestions: Array<{
+    issueIndex: number;
+    suggestion: string;
+    explanation: string;
   }>;
 };
 

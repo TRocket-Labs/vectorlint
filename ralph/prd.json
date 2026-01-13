@@ -81,7 +81,7 @@
       "Ensure strict mode is enabled",
       "Verify schema compiles with npm run build"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "suggestion",
