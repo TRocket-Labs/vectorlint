@@ -11,6 +11,7 @@ import { isJudgeResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
+import { USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { OutputFormat } from './types';
 import type {
   EvaluationOptions, EvaluationResult, ErrorTrackingResult,
@@ -801,8 +802,10 @@ async function evaluateFile(
       availablePacks
     );
 
-    // Filter prompts by active packs and check if disabled
+    // Filter prompts by active packs - only runs if explicitly in RunRules
     const activePrompts = prompts.filter((p) => {
+      // Prompts with empty pack (style guide only) always run
+      if (p.pack === '') return true;
       if (!p.pack || !resolution.packs.includes(p.pack)) return false;
       if (!p.meta?.id) return true;
       const disableKey = `${p.pack}.${p.meta.id}`;
@@ -816,8 +819,24 @@ async function evaluateFile(
     toRun.push(...activePrompts);
   } else {
     // Fallback: When no scanPaths configured, run all prompts.
-    // This maintains backward compatibility for unconfigured setups.
     toRun.push(...prompts);
+  }
+
+  // If no rules matched but VECTORLINT.md exists, run an evaluation using it.
+  // The LLM will use the VECTORLINT.md content from the system prompt.
+  if (toRun.length === 0 && options.userInstructionContent) {
+    toRun.push({
+      id: USER_INSTRUCTION_FILENAME,
+      filename: USER_INSTRUCTION_FILENAME,
+      fullPath: USER_INSTRUCTION_FILENAME,
+      pack: '',
+      body: '',
+      meta: {
+        id: USER_INSTRUCTION_FILENAME,
+        name: USER_INSTRUCTION_FILENAME,
+        severity: Severity.WARNING,
+      },
+    });
   }
 
   const results = await runWithConcurrency(
