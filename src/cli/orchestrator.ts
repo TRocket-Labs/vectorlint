@@ -824,7 +824,7 @@ async function evaluateFile(
 
   // If no rules matched but VECTORLINT.md exists, run an evaluation using it.
   // The LLM will use the VECTORLINT.md content from the system prompt.
-  if (toRun.length === 0 && options.userInstructionContent) {
+  if (options.userInstructionContent) {
     toRun.push({
       id: USER_INSTRUCTION_FILENAME,
       filename: USER_INSTRUCTION_FILENAME,

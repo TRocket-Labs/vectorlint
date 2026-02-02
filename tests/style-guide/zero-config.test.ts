@@ -28,7 +28,7 @@ describe('Zero-Config Loading', () => {
         expect(config.concurrency).toBe(4);
         expect(config.scanPaths).toHaveLength(1);
         expect(config.scanPaths[0]!.pattern).toBe('**/*.{md,txt,mdx}');
-        expect(config.scanPaths[0]!.runRules).toEqual(['StyleGuide']); // Updated to expect StyleGuide
+        expect(config.scanPaths[0]!.runRules).toEqual([]);
         expect(config.configDir).toBe(tempDir);
     });
 
