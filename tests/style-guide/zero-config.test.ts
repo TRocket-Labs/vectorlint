@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
 import { loadConfig } from '../../src/boundaries/config-loader';
-import { DEFAULT_CONFIG_FILENAME, STYLE_GUIDE_FILENAME } from '../../src/config/constants';
+import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../../src/config/constants';
 
 describe('Zero-Config Loading', () => {
     let tempDir: string;
@@ -20,7 +20,7 @@ describe('Zero-Config Loading', () => {
 
     it('returns default config when only VECTORLINT.md exists', () => {
         // Create only the style guide
-        writeFileSync(path.join(tempDir, STYLE_GUIDE_FILENAME), '# My Style Guide');
+        writeFileSync(path.join(tempDir, USER_INSTRUCTION_FILENAME), '# My Style Guide');
 
         const config = loadConfig(tempDir);
 
@@ -34,7 +34,7 @@ describe('Zero-Config Loading', () => {
 
     it('prefers .vectorlint.ini if both exist', () => {
         // Create both files
-        writeFileSync(path.join(tempDir, STYLE_GUIDE_FILENAME), '# My Style Guide');
+        writeFileSync(path.join(tempDir, USER_INSTRUCTION_FILENAME), '# My Style Guide');
 
         const iniContent = `
 RulesPath = ./custom-rules
