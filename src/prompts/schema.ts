@@ -35,6 +35,7 @@ export function buildJudgeLLMSchema() {
                     context_after: { type: "string" },
                     analysis: { type: "string" },
                     suggestion: { type: "string" },
+                    fix: { type: "string" },
                   },
                   required: [
                     "quoted_text",
@@ -42,6 +43,7 @@ export function buildJudgeLLMSchema() {
                     "context_after",
                     "analysis",
                     "suggestion",
+                    "fix",
                   ],
                 },
               },
@@ -76,6 +78,7 @@ export function buildCheckLLMSchema() {
               description: { type: "string" },
               analysis: { type: "string" },
               suggestion: { type: "string" },
+              fix: { type: "string" },
             },
             required: [
               "quoted_text",
@@ -84,6 +87,7 @@ export function buildCheckLLMSchema() {
               "description",
               "analysis",
               "suggestion",
+              "fix",
             ],
           },
         },
@@ -105,6 +109,7 @@ export type JudgeLLMResult = {
       context_after: string;
       analysis: string;
       suggestion: string;
+      fix: string;
     }>;
   }>;
 };
@@ -114,6 +119,7 @@ export type CheckLLMResult = {
     description: string;
     analysis: string;
     suggestion?: string;
+    fix?: string;
     quoted_text?: string;
     context_before?: string;
     context_after?: string;
@@ -137,6 +143,7 @@ export type JudgeResult = {
       context_after: string;
       analysis: string;
       suggestion: string;
+      fix: string;
     }>;
   }>;
   usage?: TokenUsage;
@@ -146,6 +153,7 @@ export type CheckItem = {
   description: string;
   analysis: string;
   suggestion?: string;
+  fix?: string;
   quoted_text?: string;
   context_before?: string;
   context_after?: string;
@@ -162,6 +170,7 @@ export type CheckResult = {
   violations: Array<{
     analysis: string;
     suggestion?: string;
+    fix?: string;
     quoted_text?: string;
     context_before?: string;
     context_after?: string;
