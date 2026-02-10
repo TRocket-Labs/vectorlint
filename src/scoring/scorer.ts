@@ -56,6 +56,7 @@ export function calculateCheckScore(
   const mappedViolations = violations.map((item) => ({
     analysis: item.analysis,
     ...(item.suggestion && { suggestion: item.suggestion }),
+    ...(item.fix && { fix: item.fix }),
     ...(item.quoted_text && { quoted_text: item.quoted_text }),
     ...(item.context_before && { context_before: item.context_before }),
     ...(item.context_after && { context_after: item.context_after }),
@@ -179,6 +180,7 @@ export function averageJudgeScores(
         context_after: string;
         analysis: string;
         suggestion: string;
+        fix: string;
       }>;
       summaries: string[];
       reasonings: string[];
@@ -216,6 +218,7 @@ export function averageJudgeScores(
           context_after: v.context_after || "",
           analysis: v.analysis || "",
           suggestion: v.suggestion || "",
+          fix: v.fix || "",
         });
       }
 
