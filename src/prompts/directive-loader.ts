@@ -23,6 +23,7 @@ For each finding, provide:
 - context_after: 10–20 exact characters immediately after quoted_text (or empty string if at end)
 - analysis: a specific, concrete explanation of the issue (respect word limit)
 - suggestion: a succinct, imperative fix (max 15 words)
+- fix: the corrected replacement text for quoted_text (must be a direct drop-in replacement that can substitute quoted_text verbatim)
 - When a criterion has no findings, provide one short positive remark describing compliance.
 
 
