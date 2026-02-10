@@ -91,6 +91,7 @@ function reportIssue(params: ReportIssueParams): void {
     outputFormat,
     jsonFormatter,
     suggestion,
+    fix,
     scoreText,
     match,
   } = params;
@@ -115,6 +116,7 @@ function reportIssue(params: ReportIssueParams): void {
       match: match || "",
       matchLength: match ? match.length : 0,
       ...(suggestion !== undefined ? { suggestion } : {}),
+      ...(fix !== undefined ? { fix } : {}),
       ...(scoreText !== undefined ? { score: scoreText } : {}),
     };
     (jsonFormatter as ValeJsonFormatter).addIssue(issue);
@@ -133,6 +135,7 @@ function reportIssue(params: ReportIssueParams): void {
       rule: ruleName,
       match: match || "",
       ...(suggestion ? { suggestion } : {}),
+      ...(fix ? { fix } : {}),
     };
     (jsonFormatter as JsonFormatter | RdJsonFormatter).addIssue(file, issue);
   }
@@ -241,6 +244,7 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
       outputFormat,
       jsonFormatter,
       ...(v.suggestion !== undefined && { suggestion: v.suggestion }),
+      ...(v.fix !== undefined && { fix: v.fix }),
       scoreText,
       match: matchedText,
     });
