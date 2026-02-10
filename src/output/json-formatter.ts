@@ -24,6 +24,7 @@ export interface Issue {
   rule: string;
   match: string;
   suggestion?: string;
+  fix?: string;
 }
 
 export interface FileResult {
