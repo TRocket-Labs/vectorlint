@@ -67,6 +67,7 @@ export interface ReportIssueParams {
     outputFormat: OutputFormat;
     jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
     suggestion?: string;
+    fix?: string;
     scoreText?: string;
     match?: string;
 }
@@ -79,6 +80,7 @@ export interface ProcessViolationsParams extends EvaluationContext {
         context_after?: string;
         analysis?: string;
         suggestion?: string;
+        fix?: string;
     }>;
     severity: Severity;
     ruleName: string;

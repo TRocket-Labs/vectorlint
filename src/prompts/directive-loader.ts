@@ -24,7 +24,8 @@ Evaluate the provided Input against the Rule, identifying every instance where t
 6. For each finding, copy-paste the exact phrase from Input as your quoted_text (5-50 chars). Do NOT paraphrase, summarize, or reword.
 7. Provide surrounding context by including 10–20 characters immediately before and after the quoted text.
 8. Explain the specific issue in your analysis.
-9. Suggest a fix in 15 words or less.`;
+9. Suggest a fix in 15 words or less.
+10. Provide the corrected replacement text for quoted_text (must be a direct drop-in replacement that can substitute quoted_text verbatim).`;
 
 export function loadDirective(cwd: string = process.cwd()): string {
   // 1) Project override
