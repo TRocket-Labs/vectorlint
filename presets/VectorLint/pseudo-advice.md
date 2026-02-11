@@ -18,15 +18,6 @@ criteria:
 
 You are a content evaluator specialized in detecting pseudo-advice. Pseudo-advice is content that mimics the structure and tone of helpful guidance but provides no actionable value. It states what to do without explaining how, leaving readers unable to implement it.
 
-## INSTRUCTION
-
-1. Evaluate the provided content against each criterion systematically
-2. For each criterion, scan through the entire content paragraph by paragraph
-3. For each advice statement, use the "How to Check" questions in that criterion
-4. Only flag if the decision logic says to flag
-5. Provide the exact advice statement and explain what actionable detail is missing
-6. Each instance of pseudo-advice counts as one error
-
 ---
 
 ## CRITERIA

@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import { existsSync, writeFileSync } from 'fs';
 import * as path from 'path';
-import { DEFAULT_CONFIG_FILENAME, STYLE_GUIDE_FILENAME } from '../config/constants';
+import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { ensureGlobalConfig, getGlobalConfigPath } from '../config/global-config';
 
 // Template for .vectorlint.ini configuration file
@@ -16,8 +16,8 @@ DefaultSeverity=warning
 RunRules=VectorLint
 `;
 
-// Template for VECTORLINT.md style guide
-const STYLE_GUIDE_TEMPLATE = `# Style Guide
+// Template for VECTORLINT.md user instructions
+const USER_INSTRUCTION_TEMPLATE = `# User Instructions
 
 <!--
 VectorLint will use these instructions when evaluating your content.
@@ -60,24 +60,24 @@ export function registerInitCommand(program: Command): void {
         .command('init')
         .description('Initialize VectorLint configuration files')
         .option('--force', 'Overwrite existing configuration files')
-        .option('--quick', `Create only ${STYLE_GUIDE_FILENAME} for zero-config usage`)
-        .option('--full', `Create both ${DEFAULT_CONFIG_FILENAME} and ${STYLE_GUIDE_FILENAME}`)
+        .option('--quick', `Create only ${USER_INSTRUCTION_FILENAME} for zero-config usage`)
+        .option('--full', `Create both ${DEFAULT_CONFIG_FILENAME} and ${USER_INSTRUCTION_FILENAME}`)
         .action((opts: InitOptions) => {
             const cwd = process.cwd();
             const configPath = path.join(cwd, DEFAULT_CONFIG_FILENAME);
-            const styleGuidePath = path.join(cwd, STYLE_GUIDE_FILENAME);
+            const userInstructionPath = path.join(cwd, USER_INSTRUCTION_FILENAME);
 
-            const createStyleGuide = opts.quick || opts.full;
+            const createUserInstructions = opts.quick || opts.full;
             const createConfig = !opts.quick || opts.full;
 
             const configExists = existsSync(configPath);
-            const styleGuideExists = existsSync(styleGuidePath);
+            const userInstructionExists = existsSync(userInstructionPath);
 
             // Check for existing files without --force
             if (!opts.force) {
                 const existingFiles: string[] = [];
                 if (createConfig && configExists) existingFiles.push(DEFAULT_CONFIG_FILENAME);
-                if (createStyleGuide && styleGuideExists) existingFiles.push(STYLE_GUIDE_FILENAME);
+                if (createUserInstructions && userInstructionExists) existingFiles.push(USER_INSTRUCTION_FILENAME);
 
                 if (existingFiles.length > 0) {
                     console.error(`Error: The following files already exist:`);
@@ -94,9 +94,9 @@ export function registerInitCommand(program: Command): void {
                     writeFileSync(configPath, CONFIG_TEMPLATE, 'utf-8');
                 }
 
-                // 2. Create Style Guide
-                if (createStyleGuide) {
-                    writeFileSync(styleGuidePath, STYLE_GUIDE_TEMPLATE, 'utf-8');
+                // 2. Create User Instructions
+                if (createUserInstructions) {
+                    writeFileSync(userInstructionPath, USER_INSTRUCTION_TEMPLATE, 'utf-8');
                 }
 
                 // 3. Ensure Global Config
@@ -104,7 +104,7 @@ export function registerInitCommand(program: Command): void {
 
                 console.log(`✓ Configuration files created successfully!\n`);
                 if (createConfig) console.log(`VectorLint Config: ${path.relative(cwd, configPath)}`);
-                if (createStyleGuide) console.log(`Style Guide:       ${path.relative(cwd, styleGuidePath)}`);
+                if (createUserInstructions) console.log(`User Instructions: ${path.relative(cwd, userInstructionPath)}`);
                 console.log(`App Config:        ${globalPath}\n`);
 
             } catch (e: unknown) {
@@ -116,12 +116,12 @@ export function registerInitCommand(program: Command): void {
             // Print success message with next steps
             console.log(`Next steps:`);
             console.log(`  1. Open ${getGlobalConfigPath()} and configure your API keys (e.g., OPENAI_API_KEY)`);
-            if (createStyleGuide) {
-                console.log(`  2. Edit ${STYLE_GUIDE_FILENAME} to define your specific style rules`);
+            if (createUserInstructions) {
+                console.log(`  2. Edit ${USER_INSTRUCTION_FILENAME} to define your instructions for content evaluation`);
             }
-            console.log(`  ${createStyleGuide ? '3' : '2'}. Run 'vectorlint <file.md>' to start linting your content`);
+            console.log(`  ${createUserInstructions ? '3' : '2'}. Run 'vectorlint <file.md>' to start linting your content`);
             if (createConfig) {
-                console.log(`  ${createStyleGuide ? '4' : '3'}. (Optional) Edit ${DEFAULT_CONFIG_FILENAME} to add custom rules or configure strictness`);
+                console.log(`  ${createUserInstructions ? '4' : '3'}. (Optional) Edit ${DEFAULT_CONFIG_FILENAME} to add custom rules or configure strictness`);
             }
         });
 }

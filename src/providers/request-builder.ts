@@ -6,19 +6,16 @@ export interface RequestBuilder {
 
 export class DefaultRequestBuilder implements RequestBuilder {
   private directive: string;
-  private styleGuide: string;
+  private userInstructions: string;
 
-  constructor(directive?: string, styleGuide?: string) {
+  constructor(directive?: string, userInstructions?: string) {
     this.directive = (directive || '').trim();
-    this.styleGuide = (styleGuide || '').trim();
+    this.userInstructions = (userInstructions || '').trim();
   }
 
   buildPromptBodyForStructured(originalBody: string): string {
-    // Prepend the style guide with a simple newline separation
-    const styleGuideSection = this.styleGuide
-      ? `${this.styleGuide}\n\n`
-      : '';
-    const directive = this.directive ? `\n\n${this.directive}` : '';
-    return styleGuideSection + originalBody + directive;
+    const directiveSection = this.directive ? `${this.directive}\n\n` : '';
+    const userInstructionsSection = this.userInstructions ? `${this.userInstructions}\n\n` : '';
+    return directiveSection + userInstructionsSection + originalBody;
   }
 }

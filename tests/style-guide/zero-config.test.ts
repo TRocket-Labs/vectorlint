@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
 import { loadConfig } from '../../src/boundaries/config-loader';
-import { DEFAULT_CONFIG_FILENAME, STYLE_GUIDE_FILENAME } from '../../src/config/constants';
+import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../../src/config/constants';
 
 describe('Zero-Config Loading', () => {
     let tempDir: string;
@@ -20,7 +20,7 @@ describe('Zero-Config Loading', () => {
 
     it('returns default config when only VECTORLINT.md exists', () => {
         // Create only the style guide
-        writeFileSync(path.join(tempDir, STYLE_GUIDE_FILENAME), '# My Style Guide');
+        writeFileSync(path.join(tempDir, USER_INSTRUCTION_FILENAME), '# My Style Guide');
 
         const config = loadConfig(tempDir);
 
@@ -28,13 +28,13 @@ describe('Zero-Config Loading', () => {
         expect(config.concurrency).toBe(4);
         expect(config.scanPaths).toHaveLength(1);
         expect(config.scanPaths[0]!.pattern).toBe('**/*.{md,txt,mdx}');
-        expect(config.scanPaths[0]!.runRules).toEqual(['StyleGuide']); // Updated to expect StyleGuide
+        expect(config.scanPaths[0]!.runRules).toEqual([]);
         expect(config.configDir).toBe(tempDir);
     });
 
     it('prefers .vectorlint.ini if both exist', () => {
         // Create both files
-        writeFileSync(path.join(tempDir, STYLE_GUIDE_FILENAME), '# My Style Guide');
+        writeFileSync(path.join(tempDir, USER_INSTRUCTION_FILENAME), '# My Style Guide');
 
         const iniContent = `
 RulesPath = ./custom-rules
