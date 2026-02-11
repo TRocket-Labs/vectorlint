@@ -12,14 +12,12 @@ export const LEGACY_CONFIG_FILENAME = 'vectorlint.ini';
 export const DEFAULT_CONFIG_FILENAME = '.vectorlint.ini';
 export const GLOBAL_CONFIG_DIR = '.vectorlint';
 export const GLOBAL_CONFIG_FILE = 'config.toml';
-export const STYLE_GUIDE_FILENAME = 'VECTORLINT.md';
-export const STYLE_GUIDE_TOKEN_WARNING_THRESHOLD = 4000;
+export const USER_INSTRUCTION_FILENAME = 'VECTORLINT.md';
+export const USER_INSTRUCTION_TOKEN_WARNING_THRESHOLD = 4000;
 const EXTENSIONS = ['md', 'txt', 'mdx'];
 export const ALLOWED_EXTS = new Set(EXTENSIONS.map(ext => `.${ext}`));
 
 export const DEFAULT_CONCURRENCY = 4;
-export const ZERO_CONFIG_PACK_NAME = 'StyleGuide';
-export const ZERO_CONFIG_PROMPT_ID = 'style-guide';
 export const DEFAULT_SCAN_PATTERN = `**/*.{${EXTENSIONS.join(',')}}`;
 
 export const CLI_DESCRIPTION = `VectorLint is a command-line tool that evaluates and scores content using LLMs. It uses LLM-as-a-Judge to catch terminology, technical accuracy, and style issues that require contextual understanding.

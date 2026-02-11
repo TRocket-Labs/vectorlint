@@ -9,9 +9,8 @@ import {
 import {
   LEGACY_CONFIG_FILENAME,
   DEFAULT_CONFIG_FILENAME,
-  STYLE_GUIDE_FILENAME,
+  USER_INSTRUCTION_FILENAME,
   DEFAULT_CONCURRENCY,
-  ZERO_CONFIG_PACK_NAME,
   DEFAULT_SCAN_PATTERN,
 } from "../config/constants";
 import { FileSectionParser } from "./file-section-parser";
@@ -64,17 +63,17 @@ export function loadConfig(
   const iniPath = resolveConfigPath(cwd, configPath);
 
   if (!iniPath) {
-    // Check for VECTORLINT.md for zero-config mode
-    const styleGuidePath = path.resolve(cwd, STYLE_GUIDE_FILENAME);
-    if (existsSync(styleGuidePath)) {
-      // Return default config for zero-config mode
+    // No config file - check if VECTORLINT.md exists
+    const userInstructionPath = path.resolve(cwd, USER_INSTRUCTION_FILENAME);
+    if (existsSync(userInstructionPath)) {
+      // Return default config with no rules configured
       const defaultConfig = {
         concurrency: DEFAULT_CONCURRENCY,
         configDir: cwd,
         scanPaths: [
           {
             pattern: DEFAULT_SCAN_PATTERN,
-            runRules: [ZERO_CONFIG_PACK_NAME],
+            runRules: [],
             overrides: {},
           },
         ],
@@ -83,7 +82,7 @@ export function loadConfig(
     }
 
     throw new ConfigError(
-      `Missing configuration file. Expected ${DEFAULT_CONFIG_FILENAME} or ${STYLE_GUIDE_FILENAME} in ${cwd}`
+      `Missing configuration file. Expected ${DEFAULT_CONFIG_FILENAME} or ${USER_INSTRUCTION_FILENAME} in ${cwd}`
     );
   }
 

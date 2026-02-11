@@ -28,6 +28,7 @@ export interface EvaluationOptions {
     scanPaths: FilePatternConfig[];
     outputFormat?: OutputFormat;
     pricing?: PricingConfig;
+    userInstructionContent?: string;
 }
 
 export interface EvaluationResult {

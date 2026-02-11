@@ -7,7 +7,7 @@ import { createProvider } from '../providers/provider-factory';
 import { PerplexitySearchProvider } from '../providers/perplexity-provider';
 import type { SearchProvider } from '../providers/search-provider';
 import { loadConfig } from '../boundaries/config-loader';
-import { loadStyleGuide } from '../boundaries/style-guide-loader';
+import { loadUserInstructions } from '../boundaries/user-instruction-loader';
 import { loadRuleFile, type PromptFile } from '../prompts/prompt-loader';
 import { RulePackLoader } from '../boundaries/rule-pack-loader';
 import { PresetLoader } from '../config/preset-loader';
@@ -19,8 +19,7 @@ import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
 import { OutputFormat } from './types';
-import { DEFAULT_CONFIG_FILENAME, STYLE_GUIDE_FILENAME, ZERO_CONFIG_PACK_NAME, ZERO_CONFIG_PROMPT_ID } from '../config/constants';
-import { Severity, Type } from '../evaluators/types';
+import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const __filename = fileURLToPath(import.meta.url);
@@ -78,10 +77,10 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
-      // Load style guide (VECTORLINT.md)
-      const styleGuide = loadStyleGuide(process.cwd());
-      if (styleGuide.content && cliOptions.verbose) {
-        console.log(`[vectorlint] Loaded style guide from ${STYLE_GUIDE_FILENAME} (${styleGuide.tokenEstimate} estimated tokens)`);
+      // Load user instructions (VECTORLINT.md)
+      const userInstructions = loadUserInstructions(process.cwd());
+      if (userInstructions.content && cliOptions.verbose) {
+        console.log(`[vectorlint] Loaded user instructions from ${USER_INSTRUCTION_FILENAME} (${userInstructions.tokenEstimate} estimated tokens)`);
       }
 
       const provider = createProvider(
@@ -91,7 +90,7 @@ export function registerMainCommand(program: Command): void {
           showPrompt: cliOptions.showPrompt,
           showPromptTrunc: cliOptions.showPromptTrunc,
         },
-        new DefaultRequestBuilder(directive, styleGuide.content || undefined)
+        new DefaultRequestBuilder(directive, userInstructions.content || undefined)
       );
 
       if (cliOptions.verbose) {
@@ -141,23 +140,6 @@ export function registerMainCommand(program: Command): void {
             if (result.prompt) {
               prompts.push(result.prompt);
             }
-          }
-        }
-
-        if (prompts.length === 0) {
-          if (styleGuide.content) {
-            if (cliOptions.verbose) {
-              console.log('[vectorlint] No rules found, but VECTORLINT.md exists. Running in zero-config mode.');
-            }
-
-            prompts.push(createStyleGuidePrompt(styleGuide.path || path.resolve(process.cwd(), STYLE_GUIDE_FILENAME)));
-          } else {
-            if (rulesPath) {
-              console.error(`Error: no .md rules found in ${rulesPath} or presets.`);
-            } else {
-              console.error('Error: no rules found. Either set RulesPath in config or configure RunRules with a valid preset.');
-            }
-            process.exit(1);
           }
         }
       } catch (e: unknown) {
@@ -214,6 +196,7 @@ export function registerMainCommand(program: Command): void {
           inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,
           outputPricePerMillion: env.OUTPUT_PRICE_PER_MILLION,
         },
+        ...(userInstructions.content ? { userInstructionContent: userInstructions.content } : {}),
       });
 
       // Print global summary (only for line format)
@@ -234,18 +217,3 @@ export function registerMainCommand(program: Command): void {
     });
 }
 
-function createStyleGuidePrompt(fullPath: string): PromptFile {
-  return {
-    id: ZERO_CONFIG_PROMPT_ID,
-    filename: STYLE_GUIDE_FILENAME,
-    fullPath,
-    body: 'Evaluate the provided content against the attached Global Style Guide. Report any violations of the rules defined in the style guide.',
-    pack: ZERO_CONFIG_PACK_NAME,
-    meta: {
-      id: ZERO_CONFIG_PROMPT_ID,
-      name: 'Style Guide Compliance',
-      evaluator: Type.BASE,
-      severity: Severity.WARNING,
-    },
-  };
-}

@@ -12,14 +12,6 @@ criteria:
 
 You are a content evaluator specialized in identifying unnecessary repetition between sections where two or more sections convey the same core concept without adding new information, perspectives, or depth. Your goal is to detect redundant sections that waste the reader's time and suggest poor organization.
 
-## INSTRUCTION
-
-1. Analyze all sections at the H2 and H3 level (major sections and subsections)
-2. Compare each section's core concept and information content against all other sections
-3. Look for semantic similarity even when wording differs
-4. Evaluate whether later mentions add: new information, deeper detail, different application/context, or build on the first
-5. Flag each redundant section (not counting the first occurrence of the concept)
-6. Provide specific examples showing the overlap and suggestions for consolidation or deletion
 
 **IMPORTANT: When reporting issues, START with the section header titles in quotes, then explain the overlap.** For example: "'Why Chunking Matters' repeats concepts from 'What is Chunking?' — both explain that chunking breaks documents into smaller pieces..." — NOT "Both sections explain X... 'Section A' and 'Section B'" which buries the section names.
 
