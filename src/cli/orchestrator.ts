@@ -18,13 +18,15 @@ import type {
   ReportIssueParams, ProcessViolationsParams,
   ProcessCriterionParams, ProcessCriterionResult, ValidationParams, ProcessPromptResultParams,
   RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult,
-  RunPromptEvaluationResultSuccess
+  RunPromptEvaluationResultSuccess,
+  RawIssue
 } from './types';
 import {
   calculateCost,
   TokenUsageStats
 } from '../providers/token-usage';
 import { locateQuotedText } from "../output/location";
+import { filterDuplicateIssues } from './issue-deduplication';
 
 
 /*
@@ -150,6 +152,7 @@ function reportIssue(params: ReportIssueParams): void {
  */
 function locateAndReportViolations(params: ProcessViolationsParams): {
   hadOperationalErrors: boolean;
+  issues: RawIssue[];
 } {
   const {
     violations,
@@ -227,6 +230,8 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
     }
   }
 
+  const issues: RawIssue[] = [];
+
   // Report only verified, unique violations
   for (const {
     v,
@@ -235,7 +240,7 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
     matchedText,
     rowSummary,
   } of verifiedViolations) {
-    reportIssue({
+    issues.push({
       file: relFile,
       line,
       column,
@@ -251,7 +256,7 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
     });
   }
 
-  return { hadOperationalErrors };
+  return { hadOperationalErrors, issues };
 }
 
 /*
@@ -276,6 +281,7 @@ function extractAndReportCriterion(
   } = params;
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
+  const issues: RawIssue[] = [];
 
   const nameKey = String(exp.name || exp.id || "");
   const criterionId = exp.id
@@ -307,7 +313,7 @@ function extractAndReportCriterion(
       expTargetSpec?.suggestion ||
       metaTargetSpec?.suggestion ||
       "Add the required target section.";
-    reportIssue({
+    issues.push({
       file: relFile,
       line: 1,
       column: 1,
@@ -419,6 +425,7 @@ function extractAndReportCriterion(
     });
     hadOperationalErrors =
       hadOperationalErrors || violationResult.hadOperationalErrors;
+    issues.push(...violationResult.issues);
   } else if (score <= 2) {
     // No violations but low score - report with summary
     severity = score <= 1 ? Severity.ERROR : Severity.WARNING;
@@ -433,7 +440,7 @@ function extractAndReportCriterion(
     const words = sum.split(/\s+/).filter(Boolean);
     const limited = words.slice(0, 15).join(" ");
     const summaryText = limited || "No findings";
-    reportIssue({
+    issues.push({
       file: relFile,
       line: 1,
       column: 1,
@@ -464,6 +471,7 @@ function extractAndReportCriterion(
       normalizedScore: normalizedScore,
       normalizedMaxScore: 10,
     },
+    issues,
   };
 }
 
@@ -584,6 +592,7 @@ function routePromptResult(
     // Report violations grouped by criterion
     let totalErrors = 0;
     let totalWarnings = 0;
+    const issues: RawIssue[] = [];
 
     for (const [criterionName, violations] of violationsByCriterion) {
       // Find criterion ID from meta
@@ -608,6 +617,7 @@ function routePromptResult(
           verbose: !!verbose,
         });
         hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
+        issues.push(...violationResult.issues);
 
         if (severity === Severity.ERROR) {
           totalErrors += violations.length;
@@ -620,7 +630,7 @@ function routePromptResult(
     // If no violations but we have a message (JSON output), report it
     if (violationCount === 0 && (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson) && result.message) {
       const ruleName = buildRuleName(promptFile.pack, promptId, undefined);
-      reportIssue({
+      issues.push({
         file: relFile,
         line: 1,
         column: 1,
@@ -646,6 +656,7 @@ function routePromptResult(
       hadOperationalErrors,
       hadSeverityErrors: severity === Severity.ERROR,
       scoreEntries: [scoreEntry],
+      issues,
     };
   }
 
@@ -661,6 +672,7 @@ function routePromptResult(
   promptWarnings = 0;
   const criterionScores: EvaluationSummary[] = [];
   const scoreComponents: ScoreComponent[] = [];
+  const issues: RawIssue[] = [];
 
   // Iterate through each criterion
   for (const exp of meta.criteria || []) {
@@ -688,6 +700,9 @@ function routePromptResult(
     if (criterionResult.scoreComponent) {
       scoreComponents.push(criterionResult.scoreComponent);
     }
+    if (criterionResult.issues) {
+      issues.push(...criterionResult.issues);
+    }
   }
 
   if (outputFormat === OutputFormat.Json && scoreComponents.length > 0) {
@@ -706,6 +721,7 @@ function routePromptResult(
     hadOperationalErrors,
     hadSeverityErrors,
     scoreEntries: criterionScores,
+    issues,
   };
 }
 
@@ -780,6 +796,8 @@ async function evaluateFile(
   let requestFailures = 0;
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
+
+  const allIssues: RawIssue[] = [];
 
   const allScores = new Map<string, EvaluationSummary[]>();
 
@@ -907,6 +925,17 @@ async function evaluateFile(
       const ruleName = (p.meta.id || p.filename).toString();
       allScores.set(ruleName, promptResult.scoreEntries);
     }
+    if (promptResult.issues) {
+      allIssues.push(...promptResult.issues);
+    }
+  }
+
+  // Deduplicate issues
+  const deduplicatedIssues = filterDuplicateIssues(allIssues);
+
+  // Group and format output appropriately
+  for (const issue of deduplicatedIssues) {
+    reportIssue(issue);
   }
 
   const tokenUsageStats: TokenUsageStats = {
