@@ -333,6 +333,7 @@ function extractAndReportCriterion(
       maxScore,
       hadOperationalErrors,
       hadSeverityErrors,
+      issues,
       scoreEntry: { id: ruleName, scoreText: "0.0/10", score: 0.0 },
       scoreComponent: {
         criterion: nameKey,
@@ -357,6 +358,7 @@ function extractAndReportCriterion(
       maxScore,
       hadOperationalErrors,
       hadSeverityErrors,
+      issues: [],
       scoreEntry: { id: ruleName, scoreText: "-", score: 0.0 },
       scoreComponent: {
         criterion: nameKey,
@@ -915,8 +917,6 @@ async function evaluateFile(
       jsonFormatter,
       verbose,
     });
-    totalErrors += promptResult.errors;
-    totalWarnings += promptResult.warnings;
     hadOperationalErrors =
       hadOperationalErrors || promptResult.hadOperationalErrors;
     hadSeverityErrors = hadSeverityErrors || promptResult.hadSeverityErrors;
@@ -932,6 +932,12 @@ async function evaluateFile(
 
   // Deduplicate issues
   const deduplicatedIssues = filterDuplicateIssues(allIssues);
+
+  // Recompute counts from deduplicated issues so they match what is reported
+  for (const issue of deduplicatedIssues) {
+    if (issue.severity === Severity.ERROR) totalErrors += 1;
+    else totalWarnings += 1;
+  }
 
   // Group and format output appropriately
   for (const issue of deduplicatedIssues) {
