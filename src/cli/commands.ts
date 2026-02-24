@@ -26,6 +26,20 @@ const __filename = fileURLToPath(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const __dirname = dirname(__filename);
 
+/**
+ * Resolves the presets directory for both dev and built modes.
+ * - Built mode: __dirname is `dist/`, so `../presets` resolves to project root `presets/`
+ * - Dev mode: __dirname is `src/cli/`, so `../../presets` resolves to project root `presets/`
+ */
+function resolvePresetsDir(dir: string): string {
+  const buildPath = path.resolve(dir, '../presets');
+  if (existsSync(path.join(buildPath, 'meta.json'))) {
+    return buildPath;
+  }
+  // Dev mode fallback: src/cli/ → ../../presets
+  return path.resolve(dir, '../../presets');
+}
+
 /*
  * Registers the main evaluation command with Commander.
  * This is the default command that runs content evaluations against target files.
@@ -117,7 +131,7 @@ export function registerMainCommand(program: Command): void {
 
       const prompts: PromptFile[] = [];
       try {
-        const presetsDir = path.resolve(__dirname, '../presets');
+        const presetsDir = resolvePresetsDir(__dirname);
         const presetLoader = new PresetLoader(presetsDir);
         const loader = new RulePackLoader(presetLoader);
 
