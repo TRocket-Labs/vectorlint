@@ -1,20 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PerplexitySearchProvider } from '../src/providers/perplexity-provider';
-import { createMockPerplexityClient } from './schemas/mock-schemas';
 
-const SHARED_CREATE = vi.fn();
+// Mock the Vercel AI SDK before importing SUT to avoid TDZ issues
+const MOCK_GENERATE_TEXT = vi.fn();
 
-// Mock the Perplexity SDK before importing SUT to avoid TDZ issues
-vi.mock('@perplexity-ai/perplexity_ai', () => {
-  return {
-    __esModule: true,
-    default: vi.fn(() => ({
-      search: {
-        create: SHARED_CREATE,
-      },
-    })),
-  };
-});
+vi.mock('ai', () => ({
+  generateText: MOCK_GENERATE_TEXT,
+}));
+
+vi.mock('@ai-sdk/perplexity', () => ({
+  createPerplexity: vi.fn(() => vi.fn((model: string) => ({ _type: 'perplexity', model }))),
+}));
 
 const MOCK_RESULTS = [
   {
@@ -34,112 +30,207 @@ const MOCK_RESULTS = [
 describe('PerplexitySearchProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Mock process.env.PERPLEXITY_API_KEY for tests
+    process.env.PERPLEXITY_API_KEY = 'test-api-key';
   });
 
   describe('Constructor', () => {
-    it('initializes with defaults', () => {
+    it('initializes with defaults using environment variable', () => {
       const provider = new PerplexitySearchProvider();
       expect(provider).toBeInstanceOf(PerplexitySearchProvider);
     });
 
-    it('accepts override config', () => {
-      const provider = new PerplexitySearchProvider({ maxResults: 10, maxTokensPerPage: 512, debug: true });
+    it('accepts override config with apiKey', () => {
+      const provider = new PerplexitySearchProvider({ apiKey: 'custom-key', maxResults: 10, debug: true });
+      expect(provider).toBeInstanceOf(PerplexitySearchProvider);
+    });
+
+    it('throws error when no API key is provided', () => {
+      delete process.env.PERPLEXITY_API_KEY;
+      expect(() => new PerplexitySearchProvider()).toThrow('Perplexity API key is required');
+    });
+
+    it('accepts partial config with maxResults', () => {
+      const provider = new PerplexitySearchProvider({ maxResults: 2 });
       expect(provider).toBeInstanceOf(PerplexitySearchProvider);
     });
   });
 
-  describe('Search behavior', () => {
-    it('calls the Perplexity API with valid parameters and normalizes results', async () => {
-      SHARED_CREATE.mockResolvedValueOnce({ results: MOCK_RESULTS });
-
-      const provider = new PerplexitySearchProvider({ maxResults: 2, maxTokensPerPage: 512 });
-      const res = await provider.search('AI tools in 2025');
-
-      expect(SHARED_CREATE).toHaveBeenCalledWith({
-        query: 'AI tools in 2025',
-        max_results: 2,
-        max_tokens_per_page: 512,
+  describe('search', () => {
+    it('executes search query successfully', async () => {
+      MOCK_GENERATE_TEXT.mockResolvedValue({
+        sources: MOCK_RESULTS,
       });
 
-      expect(res).toEqual(MOCK_RESULTS);
+      const provider = new PerplexitySearchProvider({ maxResults: 2 });
+      const results = await provider.search('AI tools for developers');
+
+      expect(results).toHaveLength(2);
+      expect(results[0]).toEqual(MOCK_RESULTS[0]);
     });
 
-    it('handles optional max_results and tokens by sending defaults when not specified', async () => {
-      // provider default constructor sets maxResults=5 and maxTokensPerPage=1024
-      SHARED_CREATE.mockResolvedValueOnce({ results: MOCK_RESULTS });
-
+    it('throws error for empty query', async () => {
       const provider = new PerplexitySearchProvider();
-      await provider.search('modern LLM architectures');
 
-      const args = SHARED_CREATE.mock.calls[0]?.[0] as {
-        query: string;
-        max_results?: number;
-        max_tokens_per_page?: number;
-      } | undefined;
-
-      expect(args).toBeDefined();
-      expect(args).toHaveProperty('query', 'modern LLM architectures');
-      // provider sets defaults; tests should expect those defaults to be present
-      expect(args).toHaveProperty('max_results', 5);
-      expect(args).toHaveProperty('max_tokens_per_page', 1024);
+      await expect(provider.search('')).rejects.toThrow('Search query cannot be empty');
+      await expect(provider.search('   ')).rejects.toThrow('Search query cannot be empty');
     });
 
-    it('returns empty array if Perplexity returns no results', async () => {
-      SHARED_CREATE.mockResolvedValueOnce({ results: [] });
+    it('handles empty sources array', async () => {
+      MOCK_GENERATE_TEXT.mockResolvedValue({
+        sources: [],
+      });
 
       const provider = new PerplexitySearchProvider();
-      const results = await provider.search('nonexistent query');
-      expect(results).toEqual([]);
+      const results = await provider.search('unknown topic');
+
+      expect(results).toHaveLength(0);
     });
 
-    it('throws helpful error when API call fails', async () => {
-      SHARED_CREATE.mockRejectedValueOnce(new Error('Network error'));
+    it('limits results to maxResults', async () => {
+      const manyResults = Array.from({ length: 10 }, (_, i) => ({
+        title: `Result ${i}`,
+        snippet: `Snippet ${i}`,
+        url: `https://example.com/${i}`,
+        date: '',
+      }));
+
+      MOCK_GENERATE_TEXT.mockResolvedValue({
+        sources: manyResults,
+      });
+
+      const provider = new PerplexitySearchProvider({ maxResults: 5 });
+      const results = await provider.search('test query');
+
+      expect(results).toHaveLength(5);
+    });
+
+    it('handles missing fields gracefully', async () => {
+      const incompleteResults = [
+        {
+          // Missing all fields
+        },
+        {
+          title: 'Has Title',
+          // Missing other fields
+        },
+        {
+          snippet: 'Has snippet',
+          url: 'https://example.com',
+          date: '2025-01-01',
+        },
+      ];
+
+      MOCK_GENERATE_TEXT.mockResolvedValue({
+        sources: incompleteResults,
+      });
 
       const provider = new PerplexitySearchProvider();
-      await expect(provider.search('AI')).rejects.toThrow('Perplexity API call failed: Network error');
+      const results = await provider.search('test');
+
+      expect(results).toHaveLength(3);
+      expect(results[0].title).toBe('Untitled');
+      expect(results[0].snippet).toBe('');
+      expect(results[1].title).toBe('Has Title');
+      expect(results[1].snippet).toBe('');
     });
   });
 
-  describe('Error and schema validation', () => {
-    it('throws when query is empty', async () => {
-      const provider = new PerplexitySearchProvider();
-      await expect(provider.search('')).rejects.toThrow('Search query cannot be empty.');
+  describe('Debug Logging', () => {
+    let consoleSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     });
 
-    it('validates mock schema using createMockPerplexityClient', async () => {
-      const fn = vi.fn().mockResolvedValue({});
-      const client = createMockPerplexityClient(fn);
-      await client.search.create({ query: 'test query', max_results: 3 });
-      expect(fn).toHaveBeenCalledWith({ query: 'test query', max_results: 3 });
+    afterEach(() => {
+      consoleSpy.mockRestore();
     });
-  });
 
-  describe('Debug logging', () => {
-    it('logs debug info when debug is enabled', async () => {
-      SHARED_CREATE.mockResolvedValueOnce({ results: MOCK_RESULTS });
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    it('logs search query when debug is enabled', async () => {
+      MOCK_GENERATE_TEXT.mockResolvedValue({
+        sources: MOCK_RESULTS,
+      });
+
       const provider = new PerplexitySearchProvider({ debug: true });
-
       await provider.search('test query');
 
-      // provider emits Perplexity-specific debug messages
-      expect(logSpy).toHaveBeenCalledWith('[Perplexity] Searching: "test query"');
-      expect(logSpy).toHaveBeenCalledWith('[Perplexity] Found 2 results');
-      // provider also logs a preview of results (array), accept any array
-      expect(logSpy).toHaveBeenCalledWith(expect.any(Array));
+      expect(consoleSpy).toHaveBeenCalledWith('[Perplexity] Searching: "test query"');
+    });
 
-      logSpy.mockRestore();
+    it('logs results count when debug is enabled', async () => {
+      MOCK_GENERATE_TEXT.mockResolvedValue({
+        sources: MOCK_RESULTS,
+      });
+
+      const provider = new PerplexitySearchProvider({ debug: true });
+      await provider.search('test query');
+
+      expect(consoleSpy).toHaveBeenCalledWith('[Perplexity] Found 2 results');
     });
 
     it('does not log when debug is disabled', async () => {
-      SHARED_CREATE.mockResolvedValueOnce({ results: MOCK_RESULTS });
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      const provider = new PerplexitySearchProvider({ debug: false });
+      MOCK_GENERATE_TEXT.mockResolvedValue({
+        sources: MOCK_RESULTS,
+      });
 
+      const provider = new PerplexitySearchProvider({ debug: false });
       await provider.search('test query');
 
-      expect(logSpy).not.toHaveBeenCalled();
-      logSpy.mockRestore();
+      expect(consoleSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('throws descriptive error for API failures', async () => {
+      MOCK_GENERATE_TEXT.mockRejectedValue(new Error('Network error'));
+
+      const provider = new PerplexitySearchProvider();
+
+      await expect(provider.search('test')).rejects.toThrow('Perplexity API call failed: Network error');
+    });
+
+    it('handles unknown error types', async () => {
+      MOCK_GENERATE_TEXT.mockRejectedValue('String error');
+
+      const provider = new PerplexitySearchProvider();
+
+      await expect(provider.search('test')).rejects.toThrow('Perplexity API call failed: String error');
+    });
+  });
+
+  describe('Configuration', () => {
+    it('respects maxResults configuration', async () => {
+      const results = Array.from({ length: 10 }, (_, i) => ({
+        title: `Result ${i}`,
+        snippet: `Snippet ${i}`,
+        url: `https://example.com/${i}`,
+        date: '',
+      }));
+
+      MOCK_GENERATE_TEXT.mockResolvedValue({ sources: results });
+
+      const provider = new PerplexitySearchProvider({ maxResults: 3 });
+      const searchResults = await provider.search('test');
+
+      expect(searchResults).toHaveLength(3);
+    });
+
+    it('uses default maxResults when not specified', async () => {
+      const results = Array.from({ length: 10 }, (_, i) => ({
+        title: `Result ${i}`,
+        snippet: `Snippet ${i}`,
+        url: `https://example.com/${i}`,
+        date: '',
+      }));
+
+      MOCK_GENERATE_TEXT.mockResolvedValue({ sources: results });
+
+      const provider = new PerplexitySearchProvider();
+      const searchResults = await provider.search('test');
+
+      // Default maxResults is 5
+      expect(searchResults).toHaveLength(5);
     });
   });
 });
