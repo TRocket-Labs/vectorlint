@@ -51,6 +51,9 @@ export class PerplexitySearchProvider implements SearchProvider {
       // fields not present in the typed Source interface
       const rawSources: unknown = result.sources ?? [];
       const parseResult = z.array(PERPLEXITY_SOURCE_SCHEMA).safeParse(rawSources);
+      if (!parseResult.success && this.debug) {
+        console.warn(`[Perplexity] Source validation failed for raw sources:`, parseResult.error);
+      }
       const sources = parseResult.success ? parseResult.data : [];
 
       const results: PerplexityResult[] = sources.slice(0, this.maxResults).map(source => ({
