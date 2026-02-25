@@ -1,10 +1,12 @@
+import { createOpenAI } from '@ai-sdk/openai';
+import { createAzure } from '@ai-sdk/azure';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import type { LanguageModel } from 'ai';
 import { LLMProvider } from './llm-provider';
-import { AzureOpenAIProvider, type AzureOpenAIConfig } from './azure-openai-provider';
-import { AnthropicProvider, type AnthropicConfig } from './anthropic-provider';
-import { OpenAIProvider, type OpenAIConfig } from './openai-provider';
+import { VercelAIProvider, type VercelAIConfig } from './vercel-ai-provider';
 import { RequestBuilder } from './request-builder';
 import type { EnvConfig } from '../schemas/env-schemas';
-import { GeminiConfig, GeminiProvider } from './gemini-provider';
 
 export interface ProviderOptions {
   debug?: boolean;
@@ -31,60 +33,64 @@ export function createProvider(
   options: ProviderOptions = {},
   builder?: RequestBuilder
 ): LLMProvider {
+  let model: LanguageModel;
+  let temperature = 0.2;
+
   switch (envConfig.LLM_PROVIDER) {
     case ProviderType.AzureOpenAI: {
-      const azureConfig: AzureOpenAIConfig = {
+      const azure = createAzure({
         apiKey: envConfig.AZURE_OPENAI_API_KEY,
-        endpoint: envConfig.AZURE_OPENAI_ENDPOINT,
-        deploymentName: envConfig.AZURE_OPENAI_DEPLOYMENT_NAME,
-        apiVersion: envConfig.AZURE_OPENAI_API_VERSION,
-        ...(envConfig.AZURE_OPENAI_TEMPERATURE !== undefined && { temperature: envConfig.AZURE_OPENAI_TEMPERATURE }),
-        ...(options.debug !== undefined && { debug: options.debug }),
-        ...(options.showPrompt !== undefined && { showPrompt: options.showPrompt }),
-        ...(options.showPromptTrunc !== undefined && { showPromptTrunc: options.showPromptTrunc }),
-      };
-      return new AzureOpenAIProvider(azureConfig, builder);
+        baseURL: envConfig.AZURE_OPENAI_ENDPOINT,
+        apiVersion: envConfig.AZURE_OPENAI_API_VERSION ?? '2024-02-15-preview',
+      });
+      // Cast required: @ai-sdk/azure's factory returns a provider-specific type
+      // that is not directly assignable to the generic LanguageModel from 'ai'.
+      // Tested with @ai-sdk/azure@1.x — revisit if the SDK adds a typed adapter.
+      model = azure(envConfig.AZURE_OPENAI_DEPLOYMENT_NAME) as unknown as LanguageModel;
+      temperature = envConfig.AZURE_OPENAI_TEMPERATURE ?? 0.2;
+      break;
     }
 
     case ProviderType.Anthropic: {
-      const anthropicConfig: AnthropicConfig = {
+      const anthropic = createAnthropic({
         apiKey: envConfig.ANTHROPIC_API_KEY,
-        model: envConfig.ANTHROPIC_MODEL,
-        maxTokens: envConfig.ANTHROPIC_MAX_TOKENS,
-        ...(envConfig.ANTHROPIC_TEMPERATURE !== undefined && { temperature: envConfig.ANTHROPIC_TEMPERATURE }),
-        ...(options.debug !== undefined && { debug: options.debug }),
-        ...(options.showPrompt !== undefined && { showPrompt: options.showPrompt }),
-        ...(options.showPromptTrunc !== undefined && { showPromptTrunc: options.showPromptTrunc }),
-      };
-      return new AnthropicProvider(anthropicConfig, builder);
+      });
+      model = anthropic(envConfig.ANTHROPIC_MODEL);
+      temperature = envConfig.ANTHROPIC_TEMPERATURE ?? 0.2;
+      break;
     }
 
     case ProviderType.OpenAI: {
-      const openaiConfig: OpenAIConfig = {
+      const openai = createOpenAI({
         apiKey: envConfig.OPENAI_API_KEY,
-        model: envConfig.OPENAI_MODEL,
-        ...(envConfig.OPENAI_TEMPERATURE !== undefined && { temperature: envConfig.OPENAI_TEMPERATURE }),
-        ...(options.debug !== undefined && { debug: options.debug }),
-        ...(options.showPrompt !== undefined && { showPrompt: options.showPrompt }),
-        ...(options.showPromptTrunc !== undefined && { showPromptTrunc: options.showPromptTrunc }),
-      };
-      return new OpenAIProvider(openaiConfig, builder);
+      });
+      model = openai(envConfig.OPENAI_MODEL);
+      temperature = envConfig.OPENAI_TEMPERATURE ?? 0.2;
+      break;
     }
 
     case ProviderType.Gemini: {
-      const geminiConfig: GeminiConfig = {
+      const google = createGoogleGenerativeAI({
         apiKey: envConfig.GEMINI_API_KEY,
-        model: envConfig.GEMINI_MODEL,
-        ...(envConfig.GEMINI_TEMPERATURE !== undefined && { temperature: envConfig.GEMINI_TEMPERATURE }),
-        ...(options.debug !== undefined && { debug: options.debug }),
-        ...(options.showPrompt !== undefined && { showPrompt: options.showPrompt }),
-        ...(options.showPromptTrunc !== undefined && { showPromptTrunc: options.showPromptTrunc }),
-      };
-      return new GeminiProvider(geminiConfig, builder);
+      });
+      model = google(envConfig.GEMINI_MODEL);
+      temperature = envConfig.GEMINI_TEMPERATURE ?? 0.2;
+      break;
     }
 
     default:
       // TypeScript should prevent this, but add runtime safety
       throw new Error(`Unsupported provider type: ${(envConfig as { LLM_PROVIDER: string }).LLM_PROVIDER}`);
   }
+
+  const config: VercelAIConfig = {
+    model,
+    temperature,
+    ...(envConfig.LLM_PROVIDER === ProviderType.Anthropic && envConfig.ANTHROPIC_MAX_TOKENS !== undefined && { maxTokens: envConfig.ANTHROPIC_MAX_TOKENS }),
+    ...(options.debug !== undefined && { debug: options.debug }),
+    ...(options.showPrompt !== undefined && { showPrompt: options.showPrompt }),
+    ...(options.showPromptTrunc !== undefined && { showPromptTrunc: options.showPromptTrunc }),
+  };
+
+  return new VercelAIProvider(config, builder);
 }
