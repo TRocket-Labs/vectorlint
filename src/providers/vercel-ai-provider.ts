@@ -7,6 +7,7 @@ import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 export interface VercelAIConfig {
   model: LanguageModel;
   temperature?: number;
+  maxTokens?: number;
   debug?: boolean;
   showPrompt?: boolean;
   showPromptTrunc?: boolean;
@@ -20,6 +21,7 @@ export class VercelAIProvider implements LLMProvider {
     this.config = {
       ...config,
       temperature: config.temperature ?? 0.2,
+      ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
     };
     this.builder = builder ?? new DefaultRequestBuilder();
   }
@@ -38,6 +40,7 @@ export class VercelAIProvider implements LLMProvider {
       console.log('[vectorlint] Sending request via Vercel AI SDK:', {
         model: this.config.model,
         temperature: this.config.temperature,
+        ...(this.config.maxTokens !== undefined && { maxTokens: this.config.maxTokens }),
       });
 
       if (this.config.showPrompt) {
@@ -57,12 +60,12 @@ export class VercelAIProvider implements LLMProvider {
     }
 
     try {
-      // Vercel AI SDK v4.3.x: the parameter is `experimental_output` (renamed to `output` in v5+)
       const result = await generateText({
         model: this.config.model,
         system: systemPrompt,
         prompt: `Input:\n\n${content}`,
-        temperature: this.config.temperature,
+        ...(this.config.temperature !== undefined && { temperature: this.config.temperature }),
+        ...(this.config.maxTokens !== undefined && { maxTokens: this.config.maxTokens }),
         experimental_output: Output.object({
           schema: zodSchema,
         }),
@@ -88,7 +91,7 @@ export class VercelAIProvider implements LLMProvider {
 
       // experimental_output is validated by the Zod schema passed to Output.object(),
       // but can be undefined/null if the LLM response doesn't match the schema
-      const output = result.experimental_output;
+      const output: unknown = result.experimental_output;
       if (output === undefined || output === null) {
         throw new Error(
           `LLM returned no structured output. Raw text: ${result.text?.slice(0, 500) ?? '(empty)'}`
@@ -126,47 +129,67 @@ export class VercelAIProvider implements LLMProvider {
    * Handles nested objects, arrays with typed items, enums, and primitives.
    */
   private convertSchemaNode(node: Record<string, unknown>): z.ZodType {
-    const type = node.type as string | undefined;
+    let type = node.type as string | string[] | undefined;
     const enumValues = node.enum as string[] | undefined;
+    const isNullable = node.nullable === true || (Array.isArray(type) && type.includes('null'));
+
+    // Normalize type array if 'null' is present
+    if (Array.isArray(type)) {
+      type = type.filter(t => t !== 'null')[0];
+    }
 
     // Enums take priority over type (JSON Schema allows enum without type)
     if (enumValues) {
-      return z.enum(enumValues as [string, ...string[]]);
+      const enumSchema = z.enum(enumValues as [string, ...string[]]);
+      return isNullable ? enumSchema.nullable() : enumSchema;
     }
 
+    let schema: z.ZodType;
     switch (type) {
       case 'string':
-        return z.string();
+        schema = z.string();
+        break;
       case 'number':
       case 'integer':
-        return z.number();
+        schema = z.number();
+        break;
       case 'boolean':
-        return z.boolean();
+        schema = z.boolean();
+        break;
       case 'array': {
         const items = node.items as Record<string, unknown> | undefined;
         if (items) {
-          return z.array(this.convertSchemaNode(items));
+          schema = z.array(this.convertSchemaNode(items));
+        } else {
+          schema = z.array(z.unknown());
         }
-        return z.array(z.unknown());
+        break;
       }
       case 'object': {
         const properties = node.properties as Record<string, Record<string, unknown>> | undefined;
         const required = (node.required as string[]) || [];
+        const additionalProperties = node.additionalProperties;
 
         if (properties) {
           const zodFields: Record<string, z.ZodTypeAny> = {};
           for (const [key, value] of Object.entries(properties)) {
             const fieldSchema = this.convertSchemaNode(value);
-            // Use .nullable() instead of .optional() — OpenAI strict structured
-            // outputs don't support optional properties, only nullable ones
-            zodFields[key] = required.includes(key) ? fieldSchema : fieldSchema.nullable();
+            zodFields[key] = required.includes(key) ? fieldSchema : fieldSchema.optional();
           }
-          return z.object(zodFields);
+          let objSchema: z.ZodType = z.object(zodFields);
+          if (additionalProperties === false) {
+            objSchema = z.object(zodFields).strict();
+          }
+          schema = objSchema;
+        } else {
+          schema = z.record(z.unknown());
         }
-        return z.record(z.unknown());
+        break;
       }
       default:
-        return z.unknown();
+        schema = z.unknown();
     }
+
+    return isNullable ? schema.nullable() : schema;
   }
 }

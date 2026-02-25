@@ -43,7 +43,7 @@ export function createProvider(
         baseURL: envConfig.AZURE_OPENAI_ENDPOINT,
         apiVersion: envConfig.AZURE_OPENAI_API_VERSION ?? '2024-02-15-preview',
       });
-      model = azure(envConfig.AZURE_OPENAI_DEPLOYMENT_NAME);
+      model = azure(envConfig.AZURE_OPENAI_DEPLOYMENT_NAME) as unknown as LanguageModel;
       temperature = envConfig.AZURE_OPENAI_TEMPERATURE ?? 0.2;
       break;
     }
@@ -83,6 +83,7 @@ export function createProvider(
   const config: VercelAIConfig = {
     model,
     temperature,
+    ...(envConfig.LLM_PROVIDER === ProviderType.Anthropic && envConfig.ANTHROPIC_MAX_TOKENS !== undefined && { maxTokens: envConfig.ANTHROPIC_MAX_TOKENS }),
     ...(options.debug !== undefined && { debug: options.debug }),
     ...(options.showPrompt !== undefined && { showPrompt: options.showPrompt }),
     ...(options.showPromptTrunc !== undefined && { showPromptTrunc: options.showPromptTrunc }),
