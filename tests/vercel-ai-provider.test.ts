@@ -60,13 +60,25 @@ describe('VercelAIProvider', () => {
       expect(provider).toBeInstanceOf(VercelAIProvider);
     });
 
-    it('applies default temperature when not provided', () => {
+    it('applies default temperature when not provided', async () => {
       const config: VercelAIConfig = {
         model: MOCK_MODEL,
       };
 
+      const mockResult = { experimental_output: { result: 'ok' } };
+      MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
+
       const provider = new VercelAIProvider(config);
-      expect(provider).toBeInstanceOf(VercelAIProvider);
+      const schema = {
+        name: 'test_schema',
+        schema: { properties: { result: { type: 'string' } }, type: 'object' },
+      };
+
+      await provider.runPromptStructured('content', 'prompt', schema);
+
+      expect(MOCK_GENERATE_TEXT).toHaveBeenCalledWith(
+        expect.objectContaining({ temperature: 0.2 })
+      );
     });
 
     it('accepts custom request builder', () => {
@@ -428,6 +440,54 @@ describe('VercelAIProvider', () => {
 
       const result = await provider.runPromptStructured('Test content', 'Test prompt', schema);
       expect(result.data).toEqual({ requiredField: 'value' });
+    });
+
+    it('converts union type arrays (e.g. [string, number])', async () => {
+      const config: VercelAIConfig = {
+        model: MOCK_MODEL,
+      };
+
+      const mockResult = { experimental_output: { value: 'hello' } };
+      MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
+
+      const provider = new VercelAIProvider(config);
+      const schema = {
+        name: 'test_schema',
+        schema: {
+          properties: {
+            value: { type: ['string', 'number'] },
+          },
+          required: ['value'] as string[],
+          type: 'object',
+        },
+      };
+
+      const result = await provider.runPromptStructured('Test content', 'Test prompt', schema);
+      expect(result.data).toEqual({ value: 'hello' });
+    });
+
+    it('handles nullable types (e.g. [null, string])', async () => {
+      const config: VercelAIConfig = {
+        model: MOCK_MODEL,
+      };
+
+      const mockResult = { experimental_output: { name: null } };
+      MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
+
+      const provider = new VercelAIProvider(config);
+      const schema = {
+        name: 'test_schema',
+        schema: {
+          properties: {
+            name: { type: ['null', 'string'] },
+          },
+          required: ['name'] as string[],
+          type: 'object',
+        },
+      };
+
+      const result = await provider.runPromptStructured('Test content', 'Test prompt', schema);
+      expect(result.data).toEqual({ name: null });
     });
   });
 });

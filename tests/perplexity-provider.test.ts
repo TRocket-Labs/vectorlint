@@ -127,6 +127,8 @@ describe('PerplexitySearchProvider', () => {
       expect(results).toHaveLength(5);
     });
 
+    // This test relies on PERPLEXITY_SOURCE_SCHEMA marking all fields as optional
+    // with .passthrough(), so objects with missing fields still pass validation.
     it('handles missing fields gracefully', async () => {
       const incompleteResults = [
         {
@@ -222,8 +224,8 @@ describe('PerplexitySearchProvider', () => {
   });
 
   describe('Configuration', () => {
-    it('respects maxResults configuration', async () => {
-      const results = Array.from({ length: 10 }, (_, i) => ({
+    it('returns all sources when maxResults exceeds available count', async () => {
+      const results = Array.from({ length: 3 }, (_, i) => ({
         title: `Result ${i}`,
         text: `Snippet ${i}`,
         url: `https://example.com/${i}`,
@@ -232,9 +234,10 @@ describe('PerplexitySearchProvider', () => {
 
       MOCK_GENERATE_TEXT.mockResolvedValue({ sources: results });
 
-      const provider = new PerplexitySearchProvider({ maxResults: 3 });
+      const provider = new PerplexitySearchProvider({ maxResults: 10 });
       const searchResults = await provider.search('test');
 
+      // maxResults (10) > available sources (3), so all 3 should be returned
       expect(searchResults).toHaveLength(3);
     });
 

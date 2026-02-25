@@ -133,9 +133,19 @@ export class VercelAIProvider implements LLMProvider {
     const enumValues = node.enum as string[] | undefined;
     const isNullable = node.nullable === true || (Array.isArray(type) && type.includes('null'));
 
-    // Normalize type array if 'null' is present
+    // Normalize type array: remove 'null' (tracked via isNullable) and handle multi-type unions
     if (Array.isArray(type)) {
-      type = type.filter(t => t !== 'null')[0];
+      const types = type.filter(t => t !== 'null');
+      if (types.length === 0) {
+        type = undefined;
+      } else if (types.length === 1) {
+        type = types[0];
+      } else {
+        // Multi-type (e.g. ['string','number']): build a union of each type's Zod schema
+        const schemas = types.map(t => this.convertSchemaNode({ ...node, type: t, enum: undefined }));
+        const unionSchema = z.union(schemas as unknown as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]);
+        return isNullable ? unionSchema.nullable() : unionSchema;
+      }
     }
 
     // Enums take priority over type (JSON Schema allows enum without type)
