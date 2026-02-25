@@ -21,6 +21,10 @@ vi.mock('@ai-sdk/google', () => ({
   createGoogleGenerativeAI: vi.fn(() => vi.fn((model: string) => ({ _type: 'google', model }))),
 }));
 
+vi.mock('@ai-sdk/amazon-bedrock', () => ({
+  createAmazonBedrock: vi.fn(() => vi.fn((model: string) => ({ _type: 'bedrock', model }))),
+}));
+
 describe('Provider Factory', () => {
   describe('Provider Instantiation', () => {
     it('creates VercelAIProvider for Azure OpenAI when configured', () => {
@@ -70,6 +74,19 @@ describe('Provider Factory', () => {
       const provider = createProvider(envConfig);
       expect(provider).toBeInstanceOf(VercelAIProvider);
     });
+
+    it('creates VercelAIProvider for Amazon Bedrock when configured', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.AmazonBedrock,
+        AWS_REGION: 'us-west-2',
+        AWS_ACCESS_KEY_ID: 'test-key',
+        AWS_SECRET_ACCESS_KEY: 'test-secret',
+        BEDROCK_MODEL: 'global.anthropic.claude-sonnet-4-5-20250929-v1:0',
+      };
+
+      const provider = createProvider(envConfig);
+      expect(provider).toBeInstanceOf(VercelAIProvider);
+    });
   });
 
   describe('Configuration Mapping', () => {
@@ -104,6 +121,17 @@ describe('Provider Factory', () => {
         OPENAI_API_KEY: 'sk-custom-key',
         OPENAI_MODEL: 'gpt-4o-mini',
         OPENAI_TEMPERATURE: 0.8,
+      };
+
+      expect(() => createProvider(envConfig)).not.toThrow();
+    });
+
+    it('passes Bedrock configuration correctly', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.AmazonBedrock,
+        AWS_REGION: 'eu-central-1',
+        BEDROCK_MODEL: 'meta.llama3-70b-instruct-v1:0',
+        BEDROCK_TEMPERATURE: 0.5,
       };
 
       expect(() => createProvider(envConfig)).not.toThrow();
@@ -187,13 +215,20 @@ describe('Provider Factory', () => {
         GEMINI_MODEL: 'gemini-2.5-flash',
       };
 
+      const bedrockConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.AmazonBedrock,
+        AWS_REGION: 'us-east-1',
+        BEDROCK_MODEL: 'amazon.titan-text-express-v1',
+      };
+
       const azureProvider = createProvider(azureConfig);
       const anthropicProvider = createProvider(anthropicConfig);
       const openaiProvider = createProvider(openaiConfig);
       const geminiProvider = createProvider(geminiConfig);
+      const bedrockProvider = createProvider(bedrockConfig);
 
       // All should implement the LLMProvider interface
-      for (const provider of [azureProvider, anthropicProvider, openaiProvider, geminiProvider]) {
+      for (const provider of [azureProvider, anthropicProvider, openaiProvider, geminiProvider, bedrockProvider]) {
         expect(provider).toHaveProperty('runPromptStructured');
         expect(typeof provider.runPromptStructured).toBe('function');
       }
@@ -263,6 +298,12 @@ describe('Provider Factory', () => {
         GEMINI_MODEL: 'gemini-2.5-flash',
       };
 
+      const bedrockConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.AmazonBedrock,
+        AWS_REGION: 'us-east-1',
+        BEDROCK_MODEL: 'amazon.titan-text-express-v1',
+      };
+
       const allOptions = {
         debug: true,
         showPrompt: true,
@@ -273,6 +314,7 @@ describe('Provider Factory', () => {
       expect(() => createProvider(anthropicConfig, allOptions)).not.toThrow();
       expect(() => createProvider(openaiConfig, allOptions)).not.toThrow();
       expect(() => createProvider(geminiConfig, allOptions)).not.toThrow();
+      expect(() => createProvider(bedrockConfig, allOptions)).not.toThrow();
     });
   });
 
@@ -333,6 +375,19 @@ describe('Provider Factory', () => {
         GEMINI_API_KEY: 'test-key',
         GEMINI_MODEL: 'gemini-pro',
         GEMINI_TEMPERATURE: 0.5,
+      };
+
+      expect(() => createProvider(envConfig)).not.toThrow();
+    });
+
+    it('handles Bedrock specific fields correctly', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.AmazonBedrock,
+        AWS_REGION: 'us-east-1',
+        AWS_ACCESS_KEY_ID: 'test-key',
+        AWS_SECRET_ACCESS_KEY: 'test-secret',
+        BEDROCK_MODEL: 'anthropic.claude-3-opus-20240229-v1:0',
+        BEDROCK_TEMPERATURE: 0.8,
       };
 
       expect(() => createProvider(envConfig)).not.toThrow();

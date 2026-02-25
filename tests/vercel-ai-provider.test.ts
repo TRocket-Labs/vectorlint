@@ -65,7 +65,7 @@ describe('VercelAIProvider', () => {
         model: MOCK_MODEL,
       };
 
-      const mockResult = { experimental_output: { result: 'ok' } };
+      const mockResult = { output: { result: 'ok' } };
       MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
 
       const provider = new VercelAIProvider(config);
@@ -115,10 +115,10 @@ describe('VercelAIProvider', () => {
       };
 
       const mockResult = {
-        experimental_output: mockOutput,
+        output: mockOutput,
         usage: {
-          promptTokens: 100,
-          completionTokens: 50,
+          inputTokens: 100,
+          outputTokens: 50,
           totalTokens: 150,
         },
         finishReason: 'stop',
@@ -163,7 +163,7 @@ describe('VercelAIProvider', () => {
       };
 
       const mockResult = {
-        experimental_output: { result: 'success' },
+        output: { result: 'success' },
       };
 
       MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
@@ -187,7 +187,7 @@ describe('VercelAIProvider', () => {
           system: expect.any(String) as string,
           prompt: 'Input:\n\nTest content',
           temperature: 0.2,
-          experimental_output: expect.objectContaining({
+          output: expect.objectContaining({
             _outputType: 'object',
           }) as Record<string, unknown>,
         })
@@ -200,7 +200,7 @@ describe('VercelAIProvider', () => {
         temperature: 0.7,
       };
 
-      const mockResult = { experimental_output: { result: 'success' } };
+      const mockResult = { output: { result: 'success' } };
       MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
 
       const provider = new VercelAIProvider(config);
@@ -278,10 +278,10 @@ describe('VercelAIProvider', () => {
       };
 
       const mockResult = {
-        experimental_output: { result: 'success' },
+        output: { result: 'success' },
         usage: {
-          promptTokens: 100,
-          completionTokens: 50,
+          inputTokens: 100,
+          outputTokens: 50,
           totalTokens: 150,
         },
         finishReason: 'stop',
@@ -306,8 +306,8 @@ describe('VercelAIProvider', () => {
         '[vectorlint] LLM response meta:',
         expect.objectContaining({
           usage: expect.objectContaining({
-            prompt_tokens: 100,
-            completion_tokens: 50,
+            input_tokens: 100,
+            output_tokens: 50,
             total_tokens: 150,
           }) as Record<string, unknown>,
         })
@@ -320,7 +320,7 @@ describe('VercelAIProvider', () => {
         debug: false,
       };
 
-      const mockResult = { experimental_output: { result: 'success' } };
+      const mockResult = { output: { result: 'success' } };
       MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
 
       const provider = new VercelAIProvider(config);
@@ -341,7 +341,7 @@ describe('VercelAIProvider', () => {
         model: MOCK_MODEL,
       };
 
-      const mockResult = { experimental_output: { result: 'success' } };
+      const mockResult = { output: { result: 'success' } };
       MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
 
       const buildPromptBodyForStructuredFn = vi.fn().mockReturnValue('Built system prompt');
@@ -374,7 +374,7 @@ describe('VercelAIProvider', () => {
         model: MOCK_MODEL,
       };
 
-      const mockResult = { experimental_output: { name: 'test' } };
+      const mockResult = { output: { name: 'test' } };
       MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
 
       const provider = new VercelAIProvider(config);
@@ -398,7 +398,7 @@ describe('VercelAIProvider', () => {
         model: MOCK_MODEL,
       };
 
-      const mockResult = { experimental_output: { score: 42 } };
+      const mockResult = { output: { score: 42 } };
       MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
 
       const provider = new VercelAIProvider(config);
@@ -422,7 +422,7 @@ describe('VercelAIProvider', () => {
         model: MOCK_MODEL,
       };
 
-      const mockResult = { experimental_output: { requiredField: 'value' } };
+      const mockResult = { output: { requiredField: 'value' } };
       MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
 
       const provider = new VercelAIProvider(config);
@@ -447,7 +447,7 @@ describe('VercelAIProvider', () => {
         model: MOCK_MODEL,
       };
 
-      const mockResult = { experimental_output: { value: 'hello' } };
+      const mockResult = { output: { value: 'hello' } };
       MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
 
       const provider = new VercelAIProvider(config);
@@ -471,7 +471,7 @@ describe('VercelAIProvider', () => {
         model: MOCK_MODEL,
       };
 
-      const mockResult = { experimental_output: { name: null } };
+      const mockResult = { output: { name: null } };
       MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
 
       const provider = new VercelAIProvider(config);
