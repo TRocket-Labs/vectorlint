@@ -56,8 +56,8 @@ const GEMINI_CONFIG_SCHEMA = z.object({
 
 // Amazon Bedrock configuration schema
 const BEDROCK_CONFIG_SCHEMA = z.object({
-  AWS_ACCESS_KEY_ID: z.string().optional(),
-  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  AWS_ACCESS_KEY_ID: z.string().min(1).optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   AWS_REGION: z.string().min(1),
   BEDROCK_MODEL: z.string().default(BEDROCK_DEFAULT_CONFIG.model),
   BEDROCK_TEMPERATURE: z.coerce.number().min(0).max(1).optional(),
@@ -76,7 +76,18 @@ export const ENV_SCHEMA = z.discriminatedUnion('LLM_PROVIDER', [
   z.object({ LLM_PROVIDER: z.literal(ProviderType.OpenAI) }).merge(OPENAI_CONFIG_SCHEMA).merge(BASE_ENV_SCHEMA),
   z.object({ LLM_PROVIDER: z.literal(ProviderType.Gemini) }).merge(GEMINI_CONFIG_SCHEMA).merge(BASE_ENV_SCHEMA),
   z.object({ LLM_PROVIDER: z.literal(ProviderType.AmazonBedrock) }).merge(BEDROCK_CONFIG_SCHEMA).merge(BASE_ENV_SCHEMA),
-]);
+]).superRefine((data, ctx) => {
+  if (data.LLM_PROVIDER === ProviderType.AmazonBedrock) {
+    const hasKey = data.AWS_ACCESS_KEY_ID !== undefined;
+    const hasSecret = data.AWS_SECRET_ACCESS_KEY !== undefined;
+    if (hasKey !== hasSecret) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must both be provided or both be omitted',
+      });
+    }
+  }
+});
 
 export const GLOBAL_CONFIG_SCHEMA = z.object({
   env: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
