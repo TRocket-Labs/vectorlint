@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PerplexitySearchProvider } from '../src/providers/perplexity-provider';
 
-// Mock the Vercel AI SDK before importing SUT to avoid TDZ issues
-const MOCK_GENERATE_TEXT = vi.fn();
+
+// Mock the Vercel AI SDK — use vi.hoisted so the mock is available in the vi.mock factory
+const MOCK_GENERATE_TEXT = vi.hoisted(() => vi.fn());
 
 vi.mock('ai', () => ({
   generateText: MOCK_GENERATE_TEXT,
@@ -12,7 +13,22 @@ vi.mock('@ai-sdk/perplexity', () => ({
   createPerplexity: vi.fn(() => vi.fn((model: string) => ({ _type: 'perplexity', model }))),
 }));
 
-const MOCK_RESULTS = [
+// Mock data matching the raw Perplexity API source shape (uses `text`, not `snippet`)
+const MOCK_SOURCES = [
+  {
+    title: 'AI Overview',
+    text: 'AI tools in 2025 are evolving fast.',
+    url: 'https://example.com/ai-overview',
+  },
+  {
+    title: 'Developer Productivity',
+    text: 'AI improves developer efficiency by 40%.',
+    url: 'https://example.com/dev-productivity',
+  },
+];
+
+// Expected mapped output (provider maps `text` → `snippet`, adds `date` default)
+const EXPECTED_RESULTS = [
   {
     title: 'AI Overview',
     snippet: 'AI tools in 2025 are evolving fast.',
@@ -59,14 +75,14 @@ describe('PerplexitySearchProvider', () => {
   describe('search', () => {
     it('executes search query successfully', async () => {
       MOCK_GENERATE_TEXT.mockResolvedValue({
-        sources: MOCK_RESULTS,
+        sources: MOCK_SOURCES,
       });
 
       const provider = new PerplexitySearchProvider({ maxResults: 2 });
       const results = await provider.search('AI tools for developers');
 
       expect(results).toHaveLength(2);
-      expect(results[0]).toEqual(MOCK_RESULTS[0]);
+      expect(results[0]).toEqual(EXPECTED_RESULTS[0]);
     });
 
     it('throws error for empty query', async () => {
@@ -129,10 +145,10 @@ describe('PerplexitySearchProvider', () => {
       const results = await provider.search('test');
 
       expect(results).toHaveLength(3);
-      expect(results[0].title).toBe('Untitled');
-      expect(results[0].snippet).toBe('');
-      expect(results[1].title).toBe('Has Title');
-      expect(results[1].snippet).toBe('');
+      expect(results[0]!.title).toBe('Untitled');
+      expect(results[0]!.snippet).toBe('');
+      expect(results[1]!.title).toBe('Has Title');
+      expect(results[1]!.snippet).toBe('');
     });
   });
 
@@ -140,7 +156,7 @@ describe('PerplexitySearchProvider', () => {
     let consoleSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
-      consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
     });
 
     afterEach(() => {
@@ -149,7 +165,7 @@ describe('PerplexitySearchProvider', () => {
 
     it('logs search query when debug is enabled', async () => {
       MOCK_GENERATE_TEXT.mockResolvedValue({
-        sources: MOCK_RESULTS,
+        sources: MOCK_SOURCES,
       });
 
       const provider = new PerplexitySearchProvider({ debug: true });
@@ -160,7 +176,7 @@ describe('PerplexitySearchProvider', () => {
 
     it('logs results count when debug is enabled', async () => {
       MOCK_GENERATE_TEXT.mockResolvedValue({
-        sources: MOCK_RESULTS,
+        sources: MOCK_SOURCES,
       });
 
       const provider = new PerplexitySearchProvider({ debug: true });
@@ -171,7 +187,7 @@ describe('PerplexitySearchProvider', () => {
 
     it('does not log when debug is disabled', async () => {
       MOCK_GENERATE_TEXT.mockResolvedValue({
-        sources: MOCK_RESULTS,
+        sources: MOCK_SOURCES,
       });
 
       const provider = new PerplexitySearchProvider({ debug: false });

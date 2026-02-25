@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Mock the Vercel AI SDK
-const MOCK_GENERATE_TEXT = vi.fn();
+
+// Mock the Vercel AI SDK — use vi.hoisted so the mock is available in the vi.mock factory
+const MOCK_GENERATE_TEXT = vi.hoisted(() => vi.fn());
 
 // Hoist error class for NoObjectGeneratedError
 const ERROR_CLASSES = vi.hoisted(() => {
@@ -171,12 +172,12 @@ describe('VercelAIProvider', () => {
 
       expect(MOCK_GENERATE_TEXT).toHaveBeenCalledWith(
         expect.objectContaining({
-          system: expect.any(String),
+          system: expect.any(String) as string,
           prompt: 'Input:\n\nTest content',
           temperature: 0.2,
           experimental_output: expect.objectContaining({
             _outputType: 'object',
-          }),
+          }) as Record<string, unknown>,
         })
       );
     });
@@ -296,7 +297,7 @@ describe('VercelAIProvider', () => {
             prompt_tokens: 100,
             completion_tokens: 50,
             total_tokens: 150,
-          }),
+          }) as Record<string, unknown>,
         })
       );
     });
@@ -335,6 +336,7 @@ describe('VercelAIProvider', () => {
         buildPromptBodyForStructured: vi.fn().mockReturnValue('Built system prompt'),
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const provider = new VercelAIProvider(config, mockBuilder as any);
       const schema = {
         name: 'test_schema',

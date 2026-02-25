@@ -2,9 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { parseEnvironment } from '../src/boundaries/env-parser';
 import { ValidationError } from '../src/errors/index';
 import { ProviderType } from '../src/providers/provider-factory';
-import { AZURE_OPENAI_DEFAULT_CONFIG } from '../src/providers/azure-openai-provider';
-import { ANTHROPIC_DEFAULT_CONFIG } from '../src/providers/anthropic-provider';
-import { OPENAI_DEFAULT_CONFIG } from '../src/providers/openai-provider';
+import { AZURE_OPENAI_DEFAULT_CONFIG, ANTHROPIC_DEFAULT_CONFIG, OPENAI_DEFAULT_CONFIG } from '../src/schemas/env-schemas';
 
 describe('Environment Parser', () => {
   describe('Azure OpenAI Configuration', () => {
