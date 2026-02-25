@@ -2,20 +2,20 @@ import { z } from 'zod';
 import { ProviderType } from '../providers/provider-factory';
 
 // Default configurations (previously from provider files)
-const AZURE_OPENAI_DEFAULT_CONFIG = {
+export const AZURE_OPENAI_DEFAULT_CONFIG = {
   apiVersion: '2024-02-15-preview',
 };
 
-const ANTHROPIC_DEFAULT_CONFIG = {
+export const ANTHROPIC_DEFAULT_CONFIG = {
   model: 'claude-3-sonnet-20240229',
   maxTokens: 4096,
 };
 
-const OPENAI_DEFAULT_CONFIG = {
+export const OPENAI_DEFAULT_CONFIG = {
   model: 'gpt-4o',
 };
 
-const GEMINI_DEFAULT_CONFIG = {
+export const GEMINI_DEFAULT_CONFIG = {
   model: 'gemini-2.5-flash',
 };
 
@@ -65,7 +65,7 @@ export const ENV_SCHEMA = z.discriminatedUnion('LLM_PROVIDER', [
 ]);
 
 export const GLOBAL_CONFIG_SCHEMA = z.object({
-    env: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+  env: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
 // Inferred types
