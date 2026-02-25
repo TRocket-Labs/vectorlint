@@ -2,6 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createAzure } from '@ai-sdk/azure';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import type { LanguageModel } from 'ai';
 import { LLMProvider } from './llm-provider';
 import { VercelAIProvider, type VercelAIConfig } from './vercel-ai-provider';
@@ -19,6 +20,7 @@ export enum ProviderType {
   Anthropic = 'anthropic',
   OpenAI = 'openai',
   Gemini = 'gemini',
+  AmazonBedrock = 'amazon-bedrock',
 }
 
 /**
@@ -75,6 +77,17 @@ export function createProvider(
       });
       model = google(envConfig.GEMINI_MODEL);
       temperature = envConfig.GEMINI_TEMPERATURE ?? 0.2;
+      break;
+    }
+
+    case ProviderType.AmazonBedrock: {
+      const bedrock = createAmazonBedrock({
+        region: envConfig.AWS_REGION,
+        ...(envConfig.AWS_ACCESS_KEY_ID && { accessKeyId: envConfig.AWS_ACCESS_KEY_ID }),
+        ...(envConfig.AWS_SECRET_ACCESS_KEY && { secretAccessKey: envConfig.AWS_SECRET_ACCESS_KEY }),
+      });
+      model = bedrock(envConfig.BEDROCK_MODEL) as unknown as LanguageModel;
+      temperature = envConfig.BEDROCK_TEMPERATURE ?? 0.2;
       break;
     }
 
