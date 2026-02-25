@@ -37,7 +37,12 @@ function resolvePresetsDir(dir: string): string {
     return buildPath;
   }
   // Dev mode fallback: src/cli/ → ../../presets
-  return path.resolve(dir, '../../presets');
+  const devPath = path.resolve(dir, '../../presets');
+  if (existsSync(path.join(devPath, 'meta.json'))) {
+    return devPath;
+  }
+
+  throw new Error(`Could not locate presets directory containing meta.json. Looked in ${buildPath} and ${devPath}`);
 }
 
 /*
