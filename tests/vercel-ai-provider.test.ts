@@ -38,7 +38,7 @@ vi.mock('ai', () => {
 
 // Import SUT after mocks are set up
 import { VercelAIProvider, type VercelAIConfig } from '../src/providers/vercel-ai-provider';
-import { DefaultRequestBuilder } from '../src/providers/request-builder';
+import { DefaultRequestBuilder, type RequestBuilder } from '../src/providers/request-builder';
 import type { LanguageModel } from 'ai';
 
 // Mock model stub — only stored in config and passed through to the mocked
@@ -332,12 +332,12 @@ describe('VercelAIProvider', () => {
       const mockResult = { experimental_output: { result: 'success' } };
       MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
 
-      const mockBuilder = {
-        buildPromptBodyForStructured: vi.fn().mockReturnValue('Built system prompt'),
+      const buildPromptBodyForStructuredFn = vi.fn().mockReturnValue('Built system prompt');
+      const mockBuilder: RequestBuilder = {
+        buildPromptBodyForStructured: buildPromptBodyForStructuredFn,
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      const provider = new VercelAIProvider(config, mockBuilder as any);
+      const provider = new VercelAIProvider(config, mockBuilder);
       const schema = {
         name: 'test_schema',
         schema: { properties: { result: { type: 'string' } }, type: 'object' },
@@ -345,7 +345,7 @@ describe('VercelAIProvider', () => {
 
       await provider.runPromptStructured('Test content', 'Test prompt', schema);
 
-      expect(mockBuilder.buildPromptBodyForStructured).toHaveBeenCalledWith('Test prompt');
+      expect(buildPromptBodyForStructuredFn).toHaveBeenCalledWith('Test prompt');
 
       expect(MOCK_GENERATE_TEXT).toHaveBeenCalledWith(
         expect.objectContaining({

@@ -140,7 +140,17 @@ export class VercelAIProvider implements LLMProvider {
 
     // Enums take priority over type (JSON Schema allows enum without type)
     if (enumValues) {
-      const enumSchema = z.enum(enumValues as [string, ...string[]]);
+      let enumSchema: z.ZodType;
+      const allStrings = enumValues.every((v): v is string => typeof v === 'string');
+      if (allStrings && enumValues.length > 0) {
+        enumSchema = z.enum(enumValues as [string, ...string[]]);
+      } else {
+        // Mixed or non-string enums: build a union of literals
+        const literals = (enumValues as unknown[]).map(v => z.literal(v as z.Primitive));
+        enumSchema = literals.length === 1
+          ? literals[0]!
+          : z.union(literals as unknown as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]);
+      }
       return isNullable ? enumSchema.nullable() : enumSchema;
     }
 

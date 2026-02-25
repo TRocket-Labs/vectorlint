@@ -44,10 +44,16 @@ const EXPECTED_RESULTS = [
 ];
 
 describe('PerplexitySearchProvider', () => {
+  const ORIGINAL_ENV = { ...process.env };
+
   beforeEach(() => {
     vi.clearAllMocks();
     // Mock process.env.PERPLEXITY_API_KEY for tests
     process.env.PERPLEXITY_API_KEY = 'test-api-key';
+  });
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
   });
 
   describe('Constructor', () => {
@@ -106,9 +112,9 @@ describe('PerplexitySearchProvider', () => {
     it('limits results to maxResults', async () => {
       const manyResults = Array.from({ length: 10 }, (_, i) => ({
         title: `Result ${i}`,
-        snippet: `Snippet ${i}`,
+        text: `Snippet ${i}`,
         url: `https://example.com/${i}`,
-        date: '',
+        publishedDate: '',
       }));
 
       MOCK_GENERATE_TEXT.mockResolvedValue({
@@ -131,9 +137,9 @@ describe('PerplexitySearchProvider', () => {
           // Missing other fields
         },
         {
-          snippet: 'Has snippet',
+          text: 'Has snippet',
           url: 'https://example.com',
-          date: '2025-01-01',
+          publishedDate: '2025-01-01',
         },
       ];
 
@@ -219,9 +225,9 @@ describe('PerplexitySearchProvider', () => {
     it('respects maxResults configuration', async () => {
       const results = Array.from({ length: 10 }, (_, i) => ({
         title: `Result ${i}`,
-        snippet: `Snippet ${i}`,
+        text: `Snippet ${i}`,
         url: `https://example.com/${i}`,
-        date: '',
+        publishedDate: '',
       }));
 
       MOCK_GENERATE_TEXT.mockResolvedValue({ sources: results });
@@ -235,9 +241,9 @@ describe('PerplexitySearchProvider', () => {
     it('uses default maxResults when not specified', async () => {
       const results = Array.from({ length: 10 }, (_, i) => ({
         title: `Result ${i}`,
-        snippet: `Snippet ${i}`,
+        text: `Snippet ${i}`,
         url: `https://example.com/${i}`,
-        date: '',
+        publishedDate: '',
       }));
 
       MOCK_GENERATE_TEXT.mockResolvedValue({ sources: results });

@@ -43,6 +43,9 @@ export function createProvider(
         baseURL: envConfig.AZURE_OPENAI_ENDPOINT,
         apiVersion: envConfig.AZURE_OPENAI_API_VERSION ?? '2024-02-15-preview',
       });
+      // Cast required: @ai-sdk/azure's factory returns a provider-specific type
+      // that is not directly assignable to the generic LanguageModel from 'ai'.
+      // Tested with @ai-sdk/azure@1.x — revisit if the SDK adds a typed adapter.
       model = azure(envConfig.AZURE_OPENAI_DEPLOYMENT_NAME) as unknown as LanguageModel;
       temperature = envConfig.AZURE_OPENAI_TEMPERATURE ?? 0.2;
       break;
@@ -52,7 +55,7 @@ export function createProvider(
       const anthropic = createAnthropic({
         apiKey: envConfig.ANTHROPIC_API_KEY,
       });
-      model = anthropic(envConfig.ANTHROPIC_MODEL ?? 'claude-3-sonnet-20240229');
+      model = anthropic(envConfig.ANTHROPIC_MODEL);
       temperature = envConfig.ANTHROPIC_TEMPERATURE ?? 0.2;
       break;
     }
@@ -61,7 +64,7 @@ export function createProvider(
       const openai = createOpenAI({
         apiKey: envConfig.OPENAI_API_KEY,
       });
-      model = openai(envConfig.OPENAI_MODEL ?? 'gpt-4o');
+      model = openai(envConfig.OPENAI_MODEL);
       temperature = envConfig.OPENAI_TEMPERATURE ?? 0.2;
       break;
     }
@@ -70,7 +73,7 @@ export function createProvider(
       const google = createGoogleGenerativeAI({
         apiKey: envConfig.GEMINI_API_KEY,
       });
-      model = google(envConfig.GEMINI_MODEL ?? 'gemini-2.5-flash');
+      model = google(envConfig.GEMINI_MODEL);
       temperature = envConfig.GEMINI_TEMPERATURE ?? 0.2;
       break;
     }
