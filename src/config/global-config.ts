@@ -47,6 +47,15 @@ const DEFAULT_GLOBAL_CONFIG_TEMPLATE = `# VectorLint Environment Configuration
 # GEMINI_MODEL = "gemini-2.5-pro"
 # GEMINI_TEMPERATURE = "0.2"
 
+# --- Option 5: Amazon Bedrock ---
+# LLM_PROVIDER = "amazon-bedrock"
+# # Credentials optional if running in AWS environment with a native credential provider
+# # AWS_ACCESS_KEY_ID = "your-aws-access-key-id"
+# # AWS_SECRET_ACCESS_KEY = "your-aws-secret-access-key"
+# AWS_REGION = "us-east-1"
+# BEDROCK_MODEL = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+# BEDROCK_TEMPERATURE = "0.2"
+
 # ============================================
 # Search Provider Configuration (Optional)
 # Enables technical accuracy verification

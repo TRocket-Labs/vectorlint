@@ -66,7 +66,7 @@ export class VercelAIProvider implements LLMProvider {
         prompt: `Input:\n\n${content}`,
         ...(this.config.temperature !== undefined && { temperature: this.config.temperature }),
         ...(this.config.maxTokens !== undefined && { maxTokens: this.config.maxTokens }),
-        experimental_output: Output.object({
+        output: Output.object({
           schema: zodSchema,
         }),
       });
@@ -74,24 +74,20 @@ export class VercelAIProvider implements LLMProvider {
       if (this.config.debug && result.usage) {
         console.log('[vectorlint] LLM response meta:', {
           usage: {
-            prompt_tokens: result.usage.promptTokens,
-            completion_tokens: result.usage.completionTokens,
+            input_tokens: result.usage.inputTokens,
+            output_tokens: result.usage.outputTokens,
             total_tokens: result.usage.totalTokens,
           },
           finish_reason: result.finishReason,
         });
       }
 
-      // Map Vercel AI SDK usage (promptTokens/completionTokens)
-      // to VectorLint TokenUsage (inputTokens/outputTokens)
       const usage = result.usage ? {
-        inputTokens: result.usage.promptTokens,
-        outputTokens: result.usage.completionTokens,
+        inputTokens: result.usage.inputTokens ?? 0,
+        outputTokens: result.usage.outputTokens ?? 0,
       } : undefined;
 
-      // experimental_output is validated by the Zod schema passed to Output.object(),
-      // but can be undefined/null if the LLM response doesn't match the schema
-      const output: unknown = result.experimental_output;
+      const output: unknown = result.output;
       if (output === undefined || output === null) {
         throw new Error(
           `LLM returned no structured output. Raw text: ${result.text?.slice(0, 500) ?? '(empty)'}`
@@ -104,7 +100,6 @@ export class VercelAIProvider implements LLMProvider {
       }
       return llmResult;
     } catch (e: unknown) {
-      // Handle Vercel AI SDK's NoObjectGeneratedError with proper type narrowing
       if (NoObjectGeneratedError.isInstance(e)) {
         const rawText = e instanceof Error && 'text' in e ? String(e.text) : 'unknown';
         throw new Error(
