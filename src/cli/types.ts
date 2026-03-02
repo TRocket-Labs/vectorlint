@@ -25,6 +25,7 @@ export interface EvaluationOptions {
     searchProvider?: SearchProvider;
     concurrency: number;
     verbose: boolean;
+    debugJson?: boolean;
     scanPaths: FilePatternConfig[];
     outputFormat?: OutputFormat;
     pricing?: PricingConfig;
@@ -55,6 +56,7 @@ export interface EvaluationContext {
     outputFormat: OutputFormat;
     jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
     verbose?: boolean;
+    debugJson?: boolean;
 }
 
 export interface ReportIssueParams {
