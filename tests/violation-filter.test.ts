@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { computeFilterDecision } from "../src/evaluators/violation-filter";
 
-const ORIGINAL_THRESHOLD = process.env.VECTORLINT_CONFIDENCE_THRESHOLD;
+const ORIGINAL_THRESHOLD = process.env.CONFIDENCE_THRESHOLD;
 
 afterEach(() => {
   if (ORIGINAL_THRESHOLD === undefined) {
-    delete process.env.VECTORLINT_CONFIDENCE_THRESHOLD;
+    delete process.env.CONFIDENCE_THRESHOLD;
   } else {
-    process.env.VECTORLINT_CONFIDENCE_THRESHOLD = ORIGINAL_THRESHOLD;
+    process.env.CONFIDENCE_THRESHOLD = ORIGINAL_THRESHOLD;
   }
 });
 
@@ -27,7 +27,7 @@ const BASE_VIOLATION = {
 
 describe("computeFilterDecision confidence threshold", () => {
   it("falls back to 0.75 when threshold env var is invalid", () => {
-    process.env.VECTORLINT_CONFIDENCE_THRESHOLD = "not-a-number";
+    process.env.CONFIDENCE_THRESHOLD = "not-a-number";
 
     const decision = computeFilterDecision(BASE_VIOLATION);
     expect(decision.surface).toBe(false);
@@ -35,7 +35,7 @@ describe("computeFilterDecision confidence threshold", () => {
   });
 
   it("accepts 0.0 threshold without falling back", () => {
-    process.env.VECTORLINT_CONFIDENCE_THRESHOLD = "0.0";
+    process.env.CONFIDENCE_THRESHOLD = "0.0";
 
     const decision = computeFilterDecision(BASE_VIOLATION);
     expect(decision.surface).toBe(true);

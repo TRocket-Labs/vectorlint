@@ -6,7 +6,7 @@ export type FilterDecision = {
 };
 
 const DEFAULT_CONFIDENCE_THRESHOLD = 0.75;
-const CONFIDENCE_THRESHOLD_ENV = "VECTORLINT_CONFIDENCE_THRESHOLD";
+const CONFIDENCE_THRESHOLD_ENV = "CONFIDENCE_THRESHOLD";
 
 type GateViolationLike = {
   rule_quote?: string;

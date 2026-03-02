@@ -58,11 +58,11 @@ const FULLY_SUPPORTED_CHECKS = {
 } as const;
 
 describe("CLI violation filtering", () => {
-  const originalThreshold = process.env.VECTORLINT_CONFIDENCE_THRESHOLD;
+  const originalThreshold = process.env.CONFIDENCE_THRESHOLD;
 
   beforeEach(() => {
     EVALUATE_MOCK.mockReset();
-    delete process.env.VECTORLINT_CONFIDENCE_THRESHOLD;
+    delete process.env.CONFIDENCE_THRESHOLD;
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -70,9 +70,9 @@ describe("CLI violation filtering", () => {
 
   afterEach(() => {
     if (originalThreshold === undefined) {
-      delete process.env.VECTORLINT_CONFIDENCE_THRESHOLD;
+      delete process.env.CONFIDENCE_THRESHOLD;
     } else {
-      process.env.VECTORLINT_CONFIDENCE_THRESHOLD = originalThreshold;
+      process.env.CONFIDENCE_THRESHOLD = originalThreshold;
     }
     vi.restoreAllMocks();
   });
@@ -128,7 +128,7 @@ describe("CLI violation filtering", () => {
     );
     expect(defaultRun.totalWarnings).toBe(1);
 
-    process.env.VECTORLINT_CONFIDENCE_THRESHOLD = "0.0";
+    process.env.CONFIDENCE_THRESHOLD = "0.0";
     EVALUATE_MOCK.mockResolvedValue({
       type: EvaluationType.CHECK,
       final_score: 8,
@@ -212,7 +212,7 @@ describe("CLI violation filtering", () => {
     expect(defaultRun.totalErrors).toBe(0);
     expect(defaultRun.hadSeverityErrors).toBe(false);
 
-    process.env.VECTORLINT_CONFIDENCE_THRESHOLD = "0.0";
+    process.env.CONFIDENCE_THRESHOLD = "0.0";
     EVALUATE_MOCK.mockResolvedValue({
       type: EvaluationType.CHECK,
       final_score: 2,
@@ -321,7 +321,7 @@ describe("CLI violation filtering", () => {
     );
     expect(defaultRun.totalWarnings).toBe(1);
 
-    process.env.VECTORLINT_CONFIDENCE_THRESHOLD = "0.0";
+    process.env.CONFIDENCE_THRESHOLD = "0.0";
     EVALUATE_MOCK.mockResolvedValue({
       type: EvaluationType.JUDGE,
       final_score: 5,

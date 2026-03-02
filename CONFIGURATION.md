@@ -99,6 +99,20 @@ SEARCH_PROVIDER=perplexity
 PERPLEXITY_API_KEY=pplx-...
 ```
 
+### False-Positive Filtering (PAT)
+
+VectorLint uses PAT (Pay A Tax) style gate checks to reduce false positives. The model may return many raw candidates, but only candidates that pass deterministic gate checks are surfaced in CLI output.
+
+You can tune the confidence gate with an environment variable:
+
+```bash
+CONFIDENCE_THRESHOLD=0.75
+```
+
+- Default: `0.75`
+- Applies to surfaced violations in check and judge evaluations
+- Invalid values gracefully fall back to the default
+
 ---
 
 ## File Pattern Sections

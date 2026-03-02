@@ -48,6 +48,25 @@ VectorLint scores your content using error density and a rubric-based system, en
 - **Density-Based Scoring:** For errors that can be counted, scores are calculated based on **error density (errors per 100 words)**, making quality assessment fair across documents of any length.
 - **Rubric-Based Scoring:** For more nuanced quality standards, like flow and completeness, scores are graded on a 1-4 rubric system and then normalized to a **1-10 scale**.
 
+## How VectorLint Reduces False Positives
+
+VectorLint uses a PAT (Pay A Tax) evaluation approach:
+
+1. **Candidate generation:** the model returns all potential violations with required gate-check fields (rule support, exact evidence, context support, plausible non-violation, and fix quality).
+2. **Deterministic surfacing:** VectorLint applies a strict filter and only surfaces violations that pass all required gates.
+
+This means CLI output is intentionally stricter than raw model candidates, reducing noisy findings and improving precision.
+
+The confidence gate is user-configurable via:
+
+```bash
+CONFIDENCE_THRESHOLD=0.75
+```
+
+- Default: `0.75`
+- Lower values surface more findings (higher recall, more noise)
+- Higher values surface fewer findings (higher precision, fewer false positives)
+
 ## Quick Start
 
 ### 1. Zero-Config Mode (Fastest)
