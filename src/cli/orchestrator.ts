@@ -29,7 +29,7 @@ import { locateQuotedText } from "../output/location";
 import {
   computeFilterDecision,
   type FilterDecision,
-} from "../debug/violation-filter";
+} from "../evaluators/violation-filter";
 import { writeDebugRunArtifact } from "../debug/run-artifact";
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
