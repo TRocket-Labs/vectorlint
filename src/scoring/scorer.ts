@@ -54,12 +54,18 @@ export function calculateCheckScore(
 
   // Map items to violation format
   const mappedViolations = violations.map((item) => ({
+    line: item.line,
     analysis: item.analysis,
+    ...(item.description && { description: item.description }),
     ...(item.suggestion && { suggestion: item.suggestion }),
     ...(item.fix && { fix: item.fix }),
     ...(item.quoted_text && { quoted_text: item.quoted_text }),
     ...(item.context_before && { context_before: item.context_before }),
     ...(item.context_after && { context_after: item.context_after }),
+    ...(item.rule_quote && { rule_quote: item.rule_quote }),
+    ...(item.checks && { checks: item.checks }),
+    ...(item.check_notes && { check_notes: item.check_notes }),
+    ...(item.confidence !== undefined && { confidence: item.confidence }),
     criterionName: item.description,
   }));
 
@@ -167,6 +173,8 @@ export function averageJudgeScores(
 
   const totalWords = chunkWordCounts.reduce((a, b) => a + b, 0);
 
+  type JudgeViolation = JudgeResult["criteria"][number]["violations"][number];
+
   // Aggregate criteria scores weighted by chunk size
   const criteriaMap = new Map<
     string,
@@ -174,14 +182,7 @@ export function averageJudgeScores(
       totalScore: number;
       totalWeight: number;
       weight: number;
-      violations: Array<{
-        quoted_text: string;
-        context_before: string;
-        context_after: string;
-        analysis: string;
-        suggestion: string;
-        fix: string;
-      }>;
+      violations: JudgeViolation[];
       summaries: string[];
       reasonings: string[];
     }
@@ -210,16 +211,9 @@ export function averageJudgeScores(
       entry.totalScore += criterion.score * chunkWeight;
       entry.totalWeight += chunkWeight;
 
-      // Collect violations with required fields
+      // Collect raw violations (keeps all gate fields)
       for (const v of criterion.violations || []) {
-        entry.violations.push({
-          quoted_text: v.quoted_text || "",
-          context_before: v.context_before || "",
-          context_after: v.context_after || "",
-          analysis: v.analysis || "",
-          suggestion: v.suggestion || "",
-          fix: v.fix || "",
-        });
+        entry.violations.push(v);
       }
 
       if (criterion.summary) {

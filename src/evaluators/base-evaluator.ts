@@ -139,6 +139,7 @@ export class BaseEvaluator implements Evaluator {
 
       return {
         ...result,
+        raw_model_output: llmResult,
         ...(usage && { usage }),
       };
     }
@@ -146,6 +147,7 @@ export class BaseEvaluator implements Evaluator {
     // Multiple chunks - evaluate each and average
     const chunkResults: JudgeResult[] = [];
     const chunkWordCounts: number[] = [];
+    const rawChunkOutputs: JudgeLLMResult[] = [];
 
     for (const chunk of chunks) {
       const { data: llmResult, usage } =
@@ -156,6 +158,7 @@ export class BaseEvaluator implements Evaluator {
         );
 
       usages.push(usage);
+      rawChunkOutputs.push(llmResult);
 
       const result = calculateJudgeScore(llmResult.criteria, {
         promptCriteria: this.prompt.meta.criteria,
@@ -171,6 +174,7 @@ export class BaseEvaluator implements Evaluator {
 
     return {
       ...result,
+      raw_model_output: rawChunkOutputs,
       ...(aggregatedUsage && { usage: aggregatedUsage }),
     };
   }
@@ -195,6 +199,8 @@ export class BaseEvaluator implements Evaluator {
 
     // Collect all violations from all chunks
     const allChunkViolations: CheckLLMResult["violations"][] = [];
+    const rawChunkOutputs: CheckLLMResult[] = [];
+    const chunkReasonings: string[] = [];
     const usages: (TokenUsage | undefined)[] = [];
 
     for (const chunk of chunks) {
@@ -205,6 +211,8 @@ export class BaseEvaluator implements Evaluator {
           schema
         );
       allChunkViolations.push(llmResult.violations);
+      rawChunkOutputs.push(llmResult);
+      if (llmResult.reasoning) chunkReasonings.push(llmResult.reasoning);
       usages.push(usage);
     }
 
@@ -223,9 +231,12 @@ export class BaseEvaluator implements Evaluator {
     );
 
     const aggregatedUsage = this.aggregateUsage(usages);
+    const reasoning = chunkReasonings.join(" ").trim() || undefined;
 
     return {
       ...result,
+      ...(reasoning && { reasoning }),
+      raw_model_output: rawChunkOutputs.length === 1 ? rawChunkOutputs[0] : rawChunkOutputs,
       ...(aggregatedUsage && { usage: aggregatedUsage }),
     };
   }
