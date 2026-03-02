@@ -49,7 +49,7 @@ function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string
   }
 
   const tag = [provider, name].filter(Boolean).join("-");
-  return { ...(provider ? { provider } : {}), ...(name ? { name } : {}), ...(tag ? { tag } : {}) };
+  return { ...(provider && { provider }), ...(name && { name }), ...(tag && { tag }) };
 }
 
 

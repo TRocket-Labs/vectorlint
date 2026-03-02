@@ -25,7 +25,7 @@ function sanitizePathSegment(input: string): string {
   const cleaned = input
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
   return cleaned.slice(0, 80) || "unknown";
@@ -57,7 +57,8 @@ export function writeDebugRunArtifact(
     surfaced_violations: artifact.surfaced_violations,
   };
 
-  const filePath = path.join(dir, `${runId}.json`);
+  const safeRunId = sanitizePathSegment(runId);
+  const filePath = path.join(dir, `${safeRunId}.json`);
   writeFileSync(filePath, JSON.stringify(full, null, 2), "utf-8");
   return filePath;
 }

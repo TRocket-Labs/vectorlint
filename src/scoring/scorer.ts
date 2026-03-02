@@ -52,22 +52,7 @@ export function calculateCheckScore(
 ): CheckResult {
   const strictness = resolveStrictness(options.strictness);
 
-  // Map items to violation format
-  const mappedViolations = violations.map((item) => ({
-    line: item.line,
-    analysis: item.analysis,
-    ...(item.description && { description: item.description }),
-    ...(item.suggestion && { suggestion: item.suggestion }),
-    ...(item.fix && { fix: item.fix }),
-    ...(item.quoted_text && { quoted_text: item.quoted_text }),
-    ...(item.context_before && { context_before: item.context_before }),
-    ...(item.context_after && { context_after: item.context_after }),
-    ...(item.rule_quote && { rule_quote: item.rule_quote }),
-    ...(item.checks && { checks: item.checks }),
-    ...(item.check_notes && { check_notes: item.check_notes }),
-    ...(item.confidence !== undefined && { confidence: item.confidence }),
-    criterionName: item.description,
-  }));
+  const mappedViolations = violations.map((item) => ({ ...item, criterionName: item.description }));
 
   // Density Calculation: Violations per 100 words
   const density = (mappedViolations.length / wordCount) * 100;
