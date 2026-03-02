@@ -673,25 +673,30 @@ function routePromptResult(
       const surfaced = result.violations.filter((_v, i) => decisions[i]?.surface === true);
       const model = getModelInfoFromEnv();
 
-      const filePath = writeDebugRunArtifact(process.cwd(), runId, {
-        file: relFile,
-        ...(Object.keys(model).length > 0 ? { model } : {}),
-        subdir: model.tag,
-        prompt: {
-          pack: promptFile.pack,
-          id: promptId,
-          filename: promptFile.filename,
-          evaluation_type: "check",
-        },
-        raw_model_output: (result as { raw_model_output?: unknown }).raw_model_output ?? null,
-        filter_decisions: decisions.map((d, i) => ({
-          index: i,
-          surface: d.surface,
-          reasons: d.reasons,
-        })),
-        surfaced_violations: surfaced,
-      });
-      console.warn(`[vectorlint] Debug JSON written: ${filePath}`);
+      try {
+        const filePath = writeDebugRunArtifact(process.cwd(), runId, {
+          file: relFile,
+          ...(Object.keys(model).length > 0 ? { model } : {}),
+          subdir: model.tag,
+          prompt: {
+            pack: promptFile.pack,
+            id: promptId,
+            filename: promptFile.filename,
+            evaluation_type: "check",
+          },
+          raw_model_output: (result as { raw_model_output?: unknown }).raw_model_output ?? null,
+          filter_decisions: decisions.map((d, i) => ({
+            index: i,
+            surface: d.surface,
+            reasons: d.reasons,
+          })),
+          surfaced_violations: surfaced,
+        });
+        console.warn(`[vectorlint] Debug JSON written: ${filePath}`);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`[vectorlint] Debug JSON write failed: ${message}`);
+      }
     }
 
     return {
@@ -766,29 +771,34 @@ function routePromptResult(
     );
     const model = getModelInfoFromEnv();
 
-    const filePath = writeDebugRunArtifact(process.cwd(), runId, {
-      file: relFile,
-      ...(Object.keys(model).length > 0 ? { model } : {}),
-      subdir: model.tag,
-      prompt: {
-        pack: promptFile.pack,
-        id: promptId,
-        filename: promptFile.filename,
-        evaluation_type: "judge",
-      },
-      raw_model_output: (result as { raw_model_output?: unknown }).raw_model_output ?? null,
-      filter_decisions: flat.map((x) => ({
-        criterion: x.criterion,
-        index: x.index,
-        surface: x.decision.surface,
-        reasons: x.decision.reasons,
-      })),
-      surfaced_violations: flat.filter((x) => x.decision.surface).map((x) => ({
-        criterion: x.criterion,
-        violation: x.violation,
-      })),
-    });
-    console.warn(`[vectorlint] Debug JSON written: ${filePath}`);
+    try {
+      const filePath = writeDebugRunArtifact(process.cwd(), runId, {
+        file: relFile,
+        ...(Object.keys(model).length > 0 ? { model } : {}),
+        subdir: model.tag,
+        prompt: {
+          pack: promptFile.pack,
+          id: promptId,
+          filename: promptFile.filename,
+          evaluation_type: "judge",
+        },
+        raw_model_output: (result as { raw_model_output?: unknown }).raw_model_output ?? null,
+        filter_decisions: flat.map((x) => ({
+          criterion: x.criterion,
+          index: x.index,
+          surface: x.decision.surface,
+          reasons: x.decision.reasons,
+        })),
+        surfaced_violations: flat.filter((x) => x.decision.surface).map((x) => ({
+          criterion: x.criterion,
+          violation: x.violation,
+        })),
+      });
+      console.warn(`[vectorlint] Debug JSON written: ${filePath}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[vectorlint] Debug JSON write failed: ${message}`);
+    }
   }
 
   return {
