@@ -20,7 +20,9 @@ function resolveConfidenceThreshold(): number {
   const parsedThreshold =
     thresholdRaw !== undefined ? Number.parseFloat(thresholdRaw) : Number.NaN;
 
-  return Number.isFinite(parsedThreshold)
+  return Number.isFinite(parsedThreshold) &&
+    parsedThreshold >= 0 &&
+    parsedThreshold <= 1
     ? parsedThreshold
     : DEFAULT_CONFIDENCE_THRESHOLD;
 }
@@ -28,34 +30,46 @@ function resolveConfidenceThreshold(): number {
 export function computeFilterDecision(v: GateViolationLike): FilterDecision {
   const reasons: string[] = [];
   const confidenceThreshold = resolveConfidenceThreshold();
+  const checks = v.checks;
 
-  const ruleQuoteEmpty = !v.rule_quote || v.rule_quote.trim() === "";
-  if (ruleQuoteEmpty) reasons.push("rule_quote_empty");
+  const hasRuleQuote = !!v.rule_quote && v.rule_quote.trim() !== "";
+  if (!hasRuleQuote) reasons.push("rule_quote_empty");
 
-  if (v.checks?.evidence_exact === false) reasons.push("evidence_exact=false");
-  if (v.checks?.rule_supports_claim === false) reasons.push("rule_supports_claim=false");
-  if (v.checks?.context_supports_violation === false) reasons.push("context_supports_violation=false");
-  if (v.checks?.plausible_non_violation === true) reasons.push("plausible_non_violation=true");
-  if (v.checks?.fix_is_drop_in === false) reasons.push("fix_is_drop_in=false");
-  if (v.checks?.fix_preserves_meaning === false) reasons.push("fix_preserves_meaning=false");
+  const evidenceExact = checks?.evidence_exact === true;
+  if (checks?.evidence_exact === false) reasons.push("evidence_exact=false");
 
-  if (typeof v.confidence !== "number" || v.confidence < confidenceThreshold) {
-    reasons.push(`confidence<${confidenceThreshold}`);
-  }
+  const ruleSupportsClaim = checks?.rule_supports_claim === true;
+  if (checks?.rule_supports_claim === false) reasons.push("rule_supports_claim=false");
 
-  const fixEmpty = (v.fix ?? "").trim() === "";
+  const contextSupportsViolation = checks?.context_supports_violation === true;
+  if (checks?.context_supports_violation === false) reasons.push("context_supports_violation=false");
+
+  const plausibleNonViolation = checks?.plausible_non_violation === true;
+  if (plausibleNonViolation) reasons.push("plausible_non_violation=true");
+  const notPlausibleNonViolation = checks?.plausible_non_violation === false;
+
+  const fixIsDropIn = checks?.fix_is_drop_in === true;
+  if (checks?.fix_is_drop_in === false) reasons.push("fix_is_drop_in=false");
+
+  const fixPreservesMeaning = checks?.fix_preserves_meaning === true;
+  if (checks?.fix_preserves_meaning === false) reasons.push("fix_preserves_meaning=false");
+
+  const hasFix = (v.fix ?? "").trim() !== "";
+
+  const hasConfidence = typeof v.confidence === "number";
+  const passesConfidence = hasConfidence && v.confidence >= confidenceThreshold;
+  if (!passesConfidence) reasons.push(`confidence<${confidenceThreshold}`);
 
   const surface =
-    v.checks?.rule_supports_claim === true &&
-    !ruleQuoteEmpty &&
-    v.checks?.evidence_exact === true &&
-    v.checks?.context_supports_violation === true &&
-    v.checks?.fix_is_drop_in === true &&
-    !fixEmpty &&
-    v.checks?.fix_preserves_meaning === true &&
-    v.checks?.plausible_non_violation === false &&
-    typeof v.confidence === "number" &&
-    v.confidence >= confidenceThreshold;
+    ruleSupportsClaim &&
+    hasRuleQuote &&
+    evidenceExact &&
+    contextSupportsViolation &&
+    fixIsDropIn &&
+    hasFix &&
+    fixPreservesMeaning &&
+    notPlausibleNonViolation &&
+    passesConfidence;
 
   return { surface, reasons };
 }

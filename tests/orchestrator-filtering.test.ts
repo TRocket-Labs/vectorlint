@@ -6,10 +6,14 @@ import { evaluateFiles } from "../src/cli/orchestrator";
 import { OutputFormat, type EvaluationOptions } from "../src/cli/types";
 import { EvaluationType, Severity } from "../src/evaluators/types";
 import type { PromptFile } from "../src/prompts/prompt-loader";
+import type { CheckResult, JudgeResult } from "../src/prompts/schema";
 
 const { EVALUATE_MOCK } = vi.hoisted(() => ({
   EVALUATE_MOCK: vi.fn(),
 }));
+
+type CheckViolation = CheckResult["violations"][number];
+type JudgeViolation = JudgeResult["criteria"][number]["violations"][number];
 
 vi.mock("../src/evaluators/index", () => ({
   createEvaluator: vi.fn(() => ({
@@ -57,6 +61,95 @@ const FULLY_SUPPORTED_CHECKS = {
   fix_preserves_meaning: true,
 } as const;
 
+const EMPTY_CHECK_NOTES: JudgeViolation["check_notes"] = {
+  rule_supports_claim: "",
+  evidence_exact: "",
+  context_supports_violation: "",
+  plausible_non_violation: "",
+  fix_is_drop_in: "",
+  fix_preserves_meaning: "",
+};
+
+function makeCheckViolation(
+  overrides: Partial<CheckViolation> = {}
+): CheckViolation {
+  return {
+    line: 1,
+    analysis: "Issue 1",
+    suggestion: "Suggestion 1",
+    fix: "Fix 1",
+    quoted_text: "Alpha text",
+    context_before: "",
+    context_after: "",
+    rule_quote: "Rule quote",
+    checks: FULLY_SUPPORTED_CHECKS,
+    confidence: 0.9,
+    ...overrides,
+  };
+}
+
+function makeJudgeViolation(
+  overrides: Partial<JudgeViolation> = {}
+): JudgeViolation {
+  const { check_notes: checkNotesOverrides, ...rest } = overrides;
+  return {
+    line: 1,
+    quoted_text: "Alpha text",
+    context_before: "",
+    context_after: "",
+    description: "Issue 1",
+    analysis: "Issue 1",
+    suggestion: "Suggestion 1",
+    fix: "Fix 1",
+    rule_quote: "Rule quote",
+    checks: FULLY_SUPPORTED_CHECKS,
+    check_notes: {
+      ...EMPTY_CHECK_NOTES,
+      ...(checkNotesOverrides ?? {}),
+    },
+    confidence: 0.9,
+    ...rest,
+  };
+}
+
+function makeCheckResult(params: {
+  severity: Severity;
+  finalScore: number;
+  percentage: number;
+  message: string;
+  violations: CheckViolation[];
+}): CheckResult {
+  return {
+    type: EvaluationType.CHECK,
+    final_score: params.finalScore,
+    percentage: params.percentage,
+    violation_count: params.violations.length,
+    items: [],
+    severity: params.severity,
+    message: params.message,
+    violations: params.violations,
+  };
+}
+
+function makeJudgeResult(violations: JudgeViolation[]): JudgeResult {
+  return {
+    type: EvaluationType.JUDGE,
+    final_score: 5,
+    criteria: [
+      {
+        name: "Clarity",
+        weight: 1,
+        score: 2,
+        normalized_score: 5,
+        weighted_points: 1,
+        summary: "Needs work",
+        reasoning: "Reasoning",
+        violations,
+      },
+    ],
+  };
+}
+
 describe("CLI violation filtering", () => {
   const originalThreshold = process.env.CONFIDENCE_THRESHOLD;
 
@@ -86,41 +179,25 @@ describe("CLI violation filtering", () => {
       severity: Severity.WARNING,
     });
 
-    EVALUATE_MOCK.mockResolvedValue({
-      type: EvaluationType.CHECK,
-      final_score: 8,
-      percentage: 80,
-      violation_count: 2,
-      items: [],
-      severity: Severity.WARNING,
-      message: "Found issues",
-      violations: [
-        {
-          line: 1,
-          analysis: "Issue 1",
-          suggestion: "Suggestion 1",
-          fix: "Fix 1",
-          quoted_text: "Alpha text",
-          context_before: "",
-          context_after: "",
-          rule_quote: "Rule quote",
-          checks: FULLY_SUPPORTED_CHECKS,
-          confidence: 0.9,
-        },
-        {
-          line: 2,
-          analysis: "Issue 2",
-          suggestion: "Suggestion 2",
-          fix: "Fix 2",
-          quoted_text: "Beta text",
-          context_before: "",
-          context_after: "",
-          rule_quote: "Rule quote",
-          checks: FULLY_SUPPORTED_CHECKS,
-          confidence: 0.2,
-        },
-      ],
-    });
+    EVALUATE_MOCK.mockResolvedValue(
+      makeCheckResult({
+        severity: Severity.WARNING,
+        finalScore: 8,
+        percentage: 80,
+        message: "Found issues",
+        violations: [
+          makeCheckViolation(),
+          makeCheckViolation({
+            line: 2,
+            analysis: "Issue 2",
+            suggestion: "Suggestion 2",
+            fix: "Fix 2",
+            quoted_text: "Beta text",
+            confidence: 0.2,
+          }),
+        ],
+      })
+    );
 
     const defaultRun = await evaluateFiles(
       [targetFile],
@@ -129,41 +206,25 @@ describe("CLI violation filtering", () => {
     expect(defaultRun.totalWarnings).toBe(1);
 
     process.env.CONFIDENCE_THRESHOLD = "0.0";
-    EVALUATE_MOCK.mockResolvedValue({
-      type: EvaluationType.CHECK,
-      final_score: 8,
-      percentage: 80,
-      violation_count: 2,
-      items: [],
-      severity: Severity.WARNING,
-      message: "Found issues",
-      violations: [
-        {
-          line: 1,
-          analysis: "Issue 1",
-          suggestion: "Suggestion 1",
-          fix: "Fix 1",
-          quoted_text: "Alpha text",
-          context_before: "",
-          context_after: "",
-          rule_quote: "Rule quote",
-          checks: FULLY_SUPPORTED_CHECKS,
-          confidence: 0.9,
-        },
-        {
-          line: 2,
-          analysis: "Issue 2",
-          suggestion: "Suggestion 2",
-          fix: "Fix 2",
-          quoted_text: "Beta text",
-          context_before: "",
-          context_after: "",
-          rule_quote: "Rule quote",
-          checks: FULLY_SUPPORTED_CHECKS,
-          confidence: 0.2,
-        },
-      ],
-    });
+    EVALUATE_MOCK.mockResolvedValue(
+      makeCheckResult({
+        severity: Severity.WARNING,
+        finalScore: 8,
+        percentage: 80,
+        message: "Found issues",
+        violations: [
+          makeCheckViolation(),
+          makeCheckViolation({
+            line: 2,
+            analysis: "Issue 2",
+            suggestion: "Suggestion 2",
+            fix: "Fix 2",
+            quoted_text: "Beta text",
+            confidence: 0.2,
+          }),
+        ],
+      })
+    );
 
     const zeroThresholdRun = await evaluateFiles(
       [targetFile],
@@ -181,29 +242,19 @@ describe("CLI violation filtering", () => {
       severity: Severity.ERROR,
     });
 
-    EVALUATE_MOCK.mockResolvedValue({
-      type: EvaluationType.CHECK,
-      final_score: 2,
-      percentage: 20,
-      violation_count: 1,
-      items: [],
-      severity: Severity.ERROR,
-      message: "Found issue",
-      violations: [
-        {
-          line: 1,
-          analysis: "Issue 1",
-          suggestion: "Suggestion 1",
-          fix: "Fix 1",
-          quoted_text: "Alpha text",
-          context_before: "",
-          context_after: "",
-          rule_quote: "Rule quote",
-          checks: FULLY_SUPPORTED_CHECKS,
-          confidence: 0.2,
-        },
-      ],
-    });
+    EVALUATE_MOCK.mockResolvedValue(
+      makeCheckResult({
+        severity: Severity.ERROR,
+        finalScore: 2,
+        percentage: 20,
+        message: "Found issue",
+        violations: [
+          makeCheckViolation({
+            confidence: 0.2,
+          }),
+        ],
+      })
+    );
 
     const defaultRun = await evaluateFiles(
       [targetFile],
@@ -213,29 +264,19 @@ describe("CLI violation filtering", () => {
     expect(defaultRun.hadSeverityErrors).toBe(false);
 
     process.env.CONFIDENCE_THRESHOLD = "0.0";
-    EVALUATE_MOCK.mockResolvedValue({
-      type: EvaluationType.CHECK,
-      final_score: 2,
-      percentage: 20,
-      violation_count: 1,
-      items: [],
-      severity: Severity.ERROR,
-      message: "Found issue",
-      violations: [
-        {
-          line: 1,
-          analysis: "Issue 1",
-          suggestion: "Suggestion 1",
-          fix: "Fix 1",
-          quoted_text: "Alpha text",
-          context_before: "",
-          context_after: "",
-          rule_quote: "Rule quote",
-          checks: FULLY_SUPPORTED_CHECKS,
-          confidence: 0.2,
-        },
-      ],
-    });
+    EVALUATE_MOCK.mockResolvedValue(
+      makeCheckResult({
+        severity: Severity.ERROR,
+        finalScore: 2,
+        percentage: 20,
+        message: "Found issue",
+        violations: [
+          makeCheckViolation({
+            confidence: 0.2,
+          }),
+        ],
+      })
+    );
 
     const zeroThresholdRun = await evaluateFiles(
       [targetFile],
@@ -255,65 +296,20 @@ describe("CLI violation filtering", () => {
       severity: Severity.WARNING,
     });
 
-    EVALUATE_MOCK.mockResolvedValue({
-      type: EvaluationType.JUDGE,
-      final_score: 5,
-      criteria: [
-        {
-          name: "Clarity",
-          weight: 1,
-          score: 2,
-          normalized_score: 5,
-          weighted_points: 1,
-          summary: "Needs work",
-          reasoning: "Reasoning",
-          violations: [
-            {
-              line: 1,
-              quoted_text: "Alpha text",
-              context_before: "",
-              context_after: "",
-              description: "Issue 1",
-              analysis: "Issue 1",
-              suggestion: "Suggestion 1",
-              fix: "Fix 1",
-              rule_quote: "Rule quote",
-              checks: FULLY_SUPPORTED_CHECKS,
-              check_notes: {
-                rule_supports_claim: "",
-                evidence_exact: "",
-                context_supports_violation: "",
-                plausible_non_violation: "",
-                fix_is_drop_in: "",
-                fix_preserves_meaning: "",
-              },
-              confidence: 0.9,
-            },
-            {
-              line: 2,
-              quoted_text: "Beta text",
-              context_before: "",
-              context_after: "",
-              description: "Issue 2",
-              analysis: "Issue 2",
-              suggestion: "Suggestion 2",
-              fix: "Fix 2",
-              rule_quote: "Rule quote",
-              checks: FULLY_SUPPORTED_CHECKS,
-              check_notes: {
-                rule_supports_claim: "",
-                evidence_exact: "",
-                context_supports_violation: "",
-                plausible_non_violation: "",
-                fix_is_drop_in: "",
-                fix_preserves_meaning: "",
-              },
-              confidence: 0.2,
-            },
-          ],
-        },
-      ],
-    });
+    EVALUATE_MOCK.mockResolvedValue(
+      makeJudgeResult([
+        makeJudgeViolation(),
+        makeJudgeViolation({
+          line: 2,
+          quoted_text: "Beta text",
+          description: "Issue 2",
+          analysis: "Issue 2",
+          suggestion: "Suggestion 2",
+          fix: "Fix 2",
+          confidence: 0.2,
+        }),
+      ])
+    );
 
     const defaultRun = await evaluateFiles(
       [targetFile],
@@ -322,65 +318,20 @@ describe("CLI violation filtering", () => {
     expect(defaultRun.totalWarnings).toBe(1);
 
     process.env.CONFIDENCE_THRESHOLD = "0.0";
-    EVALUATE_MOCK.mockResolvedValue({
-      type: EvaluationType.JUDGE,
-      final_score: 5,
-      criteria: [
-        {
-          name: "Clarity",
-          weight: 1,
-          score: 2,
-          normalized_score: 5,
-          weighted_points: 1,
-          summary: "Needs work",
-          reasoning: "Reasoning",
-          violations: [
-            {
-              line: 1,
-              quoted_text: "Alpha text",
-              context_before: "",
-              context_after: "",
-              description: "Issue 1",
-              analysis: "Issue 1",
-              suggestion: "Suggestion 1",
-              fix: "Fix 1",
-              rule_quote: "Rule quote",
-              checks: FULLY_SUPPORTED_CHECKS,
-              check_notes: {
-                rule_supports_claim: "",
-                evidence_exact: "",
-                context_supports_violation: "",
-                plausible_non_violation: "",
-                fix_is_drop_in: "",
-                fix_preserves_meaning: "",
-              },
-              confidence: 0.9,
-            },
-            {
-              line: 2,
-              quoted_text: "Beta text",
-              context_before: "",
-              context_after: "",
-              description: "Issue 2",
-              analysis: "Issue 2",
-              suggestion: "Suggestion 2",
-              fix: "Fix 2",
-              rule_quote: "Rule quote",
-              checks: FULLY_SUPPORTED_CHECKS,
-              check_notes: {
-                rule_supports_claim: "",
-                evidence_exact: "",
-                context_supports_violation: "",
-                plausible_non_violation: "",
-                fix_is_drop_in: "",
-                fix_preserves_meaning: "",
-              },
-              confidence: 0.2,
-            },
-          ],
-        },
-      ],
-    });
+    EVALUATE_MOCK.mockResolvedValue(
+      makeJudgeResult([
+        makeJudgeViolation(),
+        makeJudgeViolation({
+          line: 2,
+          quoted_text: "Beta text",
+          description: "Issue 2",
+          analysis: "Issue 2",
+          suggestion: "Suggestion 2",
+          fix: "Fix 2",
+          confidence: 0.2,
+        }),
+      ])
+    );
 
     const zeroThresholdRun = await evaluateFiles(
       [targetFile],

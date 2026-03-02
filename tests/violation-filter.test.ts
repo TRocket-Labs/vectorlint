@@ -40,4 +40,16 @@ describe("computeFilterDecision confidence threshold", () => {
     const decision = computeFilterDecision(BASE_VIOLATION);
     expect(decision.surface).toBe(true);
   });
+
+  it("falls back to 0.75 when threshold env var is out of range", () => {
+    process.env.CONFIDENCE_THRESHOLD = "-1";
+    const lowDecision = computeFilterDecision(BASE_VIOLATION);
+    expect(lowDecision.surface).toBe(false);
+    expect(lowDecision.reasons).toContain("confidence<0.75");
+
+    process.env.CONFIDENCE_THRESHOLD = "2";
+    const highDecision = computeFilterDecision(BASE_VIOLATION);
+    expect(highDecision.surface).toBe(false);
+    expect(highDecision.reasons).toContain("confidence<0.75");
+  });
 });
