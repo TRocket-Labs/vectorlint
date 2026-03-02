@@ -54,6 +54,7 @@ export function registerMainCommand(program: Command): void {
     .option('-v, --verbose', 'Enable verbose logging')
     .option('--show-prompt', 'Print full prompt and injected content')
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
+    .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
@@ -209,6 +210,7 @@ export function registerMainCommand(program: Command): void {
         ...(searchProvider ? { searchProvider } : {}),
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
+        debugJson: cliOptions.debugJson,
         outputFormat: outputFormat,
         scanPaths: config.scanPaths,
         pricing: {
@@ -235,4 +237,3 @@ export function registerMainCommand(program: Command): void {
       process.exit(result.hadOperationalErrors || result.hadSeverityErrors ? 1 : 0);
     });
 }
-

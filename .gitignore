@@ -13,4 +13,5 @@ vectorlint.ini
 /.idea
 /npm
 VECTORLINT.md
-
+.vectorlint/runs/
+docs

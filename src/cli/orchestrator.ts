@@ -1,4 +1,5 @@
 import { readFileSync } from 'fs';
+import { randomUUID } from 'crypto';
 import * as path from 'path';
 import type { PromptFile } from '../prompts/prompt-loader';
 import { ScanPathResolver } from '../boundaries/scan-path-resolver';
@@ -25,6 +26,31 @@ import {
   TokenUsageStats
 } from '../providers/token-usage';
 import { locateQuotedText } from "../output/location";
+import { computeFilterDecision } from "../debug/violation-filter";
+import { writeDebugRunArtifact } from "../debug/run-artifact";
+
+function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
+  const provider = process.env.LLM_PROVIDER;
+  let name: string | undefined;
+
+  switch (provider) {
+    case "openai":
+      name = process.env.OPENAI_MODEL;
+      break;
+    case "anthropic":
+      name = process.env.ANTHROPIC_MODEL;
+      break;
+    case "azure-openai":
+      name = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+      break;
+    case "gemini":
+      name = process.env.GEMINI_MODEL;
+      break;
+  }
+
+  const tag = [provider, name].filter(Boolean).join("-");
+  return { ...(provider && { provider }), ...(name && { name }), ...(tag && { tag }) };
+}
 
 
 /*
@@ -557,6 +583,7 @@ function routePromptResult(
     outputFormat,
     jsonFormatter,
     verbose,
+    debugJson,
   } = params;
   const meta = promptFile.meta;
   const promptId = (meta.id || "").toString();
@@ -640,6 +667,38 @@ function routePromptResult(
       score: result.final_score,
     };
 
+    if (debugJson) {
+      const runId = randomUUID();
+      const decisions = result.violations.map((v) => computeFilterDecision(v));
+      const surfaced = result.violations.filter((_v, i) => decisions[i]?.surface === true);
+      const model = getModelInfoFromEnv();
+
+      try {
+        const filePath = writeDebugRunArtifact(process.cwd(), runId, {
+          file: relFile,
+          ...(Object.keys(model).length > 0 ? { model } : {}),
+          subdir: model.tag,
+          prompt: {
+            pack: promptFile.pack,
+            id: promptId,
+            filename: promptFile.filename,
+            evaluation_type: "check",
+          },
+          raw_model_output: (result as { raw_model_output?: unknown }).raw_model_output ?? null,
+          filter_decisions: decisions.map((d, i) => ({
+            index: i,
+            surface: d.surface,
+            reasons: d.reasons,
+          })),
+          surfaced_violations: surfaced,
+        });
+        console.warn(`[vectorlint] Debug JSON written: ${filePath}`);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`[vectorlint] Debug JSON write failed: ${message}`);
+      }
+    }
+
     return {
       errors: totalErrors,
       warnings: totalWarnings,
@@ -698,6 +757,48 @@ function routePromptResult(
         scores: scoreComponents,
       }
     );
+  }
+
+  if (debugJson) {
+    const runId = randomUUID();
+    const flat = result.criteria.flatMap((c) =>
+      (c.violations || []).map((v, i) => ({
+        criterion: c.name,
+        index: i,
+        violation: v,
+        decision: computeFilterDecision(v),
+      }))
+    );
+    const model = getModelInfoFromEnv();
+
+    try {
+      const filePath = writeDebugRunArtifact(process.cwd(), runId, {
+        file: relFile,
+        ...(Object.keys(model).length > 0 ? { model } : {}),
+        subdir: model.tag,
+        prompt: {
+          pack: promptFile.pack,
+          id: promptId,
+          filename: promptFile.filename,
+          evaluation_type: "judge",
+        },
+        raw_model_output: (result as { raw_model_output?: unknown }).raw_model_output ?? null,
+        filter_decisions: flat.map((x) => ({
+          criterion: x.criterion,
+          index: x.index,
+          surface: x.decision.surface,
+          reasons: x.decision.reasons,
+        })),
+        surfaced_violations: flat.filter((x) => x.decision.surface).map((x) => ({
+          criterion: x.criterion,
+          violation: x.violation,
+        })),
+      });
+      console.warn(`[vectorlint] Debug JSON written: ${filePath}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[vectorlint] Debug JSON write failed: ${message}`);
+    }
   }
 
   return {
@@ -771,6 +872,7 @@ async function evaluateFile(
     scanPaths,
     outputFormat = OutputFormat.Line,
     verbose,
+    debugJson,
   } = options;
 
   let hadOperationalErrors = false;
@@ -896,6 +998,7 @@ async function evaluateFile(
       outputFormat,
       jsonFormatter,
       verbose,
+      debugJson,
     });
     totalErrors += promptResult.errors;
     totalWarnings += promptResult.warnings;
