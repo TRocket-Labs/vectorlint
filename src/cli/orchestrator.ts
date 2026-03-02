@@ -26,7 +26,10 @@ import {
   TokenUsageStats
 } from '../providers/token-usage';
 import { locateQuotedText } from "../output/location";
-import { computeFilterDecision } from "../debug/violation-filter";
+import {
+  computeFilterDecision,
+  type FilterDecision,
+} from "../debug/violation-filter";
 import { writeDebugRunArtifact } from "../debug/run-artifact";
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
@@ -280,9 +283,25 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
   return { hadOperationalErrors };
 }
 
+function getViolationFilterResults<
+  TViolation extends Parameters<typeof computeFilterDecision>[0]
+>(
+  violations: TViolation[]
+): {
+  decisions: FilterDecision[];
+  surfacedViolations: TViolation[];
+} {
+  const decisions = violations.map((v) => computeFilterDecision(v));
+  const surfacedViolations = violations.filter(
+    (_v, i) => decisions[i]?.surface === true
+  );
+
+  return { decisions, surfacedViolations };
+}
+
 /*
- * Extracts pre-calculated scores from a subjective evaluation criterion and reports violations.
- * All violations are reported regardless of score.
+ * Extracts pre-calculated scores from a subjective evaluation criterion and reports surfaced violations.
+ * Violations that do not pass computeFilterDecision are not reported.
  * Returns error/warning counts, score entry for Quality Scores, and score components for JSON.
  */
 function extractAndReportCriterion(
@@ -397,10 +416,7 @@ function extractAndReportCriterion(
   const normalizedScore = got.normalized_score;
   const userScore = rawWeighted;
   const violations = got.violations;
-  const decisions = violations.map((v) => computeFilterDecision(v));
-  const surfacedViolations = violations.filter(
-    (_v, i) => decisions[i]?.surface === true
-  );
+  const { surfacedViolations } = getViolationFilterResults(violations);
 
   // Display normalized score (1-10) in CLI output
   const scoreText = `${normalizedScore.toFixed(1)}/10`;
@@ -600,9 +616,8 @@ function routePromptResult(
   // Handle Check Result
   if (!isJudgeResult(result)) {
     const severity = result.severity;
-    const decisions = result.violations.map((v) => computeFilterDecision(v));
-    const surfacedViolations = result.violations.filter(
-      (_v, i) => decisions[i]?.surface === true
+    const { decisions, surfacedViolations } = getViolationFilterResults(
+      result.violations
     );
     const violationCount = surfacedViolations.length;
 
@@ -712,7 +727,7 @@ function routePromptResult(
       errors: totalErrors,
       warnings: totalWarnings,
       hadOperationalErrors,
-      hadSeverityErrors: severity === Severity.ERROR,
+      hadSeverityErrors: severity === Severity.ERROR && totalErrors > 0,
       scoreEntries: [scoreEntry],
     };
   }

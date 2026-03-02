@@ -5,6 +5,9 @@ export type FilterDecision = {
   reasons: string[];
 };
 
+const DEFAULT_CONFIDENCE_THRESHOLD = 0.75;
+const CONFIDENCE_THRESHOLD_ENV = "VECTORLINT_CONFIDENCE_THRESHOLD";
+
 type GateViolationLike = {
   rule_quote?: string;
   fix?: string;
@@ -12,14 +15,19 @@ type GateViolationLike = {
   checks?: GateChecks;
 };
 
-export function computeFilterDecision(v: GateViolationLike): FilterDecision {
-  const reasons: string[] = [];
-  const thresholdRaw = process.env.VECTORLINT_CONFIDENCE_THRESHOLD;
+function resolveConfidenceThreshold(): number {
+  const thresholdRaw = process.env[CONFIDENCE_THRESHOLD_ENV];
   const parsedThreshold =
     thresholdRaw !== undefined ? Number.parseFloat(thresholdRaw) : Number.NaN;
-  const confidenceThreshold = Number.isFinite(parsedThreshold)
+
+  return Number.isFinite(parsedThreshold)
     ? parsedThreshold
-    : 0.75;
+    : DEFAULT_CONFIDENCE_THRESHOLD;
+}
+
+export function computeFilterDecision(v: GateViolationLike): FilterDecision {
+  const reasons: string[] = [];
+  const confidenceThreshold = resolveConfidenceThreshold();
 
   const ruleQuoteEmpty = !v.rule_quote || v.rule_quote.trim() === "";
   if (ruleQuoteEmpty) reasons.push("rule_quote_empty");

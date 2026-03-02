@@ -172,6 +172,79 @@ describe("CLI violation filtering", () => {
     expect(zeroThresholdRun.totalWarnings).toBe(2);
   });
 
+  it("does not mark severity error when no check violations are surfaced", async () => {
+    const targetFile = createTempFile("Alpha text\n");
+    const prompt = createPrompt({
+      id: "CheckErrorPrompt",
+      name: "Check Error Prompt",
+      type: "check",
+      severity: Severity.ERROR,
+    });
+
+    EVALUATE_MOCK.mockResolvedValue({
+      type: EvaluationType.CHECK,
+      final_score: 2,
+      percentage: 20,
+      violation_count: 1,
+      items: [],
+      severity: Severity.ERROR,
+      message: "Found issue",
+      violations: [
+        {
+          line: 1,
+          analysis: "Issue 1",
+          suggestion: "Suggestion 1",
+          fix: "Fix 1",
+          quoted_text: "Alpha text",
+          context_before: "",
+          context_after: "",
+          rule_quote: "Rule quote",
+          checks: FULLY_SUPPORTED_CHECKS,
+          confidence: 0.2,
+        },
+      ],
+    });
+
+    const defaultRun = await evaluateFiles(
+      [targetFile],
+      createBaseOptions([prompt])
+    );
+    expect(defaultRun.totalErrors).toBe(0);
+    expect(defaultRun.hadSeverityErrors).toBe(false);
+
+    process.env.VECTORLINT_CONFIDENCE_THRESHOLD = "0.0";
+    EVALUATE_MOCK.mockResolvedValue({
+      type: EvaluationType.CHECK,
+      final_score: 2,
+      percentage: 20,
+      violation_count: 1,
+      items: [],
+      severity: Severity.ERROR,
+      message: "Found issue",
+      violations: [
+        {
+          line: 1,
+          analysis: "Issue 1",
+          suggestion: "Suggestion 1",
+          fix: "Fix 1",
+          quoted_text: "Alpha text",
+          context_before: "",
+          context_after: "",
+          rule_quote: "Rule quote",
+          checks: FULLY_SUPPORTED_CHECKS,
+          confidence: 0.2,
+        },
+      ],
+    });
+
+    const zeroThresholdRun = await evaluateFiles(
+      [targetFile],
+      createBaseOptions([prompt])
+    );
+    expect(zeroThresholdRun.totalErrors).toBe(1);
+    expect(zeroThresholdRun.hadSeverityErrors).toBe(true);
+  });
+
   it("filters low-confidence judge violations from CLI counts by default", async () => {
     const targetFile = createTempFile("Alpha text\nBeta text\n");
     const prompt = createPrompt({
