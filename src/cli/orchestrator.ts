@@ -397,6 +397,10 @@ function extractAndReportCriterion(
   const normalizedScore = got.normalized_score;
   const userScore = rawWeighted;
   const violations = got.violations;
+  const decisions = violations.map((v) => computeFilterDecision(v));
+  const surfacedViolations = violations.filter(
+    (_v, i) => decisions[i]?.surface === true
+  );
 
   // Display normalized score (1-10) in CLI output
   const scoreText = `${normalizedScore.toFixed(1)}/10`;
@@ -408,25 +412,25 @@ function extractAndReportCriterion(
   let warnings = 0;
   let severity: Severity | undefined;
 
-  if (violations.length > 0) {
+  if (surfacedViolations.length > 0) {
     // Determine severity from score for violations
     if (score <= 1) {
       severity = Severity.ERROR;
       hadSeverityErrors = true;
-      errors = violations.length;
+      errors = surfacedViolations.length;
     } else if (score === 2) {
       severity = Severity.WARNING;
-      warnings = violations.length;
+      warnings = surfacedViolations.length;
     } else {
       // Score > 2 but has violations - this is informational
       // Use WARNING as default for informational violations
       severity = Severity.WARNING;
-      warnings = violations.length;
+      warnings = surfacedViolations.length;
     }
 
-    // Report all violations
+    // Report surfaced violations only
     const violationResult = locateAndReportViolations({
-      violations: violations as Array<{
+      violations: surfacedViolations as Array<{
         line?: number;
         quoted_text?: string;
         context_before?: string;
@@ -596,11 +600,18 @@ function routePromptResult(
   // Handle Check Result
   if (!isJudgeResult(result)) {
     const severity = result.severity;
-    const violationCount = result.violations.length;
+    const decisions = result.violations.map((v) => computeFilterDecision(v));
+    const surfacedViolations = result.violations.filter(
+      (_v, i) => decisions[i]?.surface === true
+    );
+    const violationCount = surfacedViolations.length;
 
     // Group violations by criterionName
-    const violationsByCriterion = new Map<string | undefined, typeof result.violations>();
-    for (const v of result.violations) {
+    const violationsByCriterion = new Map<
+      string | undefined,
+      typeof surfacedViolations
+    >();
+    for (const v of surfacedViolations) {
       const criterionName = v.criterionName;
       if (!violationsByCriterion.has(criterionName)) {
         violationsByCriterion.set(criterionName, []);
@@ -669,15 +680,13 @@ function routePromptResult(
 
     if (debugJson) {
       const runId = randomUUID();
-      const decisions = result.violations.map((v) => computeFilterDecision(v));
-      const surfaced = result.violations.filter((_v, i) => decisions[i]?.surface === true);
       const model = getModelInfoFromEnv();
 
       try {
         const filePath = writeDebugRunArtifact(process.cwd(), runId, {
           file: relFile,
           ...(Object.keys(model).length > 0 ? { model } : {}),
-          subdir: model.tag,
+          ...(model.tag !== undefined ? { subdir: model.tag } : {}),
           prompt: {
             pack: promptFile.pack,
             id: promptId,
@@ -690,7 +699,7 @@ function routePromptResult(
             surface: d.surface,
             reasons: d.reasons,
           })),
-          surfaced_violations: surfaced,
+          surfaced_violations: surfacedViolations,
         });
         console.warn(`[vectorlint] Debug JSON written: ${filePath}`);
       } catch (err: unknown) {
@@ -775,7 +784,7 @@ function routePromptResult(
       const filePath = writeDebugRunArtifact(process.cwd(), runId, {
         file: relFile,
         ...(Object.keys(model).length > 0 ? { model } : {}),
-        subdir: model.tag,
+        ...(model.tag !== undefined ? { subdir: model.tag } : {}),
         prompt: {
           pack: promptFile.pack,
           id: promptId,
@@ -998,7 +1007,7 @@ async function evaluateFile(
       outputFormat,
       jsonFormatter,
       verbose,
-      debugJson,
+      ...(debugJson !== undefined ? { debugJson } : {}),
     });
     totalErrors += promptResult.errors;
     totalWarnings += promptResult.warnings;

@@ -14,6 +14,12 @@ type GateViolationLike = {
 
 export function computeFilterDecision(v: GateViolationLike): FilterDecision {
   const reasons: string[] = [];
+  const thresholdRaw = process.env.VECTORLINT_CONFIDENCE_THRESHOLD;
+  const parsedThreshold =
+    thresholdRaw !== undefined ? Number.parseFloat(thresholdRaw) : Number.NaN;
+  const confidenceThreshold = Number.isFinite(parsedThreshold)
+    ? parsedThreshold
+    : 0.75;
 
   const ruleQuoteEmpty = !v.rule_quote || v.rule_quote.trim() === "";
   if (ruleQuoteEmpty) reasons.push("rule_quote_empty");
@@ -25,7 +31,9 @@ export function computeFilterDecision(v: GateViolationLike): FilterDecision {
   if (v.checks?.fix_is_drop_in === false) reasons.push("fix_is_drop_in=false");
   if (v.checks?.fix_preserves_meaning === false) reasons.push("fix_preserves_meaning=false");
 
-  if (typeof v.confidence !== "number" || v.confidence < 0.75) reasons.push("confidence<0.75");
+  if (typeof v.confidence !== "number" || v.confidence < confidenceThreshold) {
+    reasons.push(`confidence<${confidenceThreshold}`);
+  }
 
   const fixEmpty = (v.fix ?? "").trim() === "";
 
@@ -39,8 +47,7 @@ export function computeFilterDecision(v: GateViolationLike): FilterDecision {
     v.checks?.fix_preserves_meaning === true &&
     v.checks?.plausible_non_violation === false &&
     typeof v.confidence === "number" &&
-    v.confidence >= 0.75;
+    v.confidence >= confidenceThreshold;
 
   return { surface, reasons };
 }
-
