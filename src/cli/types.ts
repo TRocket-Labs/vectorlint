@@ -47,6 +47,7 @@ export interface ErrorTrackingResult {
     hadOperationalErrors: boolean;
     hadSeverityErrors: boolean;
     scoreEntries?: EvaluationSummary[];
+    issues?: RawIssue[];
 }
 
 export interface EvaluationContext {
@@ -57,7 +58,7 @@ export interface EvaluationContext {
     verbose?: boolean;
 }
 
-export interface ReportIssueParams {
+export interface RawIssue {
     file: string;
     line: number;
     column: number;
@@ -71,6 +72,11 @@ export interface ReportIssueParams {
     scoreText?: string;
     match?: string;
 }
+
+/**
+ * @deprecated Use `RawIssue` instead. This type alias is retained for backward compatibility.
+ */
+export type ReportIssueParams = RawIssue;
 
 export interface ProcessViolationsParams extends EvaluationContext {
     violations: Array<{
