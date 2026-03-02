@@ -26,7 +26,10 @@ import {
   TokenUsageStats
 } from '../providers/token-usage';
 import { locateQuotedText } from "../output/location";
-import { computeFilterDecision } from "../debug/violation-filter";
+import {
+  computeFilterDecision,
+  type FilterDecision,
+} from "../evaluators/violation-filter";
 import { writeDebugRunArtifact } from "../debug/run-artifact";
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
@@ -280,9 +283,25 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
   return { hadOperationalErrors };
 }
 
+function getViolationFilterResults<
+  TViolation extends Parameters<typeof computeFilterDecision>[0]
+>(
+  violations: TViolation[]
+): {
+  decisions: FilterDecision[];
+  surfacedViolations: TViolation[];
+} {
+  const decisions = violations.map((v) => computeFilterDecision(v));
+  const surfacedViolations = violations.filter(
+    (_v, i) => decisions[i]?.surface === true
+  );
+
+  return { decisions, surfacedViolations };
+}
+
 /*
- * Extracts pre-calculated scores from a subjective evaluation criterion and reports violations.
- * All violations are reported regardless of score.
+ * Extracts pre-calculated scores from a subjective evaluation criterion and reports surfaced violations.
+ * Violations that do not pass computeFilterDecision are not reported.
  * Returns error/warning counts, score entry for Quality Scores, and score components for JSON.
  */
 function extractAndReportCriterion(
@@ -397,6 +416,7 @@ function extractAndReportCriterion(
   const normalizedScore = got.normalized_score;
   const userScore = rawWeighted;
   const violations = got.violations;
+  const { surfacedViolations } = getViolationFilterResults(violations);
 
   // Display normalized score (1-10) in CLI output
   const scoreText = `${normalizedScore.toFixed(1)}/10`;
@@ -408,25 +428,25 @@ function extractAndReportCriterion(
   let warnings = 0;
   let severity: Severity | undefined;
 
-  if (violations.length > 0) {
+  if (surfacedViolations.length > 0) {
     // Determine severity from score for violations
     if (score <= 1) {
       severity = Severity.ERROR;
       hadSeverityErrors = true;
-      errors = violations.length;
+      errors = surfacedViolations.length;
     } else if (score === 2) {
       severity = Severity.WARNING;
-      warnings = violations.length;
+      warnings = surfacedViolations.length;
     } else {
       // Score > 2 but has violations - this is informational
       // Use WARNING as default for informational violations
       severity = Severity.WARNING;
-      warnings = violations.length;
+      warnings = surfacedViolations.length;
     }
 
-    // Report all violations
+    // Report surfaced violations only
     const violationResult = locateAndReportViolations({
-      violations: violations as Array<{
+      violations: surfacedViolations as Array<{
         line?: number;
         quoted_text?: string;
         context_before?: string;
@@ -596,11 +616,17 @@ function routePromptResult(
   // Handle Check Result
   if (!isJudgeResult(result)) {
     const severity = result.severity;
-    const violationCount = result.violations.length;
+    const { decisions, surfacedViolations } = getViolationFilterResults(
+      result.violations
+    );
+    const violationCount = surfacedViolations.length;
 
     // Group violations by criterionName
-    const violationsByCriterion = new Map<string | undefined, typeof result.violations>();
-    for (const v of result.violations) {
+    const violationsByCriterion = new Map<
+      string | undefined,
+      typeof surfacedViolations
+    >();
+    for (const v of surfacedViolations) {
       const criterionName = v.criterionName;
       if (!violationsByCriterion.has(criterionName)) {
         violationsByCriterion.set(criterionName, []);
@@ -669,15 +695,13 @@ function routePromptResult(
 
     if (debugJson) {
       const runId = randomUUID();
-      const decisions = result.violations.map((v) => computeFilterDecision(v));
-      const surfaced = result.violations.filter((_v, i) => decisions[i]?.surface === true);
       const model = getModelInfoFromEnv();
 
       try {
         const filePath = writeDebugRunArtifact(process.cwd(), runId, {
           file: relFile,
           ...(Object.keys(model).length > 0 ? { model } : {}),
-          subdir: model.tag,
+          ...(model.tag !== undefined ? { subdir: model.tag } : {}),
           prompt: {
             pack: promptFile.pack,
             id: promptId,
@@ -690,7 +714,7 @@ function routePromptResult(
             surface: d.surface,
             reasons: d.reasons,
           })),
-          surfaced_violations: surfaced,
+          surfaced_violations: surfacedViolations,
         });
         console.warn(`[vectorlint] Debug JSON written: ${filePath}`);
       } catch (err: unknown) {
@@ -703,7 +727,7 @@ function routePromptResult(
       errors: totalErrors,
       warnings: totalWarnings,
       hadOperationalErrors,
-      hadSeverityErrors: severity === Severity.ERROR,
+      hadSeverityErrors: severity === Severity.ERROR && totalErrors > 0,
       scoreEntries: [scoreEntry],
     };
   }
@@ -775,7 +799,7 @@ function routePromptResult(
       const filePath = writeDebugRunArtifact(process.cwd(), runId, {
         file: relFile,
         ...(Object.keys(model).length > 0 ? { model } : {}),
-        subdir: model.tag,
+        ...(model.tag !== undefined ? { subdir: model.tag } : {}),
         prompt: {
           pack: promptFile.pack,
           id: promptId,
@@ -998,7 +1022,7 @@ async function evaluateFile(
       outputFormat,
       jsonFormatter,
       verbose,
-      debugJson,
+      ...(debugJson !== undefined ? { debugJson } : {}),
     });
     totalErrors += promptResult.errors;
     totalWarnings += promptResult.warnings;
