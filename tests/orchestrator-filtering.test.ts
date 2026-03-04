@@ -370,8 +370,9 @@ describe("CLI violation filtering", () => {
 
     expect(run.totalWarnings).toBe(0);
 
-    const loggedJson = vi.mocked(console.log).mock.calls.at(-1)?.[0];
-    const parsed = JSON.parse(String(loggedJson)) as {
+    const parsed = JSON.parse(
+      String(vi.mocked(console.log).mock.calls.at(-1)?.[0])
+    ) as {
       files: Record<string, { issues: Array<{ message: string }> }>;
     };
     const allIssues = Object.values(parsed.files).flatMap((file) => file.issues);
@@ -410,11 +411,9 @@ describe("CLI violation filtering", () => {
 
     expect(run.totalWarnings).toBe(0);
 
-    const loggedJson = vi.mocked(console.log).mock.calls.at(-1)?.[0];
-    const parsed = JSON.parse(String(loggedJson)) as Record<
-      string,
-      Array<{ Message: string }>
-    >;
+    const parsed = JSON.parse(
+      String(vi.mocked(console.log).mock.calls.at(-1)?.[0])
+    ) as Record<string, Array<{ Message: string }>>;
     const allIssues = Object.values(parsed).flat();
 
     expect(allIssues).toHaveLength(0);

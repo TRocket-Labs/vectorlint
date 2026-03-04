@@ -619,8 +619,6 @@ function routePromptResult(
     const { decisions, surfacedViolations } = getViolationFilterResults(
       result.violations
     );
-    const violationCount = surfacedViolations.length;
-
     // Group violations by criterionName
     const violationsByCriterion = new Map<
       string | undefined,
