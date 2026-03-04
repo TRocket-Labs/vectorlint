@@ -68,6 +68,7 @@ export interface ReportIssueParams {
     ruleName: string;
     outputFormat: OutputFormat;
     jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
+    analysis?: string;
     suggestion?: string;
     fix?: string;
     scoreText?: string;
