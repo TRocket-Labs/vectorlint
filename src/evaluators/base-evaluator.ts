@@ -9,7 +9,7 @@ import {
   type JudgeLLMResult,
   type CheckLLMResult,
   type JudgeResult,
-  type CheckResult,
+  type RawCheckResult,
   type PromptEvaluationResult,
 } from "../prompts/schema";
 import { registerEvaluator } from "./evaluator-registry";
@@ -22,7 +22,6 @@ import {
   type Chunk,
 } from "../chunking";
 import {
-  calculateCheckScore,
   calculateJudgeScore,
   averageJudgeScores,
 } from "../scoring";
@@ -197,7 +196,7 @@ export class BaseEvaluator implements Evaluator {
   protected async runCheckEvaluation(
     content: string,
     context?: EvalContext
-  ): Promise<CheckResult> {
+  ): Promise<RawCheckResult> {
     const schema = buildCheckLLMSchema();
 
     // Prepend line numbers for deterministic line reporting
@@ -228,22 +227,13 @@ export class BaseEvaluator implements Evaluator {
     // Merge and deduplicate violations
     const mergedViolations = mergeViolations(allChunkViolations);
 
-    // Calculate score once from all violations
-    const result = calculateCheckScore(
-      mergedViolations,
-      totalWordCount,
-      {
-        strictness: this.prompt.meta.strictness,
-        defaultSeverity: this.defaultSeverity,
-        promptSeverity: this.prompt.meta.severity,
-      }
-    );
-
     const aggregatedUsage = this.aggregateUsage(usages);
     const reasoning = chunkReasonings.join(" ").trim() || undefined;
 
     return {
-      ...result,
+      type: EvaluationType.CHECK,
+      violations: mergedViolations,
+      word_count: totalWordCount,
       ...(reasoning && { reasoning }),
       raw_model_output: rawChunkOutputs.length === 1 ? rawChunkOutputs[0] : rawChunkOutputs,
       ...(aggregatedUsage && { usage: aggregatedUsage }),

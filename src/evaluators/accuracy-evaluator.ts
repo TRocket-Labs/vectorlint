@@ -3,14 +3,13 @@ import { registerEvaluator } from "./evaluator-registry";
 import type { LLMProvider } from "../providers/llm-provider";
 import type { SearchProvider } from "../providers/search-provider";
 import type { PromptFile } from "../schemas/prompt-schemas";
-import type { PromptEvaluationResult } from "../prompts/schema";
+import type { PromptEvaluationResult, RawCheckResult } from "../prompts/schema";
 import type { TokenUsage } from "../providers/token-usage";
 import { renderTemplate } from "../prompts/template-renderer";
 import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
-import { Type, type Severity } from "./types";
+import { Type, EvaluationType, type Severity } from "./types";
 import { MissingDependencyError } from "../errors/index";
-import { calculateCheckScore } from "../scoring/scorer";
 import { countWords } from "../chunking";
 
 // Schema for claim extraction response
@@ -65,15 +64,13 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     // Use the scoring module to calculate result
     if (claims.length === 0) {
       const wordCount = countWords(content) || 1;
-      const result = calculateCheckScore([], wordCount, {
-        strictness: this.prompt.meta.strictness,
-        defaultSeverity: this.defaultSeverity,
-        promptSeverity: this.prompt.meta.severity,
-      });
-      return {
-        ...result,
+      const raw: RawCheckResult = {
+        type: EvaluationType.CHECK,
+        violations: [],
+        word_count: wordCount,
         ...(claimUsage && { usage: claimUsage }),
       };
+      return raw;
     }
 
     // Step 2: Search for evidence for each claim
