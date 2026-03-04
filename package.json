@@ -1,6 +1,6 @@
 {
   "name": "vectorlint",
-  "version": "2.4.0",
+  "version": "2.5.1",
   "description": "An LLM-based prose linter that lets you enforce your style guide in one prompt",
   "type": "module",
   "main": "dist/index.js",
@@ -12,7 +12,9 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:ci": "vitest run --coverage"
+    "test:ci": "vitest run --coverage",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build"
   },
   "bin": {
     "vectorlint": "./dist/index.js",
