@@ -66,8 +66,8 @@ export function calculateCheckScore(
     Severity.WARNING;
 
   if (finalScore < 10) {
-    if (options.promptSeverity === Severity.ERROR) {
-      severity = Severity.ERROR;
+    if (options.promptSeverity !== undefined) {
+      severity = options.promptSeverity as typeof Severity.WARNING | typeof Severity.ERROR;
     } else if (options.defaultSeverity) {
       severity = options.defaultSeverity;
     }

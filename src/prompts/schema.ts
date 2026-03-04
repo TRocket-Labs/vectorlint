@@ -373,8 +373,4 @@ export function isCheckResult(
   return result.type === EvaluationType.CHECK;
 }
 
-export function isRawCheckResult(
-  result: PromptEvaluationResult
-): result is RawCheckResult {
-  return result.type === EvaluationType.CHECK;
-}
+
