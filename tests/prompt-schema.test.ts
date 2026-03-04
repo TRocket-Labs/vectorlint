@@ -32,4 +32,27 @@ describe("prompt schema verbosity constraints", () => {
       description: "Suggest a fix in 15 words or less.",
     });
   });
+
+  it("check schema violation includes message field with correct description", () => {
+    const schema = buildCheckLLMSchema();
+    const violationProperties =
+      schema.schema.properties.violations.items.properties;
+
+    expect(violationProperties.message).toEqual({
+      type: "string",
+      description: "Under 15 words. State the issue directly to the document author. No rule references.",
+    });
+  });
+
+  it("judge schema violation includes message field with correct description", () => {
+    const schema = buildJudgeLLMSchema();
+    const violationProperties =
+      schema.schema.properties.criteria.items.properties.violations.items
+        .properties;
+
+    expect(violationProperties.message).toEqual({
+      type: "string",
+      description: "Under 15 words. State the issue directly to the document author. No rule references.",
+    });
+  });
 });
