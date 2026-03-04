@@ -5,8 +5,10 @@ import path from "path";
 import { evaluateFiles } from "../src/cli/orchestrator";
 import { OutputFormat, type EvaluationOptions } from "../src/cli/types";
 import { EvaluationType, Severity } from "../src/evaluators/types";
+import type { Result } from "../src/output/json-formatter";
 import type { PromptFile } from "../src/prompts/prompt-loader";
 import type { CheckResult, JudgeResult } from "../src/prompts/schema";
+import type { ValeOutput } from "../src/schemas/vale-responses";
 
 const { EVALUATE_MOCK } = vi.hoisted(() => ({
   EVALUATE_MOCK: vi.fn(),
@@ -372,9 +374,7 @@ describe("CLI violation filtering", () => {
 
     const parsed = JSON.parse(
       String(vi.mocked(console.log).mock.calls.at(-1)?.[0])
-    ) as {
-      files: Record<string, { issues: Array<{ message: string }> }>;
-    };
+    ) as Result;
     const allIssues = Object.values(parsed.files).flatMap((file) => file.issues);
 
     expect(allIssues).toHaveLength(0);
@@ -413,7 +413,7 @@ describe("CLI violation filtering", () => {
 
     const parsed = JSON.parse(
       String(vi.mocked(console.log).mock.calls.at(-1)?.[0])
-    ) as Record<string, Array<{ Message: string }>>;
+    ) as ValeOutput;
     const allIssues = Object.values(parsed).flat();
 
     expect(allIssues).toHaveLength(0);
