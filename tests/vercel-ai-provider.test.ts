@@ -357,7 +357,7 @@ describe('VercelAIProvider', () => {
 
       await provider.runPromptStructured('Test content', 'Test prompt', schema);
 
-      expect(buildPromptBodyForStructuredFn).toHaveBeenCalledWith('Test prompt');
+      expect(buildPromptBodyForStructuredFn).toHaveBeenCalledWith('Test prompt', undefined);
 
       expect(MOCK_GENERATE_TEXT).toHaveBeenCalledWith(
         expect.objectContaining({

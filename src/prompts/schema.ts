@@ -63,7 +63,11 @@ export function buildJudgeLLMSchema() {
                         rule_supports_claim: { type: "boolean" },
                         evidence_exact: { type: "boolean" },
                         context_supports_violation: { type: "boolean" },
-                        plausible_non_violation: { type: "boolean" },
+                        plausible_non_violation: {
+                          type: "boolean",
+                          description:
+                            "true if a reasonable reading of the context could explain the pattern as intentional or acceptable — even if you believe a violation exists. When in doubt, mark true.",
+                        },
                         fix_is_drop_in: { type: "boolean" },
                         fix_preserves_meaning: { type: "boolean" },
                       },
@@ -83,7 +87,11 @@ export function buildJudgeLLMSchema() {
                         rule_supports_claim: { type: "string" },
                         evidence_exact: { type: "string" },
                         context_supports_violation: { type: "string" },
-                        plausible_non_violation: { type: "string" },
+                        plausible_non_violation: {
+                          type: "string",
+                          description:
+                            "Describe a concrete scenario or context in which this same pattern would NOT be a violation. Do not simply restate that no non-violation exists — always articulate what conditions would make this acceptable.",
+                        },
                         fix_is_drop_in: { type: "string" },
                         fix_preserves_meaning: { type: "string" },
                       },
@@ -96,7 +104,11 @@ export function buildJudgeLLMSchema() {
                         "fix_preserves_meaning",
                       ],
                     },
-                    confidence: { type: "number" },
+                    confidence: {
+                      type: "number",
+                      description:
+                        "A score from 0.0 to 1.0 reflecting how certain you are this is a genuine violation. Findings where plausible_non_violation is true, context_supports_violation is weak, or the rule match is approximate should score below 0.7. Reserve scores above 0.9 for unambiguous violations with no credible alternative reading.",
+                    },
                   },
                   required: [
                     "line",
@@ -155,7 +167,11 @@ export function buildCheckLLMSchema() {
                   rule_supports_claim: { type: "boolean" },
                   evidence_exact: { type: "boolean" },
                   context_supports_violation: { type: "boolean" },
-                  plausible_non_violation: { type: "boolean" },
+                  plausible_non_violation: {
+                    type: "boolean",
+                    description:
+                      "true if a reasonable reading of the context could explain the pattern as intentional or acceptable — even if you believe a violation exists. When in doubt, mark true.",
+                  },
                   fix_is_drop_in: { type: "boolean" },
                   fix_preserves_meaning: { type: "boolean" },
                 },
@@ -175,7 +191,11 @@ export function buildCheckLLMSchema() {
                   rule_supports_claim: { type: "string" },
                   evidence_exact: { type: "string" },
                   context_supports_violation: { type: "string" },
-                  plausible_non_violation: { type: "string" },
+                  plausible_non_violation: {
+                    type: "string",
+                    description:
+                      "Describe a concrete scenario or context in which this same pattern would NOT be a violation. Do not simply restate that no non-violation exists — always articulate what conditions would make this acceptable.",
+                  },
                   fix_is_drop_in: { type: "string" },
                   fix_preserves_meaning: { type: "string" },
                 },
@@ -188,7 +208,11 @@ export function buildCheckLLMSchema() {
                   "fix_preserves_meaning",
                 ],
               },
-              confidence: { type: "number" },
+              confidence: {
+                type: "number",
+                description:
+                  "A score from 0.0 to 1.0 reflecting how certain you are this is a genuine violation. Findings where plausible_non_violation is true, context_supports_violation is weak, or the rule match is approximate should score below 0.7. Reserve scores above 0.9 for unambiguous violations with no credible alternative reading.",
+              },
             },
             required: [
               "line",

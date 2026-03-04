@@ -1,81 +1,31 @@
 ---
-specVersion: 1.0.0
+evaluator: base
 type: check
-severity: warning
-strictness: 50
-name: AI Pattern
 id: AIPattern
-criteria:
-  - name: Buzz Words
-    id: BuzzWords
-  - name: Negation Contrast
-    id: NegationContrast
+name: AI Pattern
+severity: warning
+evaluateAs: document
 ---
 
-You are a content evaluator specialized in identifying AI-generated writing patterns. Your goal is to detect AI patterns and provide improvement suggestions to make the writing more human.
+# AI Pattern
 
+## Structural Tells
 
-## CRITERIA
-### 1. BUZZ WORDS
-Flag every sentence that has the following words or phrases in them: 
+- **Parallel opposition**: A sentence structured as "It's not just X, it's Y" — a classic AI construction that sounds crafted rather than spoken. Example: "It's not just a tool, it's a mindset."
+- **Formulaic transitions**: Transitions that announce themselves rather than flow naturally. Example: "Here's the thing:" / "Here's the problem:"
+- **Performative emphasis**: Phrases that signal importance instead of demonstrating it. Example: "Let me be clear" / "Let that sink in"
+- **Triple parallel lists**: Three consecutive sentences with identical structure, repeating a pattern for rhetorical effect. Example: "It's about dedication. It's about persistence. It's about showing up."
 
-Elevate, delve, leverage, enhance, utilize, foster, propel, optimize, catalyze, disrupt, synergize, ensure, illuminate, cultivate, prowess, harness, turbocharge, spearheaded, energize, navigate, deploy, elucidate, galvanize, reimagine, streamline, unlock, seamless, "in the world of", game-changer, "delve into", "navigate the landscape", realm, revolutionize.
+## Rhetorical Scaffolding
 
-#### Important
-- Do not flag words outside of this list.
+- **Preemptive negation**: Negating something the reader never assumed, to sound more nuanced. The sentence addresses an objection nobody raised. Just state the actual reason directly. Example: "Not because I don't have ideas — but because I've been too busy."
+- **False contrast reframe**: Negating a claim nobody made, then presenting the "real" answer as though correcting a misconception. If nobody said the bottleneck was writing, don't negate it — just state what the bottleneck actually was. Example: "The bottleneck wasn't writing. It was staring at a blank page."
+- **Signposted insight**: Labeling what follows as the important part, instead of letting the writing land on its own. Example: "The insight:" / "The takeaway:" / "The key lesson:"
+- **Dramatic transitions**: Cinematic, movie-narrator transitions that create artificial gravitas. The author's transitions are plain and direct. Example: "Then something shifted." / "And that's when everything changed." / "That was the moment."
 
-### 2. Negation Constrast
-Flag sentence that use artificial negation contrasts. Artificial contrast patterns introduce an idea just to dismiss it, creating rhetorical emphasis without argumentative substance. They make writing feel formulaic and AI-generated.
+## Content Fabrication
+- **Fake hyperbole**: Comparisons nobody actually makes. Example: "PhD in CI/CD" / "black belt in debugging."
 
-They usually have the pattern "It's not X, it's Y" structures or similar negation-contrast patterns without previously discussed, argued, or needed correction.
-
-Common forms:
-- "It's not X, it's Y"
-- "This isn't X, it's Y"  
-- "X is no longer Y, it's Z"
-- "[Subject] doesn't just do X, it does Y"
-- "You're not doing X, you're doing Y"
-- "Instead of X, Y" (when X appears out of nowhere)
-
-How to Check:
-Ask two questions:
-1. Was X discussed, mention, or establish before negating it?
-2. Is X being to correct something, or just for emphasis?
-
-If both answers are "NO" → flag
-
-EXAMPLES:
-
-❌ AVOID:
-"The solution isn't to hire more reviewers. The solution is to apply AI."
-(No one suggested hiring reviewers. Pure rhetoric.)
-
-✓ BETTER:
-"The solution is to apply AI to the review process."
-
-❌ AVOID:
-"It's not just a feature, it's a complete solution."
-(Why introduce "just a feature" if you never argued it was one?)
-
-✓ BETTER:
-"It's a complete solution."
-
-WHEN THE PATTERN IS ACCEPTABLE:
-
-✓ After building context:
-"Some teams try hiring more reviewers. Others extend work hours. But these 
-approaches fail because they don't address the root cause. The solution is 
-to apply AI to the review process."
-
-✓ Correcting a misconception:
-Reader: "So this is just a linter?"
-You: "It's not just a linter, it's a context-aware analysis tool."
-
-✓ Making a genuine comparison:
-"While AI has accelerated code creation, human review capacity has 
-remained flat."
-(Both sides of the contrast are the point.)
----
-
-
-
+## Tone Problems
+- **Excessive hedging**: Stacking qualifiers instead of stating an opinion directly. Example: "I think maybe perhaps it could be worth considering..."
+- **Performative vulnerability**: Announcing honesty instead of just being honest. Example: "I'm going to be honest with you..."
