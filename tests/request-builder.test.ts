@@ -26,4 +26,11 @@ describe('RequestBuilder', () => {
     const out = b.buildPromptBodyForStructured('P', {});
     expect(out).not.toContain('{{file_type}}');
   });
+
+  it('replaces all occurrences of {{file_type}} in the directive', () => {
+    const b = new DefaultRequestBuilder('type={{file_type}}, again={{file_type}}');
+    const out = b.buildPromptBodyForStructured('P', { fileType: '.mdx' });
+    expect(out).toBe('type=.mdx, again=.mdx\n\nP');
+    expect(out).not.toContain('{{file_type}}');
+  });
 });

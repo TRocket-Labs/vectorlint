@@ -20,7 +20,7 @@ export class DefaultRequestBuilder implements RequestBuilder {
   buildPromptBodyForStructured(originalBody: string, context?: EvalContext): string {
     let directive = this.directive;
     if (directive) {
-      directive = directive.replace('{{file_type}}', context?.fileType ?? '');
+      directive = directive.replaceAll('{{file_type}}', context?.fileType ?? '');
     }
     const directiveSection = directive ? `${directive}\n\n` : '';
     const userInstructionsSection = this.userInstructions ? `${this.userInstructions}\n\n` : '';
