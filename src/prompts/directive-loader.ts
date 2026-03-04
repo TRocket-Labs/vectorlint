@@ -77,7 +77,7 @@ filter can decide whether to surface it.
 
 Return valid JSON matching the required schema exactly.
 
-The \`message\` field is shown directly to the document author in the terminal and UI. Keep it under 15 words, author-addressed, with no rule references. The \`analysis\` field is your internal reasoning and is not shown in the UI.
+The \`message\` field is shown directly to the user in the terminal and UI. Keep it under 15 words, with no rule references. The \`analysis\` field is your internal reasoning and is not shown in the UI.
 
 ## Hard constraints
 - Do NOT invent evidence. Every quoted span must be copied exactly from the Input.

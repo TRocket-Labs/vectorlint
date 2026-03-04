@@ -40,7 +40,7 @@ describe("prompt schema verbosity constraints", () => {
 
     expect(violationProperties.message).toEqual({
       type: "string",
-      description: "Under 15 words. State the issue directly to the document author. No rule references.",
+      description: "Under 15 words. State the issue directly to the user. No rule references.",
     });
   });
 
@@ -52,7 +52,7 @@ describe("prompt schema verbosity constraints", () => {
 
     expect(violationProperties.message).toEqual({
       type: "string",
-      description: "Under 15 words. State the issue directly to the document author. No rule references.",
+      description: "Under 15 words. State the issue directly to the user. No rule references.",
     });
   });
 

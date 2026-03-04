@@ -60,7 +60,7 @@ export function buildJudgeLLMSchema() {
                     message: {
                       type: "string",
                       description:
-                        "Under 15 words. State the issue directly to the document author. No rule references.",
+                        "Under 15 words. State the issue directly to the user. No rule references.",
                     },
                     suggestion: {
                       type: "string",
@@ -177,7 +177,7 @@ export function buildCheckLLMSchema() {
               message: {
                 type: "string",
                 description:
-                  "Under 15 words. State the issue directly to the document author. No rule references.",
+                  "Under 15 words. State the issue directly to the user. No rule references.",
               },
               suggestion: {
                 type: "string",
