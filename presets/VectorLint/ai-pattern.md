@@ -1,4 +1,5 @@
 ---
+specVersion: 2.0.0
 evaluator: base
 type: check
 id: AIPattern
