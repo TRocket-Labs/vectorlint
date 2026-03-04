@@ -2,7 +2,7 @@
     "presets": {
         "VectorLint": {
             "path": "./VectorLint",
-            "description": "Standard VectorLint quality rules"
+            "description": "Standard VectorLint quality rules (8 built-in checks)"
         }
     }
 }

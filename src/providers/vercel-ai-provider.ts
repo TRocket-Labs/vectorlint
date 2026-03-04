@@ -29,9 +29,10 @@ export class VercelAIProvider implements LLMProvider {
   async runPromptStructured<T = unknown>(
     content: string,
     promptText: string,
-    schema: { name: string; schema: Record<string, unknown> }
+    schema: { name: string; schema: Record<string, unknown> },
+    context?: import('./request-builder').EvalContext
   ): Promise<LLMResult<T>> {
-    const systemPrompt = this.builder.buildPromptBodyForStructured(promptText);
+    const systemPrompt = this.builder.buildPromptBodyForStructured(promptText, context);
 
     // Convert JSON Schema to Zod for Vercel AI SDK
     const zodSchema = this.jsonSchemaToZod(schema);

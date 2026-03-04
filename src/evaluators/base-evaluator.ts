@@ -1,4 +1,6 @@
+import path from "path";
 import type { LLMProvider } from "../providers/llm-provider";
+import type { EvalContext } from "../providers/request-builder";
 import type { PromptFile } from "../schemas/prompt-schemas";
 import type { TokenUsage } from "../providers/token-usage";
 import {
@@ -47,13 +49,15 @@ export class BaseEvaluator implements Evaluator {
     protected defaultSeverity?: Severity
   ) { }
 
-  async evaluate(_file: string, content: string): Promise<PromptEvaluationResult> {
+  async evaluate(file: string, content: string): Promise<PromptEvaluationResult> {
     const type = this.getEvaluationType();
+    const ext = path.extname(file);
+    const context: EvalContext = ext ? { fileType: ext } : {};
 
     if (type === EvaluationType.JUDGE) {
-      return this.runJudgeEvaluation(content);
+      return this.runJudgeEvaluation(content, context);
     } else {
-      return this.runCheckEvaluation(content);
+      return this.runCheckEvaluation(content, context);
     }
   }
 
@@ -115,7 +119,8 @@ export class BaseEvaluator implements Evaluator {
    * 4. Average scores across chunks (weighted by chunk size).
    */
   protected async runJudgeEvaluation(
-    content: string
+    content: string,
+    context?: EvalContext
   ): Promise<JudgeResult> {
     const schema = buildJudgeLLMSchema();
 
@@ -130,7 +135,8 @@ export class BaseEvaluator implements Evaluator {
         await this.llmProvider.runPromptStructured<JudgeLLMResult>(
           numberedContent,
           this.prompt.body,
-          schema
+          schema,
+          context
         );
 
       const result = calculateJudgeScore(llmResult.criteria, {
@@ -154,7 +160,8 @@ export class BaseEvaluator implements Evaluator {
         await this.llmProvider.runPromptStructured<JudgeLLMResult>(
           chunk.content,
           this.prompt.body,
-          schema
+          schema,
+          context
         );
 
       usages.push(usage);
@@ -188,7 +195,8 @@ export class BaseEvaluator implements Evaluator {
    * 5. Calculate score once from total violations.
    */
   protected async runCheckEvaluation(
-    content: string
+    content: string,
+    context?: EvalContext
   ): Promise<CheckResult> {
     const schema = buildCheckLLMSchema();
 
@@ -208,7 +216,8 @@ export class BaseEvaluator implements Evaluator {
         await this.llmProvider.runPromptStructured<CheckLLMResult>(
           chunk.content,
           this.prompt.body,
-          schema
+          schema,
+          context
         );
       allChunkViolations.push(llmResult.violations);
       rawChunkOutputs.push(llmResult);
