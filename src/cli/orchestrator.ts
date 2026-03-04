@@ -121,6 +121,7 @@ function reportIssue(params: ReportIssueParams): void {
     ruleName,
     outputFormat,
     jsonFormatter,
+    analysis,
     suggestion,
     fix,
     scoreText,
@@ -165,6 +166,7 @@ function reportIssue(params: ReportIssueParams): void {
       message: summary,
       rule: ruleName,
       match: match || "",
+      ...(analysis ? { analysis } : {}),
       ...(suggestion ? { suggestion } : {}),
       ...(fix ? { fix } : {}),
     };
@@ -209,7 +211,7 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
   for (const v of violations) {
     if (!v) continue;
 
-    const rowSummary = (v.analysis || "").trim();
+    const rowSummary = (v.message || "").trim();
 
     try {
       const locWithMatch = locateQuotedText(
@@ -274,6 +276,7 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
       ruleName,
       outputFormat,
       jsonFormatter,
+      ...(v.analysis !== undefined && { analysis: v.analysis }),
       ...(v.suggestion !== undefined && { suggestion: v.suggestion }),
       ...(v.fix !== undefined && { fix: v.fix }),
       scoreText,

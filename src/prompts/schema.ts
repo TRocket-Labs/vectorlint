@@ -57,6 +57,11 @@ export function buildJudgeLLMSchema() {
                       description:
                         "A concise 1-2 sentence explanation of the specific issue.",
                     },
+                    message: {
+                      type: "string",
+                      description:
+                        "Under 15 words. State the issue directly to the user. No rule references.",
+                    },
                     suggestion: {
                       type: "string",
                       description: "Suggest a fix in 15 words or less.",
@@ -124,6 +129,7 @@ export function buildJudgeLLMSchema() {
                     "context_after",
                     "description",
                     "analysis",
+                    "message",
                     "suggestion",
                     "fix",
                     "rule_quote",
@@ -167,6 +173,11 @@ export function buildCheckLLMSchema() {
                 type: "string",
                 description:
                   "A concise 1-2 sentence explanation of the specific issue.",
+              },
+              message: {
+                type: "string",
+                description:
+                  "Under 15 words. State the issue directly to the user. No rule references.",
               },
               suggestion: {
                 type: "string",
@@ -235,6 +246,7 @@ export function buildCheckLLMSchema() {
               "context_after",
               "description",
               "analysis",
+              "message",
               "suggestion",
               "fix",
               "rule_quote",
@@ -263,6 +275,7 @@ export type JudgeLLMResult = {
       context_after: string;
       description: string;
       analysis: string;
+      message: string;
       suggestion: string;
       fix: string;
       rule_quote: string;
@@ -279,6 +292,7 @@ export type CheckLLMResult = {
     line: number;
     description: string;
     analysis: string;
+    message: string;
     suggestion: string;
     fix: string;
     quoted_text: string;
@@ -309,6 +323,7 @@ export type JudgeResult = {
       context_after: string;
       description: string;
       analysis: string;
+      message: string;
       suggestion: string;
       fix: string;
       rule_quote: string;
@@ -325,6 +340,7 @@ export type CheckItem = {
   line: number;
   description: string;
   analysis: string;
+  message?: string;
   suggestion?: string;
   fix?: string;
   quoted_text?: string;
@@ -348,6 +364,7 @@ export type CheckResult = {
   violations: Array<{
     line?: number;
     analysis: string;
+    message?: string;
     suggestion?: string;
     fix?: string;
     quoted_text?: string;
