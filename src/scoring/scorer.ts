@@ -10,11 +10,7 @@ export interface CheckScoringOptions {
   // Strictness factor. Higher = more penalty per violation.
   strictness?: number | "lenient" | "strict" | "standard" | undefined;
   defaultSeverity?: typeof Severity.WARNING | typeof Severity.ERROR | undefined;
-  promptSeverity?:
-  | typeof Severity.WARNING
-  | typeof Severity.ERROR
-  | string
-  | undefined;
+  promptSeverity?: typeof Severity.WARNING | typeof Severity.ERROR | undefined;
 }
 
 export interface JudgeScoringOptions {
@@ -67,7 +63,7 @@ export function calculateCheckScore(
 
   if (finalScore < 10) {
     if (options.promptSeverity !== undefined) {
-      severity = options.promptSeverity as typeof Severity.WARNING | typeof Severity.ERROR;
+      severity = options.promptSeverity;
     } else if (options.defaultSeverity) {
       severity = options.defaultSeverity;
     }
