@@ -52,8 +52,15 @@ export function buildJudgeLLMSchema() {
                     context_before: { type: "string" },
                     context_after: { type: "string" },
                     description: { type: "string" },
-                    analysis: { type: "string" },
-                    suggestion: { type: "string" },
+                    analysis: {
+                      type: "string",
+                      description:
+                        "A concise 1-2 sentence explanation of the specific issue.",
+                    },
+                    suggestion: {
+                      type: "string",
+                      description: "Suggest a fix in 15 words or less.",
+                    },
                     fix: { type: "string" },
                     rule_quote: { type: "string" },
                     checks: {
@@ -156,8 +163,15 @@ export function buildCheckLLMSchema() {
               context_before: { type: "string" },
               context_after: { type: "string" },
               description: { type: "string" },
-              analysis: { type: "string" },
-              suggestion: { type: "string" },
+              analysis: {
+                type: "string",
+                description:
+                  "A concise 1-2 sentence explanation of the specific issue.",
+              },
+              suggestion: {
+                type: "string",
+                description: "Suggest a fix in 15 words or less.",
+              },
               fix: { type: "string" },
               rule_quote: { type: "string" },
               checks: {

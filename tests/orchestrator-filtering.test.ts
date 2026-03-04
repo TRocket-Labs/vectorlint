@@ -5,7 +5,9 @@ import path from "path";
 import { evaluateFiles } from "../src/cli/orchestrator";
 import { OutputFormat, type EvaluationOptions } from "../src/cli/types";
 import { EvaluationType, Severity } from "../src/evaluators/types";
+import type { Result } from "../src/output/json-formatter";
 import type { PromptFile } from "../src/prompts/prompt-loader";
+import type { ValeOutput } from "../src/schemas/vale-responses";
 import type { JudgeResult, RawCheckResult } from "../src/prompts/schema";
 
 const { EVALUATE_MOCK } = vi.hoisted(() => ({
@@ -357,5 +359,75 @@ describe("CLI violation filtering", () => {
       createBaseOptions([prompt])
     );
     expect(zeroThresholdRun.totalWarnings).toBe(2);
+  });
+
+  it("does not emit dummy issues in JSON output when no violations are surfaced", async () => {
+    const targetFile = createTempFile("Alpha text\n");
+    const prompt = createPrompt({
+      id: "CheckJsonPrompt",
+      name: "Check JSON Prompt",
+      type: "check",
+      severity: Severity.WARNING,
+    });
+
+    EVALUATE_MOCK.mockResolvedValue(
+      makeCheckResult({
+        violations: [
+          makeCheckViolation({
+            confidence: 0.2,
+          }),
+        ],
+      })
+    );
+
+    const run = await evaluateFiles([targetFile], {
+      ...createBaseOptions([prompt]),
+      outputFormat: OutputFormat.Json,
+    });
+
+    expect(run.totalWarnings).toBe(0);
+
+    const parsed = JSON.parse(
+      String(vi.mocked(console.log).mock.calls.at(-1)?.[0])
+    ) as Result;
+    const allIssues = Object.values(parsed.files).flatMap((file) => file.issues);
+
+    expect(allIssues).toHaveLength(0);
+    expect(JSON.stringify(parsed)).not.toContain("No issues found");
+  });
+
+  it("does not emit dummy issues in Vale JSON output when no violations are surfaced", async () => {
+    const targetFile = createTempFile("Alpha text\n");
+    const prompt = createPrompt({
+      id: "CheckValeJsonPrompt",
+      name: "Check Vale JSON Prompt",
+      type: "check",
+      severity: Severity.WARNING,
+    });
+
+    EVALUATE_MOCK.mockResolvedValue(
+      makeCheckResult({
+        violations: [
+          makeCheckViolation({
+            confidence: 0.2,
+          }),
+        ],
+      })
+    );
+
+    const run = await evaluateFiles([targetFile], {
+      ...createBaseOptions([prompt]),
+      outputFormat: OutputFormat.ValeJson,
+    });
+
+    expect(run.totalWarnings).toBe(0);
+
+    const parsed = JSON.parse(
+      String(vi.mocked(console.log).mock.calls.at(-1)?.[0])
+    ) as ValeOutput;
+    const allIssues = Object.values(parsed).flat();
+
+    expect(allIssues).toHaveLength(0);
+    expect(JSON.stringify(parsed)).not.toContain("No issues found");
   });
 });

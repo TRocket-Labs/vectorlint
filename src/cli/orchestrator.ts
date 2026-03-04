@@ -619,7 +619,6 @@ function routePromptResult(
     const { decisions, surfacedViolations } = getViolationFilterResults(
       result.violations
     );
-    const violationCount = surfacedViolations.length;
 
     // Score calculated from surfaced violations only — matches what user sees
     const scored = calculateCheckScore(
@@ -631,7 +630,6 @@ function routePromptResult(
       }
     );
     const severity = scored.severity;
-
     // Group violations by criterionName
     const violationsByCriterion = new Map<
       string | undefined,
@@ -679,22 +677,6 @@ function routePromptResult(
           totalWarnings += violations.length;
         }
       }
-    }
-
-    // If no violations but we have a message (JSON output), report it
-    if (violationCount === 0 && (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson) && scored.message) {
-      const ruleName = buildRuleName(promptFile.pack, promptId, undefined);
-      reportIssue({
-        file: relFile,
-        line: 1,
-        column: 1,
-        severity,
-        summary: scored.message,
-        ruleName,
-        outputFormat,
-        jsonFormatter,
-        match: "",
-      });
     }
 
     // Create scoreEntry for Quality Scores display
