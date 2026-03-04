@@ -209,7 +209,7 @@ function locateAndReportViolations(params: ProcessViolationsParams): {
   for (const v of violations) {
     if (!v) continue;
 
-    const rowSummary = (v.analysis || "").trim();
+    const rowSummary = (v.message || v.analysis || "").trim();
 
     try {
       const locWithMatch = locateQuotedText(
