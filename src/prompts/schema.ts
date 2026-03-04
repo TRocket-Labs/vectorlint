@@ -350,7 +350,16 @@ export type CheckResult = {
   raw_model_output?: unknown;
 };
 
-export type PromptEvaluationResult = JudgeResult | CheckResult;
+export type RawCheckResult = {
+  type: typeof EvaluationType.CHECK;
+  violations: CheckResult["violations"];
+  word_count: number;
+  reasoning?: string;
+  usage?: TokenUsage;
+  raw_model_output?: unknown;
+};
+
+export type PromptEvaluationResult = JudgeResult | RawCheckResult;
 
 export function isJudgeResult(
   result: PromptEvaluationResult
@@ -360,6 +369,12 @@ export function isJudgeResult(
 
 export function isCheckResult(
   result: PromptEvaluationResult
-): result is CheckResult {
+): result is RawCheckResult {
+  return result.type === EvaluationType.CHECK;
+}
+
+export function isRawCheckResult(
+  result: PromptEvaluationResult
+): result is RawCheckResult {
   return result.type === EvaluationType.CHECK;
 }

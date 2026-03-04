@@ -25,6 +25,7 @@ import {
   calculateCost,
   TokenUsageStats
 } from '../providers/token-usage';
+import { calculateCheckScore } from '../scoring';
 import { locateQuotedText } from "../output/location";
 import {
   computeFilterDecision,
@@ -615,11 +616,21 @@ function routePromptResult(
 
   // Handle Check Result
   if (!isJudgeResult(result)) {
-    const severity = result.severity;
     const { decisions, surfacedViolations } = getViolationFilterResults(
       result.violations
     );
     const violationCount = surfacedViolations.length;
+
+    // Score calculated from surfaced violations only — matches what user sees
+    const scored = calculateCheckScore(
+      surfacedViolations,
+      result.word_count,
+      {
+        strictness: promptFile.meta.strictness,
+        promptSeverity: promptFile.meta.severity,
+      }
+    );
+    const severity = scored.severity;
 
     // Group violations by criterionName
     const violationsByCriterion = new Map<
@@ -671,14 +682,14 @@ function routePromptResult(
     }
 
     // If no violations but we have a message (JSON output), report it
-    if (violationCount === 0 && (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson) && result.message) {
+    if (violationCount === 0 && (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson) && scored.message) {
       const ruleName = buildRuleName(promptFile.pack, promptId, undefined);
       reportIssue({
         file: relFile,
         line: 1,
         column: 1,
         severity,
-        summary: result.message,
+        summary: scored.message,
         ruleName,
         outputFormat,
         jsonFormatter,
@@ -689,8 +700,8 @@ function routePromptResult(
     // Create scoreEntry for Quality Scores display
     const scoreEntry: EvaluationSummary = {
       id: buildRuleName(promptFile.pack, promptId, undefined),
-      scoreText: `${result.final_score.toFixed(1)}/10`,
-      score: result.final_score,
+      scoreText: `${scored.final_score.toFixed(1)}/10`,
+      score: scored.final_score,
     };
 
     if (debugJson) {
