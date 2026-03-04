@@ -25,6 +25,7 @@ import {
   calculateCost,
   TokenUsageStats
 } from '../providers/token-usage';
+import { calculateCheckScore } from '../scoring';
 import { locateQuotedText } from "../output/location";
 import {
   computeFilterDecision,
@@ -615,10 +616,20 @@ function routePromptResult(
 
   // Handle Check Result
   if (!isJudgeResult(result)) {
-    const severity = result.severity;
     const { decisions, surfacedViolations } = getViolationFilterResults(
       result.violations
     );
+
+    // Score calculated from surfaced violations only — matches what user sees
+    const scored = calculateCheckScore(
+      surfacedViolations,
+      result.word_count,
+      {
+        strictness: promptFile.meta.strictness,
+        promptSeverity: promptFile.meta.severity,
+      }
+    );
+    const severity = scored.severity;
     // Group violations by criterionName
     const violationsByCriterion = new Map<
       string | undefined,
@@ -671,8 +682,8 @@ function routePromptResult(
     // Create scoreEntry for Quality Scores display
     const scoreEntry: EvaluationSummary = {
       id: buildRuleName(promptFile.pack, promptId, undefined),
-      scoreText: `${result.final_score.toFixed(1)}/10`,
-      score: result.final_score,
+      scoreText: `${scored.final_score.toFixed(1)}/10`,
+      score: scored.final_score,
     };
 
     if (debugJson) {

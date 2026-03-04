@@ -128,10 +128,9 @@ describe("Scoring Types", () => {
       if (result.type !== EvaluationType.CHECK)
         throw new Error("Wrong result type");
 
-      // Calculation: 2 violations = score of 8 (10 - 2)
-      expect(result.final_score).toBe(8.0);
-      expect(result.percentage).toBe(80);
-      expect(result.violation_count).toBe(2);
+      // Evaluator now returns raw violations and word count — scoring deferred to orchestrator
+      expect(result.violations).toHaveLength(2);
+      expect(result.word_count).toBe(100);
     });
 
     it("should handle empty violations list (perfect score)", async () => {
@@ -152,10 +151,8 @@ describe("Scoring Types", () => {
       if (result.type !== EvaluationType.CHECK)
         throw new Error("Wrong result type");
 
-      // No violations = perfect score
-      expect(result.final_score).toBe(10);
-      expect(result.percentage).toBe(100);
-      expect(result.violation_count).toBe(0);
+      expect(result.violations).toHaveLength(0);
+      expect(result.word_count).toBeGreaterThan(0);
     });
   });
 
@@ -201,8 +198,8 @@ describe("Scoring Types", () => {
 
       if (result.type !== EvaluationType.CHECK)
         throw new Error("Wrong result type");
-      expect(result.final_score).toBe(10);
-      expect(result.items).toEqual([]);
+      expect(result.violations).toHaveLength(0);
+      expect(result.word_count).toBeGreaterThan(0);
     });
   });
 });

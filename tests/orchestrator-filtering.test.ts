@@ -7,14 +7,14 @@ import { OutputFormat, type EvaluationOptions } from "../src/cli/types";
 import { EvaluationType, Severity } from "../src/evaluators/types";
 import type { Result } from "../src/output/json-formatter";
 import type { PromptFile } from "../src/prompts/prompt-loader";
-import type { CheckResult, JudgeResult } from "../src/prompts/schema";
 import type { ValeOutput } from "../src/schemas/vale-responses";
+import type { JudgeResult, RawCheckResult } from "../src/prompts/schema";
 
 const { EVALUATE_MOCK } = vi.hoisted(() => ({
   EVALUATE_MOCK: vi.fn(),
 }));
 
-type CheckViolation = CheckResult["violations"][number];
+type CheckViolation = RawCheckResult["violations"][number];
 type JudgeViolation = JudgeResult["criteria"][number]["violations"][number];
 
 vi.mock("../src/evaluators/index", () => ({
@@ -115,21 +115,13 @@ function makeJudgeViolation(
 }
 
 function makeCheckResult(params: {
-  severity: Severity;
-  finalScore: number;
-  percentage: number;
-  message: string;
   violations: CheckViolation[];
-}): CheckResult {
+  wordCount?: number;
+}): RawCheckResult {
   return {
     type: EvaluationType.CHECK,
-    final_score: params.finalScore,
-    percentage: params.percentage,
-    violation_count: params.violations.length,
-    items: [],
-    severity: params.severity,
-    message: params.message,
     violations: params.violations,
+    word_count: params.wordCount ?? 100,
   };
 }
 
@@ -183,10 +175,6 @@ describe("CLI violation filtering", () => {
 
     EVALUATE_MOCK.mockResolvedValue(
       makeCheckResult({
-        severity: Severity.WARNING,
-        finalScore: 8,
-        percentage: 80,
-        message: "Found issues",
         violations: [
           makeCheckViolation(),
           makeCheckViolation({
@@ -210,10 +198,6 @@ describe("CLI violation filtering", () => {
     process.env.CONFIDENCE_THRESHOLD = "0.0";
     EVALUATE_MOCK.mockResolvedValue(
       makeCheckResult({
-        severity: Severity.WARNING,
-        finalScore: 8,
-        percentage: 80,
-        message: "Found issues",
         violations: [
           makeCheckViolation(),
           makeCheckViolation({
@@ -246,10 +230,6 @@ describe("CLI violation filtering", () => {
 
     EVALUATE_MOCK.mockResolvedValue(
       makeCheckResult({
-        severity: Severity.ERROR,
-        finalScore: 2,
-        percentage: 20,
-        message: "Found issue",
         violations: [
           makeCheckViolation({
             confidence: 0.2,
@@ -268,10 +248,6 @@ describe("CLI violation filtering", () => {
     process.env.CONFIDENCE_THRESHOLD = "0.0";
     EVALUATE_MOCK.mockResolvedValue(
       makeCheckResult({
-        severity: Severity.ERROR,
-        finalScore: 2,
-        percentage: 20,
-        message: "Found issue",
         violations: [
           makeCheckViolation({
             confidence: 0.2,
@@ -286,6 +262,49 @@ describe("CLI violation filtering", () => {
     );
     expect(zeroThresholdRun.totalErrors).toBe(1);
     expect(zeroThresholdRun.hadSeverityErrors).toBe(true);
+  });
+
+  it("score reflects only surfaced violations, not filtered-out ones", async () => {
+    // 100-word file: 2 violations from model, 1 fails confidence gate
+    // With default threshold, only 1 violation surfaces
+    // Density: 1/100 * 100 * 10 = 10 penalty → score = 9.0
+    // If bug were present (scoring all 2): 2/100 * 100 * 10 = 20 penalty → score = 8.0
+
+    const content = new Array(100).fill("word").join(" ") + "\n";
+    const targetFile = createTempFile(content);
+
+    const prompt = createPrompt({
+      id: "ScorePrompt",
+      name: "Score Prompt",
+      type: "check",
+      severity: Severity.WARNING,
+    });
+
+    EVALUATE_MOCK.mockResolvedValue(
+      makeCheckResult({
+        violations: [
+          makeCheckViolation({ quoted_text: content.split(" ")[0] ?? "word" }),
+          makeCheckViolation({
+            quoted_text: content.split(" ")[1] ?? "word",
+            confidence: 0.2,  // fails confidence gate — should NOT affect score
+          }),
+        ],
+        wordCount: 100,
+      })
+    );
+
+    const logCalls: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((...args) => {
+      logCalls.push(args.map(String).join(" "));
+    });
+
+    await evaluateFiles([targetFile], createBaseOptions([prompt]));
+
+    // Score should reflect 1 surfaced violation, not 2
+    const scoreLine = logCalls.find(l => l.includes("/10"));
+    expect(scoreLine).toBeDefined();
+    expect(scoreLine).toContain("9.0/10");
+    expect(scoreLine).not.toContain("8.0/10");
   });
 
   it("filters low-confidence judge violations from CLI counts by default", async () => {
@@ -353,10 +372,6 @@ describe("CLI violation filtering", () => {
 
     EVALUATE_MOCK.mockResolvedValue(
       makeCheckResult({
-        severity: Severity.WARNING,
-        finalScore: 10,
-        percentage: 100,
-        message: "No issues found",
         violations: [
           makeCheckViolation({
             confidence: 0.2,
@@ -392,10 +407,6 @@ describe("CLI violation filtering", () => {
 
     EVALUATE_MOCK.mockResolvedValue(
       makeCheckResult({
-        severity: Severity.WARNING,
-        finalScore: 10,
-        percentage: 100,
-        message: "No issues found",
         violations: [
           makeCheckViolation({
             confidence: 0.2,
