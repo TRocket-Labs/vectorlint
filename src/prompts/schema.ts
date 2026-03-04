@@ -275,6 +275,7 @@ export type JudgeLLMResult = {
       context_after: string;
       description: string;
       analysis: string;
+      message: string;
       suggestion: string;
       fix: string;
       rule_quote: string;
@@ -291,6 +292,7 @@ export type CheckLLMResult = {
     line: number;
     description: string;
     analysis: string;
+    message: string;
     suggestion: string;
     fix: string;
     quoted_text: string;
@@ -321,6 +323,7 @@ export type JudgeResult = {
       context_after: string;
       description: string;
       analysis: string;
+      message: string;
       suggestion: string;
       fix: string;
       rule_quote: string;
@@ -337,6 +340,7 @@ export type CheckItem = {
   line: number;
   description: string;
   analysis: string;
+  message?: string;
   suggestion?: string;
   fix?: string;
   quoted_text?: string;
@@ -360,6 +364,7 @@ export type CheckResult = {
   violations: Array<{
     line?: number;
     analysis: string;
+    message?: string;
     suggestion?: string;
     fix?: string;
     quoted_text?: string;

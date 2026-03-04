@@ -55,4 +55,17 @@ describe("prompt schema verbosity constraints", () => {
       description: "Under 15 words. State the issue directly to the document author. No rule references.",
     });
   });
+
+  it("check schema violation required array includes message", () => {
+    const schema = buildCheckLLMSchema();
+    const required = schema.schema.properties.violations.items.required;
+    expect(required).toContain("message");
+  });
+
+  it("judge schema violation required array includes message", () => {
+    const schema = buildJudgeLLMSchema();
+    const required =
+      schema.schema.properties.criteria.items.properties.violations.items.required;
+    expect(required).toContain("message");
+  });
 });
