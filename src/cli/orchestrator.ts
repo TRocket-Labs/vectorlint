@@ -670,22 +670,6 @@ function routePromptResult(
       }
     }
 
-    // If no violations but we have a message (JSON output), report it
-    if (violationCount === 0 && (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.ValeJson) && result.message) {
-      const ruleName = buildRuleName(promptFile.pack, promptId, undefined);
-      reportIssue({
-        file: relFile,
-        line: 1,
-        column: 1,
-        severity,
-        summary: result.message,
-        ruleName,
-        outputFormat,
-        jsonFormatter,
-        match: "",
-      });
-    }
-
     // Create scoreEntry for Quality Scores display
     const scoreEntry: EvaluationSummary = {
       id: buildRuleName(promptFile.pack, promptId, undefined),

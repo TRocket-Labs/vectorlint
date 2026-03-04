@@ -339,4 +339,85 @@ describe("CLI violation filtering", () => {
     );
     expect(zeroThresholdRun.totalWarnings).toBe(2);
   });
+
+  it("does not emit dummy issues in JSON output when no violations are surfaced", async () => {
+    const targetFile = createTempFile("Alpha text\n");
+    const prompt = createPrompt({
+      id: "CheckJsonPrompt",
+      name: "Check JSON Prompt",
+      type: "check",
+      severity: Severity.WARNING,
+    });
+
+    EVALUATE_MOCK.mockResolvedValue(
+      makeCheckResult({
+        severity: Severity.WARNING,
+        finalScore: 10,
+        percentage: 100,
+        message: "No issues found",
+        violations: [
+          makeCheckViolation({
+            confidence: 0.2,
+          }),
+        ],
+      })
+    );
+
+    const run = await evaluateFiles([targetFile], {
+      ...createBaseOptions([prompt]),
+      outputFormat: OutputFormat.Json,
+    });
+
+    expect(run.totalWarnings).toBe(0);
+
+    const loggedJson = vi.mocked(console.log).mock.calls.at(-1)?.[0];
+    const parsed = JSON.parse(String(loggedJson)) as {
+      files: Record<string, { issues: Array<{ message: string }> }>;
+    };
+    const allIssues = Object.values(parsed.files).flatMap((file) => file.issues);
+
+    expect(allIssues).toHaveLength(0);
+    expect(JSON.stringify(parsed)).not.toContain("No issues found");
+  });
+
+  it("does not emit dummy issues in Vale JSON output when no violations are surfaced", async () => {
+    const targetFile = createTempFile("Alpha text\n");
+    const prompt = createPrompt({
+      id: "CheckValeJsonPrompt",
+      name: "Check Vale JSON Prompt",
+      type: "check",
+      severity: Severity.WARNING,
+    });
+
+    EVALUATE_MOCK.mockResolvedValue(
+      makeCheckResult({
+        severity: Severity.WARNING,
+        finalScore: 10,
+        percentage: 100,
+        message: "No issues found",
+        violations: [
+          makeCheckViolation({
+            confidence: 0.2,
+          }),
+        ],
+      })
+    );
+
+    const run = await evaluateFiles([targetFile], {
+      ...createBaseOptions([prompt]),
+      outputFormat: OutputFormat.ValeJson,
+    });
+
+    expect(run.totalWarnings).toBe(0);
+
+    const loggedJson = vi.mocked(console.log).mock.calls.at(-1)?.[0];
+    const parsed = JSON.parse(String(loggedJson)) as Record<
+      string,
+      Array<{ Message: string }>
+    >;
+    const allIssues = Object.values(parsed).flat();
+
+    expect(allIssues).toHaveLength(0);
+    expect(JSON.stringify(parsed)).not.toContain("No issues found");
+  });
 });
