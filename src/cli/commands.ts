@@ -19,6 +19,7 @@ import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
 import { OutputFormat } from './types';
+import { DEFAULT_EVALUATION_MODE } from './mode';
 import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -56,7 +57,7 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
-    .option('--mode <mode>', 'Evaluation mode: lint (default) or agent', 'lint')
+    .option('--mode <mode>', 'Evaluation mode: lint (default) or agent', DEFAULT_EVALUATION_MODE)
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
     .action(async (paths: string[] = []) => {

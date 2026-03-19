@@ -10,6 +10,7 @@ import { RdJsonFormatter } from '../output/rdjson-formatter';
 import type { PromptEvaluationResult, JudgeResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
 import type { TokenUsageStats, PricingConfig } from '../providers/token-usage';
+import type { EvaluationMode } from './mode';
 
 export enum OutputFormat {
     Line = "line",
@@ -19,7 +20,7 @@ export enum OutputFormat {
 }
 
 export interface EvaluationOptions {
-    mode?: 'agent' | 'lint';
+    mode?: EvaluationMode;
     prompts: PromptFile[];
     rulesPath: string | undefined;
     provider: LLMProvider;

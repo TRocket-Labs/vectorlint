@@ -14,6 +14,7 @@ import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { OutputFormat } from './types';
+import { AGENT_EVALUATION_MODE } from './mode';
 import type {
   EvaluationOptions, EvaluationResult, ErrorTrackingResult,
   ReportIssueParams, ProcessViolationsParams,
@@ -183,7 +184,7 @@ async function runAgentMode(
         requestFailures,
       },
       metadata: {
-        mode: 'agent',
+        mode: AGENT_EVALUATION_MODE,
         timestamp: new Date().toISOString(),
       },
     }, null, 2));
@@ -1158,7 +1159,7 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  if (options.mode === 'agent') {
+  if (options.mode === AGENT_EVALUATION_MODE) {
     return runAgentMode(targets, options);
   }
 
