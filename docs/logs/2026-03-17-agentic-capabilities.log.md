@@ -54,3 +54,8 @@
 - **Status**: completed
 - **What was done**: Added merger utility that flattens per-rule agent run results into a single findings collection for reporting.
 - **Files changed**: src/agent/merger.ts, tests/agent/merger.test.ts
+
+### Task: Output support for agent findings
+- **Status**: completed
+- **What was done**: Added line renderer support for agent findings and extended JSON issue shape with optional source attribution.
+- **Files changed**: src/output/reporter.ts, src/output/json-formatter.ts

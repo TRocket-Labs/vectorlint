@@ -23,6 +23,7 @@ export interface Issue {
   message: string;
   rule: string;
   match: string;
+  source?: 'lint' | 'agent';
   analysis?: string;
   suggestion?: string;
   fix?: string;
