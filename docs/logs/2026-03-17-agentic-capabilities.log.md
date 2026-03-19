@@ -18,3 +18,8 @@
 - **Status**: completed
 - **What was done**: Added path expansion and cwd resolution helpers plus root-boundary checks to prevent traversal outside the workspace root.
 - **Files changed**: src/agent/tools/path-utils.ts, tests/agent/path-utils.test.ts
+
+### Task: Read file tool with pagination
+- **Status**: completed
+- **What was done**: Implemented the `read_file` tool with cwd-scoped access checks, line-based pagination, and continuation notices for truncated output.
+- **Files changed**: src/agent/tools/read-file.ts, tests/agent/read-file.test.ts
