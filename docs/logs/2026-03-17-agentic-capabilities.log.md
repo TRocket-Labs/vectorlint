@@ -33,3 +33,9 @@
 - **Status**: completed
 - **What was done**: Implemented `list_directory` with sorted directory output, dotfile inclusion, directory suffixing, and scoped path validation.
 - **Files changed**: src/agent/tools/list-directory.ts, tests/agent/list-directory.test.ts
+
+### Task: Search content tool with ripgrep fallback
+- **Status**: completed
+- **What was done**: Added `search_content` with ripgrep-first execution, JS fallback, match limit notices, scoped path checks, and glob/case controls.
+- **Files changed**: src/agent/tools/search-content.ts, tests/agent/search-content.test.ts
+- **Tried**: Initial ripgrep invocation produced zero-search output under repository-root temp fixtures due parent ignore interactions; switched fixture directory naming and ripgrep root handling to avoid false negatives.
