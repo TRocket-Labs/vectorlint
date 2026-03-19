@@ -49,3 +49,8 @@
 - **Status**: completed
 - **What was done**: Added rule-scoped agent execution with structured output schema, tool loop controls, and prompt composition that includes rule body, optional user instructions, and diff context.
 - **Files changed**: src/agent/agent-executor.ts, tests/agent/agent-executor.test.ts
+
+### Task: Agent findings merger
+- **Status**: completed
+- **What was done**: Added merger utility that flattens per-rule agent run results into a single findings collection for reporting.
+- **Files changed**: src/agent/merger.ts, tests/agent/merger.test.ts
