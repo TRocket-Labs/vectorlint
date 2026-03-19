@@ -13,3 +13,8 @@
 - **Status**: completed
 - **What was done**: Added agent finding Zod schemas and runtime-safe TypeScript types for inline and top-level findings, then validated schema behavior with new tests.
 - **Files changed**: src/agent/types.ts, tests/agent/types.test.ts
+
+### Task: Path utils for tool root scoping
+- **Status**: completed
+- **What was done**: Added path expansion and cwd resolution helpers plus root-boundary checks to prevent traversal outside the workspace root.
+- **Files changed**: src/agent/tools/path-utils.ts, tests/agent/path-utils.test.ts
