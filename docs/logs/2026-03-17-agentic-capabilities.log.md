@@ -3,7 +3,7 @@
 - **Plan**: `docs/plans/2026-03-17-agentic-capabilities.md`
 - **Issue**: user request in Codex thread (no GitHub/Linear issue ID provided)
 - **Started**: 2026-03-19
-- **Status**: in-progress
+- **Status**: completed
 
 ---
 
@@ -70,3 +70,8 @@
 - **Status**: completed
 - **What was done**: Fixed agent-mode silent failure reporting and exit behavior, improved search-content fallback parity/performance, corrected check-mode lint tool scoring, and strengthened root-boundary checks for symlink traversal scenarios.
 - **Files changed**: src/agent/agent-executor.ts, src/agent/tools/lint-tool.ts, src/agent/tools/list-directory.ts, src/agent/tools/path-utils.ts, src/agent/tools/read-file.ts, src/agent/tools/search-content.ts, src/agent/types.ts, src/cli/orchestrator.ts, tests/agent/agent-executor.test.ts
+
+### Final Summary
+- **Status**: completed
+- **What was done**: Implemented the full agentic capabilities plan, validated with lint + full tests, ran local Claude headless review using the requested Code Review V3 framing, applied actionable fixes, and generated a local-only artifact for manual review.
+- **Files changed**: docs/artifacts/2026-03-19-agentic-capabilities.md (local-only), docs/logs/2026-03-17-agentic-capabilities.log.md
