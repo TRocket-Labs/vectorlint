@@ -44,3 +44,8 @@
 - **Status**: completed
 - **What was done**: Implemented `lint` as a rule-scoped sub-tool over existing evaluator logic and added a shared tools index for agent executor wiring.
 - **Files changed**: src/agent/tools/lint-tool.ts, src/agent/tools/index.ts
+
+### Task: Agent executor with AI SDK tool loop
+- **Status**: completed
+- **What was done**: Added rule-scoped agent execution with structured output schema, tool loop controls, and prompt composition that includes rule body, optional user instructions, and diff context.
+- **Files changed**: src/agent/agent-executor.ts, tests/agent/agent-executor.test.ts
