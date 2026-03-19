@@ -6,13 +6,25 @@ import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
 import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
-import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
+import { printFileHeader, printIssueRow, printEvaluationSummaries, printAgentFinding, type EvaluationSummary } from '../output/reporter';
 import { checkTarget } from '../prompts/target';
-import { isJudgeResult } from '../prompts/schema';
+import { isJudgeResult, type PromptEvaluationResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
+import type { LanguageModel } from 'ai';
+import {
+  runPlanner,
+  runAgentExecutor,
+  mergeFindings,
+  createReadFileTool,
+  createSearchContentTool,
+  createSearchFilesTool,
+  createListDirectoryTool,
+  createLintTool,
+} from '../agent';
+import type { LintFindingEntry } from '../agent/merger';
 import { OutputFormat } from './types';
 import type {
   EvaluationOptions, EvaluationResult, ErrorTrackingResult,
@@ -1052,6 +1064,235 @@ async function evaluateFile(
   };
 }
 
+function getModelForAgentMode(provider: EvaluationOptions['provider']): LanguageModel {
+  const candidate = provider as unknown as { getModel?: () => LanguageModel };
+  if (typeof candidate.getModel !== 'function') {
+    throw new Error(
+      'Agent mode requires a Vercel AI provider exposing getModel().'
+    );
+  }
+  return candidate.getModel();
+}
+
+function countViolations(result: PromptEvaluationResult): number {
+  if (isJudgeResult(result)) {
+    return result.criteria.reduce(
+      (total, criterion) => total + criterion.violations.length,
+      0
+    );
+  }
+  return result.violations.length;
+}
+
+function addAgentFindingToJsonFormatter(
+  jsonFormatter: JsonFormatter | RdJsonFormatter,
+  finding: import('../agent').AgentFinding
+): void {
+  if (finding.kind === 'inline') {
+    const line = Math.max(1, finding.startLine);
+    jsonFormatter.addIssue(finding.file, {
+      line,
+      column: 1,
+      span: [1, 1],
+      severity: Severity.WARNING,
+      message: finding.message,
+      rule: finding.ruleId,
+      match: '',
+      source: 'agent',
+      ...(finding.suggestion ? { suggestion: finding.suggestion } : {}),
+    });
+    return;
+  }
+
+  const references =
+    finding.references && finding.references.length > 0
+      ? finding.references
+      : [{ file: '(repository)', startLine: 1 }];
+
+  for (const reference of references) {
+    jsonFormatter.addIssue(reference.file, {
+      line: reference.startLine ?? 1,
+      column: 1,
+      span: [1, 1],
+      severity: Severity.WARNING,
+      message: finding.message,
+      rule: finding.ruleId,
+      match: '',
+      source: 'agent',
+      ...(finding.suggestion ? { suggestion: finding.suggestion } : {}),
+    });
+  }
+}
+
+async function runAgentMode(
+  targets: string[],
+  options: EvaluationOptions
+): Promise<EvaluationResult> {
+  const { outputFormat = OutputFormat.Line, prompts, provider } = options;
+  const cwd = process.cwd();
+
+  let hadOperationalErrors = false;
+  let hadSeverityErrors = false;
+  let totalErrors = 0;
+  let totalWarnings = 0;
+  let requestFailures = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+
+  const plan = await runPlanner(prompts, targets, provider);
+  const lintFindings: LintFindingEntry[] = [];
+
+  for (const task of plan.lintTasks) {
+    for (const file of task.targetFiles) {
+      try {
+        const absolutePath = path.resolve(file);
+        const content = readFileSync(absolutePath, 'utf-8');
+        const relativeFile = path.relative(cwd, absolutePath) || absolutePath;
+        const evaluator = createEvaluator(
+          Type.BASE,
+          provider,
+          task.rule,
+          options.searchProvider
+        );
+        const result = await evaluator.evaluate(relativeFile, content);
+
+        lintFindings.push({ file: relativeFile, result });
+
+        if (result.usage) {
+          totalInputTokens += result.usage.inputTokens;
+          totalOutputTokens += result.usage.outputTokens;
+        }
+
+        const violations = countViolations(result);
+        if (violations > 0) {
+          if (task.rule.meta.severity === Severity.ERROR) {
+            totalErrors += violations;
+            hadSeverityErrors = true;
+          } else {
+            totalWarnings += violations;
+          }
+        }
+      } catch (error: unknown) {
+        const err = handleUnknownError(
+          error,
+          `Running lint task for ${task.rule.meta.id}`
+        );
+        console.error(`[vectorlint] Agent mode lint task failed: ${err.message}`);
+        requestFailures += 1;
+        hadOperationalErrors = true;
+      }
+    }
+  }
+
+  let model: LanguageModel;
+  try {
+    model = getModelForAgentMode(provider);
+  } catch (error: unknown) {
+    const err = handleUnknownError(error, 'Preparing agent model');
+    console.error(`[vectorlint] ${err.message}`);
+    return {
+      totalFiles: targets.length,
+      totalErrors,
+      totalWarnings,
+      requestFailures: requestFailures + 1,
+      hadOperationalErrors: true,
+      hadSeverityErrors,
+      tokenUsage: {
+        totalInputTokens,
+        totalOutputTokens,
+      },
+    };
+  }
+
+  const tools = {
+    read_file: createReadFileTool(cwd),
+    search_content: createSearchContentTool(cwd),
+    search_files: createSearchFilesTool(cwd),
+    list_directory: createListDirectoryTool(cwd),
+    lint: createLintTool(cwd, prompts, provider),
+  };
+
+  const agentResults = await Promise.all(
+    plan.agentTasks.map(async (task) => {
+      try {
+        return await runAgentExecutor({
+          rule: task.rule,
+          cwd,
+          model,
+          tools,
+          diffContext: '',
+          userInstructions: options.userInstructionContent,
+        });
+      } catch {
+        requestFailures += 1;
+        hadOperationalErrors = true;
+        return {
+          findings: [],
+          ruleId: task.rule.meta.id,
+        };
+      }
+    })
+  );
+
+  const agentFindingCount = agentResults.reduce(
+    (total, result) => total + result.findings.length,
+    0
+  );
+  if (agentFindingCount > 0) {
+    totalWarnings += agentFindingCount;
+  }
+
+  const merged = mergeFindings(lintFindings, agentResults);
+
+  if (outputFormat === OutputFormat.Line) {
+    for (const finding of merged) {
+      if (finding.source === 'agent') {
+        printAgentFinding(finding.finding);
+      }
+    }
+  } else if (outputFormat === OutputFormat.Json || outputFormat === OutputFormat.RdJson) {
+    const formatter =
+      outputFormat === OutputFormat.RdJson
+        ? new RdJsonFormatter()
+        : new JsonFormatter();
+
+    for (const finding of merged) {
+      if (finding.source === 'agent') {
+        addAgentFindingToJsonFormatter(formatter, finding.finding);
+      }
+    }
+
+    console.log(formatter.toJson());
+  } else if (outputFormat === OutputFormat.ValeJson) {
+    console.log(JSON.stringify({}));
+  }
+
+  const tokenUsage: TokenUsageStats = {
+    totalInputTokens,
+    totalOutputTokens,
+  };
+  const cost = calculateCost(
+    {
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+    },
+    options.pricing
+  );
+  if (cost !== undefined) {
+    tokenUsage.totalCost = cost;
+  }
+
+  return {
+    totalFiles: targets.length,
+    totalErrors,
+    totalWarnings,
+    requestFailures,
+    hadOperationalErrors,
+    hadSeverityErrors,
+    tokenUsage,
+  };
+}
+
 /*
  * Runs evaluations across all target files with configurable concurrency.
  * Coordinates prompt-to-file mapping, evaluation execution, and result aggregation.
@@ -1061,6 +1302,10 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
+  if (options.mode === 'agent') {
+    return runAgentMode(targets, options);
+  }
+
   const { outputFormat = OutputFormat.Line } = options;
 
   let hadOperationalErrors = false;

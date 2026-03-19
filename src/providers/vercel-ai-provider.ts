@@ -26,6 +26,10 @@ export class VercelAIProvider implements LLMProvider {
     this.builder = builder ?? new DefaultRequestBuilder();
   }
 
+  getModel(): LanguageModel {
+    return this.config.model;
+  }
+
   async runPromptStructured<T = unknown>(
     content: string,
     promptText: string,

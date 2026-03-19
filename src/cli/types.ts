@@ -23,6 +23,7 @@ export interface EvaluationOptions {
     rulesPath: string | undefined;
     provider: LLMProvider;
     searchProvider?: SearchProvider;
+    mode?: 'agent' | 'lint';
     concurrency: number;
     verbose: boolean;
     debugJson?: boolean;

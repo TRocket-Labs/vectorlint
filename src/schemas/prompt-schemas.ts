@@ -60,6 +60,8 @@ export const PROMPT_META_SCHEMA = z.object({
   criteria: z.array(PROMPT_CRITERION_SCHEMA).optional(),
   // Determines how content is evaluated: 'chunk' (default) for chunked processing, 'document' for full document
   evaluateAs: z.enum(["document", "chunk"]).optional(),
+  // Routing override for executor selection.
+  mode: z.enum(["lint", "agent"]).optional(),
 });
 
 

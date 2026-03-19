@@ -3,6 +3,7 @@ import stripAnsi from 'strip-ansi';
 import path from 'path';
 import { Severity } from '../evaluators/types';
 import { TokenUsageStats } from '../providers/token-usage';
+import type { AgentFinding } from '../agent/types';
 
 export interface EvaluationSummary {
   id: string;
@@ -210,4 +211,27 @@ export function printTokenUsage(stats: TokenUsageStats) {
     console.log(`  - Total cost: $${stats.totalCost.toFixed(precision)}`);
   }
   console.log('');
+}
+
+export function printAgentFinding(finding: AgentFinding): void {
+  if (finding.kind === 'inline') {
+    const location = `${finding.file}:${finding.startLine}`;
+    console.log(`  [agent] ${location}`);
+    console.log(`    ${finding.message}`);
+    if (finding.suggestion) {
+      console.log(`    Suggestion: ${finding.suggestion}`);
+    }
+    return;
+  }
+
+  console.log(`  [agent] ${finding.message}`);
+  if (finding.suggestion) {
+    console.log(`    Suggestion: ${finding.suggestion}`);
+  }
+  if (finding.references && finding.references.length > 0) {
+    for (const ref of finding.references) {
+      const location = ref.startLine ? `${ref.file}:${ref.startLine}` : ref.file;
+      console.log(`    -> ${location}`);
+    }
+  }
 }

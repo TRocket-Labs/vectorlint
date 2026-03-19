@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildCheckLLMSchema, buildJudgeLLMSchema } from "../src/prompts/schema";
+import { PROMPT_META_SCHEMA } from "../src/schemas/prompt-schemas";
 
 describe("prompt schema verbosity constraints", () => {
   it("includes concise analysis and suggestion descriptions for check schema", () => {
@@ -67,5 +68,41 @@ describe("prompt schema verbosity constraints", () => {
     const required =
       schema.schema.properties.criteria.items.properties.violations.items.required;
     expect(required).toContain("message");
+  });
+});
+
+describe("PROMPT_META_SCHEMA mode field", () => {
+  it("accepts mode: agent", () => {
+    const result = PROMPT_META_SCHEMA.safeParse({
+      id: "Test",
+      name: "Test Rule",
+      mode: "agent",
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.mode).toBe("agent");
+  });
+
+  it("accepts mode: lint", () => {
+    const result = PROMPT_META_SCHEMA.safeParse({
+      id: "Test",
+      name: "Test Rule",
+      mode: "lint",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts missing mode (optional)", () => {
+    const result = PROMPT_META_SCHEMA.safeParse({ id: "Test", name: "Test" });
+    expect(result.success).toBe(true);
+    expect(result.data?.mode).toBeUndefined();
+  });
+
+  it("rejects invalid mode value", () => {
+    const result = PROMPT_META_SCHEMA.safeParse({
+      id: "Test",
+      name: "Test",
+      mode: "document",
+    });
+    expect(result.success).toBe(false);
   });
 });
