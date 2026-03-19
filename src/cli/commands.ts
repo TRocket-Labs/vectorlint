@@ -56,6 +56,7 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
+    .option('--mode <mode>', 'Evaluation mode: lint (default) or agent', 'lint')
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
     .action(async (paths: string[] = []) => {
@@ -204,6 +205,7 @@ export function registerMainCommand(program: Command): void {
 
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
+        mode: cliOptions.mode,
         prompts,
         rulesPath,
         provider,

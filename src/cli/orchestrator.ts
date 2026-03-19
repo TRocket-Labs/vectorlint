@@ -6,7 +6,7 @@ import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
 import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
-import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
+import { printFileHeader, printIssueRow, printEvaluationSummaries, printAgentFinding, type EvaluationSummary } from '../output/reporter';
 import { checkTarget } from '../prompts/target';
 import { isJudgeResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
@@ -32,6 +32,15 @@ import {
   type FilterDecision,
 } from "../evaluators/violation-filter";
 import { writeDebugRunArtifact } from "../debug/run-artifact";
+import {
+  runAgentExecutor,
+  collectAgentFindings,
+  createReadFileTool,
+  createSearchContentTool,
+  createSearchFilesTool,
+  createListDirectoryTool,
+  createLintTool,
+} from '../agent/index';
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
   const provider = process.env.LLM_PROVIDER;
@@ -106,6 +115,82 @@ async function runWithConcurrency<T, R>(
     });
   await Promise.all(workers);
   return results;
+}
+
+function buildDiffContext(files: string[], cwd: string): string {
+  if (files.length === 0) return '';
+  const fileList = files.map((file) => `- ${path.relative(cwd, file) || file}`).join('\n');
+  return `Changed files:\n${fileList}`;
+}
+
+async function runAgentMode(
+  targets: string[],
+  options: EvaluationOptions
+): Promise<EvaluationResult> {
+  const { prompts, provider, concurrency, outputFormat = OutputFormat.Line, userInstructionContent } = options;
+  const cwd = process.cwd();
+
+  const tools = {
+    read_file: createReadFileTool(cwd),
+    search_content: createSearchContentTool(cwd),
+    search_files: createSearchFilesTool(cwd),
+    list_directory: createListDirectoryTool(cwd),
+    lint: createLintTool(cwd, prompts, provider),
+  };
+
+  const model = provider.getLanguageModel();
+  const diffContext = buildDiffContext(targets, cwd);
+
+  const agentResults = await runWithConcurrency(prompts, Math.max(1, concurrency), async (rule) =>
+    runAgentExecutor({
+      rule,
+      cwd,
+      model,
+      tools,
+      diffContext,
+      ...(userInstructionContent ? { userInstructions: userInstructionContent } : {}),
+    })
+  );
+
+  const findings = collectAgentFindings(agentResults);
+
+  if (outputFormat === OutputFormat.Line) {
+    if (findings.length === 0) {
+      console.log('[vectorlint] No agent findings.');
+    } else {
+      for (const finding of findings) {
+        printAgentFinding(finding);
+      }
+    }
+  } else if (outputFormat === OutputFormat.Json) {
+    console.log(JSON.stringify({
+      findings,
+      summary: {
+        files: targets.length,
+        errors: findings.length,
+        warnings: 0,
+      },
+      metadata: {
+        mode: 'agent',
+        timestamp: new Date().toISOString(),
+      },
+    }, null, 2));
+  } else if (outputFormat === OutputFormat.RdJson) {
+    const formatter = new RdJsonFormatter();
+    console.log(formatter.toJson());
+  } else if (outputFormat === OutputFormat.ValeJson) {
+    const formatter = new ValeJsonFormatter();
+    console.log(formatter.toJson());
+  }
+
+  return {
+    totalFiles: targets.length,
+    totalErrors: findings.length,
+    totalWarnings: 0,
+    requestFailures: 0,
+    hadOperationalErrors: false,
+    hadSeverityErrors: findings.length > 0,
+  };
 }
 
 /*
@@ -1061,6 +1146,10 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
+  if (options.mode === 'agent') {
+    return runAgentMode(targets, options);
+  }
+
   const { outputFormat = OutputFormat.Line } = options;
 
   let hadOperationalErrors = false;

@@ -19,6 +19,7 @@ export enum OutputFormat {
 }
 
 export interface EvaluationOptions {
+    mode?: 'agent' | 'lint';
     prompts: PromptFile[];
     rulesPath: string | undefined;
     provider: LLMProvider;

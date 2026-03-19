@@ -59,3 +59,9 @@
 - **Status**: completed
 - **What was done**: Added line renderer support for agent findings and extended JSON issue shape with optional source attribution.
 - **Files changed**: src/output/reporter.ts, src/output/json-formatter.ts
+
+### Task: Wire CLI agent mode
+- **Status**: completed
+- **What was done**: Added `--mode` parsing and agent-mode orchestration path, model extraction from provider, agent tool construction, and agent result output handling.
+- **Files changed**: src/agent/index.ts, src/cli/commands.ts, src/cli/orchestrator.ts, src/cli/types.ts, src/providers/llm-provider.ts, src/providers/vercel-ai-provider.ts, src/schemas/cli-schemas.ts
+- **Tried**: Manual smoke run in this repository currently exits early because `.vectorlint.ini`/`VECTORLINT.md` is not configured; code path invocation itself succeeded until config gate.
