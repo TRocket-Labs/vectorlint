@@ -28,3 +28,8 @@
 - **Status**: completed
 - **What was done**: Added `search_files` glob lookup with cwd confinement, result limits, and concise no-match messaging.
 - **Files changed**: src/agent/tools/search-files.ts, tests/agent/search-files.test.ts
+
+### Task: List directory tool
+- **Status**: completed
+- **What was done**: Implemented `list_directory` with sorted directory output, dotfile inclusion, directory suffixing, and scoped path validation.
+- **Files changed**: src/agent/tools/list-directory.ts, tests/agent/list-directory.test.ts
