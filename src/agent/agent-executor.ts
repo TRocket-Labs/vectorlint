@@ -3,7 +3,7 @@ import type { LanguageModel } from 'ai';
 import { z } from 'zod';
 import type { PromptFile } from '../schemas/prompt-schemas.js';
 import {
-  AgentFindingSchema,
+  AGENT_FINDING_SCHEMA,
   type AgentRunResult,
 } from './types.js';
 import type { ReadFileTool } from './tools/read-file.js';
@@ -30,9 +30,10 @@ export interface AgentExecutorParams {
   userInstructions?: string;
 }
 
-const AgentOutputSchema = z.object({
-  findings: z.array(AgentFindingSchema),
+const AGENT_OUTPUT_SCHEMA = z.object({
+  findings: z.array(AGENT_FINDING_SCHEMA),
 });
+const MAX_AGENT_STEPS = 25;
 
 function buildSystemPrompt(
   rule: PromptFile,
@@ -142,19 +143,21 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
       system: systemPrompt,
       prompt: `Evaluate documentation against rule "${rule.meta.name}". Return findings as JSON.`,
       tools: sdkTools,
-      stopWhen: stepCountIs(25),
+      stopWhen: stepCountIs(MAX_AGENT_STEPS),
       abortSignal: signal,
-      output: Output.object({ schema: AgentOutputSchema }),
+      output: Output.object({ schema: AGENT_OUTPUT_SCHEMA }),
     });
 
     return {
       findings: response.output.findings,
       ruleId: rule.meta.id,
     };
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     return {
       findings: [],
       ruleId: rule.meta.id,
+      error: `Agent execution failed: ${message}`,
     };
   }
 }

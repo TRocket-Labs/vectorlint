@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const InlineFindingSchema = z.object({
+export const INLINE_FINDING_SCHEMA = z.object({
   kind: z.literal('inline'),
   file: z.string(),
   startLine: z.number(),
@@ -10,7 +10,7 @@ export const InlineFindingSchema = z.object({
   ruleId: z.string(),
 });
 
-export const TopLevelFindingSchema = z.object({
+export const TOP_LEVEL_FINDING_SCHEMA = z.object({
   kind: z.literal('top-level'),
   references: z.array(
     z.object({
@@ -24,16 +24,23 @@ export const TopLevelFindingSchema = z.object({
   ruleId: z.string(),
 });
 
-export const AgentFindingSchema = z.discriminatedUnion('kind', [
-  InlineFindingSchema,
-  TopLevelFindingSchema,
+export const AGENT_FINDING_SCHEMA = z.discriminatedUnion('kind', [
+  INLINE_FINDING_SCHEMA,
+  TOP_LEVEL_FINDING_SCHEMA,
 ]);
 
-export type AgentFinding = z.infer<typeof AgentFindingSchema>;
-export type InlineFinding = z.infer<typeof InlineFindingSchema>;
-export type TopLevelFinding = z.infer<typeof TopLevelFindingSchema>;
+export {
+  INLINE_FINDING_SCHEMA as InlineFindingSchema,
+  TOP_LEVEL_FINDING_SCHEMA as TopLevelFindingSchema,
+  AGENT_FINDING_SCHEMA as AgentFindingSchema,
+};
+
+export type AgentFinding = z.infer<typeof AGENT_FINDING_SCHEMA>;
+export type InlineFinding = z.infer<typeof INLINE_FINDING_SCHEMA>;
+export type TopLevelFinding = z.infer<typeof TOP_LEVEL_FINDING_SCHEMA>;
 
 export interface AgentRunResult {
   findings: AgentFinding[];
   ruleId: string;
+  error?: string;
 }

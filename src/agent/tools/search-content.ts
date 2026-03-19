@@ -27,6 +27,7 @@ function hasRipgrep(): boolean {
     return false;
   }
 }
+const RIPGREP_AVAILABLE = hasRipgrep();
 
 function searchWithRipgrep(
   pattern: string,
@@ -91,7 +92,7 @@ function searchWithRipgrep(
 function searchWithJs(
   pattern: string,
   searchRoot: string,
-  opts: { glob?: string; ignoreCase?: boolean; limit?: number }
+  opts: { glob?: string; ignoreCase?: boolean; context?: number; limit?: number }
 ): string {
   const glob = opts.glob ?? '**/*.md';
   const files = fg.sync(glob, {
@@ -100,8 +101,16 @@ function searchWithJs(
     absolute: true,
   });
 
-  const regex = new RegExp(pattern, opts.ignoreCase ? 'i' : '');
+  let regex: RegExp;
+  try {
+    regex = new RegExp(pattern, opts.ignoreCase ? 'i' : '');
+  } catch {
+    return 'Invalid regex pattern';
+  }
+
+  const contextLines = Math.max(0, opts.context ?? 0);
   const lines: string[] = [];
+  const seen = new Set<string>();
   let matchCount = 0;
   const limit = opts.limit ?? DEFAULT_LIMIT;
 
@@ -116,8 +125,17 @@ function searchWithJs(
         const line = fileLines[i] ?? '';
         if (regex.test(line)) {
           const relFile = path.relative(searchRoot, file);
-          lines.push(`${relFile}:${i + 1}: ${line}`);
-          matchCount++;
+          const start = Math.max(0, i - contextLines);
+          const end = Math.min(fileLines.length - 1, i + contextLines);
+
+          for (let j = start; j <= end; j++) {
+            if (matchCount >= limit) break;
+            const key = `${relFile}:${j + 1}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            lines.push(`${relFile}:${j + 1}: ${fileLines[j] ?? ''}`);
+            matchCount++;
+          }
         }
       }
     } catch {
@@ -140,19 +158,19 @@ export function createSearchContentTool(cwd: string): SearchContentTool {
     name: 'search_content',
     description: 'Search file contents for a pattern. Returns file:line: matchedtext format. Default glob filter: *.md. Supports regex patterns.',
 
-    async execute({ pattern, path: searchDir, glob, ignoreCase, context, limit }) {
+    execute({ pattern, path: searchDir, glob, ignoreCase, context, limit }) {
       const searchRoot = searchDir ? resolveToCwd(searchDir, cwd) : cwd;
 
       if (!isWithinRoot(searchRoot, cwd)) {
-        throw new Error(`Path traversal blocked: ${searchDir} is outside the allowed root`);
+        return Promise.reject(new Error(`Path traversal blocked: ${searchDir} is outside the allowed root`));
       }
 
       const opts = { glob: glob ?? '**/*.md', ignoreCase, context, limit };
-      if (hasRipgrep()) {
-        return searchWithRipgrep(pattern, searchRoot, opts);
+      if (RIPGREP_AVAILABLE) {
+        return Promise.resolve(searchWithRipgrep(pattern, searchRoot, opts));
       }
 
-      return searchWithJs(pattern, searchRoot, opts);
+      return Promise.resolve(searchWithJs(pattern, searchRoot, opts));
     },
   };
 }

@@ -79,4 +79,20 @@ describe('runAgentExecutor', () => {
     expect(result.findings).toHaveLength(0);
     expect(result.ruleId).toBe('Consistency');
   });
+
+  it('surfaces execution error metadata when generation fails', async () => {
+    MOCK_GENERATE_TEXT.mockRejectedValueOnce(new Error('auth failed'));
+
+    const rule = makeRule('Coverage', 'Check documentation coverage');
+    const result = await runAgentExecutor({
+      rule: rule as never,
+      cwd: MOCK_CWD,
+      model: MOCK_MODEL,
+      tools: MOCK_TOOLS as never,
+      diffContext: '',
+    });
+
+    expect(result.findings).toHaveLength(0);
+    expect(result.error).toContain('auth failed');
+  });
 });

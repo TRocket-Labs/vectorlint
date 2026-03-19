@@ -5,6 +5,8 @@ import type { PromptFile } from '../../schemas/prompt-schemas.js';
 import { createEvaluator } from '../../evaluators/index.js';
 import { Type } from '../../evaluators/types.js';
 import { isJudgeResult } from '../../prompts/schema.js';
+import { calculateCheckScore } from '../../scoring/index.js';
+import { computeFilterDecision } from '../../evaluators/violation-filter.js';
 import { resolveToCwd, isWithinRoot } from './path-utils.js';
 
 export interface LintToolResult {
@@ -62,15 +64,28 @@ export function createLintTool(
         };
       }
 
-      const violations = result.violations
+      const surfacedViolations = result.violations.filter(
+        (violation) => computeFilterDecision(violation).surface
+      );
+
+      const violations = surfacedViolations
         .filter((violation) => violation.line != null)
         .map((violation) => ({
           line: violation.line as number,
           message: violation.message ?? violation.description ?? '',
         }));
 
+      const scored = calculateCheckScore(
+        surfacedViolations,
+        result.word_count,
+        {
+          strictness: rule.meta.strictness,
+          promptSeverity: rule.meta.severity,
+        }
+      );
+
       return {
-        score: 0,
+        score: scored.final_score,
         violationCount: violations.length,
         violations,
       };

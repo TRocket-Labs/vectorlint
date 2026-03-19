@@ -65,3 +65,8 @@
 - **What was done**: Added `--mode` parsing and agent-mode orchestration path, model extraction from provider, agent tool construction, and agent result output handling.
 - **Files changed**: src/agent/index.ts, src/cli/commands.ts, src/cli/orchestrator.ts, src/cli/types.ts, src/providers/llm-provider.ts, src/providers/vercel-ai-provider.ts, src/schemas/cli-schemas.ts
 - **Tried**: Manual smoke run in this repository currently exits early because `.vectorlint.ini`/`VECTORLINT.md` is not configured; code path invocation itself succeeded until config gate.
+
+### Task: Apply local Claude review feedback
+- **Status**: completed
+- **What was done**: Fixed agent-mode silent failure reporting and exit behavior, improved search-content fallback parity/performance, corrected check-mode lint tool scoring, and strengthened root-boundary checks for symlink traversal scenarios.
+- **Files changed**: src/agent/agent-executor.ts, src/agent/tools/lint-tool.ts, src/agent/tools/list-directory.ts, src/agent/tools/path-utils.ts, src/agent/tools/read-file.ts, src/agent/tools/search-content.ts, src/agent/types.ts, src/cli/orchestrator.ts, tests/agent/agent-executor.test.ts

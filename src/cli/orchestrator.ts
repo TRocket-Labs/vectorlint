@@ -153,8 +153,19 @@ async function runAgentMode(
   );
 
   const findings = collectAgentFindings(agentResults);
+  const requestFailures = agentResults.filter((result) => result.error).length;
+  const hadOperationalErrors = requestFailures > 0;
 
   if (outputFormat === OutputFormat.Line) {
+    if (hadOperationalErrors) {
+      console.warn(`[vectorlint] Agent mode encountered ${requestFailures} request failure${requestFailures === 1 ? '' : 's'}.`);
+      for (const result of agentResults) {
+        if (result.error) {
+          console.warn(`[vectorlint] ${result.ruleId}: ${result.error}`);
+        }
+      }
+    }
+
     if (findings.length === 0) {
       console.log('[vectorlint] No agent findings.');
     } else {
@@ -169,6 +180,7 @@ async function runAgentMode(
         files: targets.length,
         errors: findings.length,
         warnings: 0,
+        requestFailures,
       },
       metadata: {
         mode: 'agent',
@@ -187,8 +199,8 @@ async function runAgentMode(
     totalFiles: targets.length,
     totalErrors: findings.length,
     totalWarnings: 0,
-    requestFailures: 0,
-    hadOperationalErrors: false,
+    requestFailures,
+    hadOperationalErrors,
     hadSeverityErrors: findings.length > 0,
   };
 }
