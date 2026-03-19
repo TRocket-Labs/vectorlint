@@ -39,3 +39,8 @@
 - **What was done**: Added `search_content` with ripgrep-first execution, JS fallback, match limit notices, scoped path checks, and glob/case controls.
 - **Files changed**: src/agent/tools/search-content.ts, tests/agent/search-content.test.ts
 - **Tried**: Initial ripgrep invocation produced zero-search output under repository-root temp fixtures due parent ignore interactions; switched fixture directory naming and ripgrep root handling to avoid false negatives.
+
+### Task: Lint sub-tool and tool exports
+- **Status**: completed
+- **What was done**: Implemented `lint` as a rule-scoped sub-tool over existing evaluator logic and added a shared tools index for agent executor wiring.
+- **Files changed**: src/agent/tools/lint-tool.ts, src/agent/tools/index.ts
