@@ -23,3 +23,8 @@
 - **Status**: completed
 - **What was done**: Implemented the `read_file` tool with cwd-scoped access checks, line-based pagination, and continuation notices for truncated output.
 - **Files changed**: src/agent/tools/read-file.ts, tests/agent/read-file.test.ts
+
+### Task: Search files tool
+- **Status**: completed
+- **What was done**: Added `search_files` glob lookup with cwd confinement, result limits, and concise no-match messaging.
+- **Files changed**: src/agent/tools/search-files.ts, tests/agent/search-files.test.ts
