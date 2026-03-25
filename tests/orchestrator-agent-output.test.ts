@@ -191,4 +191,50 @@ describe('agent mode output formatting', () => {
     expect(firstCallArgs.rule.meta.id).toBe('RuleA');
     expect(firstCallArgs.matchedFiles).toEqual(['docs/one.md']);
   });
+
+  it('respects scan-path overrides when building matched files per rule', async () => {
+    const promptA = createPrompt({
+      id: 'RuleA',
+      name: 'Rule A',
+      type: 'check',
+      severity: 'error',
+    });
+    const promptB = createPrompt({
+      id: 'RuleB',
+      name: 'Rule B',
+      type: 'check',
+      severity: 'error',
+    });
+    promptA.pack = 'PackA';
+    promptB.pack = 'PackB';
+
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+
+    await evaluateFiles(['docs/a.md', 'guides/b.md'], {
+      ...createBaseOptions([promptA, promptB]),
+      scanPaths: [
+        {
+          pattern: '**/*.md',
+          runRules: ['PackA', 'PackB'],
+          overrides: {},
+        },
+        {
+          pattern: 'docs/**/*.md',
+          overrides: {
+            'PackA.RuleA': 'disabled',
+          },
+        },
+      ],
+    });
+
+    expect(RUN_AGENT_EXECUTOR_MOCK).toHaveBeenCalledTimes(2);
+
+    const calls = RUN_AGENT_EXECUTOR_MOCK.mock.calls.map((call) => {
+      const arg = call[0] as { rule: PromptFile; matchedFiles: string[] };
+      return { ruleId: arg.rule.meta.id, matchedFiles: arg.matchedFiles };
+    });
+
+    expect(calls).toContainEqual({ ruleId: 'RuleA', matchedFiles: ['guides/b.md'] });
+    expect(calls).toContainEqual({ ruleId: 'RuleB', matchedFiles: ['docs/a.md', 'guides/b.md'] });
+  });
 });

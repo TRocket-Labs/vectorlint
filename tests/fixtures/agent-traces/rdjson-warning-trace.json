@@ -1,0 +1,37 @@
+{
+  "name": "rdjson-warning-trace",
+  "targets": ["docs/changed.md"],
+  "prompts": [
+    {
+      "id": "AgentRule",
+      "name": "Agent Rule",
+      "type": "check",
+      "severity": "error",
+      "pack": "PackA",
+      "body": "Evaluate documentation consistency."
+    }
+  ],
+  "agentOutput": {
+    "findings": [
+      {
+        "kind": "inline",
+        "file": "docs/guide.md",
+        "startLine": 7,
+        "endLine": 7,
+        "message": "Inline issue from trace",
+        "ruleId": "AgentRule"
+      },
+      {
+        "kind": "top-level",
+        "message": "Cross-document issue from trace",
+        "ruleId": "AgentRule",
+        "references": [
+          {
+            "file": "docs/reference.md",
+            "startLine": 2
+          }
+        ]
+      }
+    ]
+  }
+}
