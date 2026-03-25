@@ -33,24 +33,22 @@ export function createListDirectoryTool(cwd: string): ListDirectoryTool {
       entries.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 
       const effectiveLimit = limit ?? DEFAULT_LIMIT;
-      const resolvedEntries = await Promise.all(entries.map(async (entry) => {
+      const results: string[] = [];
+      for (const entry of entries) {
+        if (results.length >= effectiveLimit) break;
         const fullPath = path.join(absolutePath, entry);
         try {
           const entryStat = await stat(fullPath);
-          return entryStat.isDirectory() ? `${entry}/` : entry;
+          results.push(entryStat.isDirectory() ? `${entry}/` : entry);
         } catch {
-          return null;
+          // Skip entries that cannot be stat'ed.
         }
-      }));
-
-      const results = resolvedEntries
-        .filter((entry): entry is string => entry !== null)
-        .slice(0, effectiveLimit);
+      }
 
       if (results.length === 0) return '(empty directory)';
 
       const output = results.join('\n');
-      const wasTruncated = results.length >= effectiveLimit && entries.length > results.length;
+      const wasTruncated = entries.length > effectiveLimit;
       if (wasTruncated) {
         return `${output}\n\n[${effectiveLimit} entries limit reached. Use limit=${effectiveLimit * 2} for more.]`;
       }

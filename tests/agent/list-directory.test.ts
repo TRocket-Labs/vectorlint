@@ -48,4 +48,17 @@ describe('createListDirectoryTool', () => {
     const tool = createListDirectoryTool(TMP);
     await expect(tool.execute({ path: '../outside' })).rejects.toThrow();
   });
+
+  it('shows truncation hint when entries exceed limit', async () => {
+    writeFileSync(path.join(TMP, 'another.md'), '');
+    const tool = createListDirectoryTool(TMP);
+    const result = await tool.execute({ limit: 1 });
+    expect(result).toContain('[1 entries limit reached. Use limit=2 for more.]');
+  });
+
+  it('does not show truncation hint when entries are within limit', async () => {
+    const tool = createListDirectoryTool(TMP);
+    const result = await tool.execute({ limit: 10 });
+    expect(result).not.toContain('entries limit reached');
+  });
 });

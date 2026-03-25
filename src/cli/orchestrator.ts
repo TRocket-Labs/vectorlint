@@ -121,7 +121,7 @@ async function runWithConcurrency<T, R>(
 
 function buildDiffContext(files: string[], cwd: string): string {
   if (files.length === 0) return '';
-  const fileList = files.map((file) => `- ${path.relative(cwd, file) || file}`).join('\n');
+  const fileList = files.map((file) => `- ${toRepoRelativePath(file, cwd)}`).join('\n');
   return `Changed files:\n${fileList}`;
 }
 
