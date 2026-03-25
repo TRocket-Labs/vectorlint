@@ -1,4 +1,4 @@
-import { generateText, Output, stepCountIs, tool } from 'ai';
+import { generateText, NoOutputGeneratedError, Output, stepCountIs, tool } from 'ai';
 import type { LanguageModel } from 'ai';
 import { z } from 'zod';
 import type { PromptFile } from '../schemas/prompt-schemas.js';
@@ -34,6 +34,33 @@ const AGENT_OUTPUT_SCHEMA = z.object({
   findings: z.array(AGENT_FINDING_SCHEMA),
 });
 const MAX_AGENT_STEPS = 25;
+
+function parseAgentOutputFromText(text: string): z.infer<typeof AGENT_OUTPUT_SCHEMA> | null {
+  const candidates: string[] = [];
+  const trimmed = text.trim();
+  if (trimmed) candidates.push(trimmed);
+
+  const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const fencedContent = fencedMatch?.[1]?.trim();
+  if (fencedContent) candidates.push(fencedContent);
+
+  const objectStart = text.indexOf('{');
+  const objectEnd = text.lastIndexOf('}');
+  if (objectStart !== -1 && objectEnd > objectStart) {
+    candidates.push(text.slice(objectStart, objectEnd + 1).trim());
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed: unknown = JSON.parse(candidate);
+      return AGENT_OUTPUT_SCHEMA.parse(parsed);
+    } catch {
+      // Continue trying alternative candidate payloads.
+    }
+  }
+
+  return null;
+}
 
 function buildSystemPrompt(
   rule: PromptFile,
@@ -87,6 +114,7 @@ If no issues exist, return "findings": []`;
 export async function runAgentExecutor(params: AgentExecutorParams): Promise<AgentRunResult> {
   const { rule, cwd, model, tools, diffContext, signal, userInstructions } = params;
   const systemPrompt = buildSystemPrompt(rule, diffContext, cwd, userInstructions);
+  let responseText = '';
 
   const sdkTools = {
     read_file: tool({
@@ -147,12 +175,23 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
       abortSignal: signal,
       output: Output.object({ schema: AGENT_OUTPUT_SCHEMA }),
     });
+    responseText = response.text;
 
     return {
       findings: response.output.findings,
       ruleId: rule.meta.id,
     };
   } catch (error) {
+    if (NoOutputGeneratedError.isInstance(error)) {
+      const fallbackOutput = parseAgentOutputFromText(responseText);
+      if (fallbackOutput) {
+        return {
+          findings: fallbackOutput.findings,
+          ruleId: rule.meta.id,
+        };
+      }
+    }
+
     const message = error instanceof Error ? error.message : String(error);
     return {
       findings: [],

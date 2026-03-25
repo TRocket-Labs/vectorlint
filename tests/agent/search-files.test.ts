@@ -35,7 +35,8 @@ describe('createSearchFilesTool', () => {
   it('scopes search to provided path', async () => {
     const tool = createSearchFilesTool(TMP);
     const result = await tool.execute({ pattern: '*.md', path: 'docs' });
-    expect(result).toContain('quickstart.md');
+    expect(result).toContain('docs/quickstart.md');
+    expect(result).toContain('docs/api.md');
     expect(result).not.toContain('README.md');
   });
 

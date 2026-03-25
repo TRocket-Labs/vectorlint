@@ -15,16 +15,17 @@ export function resolveToCwd(filePath: string, cwd: string): string {
 }
 
 export function isWithinRoot(absolutePath: string, root: string): boolean {
-  const normalizePath = (input: string): string => {
-    try {
-      return realpathSync(input);
-    } catch {
-      return path.resolve(input);
-    }
-  };
+  let normalizedPath: string;
+  let normalizedRoot: string;
 
-  const normalizedPath = normalizePath(absolutePath);
-  const normalizedRoot = normalizePath(root);
+  try {
+    normalizedRoot = realpathSync(root);
+    normalizedPath = realpathSync(absolutePath);
+  } catch {
+    normalizedRoot = path.resolve(root);
+    normalizedPath = path.resolve(absolutePath);
+  }
+
   return normalizedPath.startsWith(normalizedRoot + path.sep) ||
     normalizedPath === normalizedRoot;
 }

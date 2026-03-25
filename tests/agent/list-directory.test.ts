@@ -37,7 +37,6 @@ describe('createListDirectoryTool', () => {
   });
 
   it('lists a specific subdirectory', async () => {
-    mkdirSync(path.join(TMP, 'subdir'), { recursive: true });
     writeFileSync(path.join(TMP, 'subdir', 'nested.md'), '');
     const tool = createListDirectoryTool(TMP);
     const result = await tool.execute({ path: 'subdir' });

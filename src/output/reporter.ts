@@ -226,7 +226,9 @@ export function printAgentFinding(finding: AgentFinding): void {
   if (finding.suggestion) console.log(`    Suggestion: ${finding.suggestion}`);
   if (finding.references && finding.references.length > 0) {
     for (const reference of finding.references) {
-      const loc = reference.startLine ? `${reference.file}:${reference.startLine}` : reference.file;
+      const loc = reference.startLine !== undefined
+        ? `${reference.file}:${reference.startLine}`
+        : reference.file;
       console.log(`    -> ${loc}`);
     }
   }

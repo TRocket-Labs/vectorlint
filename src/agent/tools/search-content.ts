@@ -29,6 +29,18 @@ function hasRipgrep(): boolean {
 }
 const RIPGREP_AVAILABLE = hasRipgrep();
 
+function isLikelyUnsafeRegex(pattern: string): boolean {
+  if (pattern.length > 512) return true;
+
+  const nestedQuantifier = /\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)\s*(?:[+*]|{\d+,?\d*})/;
+  const repeatedWildcard = /(?:\.\*){2,}|(?:\.\+){2,}/;
+  const stackedQuantifier = /(?:\+|\*|{\d+,?\d*}){2,}/;
+
+  return nestedQuantifier.test(pattern) ||
+    repeatedWildcard.test(pattern) ||
+    stackedQuantifier.test(pattern);
+}
+
 function searchWithRipgrep(
   pattern: string,
   searchRoot: string,
@@ -103,6 +115,7 @@ function searchWithJs(
 
   let regex: RegExp;
   try {
+    if (isLikelyUnsafeRegex(pattern)) return 'Invalid regex pattern';
     regex = new RegExp(pattern, opts.ignoreCase ? 'i' : '');
   } catch {
     return 'Invalid regex pattern';
@@ -156,13 +169,16 @@ function searchWithJs(
 export function createSearchContentTool(cwd: string): SearchContentTool {
   return {
     name: 'search_content',
-    description: 'Search file contents for a pattern. Returns file:line: matchedtext format. Default glob filter: *.md. Supports regex patterns.',
+    description: 'Search file contents for a pattern. Returns file:line: matchedtext format. Default glob filter: **/*.md. Supports regex patterns.',
 
     execute({ pattern, path: searchDir, glob, ignoreCase, context, limit }) {
       const searchRoot = searchDir ? resolveToCwd(searchDir, cwd) : cwd;
 
       if (!isWithinRoot(searchRoot, cwd)) {
         return Promise.reject(new Error(`Path traversal blocked: ${searchDir} is outside the allowed root`));
+      }
+      if (isLikelyUnsafeRegex(pattern)) {
+        return Promise.resolve('Invalid regex pattern');
       }
 
       const opts = { glob: glob ?? '**/*.md', ignoreCase, context, limit };

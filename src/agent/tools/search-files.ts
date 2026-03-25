@@ -1,4 +1,5 @@
 import fg from 'fast-glob';
+import * as path from 'node:path';
 import { resolveToCwd, isWithinRoot } from './path-utils.js';
 
 const DEFAULT_LIMIT = 1000;
@@ -12,7 +13,7 @@ export interface SearchFilesTool {
 export function createSearchFilesTool(cwd: string): SearchFilesTool {
   return {
     name: 'search_files',
-    description: 'Find files by glob pattern. Returns paths relative to the search root. Examples: **/*.md, docs/*.md, src/**/*.ts',
+    description: 'Find files by glob pattern. Returns paths relative to repo root. Examples: **/*.md, docs/*.md, src/**/*.ts',
 
     async execute({ pattern, path: searchDir, limit }) {
       const searchRoot = searchDir ? resolveToCwd(searchDir, cwd) : cwd;
@@ -34,7 +35,10 @@ export function createSearchFilesTool(cwd: string): SearchFilesTool {
       }
 
       const limited = matches.slice(0, effectiveLimit);
-      const output = limited.join('\n');
+      const searchPrefix = searchDir ? path.relative(cwd, searchRoot) : '';
+      const output = limited
+        .map((match) => (searchPrefix ? path.join(searchPrefix, match) : match))
+        .join('\n');
       if (matches.length > effectiveLimit) {
         return `${output}\n\n[${effectiveLimit} results limit reached. Refine your pattern for more specific results.]`;
       }

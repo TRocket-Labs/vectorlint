@@ -42,4 +42,10 @@ describe('createSearchContentTool', () => {
     const result = await tool.execute({ pattern: 'API key', glob: '*.md' });
     expect(result).not.toContain('skip.ts');
   });
+
+  it('rejects potentially unsafe regex patterns', async () => {
+    const tool = createSearchContentTool(TMP);
+    const result = await tool.execute({ pattern: '(a+)+$' });
+    expect(result).toBe('Invalid regex pattern');
+  });
 });

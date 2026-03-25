@@ -1,4 +1,5 @@
-import { readdirSync, statSync, existsSync } from 'node:fs';
+import { constants } from 'node:fs';
+import { access, readdir, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import { resolveToCwd, isWithinRoot } from './path-utils.js';
 
@@ -15,47 +16,46 @@ export function createListDirectoryTool(cwd: string): ListDirectoryTool {
     name: 'list_directory',
     description: 'List the contents of a directory. Directories are shown with a trailing /. Includes dotfiles.',
 
-    execute({ path: dirPath, limit }) {
-      try {
-        const absolutePath = resolveToCwd(dirPath || '.', cwd);
+    async execute({ path: dirPath, limit }) {
+      const absolutePath = resolveToCwd(dirPath || '.', cwd);
 
-        if (!isWithinRoot(absolutePath, cwd)) {
-          return Promise.reject(new Error(`Path traversal blocked: ${dirPath} is outside the allowed root`));
-        }
-
-        if (!existsSync(absolutePath)) {
-          return Promise.reject(new Error(`Directory not found: ${dirPath}`));
-        }
-
-        const entries = readdirSync(absolutePath);
-        entries.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-
-        const effectiveLimit = limit ?? DEFAULT_LIMIT;
-        const results: string[] = [];
-
-        for (const entry of entries) {
-          if (results.length >= effectiveLimit) break;
-          const fullPath = path.join(absolutePath, entry);
-          try {
-            const stat = statSync(fullPath);
-            results.push(stat.isDirectory() ? `${entry}/` : entry);
-          } catch {
-            // Skip unreadable entries.
-          }
-        }
-
-        if (results.length === 0) return Promise.resolve('(empty directory)');
-
-        const output = results.join('\n');
-        const wasTruncated = results.length >= effectiveLimit && entries.length > results.length;
-        if (wasTruncated) {
-          return Promise.resolve(`${output}\n\n[${effectiveLimit} entries limit reached. Use limit=${effectiveLimit * 2} for more.]`);
-        }
-
-        return Promise.resolve(output);
-      } catch (error) {
-        return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+      if (!isWithinRoot(absolutePath, cwd)) {
+        throw new Error(`Path traversal blocked: ${dirPath} is outside the allowed root`);
       }
+
+      try {
+        await access(absolutePath, constants.F_OK);
+      } catch {
+        throw new Error(`Directory not found: ${dirPath}`);
+      }
+
+      const entries = await readdir(absolutePath);
+      entries.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+      const effectiveLimit = limit ?? DEFAULT_LIMIT;
+      const resolvedEntries = await Promise.all(entries.map(async (entry) => {
+        const fullPath = path.join(absolutePath, entry);
+        try {
+          const entryStat = await stat(fullPath);
+          return entryStat.isDirectory() ? `${entry}/` : entry;
+        } catch {
+          return null;
+        }
+      }));
+
+      const results = resolvedEntries
+        .filter((entry): entry is string => entry !== null)
+        .slice(0, effectiveLimit);
+
+      if (results.length === 0) return '(empty directory)';
+
+      const output = results.join('\n');
+      const wasTruncated = results.length >= effectiveLimit && entries.length > results.length;
+      if (wasTruncated) {
+        return `${output}\n\n[${effectiveLimit} entries limit reached. Use limit=${effectiveLimit * 2} for more.]`;
+      }
+
+      return output;
     },
   };
 }

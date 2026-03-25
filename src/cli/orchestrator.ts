@@ -156,6 +156,19 @@ async function runAgentMode(
   const findings = collectAgentFindings(agentResults);
   const requestFailures = agentResults.filter((result) => result.error).length;
   const hadOperationalErrors = requestFailures > 0;
+  const jsonPayload = {
+    findings,
+    summary: {
+      files: targets.length,
+      errors: findings.length,
+      warnings: 0,
+      requestFailures,
+    },
+    metadata: {
+      mode: AGENT_EVALUATION_MODE,
+      timestamp: new Date().toISOString(),
+    },
+  };
 
   if (outputFormat === OutputFormat.Line) {
     if (hadOperationalErrors) {
@@ -175,25 +188,10 @@ async function runAgentMode(
       }
     }
   } else if (outputFormat === OutputFormat.Json) {
-    console.log(JSON.stringify({
-      findings,
-      summary: {
-        files: targets.length,
-        errors: findings.length,
-        warnings: 0,
-        requestFailures,
-      },
-      metadata: {
-        mode: AGENT_EVALUATION_MODE,
-        timestamp: new Date().toISOString(),
-      },
-    }, null, 2));
-  } else if (outputFormat === OutputFormat.RdJson) {
-    const formatter = new RdJsonFormatter();
-    console.log(formatter.toJson());
-  } else if (outputFormat === OutputFormat.ValeJson) {
-    const formatter = new ValeJsonFormatter();
-    console.log(formatter.toJson());
+    console.log(JSON.stringify(jsonPayload, null, 2));
+  } else if (outputFormat === OutputFormat.RdJson || outputFormat === OutputFormat.ValeJson) {
+    console.warn('[vectorlint] rdjson and vale-json are not supported in agent mode. Falling back to --output json.');
+    console.log(JSON.stringify(jsonPayload, null, 2));
   }
 
   return {
