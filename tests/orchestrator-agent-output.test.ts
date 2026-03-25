@@ -57,10 +57,16 @@ function createBaseOptions(prompts: PromptFile[]): EvaluationOptions {
 const TMP = path.join(process.cwd(), 'tmp-orchestrator-agent-output-test');
 
 describe('agent mode output formatting', () => {
+  const originalIsTTY = Object.getOwnPropertyDescriptor(process.stderr, 'isTTY');
+
   beforeEach(() => {
     RUN_AGENT_EXECUTOR_MOCK.mockReset();
     COLLECT_AGENT_FINDINGS_MOCK.mockReset();
     TOOL_EXECUTE_MOCK.mockReset();
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: false,
+    });
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -73,6 +79,10 @@ describe('agent mode output formatting', () => {
 
   afterEach(() => {
     rmSync(TMP, { recursive: true, force: true });
+    vi.restoreAllMocks();
+    if (originalIsTTY) {
+      Object.defineProperty(process.stderr, 'isTTY', originalIsTTY);
+    }
   });
 
   it('emits agent findings as rdjson diagnostics', async () => {
@@ -163,6 +173,39 @@ describe('agent mode output formatting', () => {
     expect(result.totalErrors).toBe(0);
     expect(result.totalWarnings).toBe(1);
     expect(result.hadSeverityErrors).toBe(false);
+  });
+
+  it('does not leak progress text to stdout for json-family outputs', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+
+    const prompt = createPrompt({
+      id: 'AgentRule',
+      name: 'Agent Rule',
+      type: 'check',
+      severity: 'warning',
+    });
+
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    await evaluateFiles(['docs/changed.md'], {
+      ...createBaseOptions([prompt]),
+      outputFormat: OutputFormat.Json,
+    });
+
+    const stdout = vi
+      .mocked(console.log)
+      .mock
+      .calls
+      .map((call) => String(call[0]))
+      .join('\n');
+
+    expect(stdout).not.toContain('[vectorlint] analyzing...');
+    expect(stdout).not.toContain('[vectorlint] done.');
+    expect(stderrSpy).not.toHaveBeenCalled();
   });
 
   it('computes deterministic scores from inline findings only (top-level excluded)', async () => {
