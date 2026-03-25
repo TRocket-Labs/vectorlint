@@ -45,4 +45,12 @@ describe('createSearchFilesTool', () => {
     const result = await tool.execute({ pattern: '**/*.xyz' });
     expect(result).toContain('No files found');
   });
+
+  it('respects repo-root .gitignore patterns', async () => {
+    writeFileSync(path.join(TMP, '.gitignore'), 'docs/api.md\n');
+    const tool = createSearchFilesTool(TMP);
+    const result = await tool.execute({ pattern: '**/*.md' });
+    expect(result).toContain('docs/quickstart.md');
+    expect(result).not.toContain('docs/api.md');
+  });
 });

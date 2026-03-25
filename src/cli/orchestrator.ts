@@ -27,6 +27,7 @@ import {
   TokenUsageStats
 } from '../providers/token-usage';
 import { calculateCheckScore } from '../scoring';
+import { countWords } from '../chunking';
 import { locateQuotedText } from "../output/location";
 import {
   computeFilterDecision,
@@ -213,6 +214,101 @@ function resolveAgentFindingSeverity(
     : Severity.ERROR;
 }
 
+type AgentRuleScore = {
+  ruleId: string;
+  score: number;
+  scoreText: string;
+};
+
+function isPathWithinCwd(filePath: string, cwd: string): boolean {
+  const relative = path.relative(cwd, filePath);
+  return !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
+function getFileWordCount(
+  file: string,
+  cwd: string,
+  cache: Map<string, number>,
+): number {
+  const repoRelative = toRepoRelativePath(file, cwd);
+  if (cache.has(repoRelative)) {
+    return cache.get(repoRelative)!;
+  }
+
+  const absolute = path.isAbsolute(file) ? file : path.resolve(cwd, repoRelative);
+  if (!isPathWithinCwd(absolute, cwd)) {
+    cache.set(repoRelative, 1);
+    return 1;
+  }
+
+  try {
+    const content = readFileSync(absolute, 'utf-8');
+    const words = Math.max(1, countWords(content) || 1);
+    cache.set(repoRelative, words);
+    return words;
+  } catch {
+    cache.set(repoRelative, 1);
+    return 1;
+  }
+}
+
+function buildAgentRuleScores(
+  findings: AgentFinding[],
+  rules: PromptFile[],
+  cwd: string,
+): AgentRuleScore[] {
+  const fileWordCountCache = new Map<string, number>();
+  const inlineCountsByRule = new Map<string, Map<string, number>>();
+
+  for (const finding of findings) {
+    if (finding.kind !== 'inline') continue;
+    const fileCounts = inlineCountsByRule.get(finding.ruleId) ?? new Map<string, number>();
+    const repoRelativeFile = toRepoRelativePath(finding.file, cwd);
+    fileCounts.set(repoRelativeFile, (fileCounts.get(repoRelativeFile) ?? 0) + 1);
+    inlineCountsByRule.set(finding.ruleId, fileCounts);
+  }
+
+  return rules.map((rule) => {
+    const ruleId = rule.meta.id;
+    const fileCounts = inlineCountsByRule.get(ruleId);
+    if (!fileCounts || fileCounts.size === 0) {
+      return {
+        ruleId,
+        score: 10,
+        scoreText: '10.0/10',
+      };
+    }
+
+    let totalInlineFindings = 0;
+    let totalWords = 0;
+    for (const [file, count] of fileCounts.entries()) {
+      totalInlineFindings += count;
+      totalWords += getFileWordCount(file, cwd, fileWordCountCache);
+    }
+
+    const syntheticViolations = Array.from({ length: totalInlineFindings }, (_, index) => ({
+      line: index + 1,
+      description: 'Agent finding',
+      analysis: 'Agent finding',
+    }));
+
+    const scored = calculateCheckScore(
+      syntheticViolations,
+      Math.max(1, totalWords),
+      {
+        strictness: rule.meta.strictness,
+        promptSeverity: rule.meta.severity,
+      },
+    );
+
+    return {
+      ruleId,
+      score: scored.final_score,
+      scoreText: `${scored.final_score.toFixed(1)}/10`,
+    };
+  });
+}
+
 function createAgentRdJsonIssue(
   line: number,
   finding: AgentFinding,
@@ -311,6 +407,13 @@ async function runAgentMode(
   const findings = collectAgentFindings(agentResults);
   const requestFailures = agentResults.filter((result) => result.error).length;
   const hadOperationalErrors = requestFailures > 0;
+  const ruleScores = buildAgentRuleScores(findings, promptsToRun, cwd);
+  const scoreSummary = new Map<string, EvaluationSummary[]>(
+    ruleScores.map((entry) => [
+      entry.ruleId,
+      [{ id: 'overall', scoreText: entry.scoreText, score: entry.score }],
+    ]),
+  );
   const findingsWithSeverity = findings.map((finding) => ({
     finding,
     severity: resolveAgentFindingSeverity(finding, rulesById),
@@ -326,6 +429,7 @@ async function runAgentMode(
       warnings: warningCount,
       requestFailures,
     },
+    scores: ruleScores,
     metadata: {
       mode: AGENT_EVALUATION_MODE,
       timestamp: new Date().toISOString(),
@@ -349,6 +453,7 @@ async function runAgentMode(
         printAgentFinding(finding, severity);
       }
     }
+    printEvaluationSummaries(scoreSummary);
   } else if (outputFormat === OutputFormat.Json) {
     console.log(JSON.stringify(jsonPayload, null, 2));
   } else if (outputFormat === OutputFormat.RdJson) {

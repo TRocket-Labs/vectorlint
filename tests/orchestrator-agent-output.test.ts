@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import * as path from 'node:path';
 import type { PromptFile } from '../src/prompts/prompt-loader';
 import { evaluateFiles } from '../src/cli/orchestrator';
 import { AGENT_EVALUATION_MODE } from '../src/cli/mode';
@@ -52,6 +54,8 @@ function createBaseOptions(prompts: PromptFile[]): EvaluationOptions {
   };
 }
 
+const TMP = path.join(process.cwd(), 'tmp-orchestrator-agent-output-test');
+
 describe('agent mode output formatting', () => {
   beforeEach(() => {
     RUN_AGENT_EXECUTOR_MOCK.mockReset();
@@ -65,6 +69,10 @@ describe('agent mode output formatting', () => {
       findings: [],
       ruleId: 'AgentRule',
     });
+  });
+
+  afterEach(() => {
+    rmSync(TMP, { recursive: true, force: true });
   });
 
   it('emits agent findings as rdjson diagnostics', async () => {
@@ -155,6 +163,49 @@ describe('agent mode output formatting', () => {
     expect(result.totalErrors).toBe(0);
     expect(result.totalWarnings).toBe(1);
     expect(result.hadSeverityErrors).toBe(false);
+  });
+
+  it('computes deterministic scores from inline findings only (top-level excluded)', async () => {
+    mkdirSync(path.join(TMP, 'docs'), { recursive: true });
+    const fiveHundredWords = Array.from({ length: 500 }, (_, index) => `w${index}`).join(' ');
+    writeFileSync(path.join(TMP, 'docs', 'guide.md'), fiveHundredWords);
+
+    const prompt = createPrompt({
+      id: 'AgentRule',
+      name: 'Agent Rule',
+      type: 'check',
+      severity: 'error',
+    });
+
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([
+      {
+        kind: 'inline',
+        file: path.join(TMP, 'docs', 'guide.md'),
+        startLine: 1,
+        endLine: 1,
+        message: 'Inline finding',
+        ruleId: 'AgentRule',
+      },
+      {
+        kind: 'top-level',
+        message: 'Off-page finding',
+        ruleId: 'AgentRule',
+      },
+    ]);
+
+    await evaluateFiles([path.join(TMP, 'docs', 'guide.md')], {
+      ...createBaseOptions([prompt]),
+      outputFormat: OutputFormat.Json,
+    });
+
+    const payload = JSON.parse(
+      String(vi.mocked(console.log).mock.calls.at(-1)?.[0]),
+    ) as { scores: Array<{ ruleId: string; score: number }> };
+
+    expect(payload.scores).toHaveLength(1);
+    expect(payload.scores[0]?.ruleId).toBe('AgentRule');
+    // 1 inline finding over 500 words with strictness=10 => score 9.8
+    expect(payload.scores[0]?.score).toBe(9.8);
   });
 
   it('runs agent per rule with scan-path matched files', async () => {
