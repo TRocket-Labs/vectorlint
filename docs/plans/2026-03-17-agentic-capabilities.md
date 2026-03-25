@@ -1497,7 +1497,7 @@ git commit -m "feat(agent): add merger that flattens agent findings"
 - Modify: `src/output/reporter.ts`
 - Modify: `src/output/json-formatter.ts`
 
-The `line` formatter needs to render agent findings. The `json` formatter needs a `source` field. In agent mode, `vale-json`/`rdjson` emit a warning and fall back to JSON to avoid empty formatter output.
+The `line` formatter needs to render agent findings. The `json` formatter needs a `source` field. In agent mode, `rdjson` should map agent findings into diagnostics; `vale-json` remains unsupported and falls back to JSON with a warning.
 
 - [ ] **Step 1: Read the reporter to understand current structure**
 

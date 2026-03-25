@@ -295,7 +295,8 @@ export type AgentFinding = z.infer<typeof AgentFindingSchema>;
 **Output format handling:**
 - `line` output: `inline` agent findings render with file + line reference; `top-level` findings render as a summary block with any available references listed beneath
 - `json` output: agent findings use `AgentFinding` shape
-- `vale-json` and `rdjson` output: unsupported in agent mode; CLI logs a warning and falls back to JSON output to avoid empty formatter output
+- `rdjson` output: agent findings are mapped to RDJSON diagnostics for downstream annotation tooling (for example GitHub inline comments)
+- `vale-json` output: unsupported in agent mode; CLI logs a warning and falls back to JSON output
 
 ---
 

@@ -41,6 +41,7 @@ import {
   createSearchFilesTool,
   createListDirectoryTool,
   createLintTool,
+  type AgentFinding,
 } from '../agent/index';
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
@@ -124,6 +125,63 @@ function buildDiffContext(files: string[], cwd: string): string {
   return `Changed files:\n${fileList}`;
 }
 
+function toRepoRelativePath(filePath: string, cwd: string): string {
+  if (!path.isAbsolute(filePath)) return filePath;
+  return path.relative(cwd, filePath) || filePath;
+}
+
+function createAgentRdJsonIssue(
+  line: number,
+  finding: AgentFinding,
+): Issue {
+  return {
+    line,
+    column: 1,
+    span: [1, 1],
+    severity: Severity.ERROR,
+    message: finding.message,
+    rule: finding.ruleId,
+    match: '',
+    source: 'agent',
+    ...(finding.suggestion ? { suggestion: finding.suggestion } : {}),
+  };
+}
+
+function addAgentFindingsToRdJson(
+  formatter: RdJsonFormatter,
+  findings: AgentFinding[],
+  cwd: string,
+  fallbackFile: string,
+): void {
+  for (const finding of findings) {
+    if (finding.kind === 'inline') {
+      const issueFile = toRepoRelativePath(finding.file, cwd);
+      formatter.addIssue(
+        issueFile,
+        createAgentRdJsonIssue(finding.startLine, finding),
+      );
+      continue;
+    }
+
+    const references = finding.references ?? [];
+    if (references.length === 0) {
+      formatter.addIssue(
+        fallbackFile,
+        createAgentRdJsonIssue(1, finding),
+      );
+      continue;
+    }
+
+    for (const reference of references) {
+      const issueFile = toRepoRelativePath(reference.file, cwd);
+      formatter.addIssue(
+        issueFile,
+        createAgentRdJsonIssue(reference.startLine ?? 1, finding),
+      );
+    }
+  }
+}
+
 async function runAgentMode(
   targets: string[],
   options: EvaluationOptions
@@ -156,6 +214,7 @@ async function runAgentMode(
   const findings = collectAgentFindings(agentResults);
   const requestFailures = agentResults.filter((result) => result.error).length;
   const hadOperationalErrors = requestFailures > 0;
+  const rdJsonFallbackFile = toRepoRelativePath(targets[0] || 'unknown', cwd);
   const jsonPayload = {
     findings,
     summary: {
@@ -189,8 +248,12 @@ async function runAgentMode(
     }
   } else if (outputFormat === OutputFormat.Json) {
     console.log(JSON.stringify(jsonPayload, null, 2));
-  } else if (outputFormat === OutputFormat.RdJson || outputFormat === OutputFormat.ValeJson) {
-    console.warn('[vectorlint] rdjson and vale-json are not supported in agent mode. Falling back to --output json.');
+  } else if (outputFormat === OutputFormat.RdJson) {
+    const formatter = new RdJsonFormatter();
+    addAgentFindingsToRdJson(formatter, findings, cwd, rdJsonFallbackFile);
+    console.log(formatter.toJson());
+  } else if (outputFormat === OutputFormat.ValeJson) {
+    console.warn('[vectorlint] vale-json is not supported in agent mode. Falling back to --output json.');
     console.log(JSON.stringify(jsonPayload, null, 2));
   }
 
