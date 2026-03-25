@@ -22,6 +22,7 @@ export interface AgentTools {
 
 export interface AgentExecutorParams {
   rule: PromptFile;
+  matchedFiles: string[];
   cwd: string;
   model: LanguageModel;
   tools: AgentTools;
@@ -64,6 +65,7 @@ function parseAgentOutputFromText(text: string): z.infer<typeof AGENT_OUTPUT_SCH
 
 function buildSystemPrompt(
   rule: PromptFile,
+  matchedFiles: string[],
   diffContext: string,
   cwd: string,
   userInstructions?: string,
@@ -75,12 +77,14 @@ function buildSystemPrompt(
 - search_content: Search file contents by regex pattern across multiple files (returns file:line: matchedtext)
 - search_files: Find files by glob pattern (e.g. **/*.md, src/**/*.ts)
 - list_directory: List directory contents; directories use / suffix and dotfiles are included
-- lint: Run per-page VectorLint evaluation on a single file and rule; returns score and violations`;
+- lint: Run structured prose evaluation on one file. Pass ruleContent (rule body only, no YAML frontmatter). Pass optional context (external evidence you gathered) when needed. Do not use lint for structural checks such as file existence or missing sections`;
 
   const guidelines = `Guidelines:
-- Start from changed files in the provided PR context, then expand only when the rule requires it
+- Start from the matched files list below, then expand only when the rule requires it
+- Use lint for writing-quality checks (clarity, correctness, consistency) on page content
+- Use file tools for structural checks (missing files, broken links, missing sections)
+- For mixed rules, strip structural criteria from ruleContent before calling lint
 - Use search_content to find patterns across files; avoid reading every file sequentially
-- Use lint for per-page quality checks to keep context compact
 - Return findings immediately when evidence is sufficient
 - Report only genuine problems
 - Include exact file paths and line numbers for every inline finding`;
@@ -94,6 +98,7 @@ If no issues exist, return "findings": []`;
     'You are a senior technical writer evaluating documentation quality. Use lint for per-page checks and file tools for cross-file evidence.',
     `Rule: ${rule.meta.name} (${rule.meta.id})\n${rule.body}`,
     toolDescriptions,
+    `Matched files for this rule:\n${matchedFiles.length > 0 ? matchedFiles.map((file) => `- ${file}`).join('\n') : '- (none)'}`,
     guidelines,
   ];
 
@@ -112,8 +117,8 @@ If no issues exist, return "findings": []`;
 }
 
 export async function runAgentExecutor(params: AgentExecutorParams): Promise<AgentRunResult> {
-  const { rule, cwd, model, tools, diffContext, signal, userInstructions } = params;
-  const systemPrompt = buildSystemPrompt(rule, diffContext, cwd, userInstructions);
+  const { rule, matchedFiles = [], cwd, model, tools, diffContext, signal, userInstructions } = params;
+  const systemPrompt = buildSystemPrompt(rule, matchedFiles, diffContext, cwd, userInstructions);
   let responseText = '';
 
   const sdkTools = {
@@ -159,7 +164,8 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
       description: tools.lint.description,
       inputSchema: z.object({
         file: z.string().describe('File path to lint'),
-        ruleId: z.string().describe('Rule ID from frontmatter id'),
+        ruleContent: z.string().describe('Rule criteria body only (no YAML frontmatter)'),
+        context: z.string().optional().describe('Optional external evidence to ground evaluation'),
       }),
       execute: async (args) => tools.lint.execute(args),
     }),
@@ -169,7 +175,7 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
     const response = await generateText({
       model,
       system: systemPrompt,
-      prompt: `Evaluate documentation against rule "${rule.meta.name}". Return findings as JSON.`,
+      prompt: `Evaluate documentation against rule "${rule.meta.name}". Start from matched files first, then expand with tools only as needed. Return findings as JSON.`,
       tools: sdkTools,
       stopWhen: stepCountIs(MAX_AGENT_STEPS),
       abortSignal: signal,

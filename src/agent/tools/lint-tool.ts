@@ -18,35 +18,44 @@ export interface LintToolResult {
 export interface LintTool {
   name: 'lint';
   description: string;
-  execute(params: { file: string; ruleId: string }): Promise<LintToolResult>;
+  execute(params: { file: string; ruleContent: string; context?: string }): Promise<LintToolResult>;
 }
 
 export function createLintTool(
   cwd: string,
-  rules: PromptFile[],
+  rule: PromptFile,
   provider: LLMProvider
 ): LintTool {
   return {
     name: 'lint',
-    description: 'Run per-page VectorLint evaluation on a single file against a specific rule. Returns score and violations. Use ruleId from the rule\'s frontmatter id field.',
+    description: 'Run per-page VectorLint evaluation on a single file. Provide ruleContent (rule body only, no YAML frontmatter) and optional context from external evidence.',
 
-    async execute({ file, ruleId }) {
+    async execute({ file, ruleContent, context }) {
       const absolutePath = resolveToCwd(file, cwd);
 
       if (!isWithinRoot(absolutePath, cwd)) {
         throw new Error(`Path traversal blocked: ${file} is outside the allowed root`);
       }
 
-      const rule = rules.find((r) => r.meta.id === ruleId);
-      if (!rule) {
-        const availableRules = rules.map((r) => r.meta.id).join(', ');
-        throw new Error(`Rule not found: ${ruleId}. Available rules: ${availableRules}`);
-      }
-
       const content = readFileSync(absolutePath, 'utf-8');
       const relFile = path.relative(cwd, absolutePath);
 
-      const evaluator = createEvaluator(Type.BASE, provider, rule);
+      const normalizedRuleContent = ruleContent.trim();
+      if (normalizedRuleContent.length === 0) {
+        throw new Error('ruleContent must not be empty. Provide the rule criteria body without YAML frontmatter.');
+      }
+
+      const normalizedContext = context?.trim();
+      const contextualRuleBody = normalizedContext && normalizedContext.length > 0
+        ? `${normalizedRuleContent}\n\n---\n\nAdditional grounding context (external evidence gathered by the agent):\n${normalizedContext}`
+        : normalizedRuleContent;
+
+      const evaluationRule: PromptFile = {
+        ...rule,
+        body: contextualRuleBody,
+      };
+
+      const evaluator = createEvaluator(Type.BASE, provider, evaluationRule);
       const result = await evaluator.evaluate(relFile, content);
 
       if (isJudgeResult(result)) {

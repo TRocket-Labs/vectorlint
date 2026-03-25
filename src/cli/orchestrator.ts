@@ -130,15 +130,99 @@ function toRepoRelativePath(filePath: string, cwd: string): string {
   return path.relative(cwd, filePath) || filePath;
 }
 
+function getPromptKey(prompt: PromptFile): string {
+  return prompt.meta.id || prompt.filename;
+}
+
+function isPromptActiveForResolution(
+  prompt: PromptFile,
+  resolution: { packs: string[]; overrides: Record<string, unknown> },
+): boolean {
+  if (prompt.pack === '') return true;
+  if (!prompt.pack || !resolution.packs.includes(prompt.pack)) return false;
+  if (!prompt.meta?.id) return true;
+  const disableKey = `${prompt.pack}.${prompt.meta.id}`;
+  const overrideValue = resolution.overrides[disableKey];
+  return (
+    typeof overrideValue !== 'string' ||
+    overrideValue.toLowerCase() !== 'disabled'
+  );
+}
+
+function buildMatchedFilesByRule(
+  targets: string[],
+  prompts: PromptFile[],
+  scanPaths: EvaluationOptions['scanPaths'],
+  cwd: string,
+): Map<string, string[]> {
+  const relTargets = targets.map((file) => toRepoRelativePath(file, cwd));
+  const matchedByRule = new Map<string, Set<string>>();
+
+  for (const prompt of prompts) {
+    matchedByRule.set(getPromptKey(prompt), new Set<string>());
+  }
+
+  if (scanPaths && scanPaths.length > 0) {
+    const resolver = new ScanPathResolver();
+    const availablePacks = Array.from(
+      new Set(prompts.map((prompt) => prompt.pack).filter((pack): pack is string => !!pack))
+    );
+
+    for (const relFile of relTargets) {
+      let resolution: { packs: string[]; overrides: Record<string, unknown> };
+      try {
+        resolution = resolver.resolveConfiguration(relFile, scanPaths, availablePacks);
+      } catch {
+        // Keep behavior aligned with lint mode expectations: unmatched files run no packed rules.
+        resolution = { packs: [], overrides: {} };
+      }
+
+      for (const prompt of prompts) {
+        if (!isPromptActiveForResolution(prompt, resolution)) continue;
+        matchedByRule.get(getPromptKey(prompt))?.add(relFile);
+      }
+    }
+  } else {
+    for (const prompt of prompts) {
+      const bucket = matchedByRule.get(getPromptKey(prompt));
+      if (!bucket) continue;
+      for (const relFile of relTargets) {
+        bucket.add(relFile);
+      }
+    }
+  }
+
+  const normalized = new Map<string, string[]>();
+  for (const [ruleKey, files] of matchedByRule.entries()) {
+    normalized.set(ruleKey, Array.from(files));
+  }
+  return normalized;
+}
+
+function resolveAgentFindingSeverity(
+  finding: AgentFinding,
+  rulesById: Map<string, PromptFile>,
+): Severity {
+  if (finding.kind === 'top-level') {
+    return Severity.WARNING;
+  }
+
+  const matchedRule = rulesById.get(finding.ruleId);
+  return matchedRule?.meta.severity === Severity.WARNING
+    ? Severity.WARNING
+    : Severity.ERROR;
+}
+
 function createAgentRdJsonIssue(
   line: number,
   finding: AgentFinding,
+  severity: Severity,
 ): Issue {
   return {
     line,
     column: 1,
     span: [1, 1],
-    severity: Severity.ERROR,
+    severity,
     message: finding.message,
     rule: finding.ruleId,
     match: '',
@@ -150,15 +234,17 @@ function createAgentRdJsonIssue(
 function addAgentFindingsToRdJson(
   formatter: RdJsonFormatter,
   findings: AgentFinding[],
+  rulesById: Map<string, PromptFile>,
   cwd: string,
   fallbackFile: string,
 ): void {
   for (const finding of findings) {
+    const severity = resolveAgentFindingSeverity(finding, rulesById);
     if (finding.kind === 'inline') {
       const issueFile = toRepoRelativePath(finding.file, cwd);
       formatter.addIssue(
         issueFile,
-        createAgentRdJsonIssue(finding.startLine, finding),
+        createAgentRdJsonIssue(finding.startLine, finding, severity),
       );
       continue;
     }
@@ -167,7 +253,7 @@ function addAgentFindingsToRdJson(
     if (references.length === 0) {
       formatter.addIssue(
         fallbackFile,
-        createAgentRdJsonIssue(1, finding),
+        createAgentRdJsonIssue(1, finding, severity),
       );
       continue;
     }
@@ -176,7 +262,7 @@ function addAgentFindingsToRdJson(
       const issueFile = toRepoRelativePath(reference.file, cwd);
       formatter.addIssue(
         issueFile,
-        createAgentRdJsonIssue(reference.startLine ?? 1, finding),
+        createAgentRdJsonIssue(reference.startLine ?? 1, finding, severity),
       );
     }
   }
@@ -186,29 +272,37 @@ async function runAgentMode(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  const { prompts, provider, concurrency, outputFormat = OutputFormat.Line, userInstructionContent } = options;
+  const { prompts, provider, concurrency, scanPaths, outputFormat = OutputFormat.Line, userInstructionContent } = options;
   const cwd = process.cwd();
 
-  const tools = {
+  const sharedTools = {
     read_file: createReadFileTool(cwd),
     search_content: createSearchContentTool(cwd),
     search_files: createSearchFilesTool(cwd),
     list_directory: createListDirectoryTool(cwd),
-    lint: createLintTool(cwd, prompts, provider),
   };
 
   const model = provider.getLanguageModel();
   const diffContext = buildDiffContext(targets, cwd);
+  const matchedFilesByRule = buildMatchedFilesByRule(targets, prompts, scanPaths, cwd);
+  const promptsToRun = prompts.filter(
+    (rule) => (matchedFilesByRule.get(getPromptKey(rule)) ?? []).length > 0
+  );
+  const rulesById = new Map(prompts.map((prompt) => [prompt.meta.id, prompt]));
   const safeConcurrency = Number.isFinite(concurrency)
     ? Math.max(1, Math.floor(concurrency))
     : 1;
 
-  const agentResults = await runWithConcurrency(prompts, safeConcurrency, async (rule) =>
+  const agentResults = await runWithConcurrency(promptsToRun, safeConcurrency, async (rule) =>
     runAgentExecutor({
       rule,
+      matchedFiles: matchedFilesByRule.get(getPromptKey(rule)) ?? [],
       cwd,
       model,
-      tools,
+      tools: {
+        ...sharedTools,
+        lint: createLintTool(cwd, rule, provider),
+      },
       diffContext,
       ...(userInstructionContent ? { userInstructions: userInstructionContent } : {}),
     })
@@ -217,13 +311,19 @@ async function runAgentMode(
   const findings = collectAgentFindings(agentResults);
   const requestFailures = agentResults.filter((result) => result.error).length;
   const hadOperationalErrors = requestFailures > 0;
+  const findingsWithSeverity = findings.map((finding) => ({
+    finding,
+    severity: resolveAgentFindingSeverity(finding, rulesById),
+  }));
+  const errorCount = findingsWithSeverity.filter((entry) => entry.severity === Severity.ERROR).length;
+  const warningCount = findingsWithSeverity.length - errorCount;
   const rdJsonFallbackFile = toRepoRelativePath(targets[0] || 'unknown', cwd);
   const jsonPayload = {
     findings,
     summary: {
       files: targets.length,
-      errors: findings.length,
-      warnings: 0,
+      errors: errorCount,
+      warnings: warningCount,
       requestFailures,
     },
     metadata: {
@@ -245,15 +345,15 @@ async function runAgentMode(
     if (findings.length === 0) {
       console.log('[vectorlint] No agent findings.');
     } else {
-      for (const finding of findings) {
-        printAgentFinding(finding);
+      for (const { finding, severity } of findingsWithSeverity) {
+        printAgentFinding(finding, severity);
       }
     }
   } else if (outputFormat === OutputFormat.Json) {
     console.log(JSON.stringify(jsonPayload, null, 2));
   } else if (outputFormat === OutputFormat.RdJson) {
     const formatter = new RdJsonFormatter();
-    addAgentFindingsToRdJson(formatter, findings, cwd, rdJsonFallbackFile);
+    addAgentFindingsToRdJson(formatter, findings, rulesById, cwd, rdJsonFallbackFile);
     console.log(formatter.toJson());
   } else if (outputFormat === OutputFormat.ValeJson) {
     console.warn('[vectorlint] vale-json is not supported in agent mode. Falling back to --output json.');
@@ -262,11 +362,11 @@ async function runAgentMode(
 
   return {
     totalFiles: targets.length,
-    totalErrors: findings.length,
-    totalWarnings: 0,
+    totalErrors: errorCount,
+    totalWarnings: warningCount,
     requestFailures,
     hadOperationalErrors,
-    hadSeverityErrors: findings.length > 0,
+    hadSeverityErrors: errorCount > 0,
   };
 }
 

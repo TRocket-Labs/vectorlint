@@ -51,6 +51,7 @@ describe('runAgentExecutor', () => {
     const rule = makeRule('PassiveVoice', 'Check for passive voice');
     const result = await runAgentExecutor({
       rule: rule as never,
+      matchedFiles: ['docs/quickstart.md'],
       cwd: MOCK_CWD,
       model: MOCK_MODEL,
       tools: MOCK_TOOLS as never,
@@ -70,6 +71,7 @@ describe('runAgentExecutor', () => {
     const rule = makeRule('Consistency', 'Check terminology');
     const result = await runAgentExecutor({
       rule: rule as never,
+      matchedFiles: ['docs/reference.md'],
       cwd: MOCK_CWD,
       model: MOCK_MODEL,
       tools: MOCK_TOOLS as never,
@@ -86,6 +88,7 @@ describe('runAgentExecutor', () => {
     const rule = makeRule('Coverage', 'Check documentation coverage');
     const result = await runAgentExecutor({
       rule: rule as never,
+      matchedFiles: ['docs/coverage.md'],
       cwd: MOCK_CWD,
       model: MOCK_MODEL,
       tools: MOCK_TOOLS as never,
@@ -117,6 +120,7 @@ describe('runAgentExecutor', () => {
     const rule = makeRule('Coverage', 'Check documentation coverage');
     const result = await runAgentExecutor({
       rule: rule as never,
+      matchedFiles: ['docs/coverage.md'],
       cwd: MOCK_CWD,
       model: MOCK_MODEL,
       tools: MOCK_TOOLS as never,

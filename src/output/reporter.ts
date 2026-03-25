@@ -213,16 +213,17 @@ export function printTokenUsage(stats: TokenUsageStats) {
   console.log('');
 }
 
-export function printAgentFinding(finding: AgentFinding): void {
+export function printAgentFinding(finding: AgentFinding, severity: Severity = Severity.ERROR): void {
+  const label = severity === Severity.WARNING ? 'warning' : 'error';
   if (finding.kind === 'inline') {
     const location = `${finding.file}:${finding.startLine}`;
-    console.log(`  [agent] ${location}`);
+    console.log(`  [agent:${label}] ${location}`);
     console.log(`    ${finding.message}`);
     if (finding.suggestion) console.log(`    Suggestion: ${finding.suggestion}`);
     return;
   }
 
-  console.log(`  [agent] ${finding.message}`);
+  console.log(`  [agent:${label}] ${finding.message}`);
   if (finding.suggestion) console.log(`    Suggestion: ${finding.suggestion}`);
   if (finding.references && finding.references.length > 0) {
     for (const reference of finding.references) {
