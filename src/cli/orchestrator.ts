@@ -199,8 +199,11 @@ async function runAgentMode(
 
   const model = provider.getLanguageModel();
   const diffContext = buildDiffContext(targets, cwd);
+  const safeConcurrency = Number.isFinite(concurrency)
+    ? Math.max(1, Math.floor(concurrency))
+    : 1;
 
-  const agentResults = await runWithConcurrency(prompts, Math.max(1, concurrency), async (rule) =>
+  const agentResults = await runWithConcurrency(prompts, safeConcurrency, async (rule) =>
     runAgentExecutor({
       rule,
       cwd,

@@ -111,6 +111,7 @@ function searchWithJs(
     cwd: searchRoot,
     ignore: ['**/node_modules/**', '**/.git/**'],
     absolute: true,
+    followSymbolicLinks: false,
   });
 
   let regex: RegExp;

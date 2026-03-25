@@ -147,36 +147,14 @@ Uses whatever `LanguageModel` (Vercel AI SDK) is derived from the user's configu
 
 ### 3. Tool Suite
 
-All tools are scoped to `cwd` (the shallow clone root). Paths are resolved relative to `cwd`. No path traversal outside `cwd` is permitted. No write tools. All tools accept `signal?: AbortSignal` for cancellation.
+All tools are scoped to `cwd` (the shallow clone root). Paths are resolved relative to
+`cwd`. No path traversal outside `cwd` is permitted. No write tools.
 
-The same `AbortSignal` from the orchestrator is threaded through every tool and every LLM call. When `controller.abort()` is called (e.g. on timeout), all active tool promises and the in-flight LLM streaming call reject simultaneously. Each tool implements three patterns:
-
-```ts
-execute: async (_id, params, signal) => {
-  return new Promise((resolve, reject) => {
-    // 1. Entry check — catches already-aborted signal before work begins
-    if (signal?.aborted) { reject(new Error("Aborted")); return; }
-
-    // 2. Event listener — fires immediately on abort mid-execution (like Go's <-ctx.Done())
-    const onAbort = () => reject(new Error("Aborted"));
-    signal?.addEventListener("abort", onAbort, { once: true });
-
-    (async () => {
-      try {
-        // 3. Manual checkpoint after each async step — belt-and-suspenders
-        await step1(); if (signal?.aborted) return;
-        await step2(); if (signal?.aborted) return;
-
-        signal?.removeEventListener("abort", onAbort);
-        resolve(result);
-      } catch (e) {
-        signal?.removeEventListener("abort", onAbort);
-        reject(e);
-      }
-    })();
-  });
-}
-```
+In v1, cancellation is wired to the model call (`generateText`) via `AbortSignal`.
+Tool implementations do not currently accept a `signal` parameter; they are expected
+to be short-lived, local operations (filesystem reads/search) and still obey the same
+root-boundary and read-only constraints. Full per-tool signal propagation can be added
+in a future hardening pass if long-running tool operations are introduced.
 
 #### `lint` — primary per-page evaluation
 
