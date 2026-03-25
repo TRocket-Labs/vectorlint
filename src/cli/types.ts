@@ -32,6 +32,7 @@ export interface EvaluationOptions {
     outputFormat?: OutputFormat;
     pricing?: PricingConfig;
     userInstructionContent?: string;
+    agentMaxRetries?: number;
 }
 
 export interface EvaluationResult {

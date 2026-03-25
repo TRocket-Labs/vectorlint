@@ -173,6 +173,28 @@ describe('Environment Parser', () => {
       expect(() => parseEnvironment(invalidEnv)).toThrow(ValidationError);
       expect(() => parseEnvironment(invalidEnv)).toThrow(/Invalid environment variable values.*OPENAI_API_KEY.*String must contain at least 1 character/);
     });
+
+    it('parses AGENT_MAX_RETRIES from environment', () => {
+      const env = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        AGENT_MAX_RETRIES: '7',
+      };
+
+      const result = parseEnvironment(env);
+      expect(result.AGENT_MAX_RETRIES).toBe(7);
+    });
+
+    it('validates AGENT_MAX_RETRIES as a non-negative integer', () => {
+      const invalidEnv = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        AGENT_MAX_RETRIES: '-1',
+      };
+
+      expect(() => parseEnvironment(invalidEnv)).toThrow(ValidationError);
+      expect(() => parseEnvironment(invalidEnv)).toThrow(/Invalid environment variable values.*AGENT_MAX_RETRIES/);
+    });
   });
 
   describe('Backward Compatibility', () => {

@@ -5,7 +5,7 @@ export interface ProgressReporterOptions {
 }
 
 export class ProgressReporter {
-  private readonly runningText: string;
+  private runningText: string;
   private readonly doneText: string;
   private readonly intervalMs: number;
   private readonly isTty: boolean;
@@ -26,6 +26,12 @@ export class ProgressReporter {
     this.render(true);
     this.timer = setInterval(() => this.render(false), this.intervalMs);
     this.timer.unref?.();
+  }
+
+  setRunningText(text: string): void {
+    this.runningText = text;
+    if (!this.isTty) return;
+    this.render(true);
   }
 
   stop(): void {

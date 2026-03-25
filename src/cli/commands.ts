@@ -220,6 +220,7 @@ export function registerMainCommand(program: Command): void {
           inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,
           outputPricePerMillion: env.OUTPUT_PRICE_PER_MILLION,
         },
+        ...(env.AGENT_MAX_RETRIES !== undefined ? { agentMaxRetries: env.AGENT_MAX_RETRIES } : {}),
         ...(userInstructions.content ? { userInstructionContent: userInstructions.content } : {}),
       });
 

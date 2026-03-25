@@ -29,12 +29,24 @@ export interface AgentExecutorParams {
   diffContext: string;
   signal?: AbortSignal;
   userInstructions?: string;
+  maxParallelToolCalls?: number;
+  maxRetries?: number;
+  onStatus?: (event: AgentStatusEvent) => void;
+}
+
+export interface AgentStatusEvent {
+  type: 'step-start' | 'tool-start' | 'tool-finish';
+  stepNumber: number;
+  toolName?: string;
+  success?: boolean;
 }
 
 const AGENT_OUTPUT_SCHEMA = z.object({
   findings: z.array(AGENT_FINDING_SCHEMA),
 });
 const MAX_AGENT_STEPS = 25;
+const DEFAULT_AGENT_MAX_RETRIES = 5;
+const DEFAULT_AGENT_TOOL_CONCURRENCY = 1;
 
 function parseAgentOutputFromText(text: string): z.infer<typeof AGENT_OUTPUT_SCHEMA> | null {
   const candidates: string[] = [];
@@ -116,9 +128,63 @@ If no issues exist, return "findings": []`;
   return sections.join('\n\n');
 }
 
+function createConcurrencyLimiter(limit: number): <T>(operation: () => Promise<T>) => Promise<T> {
+  let active = 0;
+  const queue: Array<() => void> = [];
+
+  const scheduleNext = () => {
+    if (active >= limit) return;
+    const next = queue.shift();
+    if (!next) return;
+    active += 1;
+    next();
+  };
+
+  return async <T>(operation: () => Promise<T>): Promise<T> => {
+    await new Promise<void>((resolve) => {
+      queue.push(resolve);
+      scheduleNext();
+    });
+
+    try {
+      return await operation();
+    } finally {
+      active -= 1;
+      scheduleNext();
+    }
+  };
+}
+
+function buildProviderOptions(): Record<string, unknown> | undefined {
+  const provider = (process.env.LLM_PROVIDER || '').toLowerCase();
+  if (provider === 'anthropic') {
+    return { anthropic: { disableParallelToolUse: true } };
+  }
+  if (provider === 'openai' || provider === 'azure-openai') {
+    return { openai: { parallelToolCalls: false } };
+  }
+  return undefined;
+}
+
 export async function runAgentExecutor(params: AgentExecutorParams): Promise<AgentRunResult> {
-  const { rule, matchedFiles = [], cwd, model, tools, diffContext, signal, userInstructions } = params;
+  const {
+    rule,
+    matchedFiles = [],
+    cwd,
+    model,
+    tools,
+    diffContext,
+    signal,
+    userInstructions,
+    maxParallelToolCalls = DEFAULT_AGENT_TOOL_CONCURRENCY,
+    maxRetries = DEFAULT_AGENT_MAX_RETRIES,
+    onStatus,
+  } = params;
   const systemPrompt = buildSystemPrompt(rule, matchedFiles, diffContext, cwd, userInstructions);
+  const providerOptions = buildProviderOptions();
+  const runToolWithLimit = createConcurrencyLimiter(
+    Math.max(1, Math.floor(maxParallelToolCalls)),
+  );
   let responseText = '';
 
   const sdkTools = {
@@ -129,7 +195,7 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
         offset: z.number().optional().describe('Line number to start reading from (1-indexed)'),
         limit: z.number().optional().describe('Maximum number of lines to read'),
       }),
-      execute: async (args) => tools.read_file.execute(args),
+      execute: async (args) => runToolWithLimit(() => tools.read_file.execute(args)),
     }),
     search_content: tool({
       description: tools.search_content.description,
@@ -141,7 +207,7 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
         context: z.number().optional().describe('Number of context lines around matches'),
         limit: z.number().optional().describe('Max matches to return'),
       }),
-      execute: async (args) => tools.search_content.execute(args),
+      execute: async (args) => runToolWithLimit(() => tools.search_content.execute(args)),
     }),
     search_files: tool({
       description: tools.search_files.description,
@@ -150,7 +216,7 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
         path: z.string().optional().describe('Directory to search'),
         limit: z.number().optional(),
       }),
-      execute: async (args) => tools.search_files.execute(args),
+      execute: async (args) => runToolWithLimit(() => tools.search_files.execute(args)),
     }),
     list_directory: tool({
       description: tools.list_directory.description,
@@ -158,7 +224,7 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
         path: z.string().optional().describe('Directory path (default: repo root)'),
         limit: z.number().optional(),
       }),
-      execute: async (args) => tools.list_directory.execute(args),
+      execute: async (args) => runToolWithLimit(() => tools.list_directory.execute(args)),
     }),
     lint: tool({
       description: tools.lint.description,
@@ -167,7 +233,7 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
         ruleContent: z.string().describe('Rule criteria body only (no YAML frontmatter)'),
         context: z.string().optional().describe('Optional external evidence to ground evaluation'),
       }),
-      execute: async (args) => tools.lint.execute(args),
+      execute: async (args) => runToolWithLimit(() => tools.lint.execute(args)),
     }),
   };
 
@@ -179,6 +245,26 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
       tools: sdkTools,
       stopWhen: stepCountIs(MAX_AGENT_STEPS),
       abortSignal: signal,
+      maxRetries,
+      ...(providerOptions ? { providerOptions } : {}),
+      experimental_onStepStart: ({ stepNumber }) => {
+        onStatus?.({ type: 'step-start', stepNumber });
+      },
+      experimental_onToolCallStart: ({ stepNumber, toolCall }) => {
+        onStatus?.({
+          type: 'tool-start',
+          stepNumber: stepNumber ?? 0,
+          toolName: toolCall.toolName,
+        });
+      },
+      experimental_onToolCallFinish: ({ stepNumber, toolCall, success }) => {
+        onStatus?.({
+          type: 'tool-finish',
+          stepNumber: stepNumber ?? 0,
+          toolName: toolCall.toolName,
+          success,
+        });
+      },
       output: Output.object({ schema: AGENT_OUTPUT_SCHEMA }),
     });
     responseText = response.text;

@@ -49,6 +49,7 @@ import {
 const LINT_PROGRESS_TEXT = '[vectorlint] linting....';
 const AGENT_PROGRESS_TEXT = '[vectorlint] reviewing.....';
 const PROGRESS_DONE_TEXT = '[vectorlint] done.';
+const AGENT_TOOL_CONCURRENCY = 1;
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
   const provider = process.env.LLM_PROVIDER;
@@ -373,7 +374,7 @@ async function runAgentMode(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  const { prompts, provider, concurrency, scanPaths, outputFormat = OutputFormat.Line, userInstructionContent } = options;
+  const { prompts, provider, scanPaths, outputFormat = OutputFormat.Line, userInstructionContent } = options;
   const cwd = process.cwd();
 
   const sharedTools = {
@@ -397,26 +398,45 @@ async function runAgentMode(
     : undefined;
   progress?.start();
   const rulesById = new Map(prompts.map((prompt) => [prompt.meta.id, prompt]));
-  const safeConcurrency = Number.isFinite(concurrency)
-    ? Math.max(1, Math.floor(concurrency))
-    : 1;
 
   const agentResults = await (async () => {
+    const results = [] as Array<Awaited<ReturnType<typeof runAgentExecutor>>>;
     try {
-      return await runWithConcurrency(promptsToRun, safeConcurrency, async (rule) =>
-      runAgentExecutor({
-        rule,
-        matchedFiles: matchedFilesByRule.get(getPromptKey(rule)) ?? [],
-        cwd,
-        model,
-        tools: {
-          ...sharedTools,
-          lint: createLintTool(cwd, rule, provider),
-        },
-        diffContext,
-        ...(userInstructionContent ? { userInstructions: userInstructionContent } : {}),
-      })
-    );
+      for (let index = 0; index < promptsToRun.length; index += 1) {
+        const rule = promptsToRun[index];
+        if (!rule) continue;
+        const ruleLabel = rule.meta.id || rule.filename || `rule-${index + 1}`;
+        progress?.setRunningText(
+          `${AGENT_PROGRESS_TEXT} ${ruleLabel} (${index + 1}/${promptsToRun.length})`,
+        );
+
+        const result = await runAgentExecutor({
+          rule,
+          matchedFiles: matchedFilesByRule.get(getPromptKey(rule)) ?? [],
+          cwd,
+          model,
+          tools: {
+            ...sharedTools,
+            lint: createLintTool(cwd, rule, provider),
+          },
+          diffContext,
+          maxParallelToolCalls: AGENT_TOOL_CONCURRENCY,
+          ...(options.agentMaxRetries !== undefined ? { maxRetries: options.agentMaxRetries } : {}),
+          onStatus: ({ type, toolName, stepNumber }) => {
+            const suffix =
+              type === 'tool-start' && toolName
+                ? `tool:${toolName}`
+                : type === 'tool-finish' && toolName
+                  ? `done:${toolName}`
+                  : `step:${stepNumber + 1}`;
+            progress?.setRunningText(`${AGENT_PROGRESS_TEXT} ${ruleLabel} ${suffix}`);
+          },
+          ...(userInstructionContent ? { userInstructions: userInstructionContent } : {}),
+        });
+        results.push(result);
+      }
+
+      return results;
     } finally {
       progress?.stop();
     }

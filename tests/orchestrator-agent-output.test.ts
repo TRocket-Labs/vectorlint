@@ -308,6 +308,8 @@ describe('agent mode output formatting', () => {
     const firstCallArgs = RUN_AGENT_EXECUTOR_MOCK.mock.calls[0]?.[0] as { rule: PromptFile; matchedFiles: string[] };
     expect(firstCallArgs.rule.meta.id).toBe('RuleA');
     expect(firstCallArgs.matchedFiles).toEqual(['docs/one.md']);
+    expect(firstCallArgs.maxParallelToolCalls).toBe(1);
+    expect(firstCallArgs.maxRetries).toBeUndefined();
   });
 
   it('respects scan-path overrides when building matched files per rule', async () => {
@@ -354,5 +356,94 @@ describe('agent mode output formatting', () => {
 
     expect(calls).toContainEqual({ ruleId: 'RuleA', matchedFiles: ['guides/b.md'] });
     expect(calls).toContainEqual({ ruleId: 'RuleB', matchedFiles: ['docs/a.md', 'guides/b.md'] });
+  });
+
+  it('forces serial rule execution in agent mode even with higher concurrency', async () => {
+    const promptA = createPrompt({
+      id: 'RuleA',
+      name: 'Rule A',
+      type: 'check',
+      severity: 'error',
+    });
+    const promptB = createPrompt({
+      id: 'RuleB',
+      name: 'Rule B',
+      type: 'check',
+      severity: 'error',
+    });
+
+    let activeRuns = 0;
+    let maxActiveRuns = 0;
+    RUN_AGENT_EXECUTOR_MOCK.mockImplementation(async (args: { rule: PromptFile }) => {
+      activeRuns += 1;
+      maxActiveRuns = Math.max(maxActiveRuns, activeRuns);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      activeRuns -= 1;
+      return {
+        findings: [],
+        ruleId: args.rule.meta.id,
+      };
+    });
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+
+    await evaluateFiles(['docs/one.md'], {
+      ...createBaseOptions([promptA, promptB]),
+      concurrency: 4,
+    });
+
+    expect(maxActiveRuns).toBe(1);
+  });
+
+  it('passes configured agent max retries through to executor', async () => {
+    const prompt = createPrompt({
+      id: 'RuleA',
+      name: 'Rule A',
+      type: 'check',
+      severity: 'error',
+    });
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+
+    await evaluateFiles(['docs/one.md'], {
+      ...createBaseOptions([prompt]),
+      agentMaxRetries: 9,
+    });
+
+    const firstCallArgs = RUN_AGENT_EXECUTOR_MOCK.mock.calls[0]?.[0] as { maxRetries?: number };
+    expect(firstCallArgs.maxRetries).toBe(9);
+  });
+
+  it('surfaces tool-level status updates in line mode', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const prompt = createPrompt({
+      id: 'AgentRule',
+      name: 'Agent Rule',
+      type: 'check',
+      severity: 'warning',
+    });
+
+    RUN_AGENT_EXECUTOR_MOCK.mockImplementation((args: {
+      rule: PromptFile;
+      onStatus?: (event: { type: string; stepNumber: number; toolName?: string }) => void;
+    }) => {
+      args.onStatus?.({ type: 'step-start', stepNumber: 0 });
+      args.onStatus?.({ type: 'tool-start', stepNumber: 0, toolName: 'search_files' });
+      args.onStatus?.({ type: 'tool-finish', stepNumber: 0, toolName: 'search_files' });
+      return {
+        findings: [],
+        ruleId: args.rule.meta.id,
+      };
+    });
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+
+    await evaluateFiles(['docs/changed.md'], createBaseOptions([prompt]));
+
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(stderrOutput).toContain('tool:search_files');
+    expect(stderrOutput).toContain('[vectorlint] done.');
   });
 });

@@ -88,6 +88,18 @@ You can generate these files using the `vectorlint init` command.
 
 VectorLint supports multiple LLM providers. Set `LLM_PROVIDER` to your desired provider (e.g., `openai`, `anthropic`, `gemini`) and provide the corresponding API key.
 
+### Agent Retry Configuration
+
+For agent mode resilience, you can configure retries in `~/.vectorlint/config.toml` (or `.env`):
+
+```bash
+AGENT_MAX_RETRIES=5
+```
+
+- Default: `5`
+- Scope: agent mode model calls
+- Set to `0` to disable retries
+
 ### Search Provider
 
 Some evaluators, such as **TechnicalAccuracy**, require access to current external knowledge to verify facts. VectorLint supports search providers to fetch this information.

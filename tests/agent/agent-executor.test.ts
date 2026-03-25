@@ -32,6 +32,42 @@ function makeRule(id: string, body: string) {
 }
 
 describe('runAgentExecutor', () => {
+  it('configures retries and disables provider-level parallel tool use', async () => {
+    const originalProvider = process.env.LLM_PROVIDER;
+    try {
+      process.env.LLM_PROVIDER = 'anthropic';
+      MOCK_GENERATE_TEXT.mockResolvedValueOnce({
+        output: { findings: [] },
+        text: '{"findings":[]}',
+      });
+
+      const rule = makeRule('Retries', 'Check retries and tool behavior');
+      await runAgentExecutor({
+        rule: rule as never,
+        matchedFiles: ['docs/quickstart.md'],
+        cwd: MOCK_CWD,
+        model: MOCK_MODEL,
+        tools: MOCK_TOOLS as never,
+        diffContext: 'Changed: docs/quickstart.md',
+      });
+
+      const call = MOCK_GENERATE_TEXT.mock.calls.at(-1)?.[0] as {
+        maxRetries?: number;
+        providerOptions?: Record<string, unknown>;
+      };
+      expect(call.maxRetries).toBe(5);
+      expect(call.providerOptions).toEqual({
+        anthropic: { disableParallelToolUse: true },
+      });
+    } finally {
+      if (originalProvider === undefined) {
+        delete process.env.LLM_PROVIDER;
+      } else {
+        process.env.LLM_PROVIDER = originalProvider;
+      }
+    }
+  });
+
   it('returns findings from agent structured output', async () => {
     MOCK_GENERATE_TEXT.mockResolvedValueOnce({
       output: {

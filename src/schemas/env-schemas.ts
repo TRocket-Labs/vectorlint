@@ -67,6 +67,7 @@ const BEDROCK_CONFIG_SCHEMA = z.object({
 const BASE_ENV_SCHEMA = z.object({
   INPUT_PRICE_PER_MILLION: z.coerce.number().positive().optional(),
   OUTPUT_PRICE_PER_MILLION: z.coerce.number().positive().optional(),
+  AGENT_MAX_RETRIES: z.coerce.number().int().min(0).optional(),
 });
 
 // Discriminated union based on provider type
