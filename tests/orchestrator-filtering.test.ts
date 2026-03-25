@@ -146,10 +146,15 @@ function makeJudgeResult(violations: JudgeViolation[]): JudgeResult {
 
 describe("CLI violation filtering", () => {
   const originalThreshold = process.env.CONFIDENCE_THRESHOLD;
+  const originalIsTTY = Object.getOwnPropertyDescriptor(process.stderr, "isTTY");
 
   beforeEach(() => {
     EVALUATE_MOCK.mockReset();
     delete process.env.CONFIDENCE_THRESHOLD;
+    Object.defineProperty(process.stderr, "isTTY", {
+      configurable: true,
+      value: false,
+    });
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -161,7 +166,38 @@ describe("CLI violation filtering", () => {
     } else {
       process.env.CONFIDENCE_THRESHOLD = originalThreshold;
     }
+    if (originalIsTTY) {
+      Object.defineProperty(process.stderr, "isTTY", originalIsTTY);
+    }
     vi.restoreAllMocks();
+  });
+
+  it("shows linting spinner text in line mode and ends with a newline", async () => {
+    Object.defineProperty(process.stderr, "isTTY", {
+      configurable: true,
+      value: true,
+    });
+
+    const targetFile = createTempFile("Alpha text\n");
+    const prompt = createPrompt({
+      id: "CheckPrompt",
+      name: "Check Prompt",
+      type: "check",
+      severity: Severity.WARNING,
+    });
+
+    EVALUATE_MOCK.mockResolvedValue(
+      makeCheckResult({
+        violations: [],
+      })
+    );
+
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    await evaluateFiles([targetFile], createBaseOptions([prompt]));
+
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join("");
+    expect(stderrOutput).toContain("[vectorlint] linting....");
+    expect(stderrOutput).toContain("[vectorlint] done.\n");
   });
 
   it("filters low-confidence check violations from CLI counts by default", async () => {

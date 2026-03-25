@@ -46,6 +46,10 @@ import {
   type AgentFinding,
 } from '../agent/index';
 
+const LINT_PROGRESS_TEXT = '[vectorlint] linting....';
+const AGENT_PROGRESS_TEXT = '[vectorlint] reviewing.....';
+const PROGRESS_DONE_TEXT = '[vectorlint] done.';
+
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
   const provider = process.env.LLM_PROVIDER;
   let name: string | undefined;
@@ -386,7 +390,10 @@ async function runAgentMode(
     (rule) => (matchedFilesByRule.get(getPromptKey(rule)) ?? []).length > 0
   );
   const progress = outputFormat === OutputFormat.Line
-    ? new ProgressReporter()
+    ? new ProgressReporter({
+      runningText: AGENT_PROGRESS_TEXT,
+      doneText: PROGRESS_DONE_TEXT,
+    })
     : undefined;
   progress?.start();
   const rulesById = new Map(prompts.map((prompt) => [prompt.meta.id, prompt]));
@@ -394,8 +401,9 @@ async function runAgentMode(
     ? Math.max(1, Math.floor(concurrency))
     : 1;
 
-  try {
-    const agentResults = await runWithConcurrency(promptsToRun, safeConcurrency, async (rule) =>
+  const agentResults = await (async () => {
+    try {
+      return await runWithConcurrency(promptsToRun, safeConcurrency, async (rule) =>
       runAgentExecutor({
         rule,
         matchedFiles: matchedFilesByRule.get(getPromptKey(rule)) ?? [],
@@ -409,79 +417,80 @@ async function runAgentMode(
         ...(userInstructionContent ? { userInstructions: userInstructionContent } : {}),
       })
     );
+    } finally {
+      progress?.stop();
+    }
+  })();
 
-    const findings = collectAgentFindings(agentResults);
-    const requestFailures = agentResults.filter((result) => result.error).length;
-    const hadOperationalErrors = requestFailures > 0;
-    const ruleScores = buildAgentRuleScores(findings, promptsToRun, cwd);
-    const scoreSummary = new Map<string, EvaluationSummary[]>(
-      ruleScores.map((entry) => [
-        entry.ruleId,
-        [{ id: 'overall', scoreText: entry.scoreText, score: entry.score }],
-      ]),
-    );
-    const findingsWithSeverity = findings.map((finding) => ({
-      finding,
-      severity: resolveAgentFindingSeverity(finding, rulesById),
-    }));
-    const errorCount = findingsWithSeverity.filter((entry) => entry.severity === Severity.ERROR).length;
-    const warningCount = findingsWithSeverity.length - errorCount;
-    const rdJsonFallbackFile = toRepoRelativePath(targets[0] || 'unknown', cwd);
-    const jsonPayload = {
-      findings,
-      summary: {
-        files: targets.length,
-        errors: errorCount,
-        warnings: warningCount,
-        requestFailures,
-      },
-      scores: ruleScores,
-      metadata: {
-        mode: AGENT_EVALUATION_MODE,
-        timestamp: new Date().toISOString(),
-      },
-    };
+  const findings = collectAgentFindings(agentResults);
+  const requestFailures = agentResults.filter((result) => result.error).length;
+  const hadOperationalErrors = requestFailures > 0;
+  const ruleScores = buildAgentRuleScores(findings, promptsToRun, cwd);
+  const scoreSummary = new Map<string, EvaluationSummary[]>(
+    ruleScores.map((entry) => [
+      entry.ruleId,
+      [{ id: 'overall', scoreText: entry.scoreText, score: entry.score }],
+    ]),
+  );
+  const findingsWithSeverity = findings.map((finding) => ({
+    finding,
+    severity: resolveAgentFindingSeverity(finding, rulesById),
+  }));
+  const errorCount = findingsWithSeverity.filter((entry) => entry.severity === Severity.ERROR).length;
+  const warningCount = findingsWithSeverity.length - errorCount;
+  const rdJsonFallbackFile = toRepoRelativePath(targets[0] || 'unknown', cwd);
+  const jsonPayload = {
+    findings,
+    summary: {
+      files: targets.length,
+      errors: errorCount,
+      warnings: warningCount,
+      requestFailures,
+    },
+    scores: ruleScores,
+    metadata: {
+      mode: AGENT_EVALUATION_MODE,
+      timestamp: new Date().toISOString(),
+    },
+  };
 
-    if (outputFormat === OutputFormat.Line) {
-      if (hadOperationalErrors) {
-        console.warn(`[vectorlint] Agent mode encountered ${requestFailures} request failure${requestFailures === 1 ? '' : 's'}.`);
-        for (const result of agentResults) {
-          if (result.error) {
-            console.warn(`[vectorlint] ${result.ruleId}: ${result.error}`);
-          }
+  if (outputFormat === OutputFormat.Line) {
+    if (hadOperationalErrors) {
+      console.warn(`[vectorlint] Agent mode encountered ${requestFailures} request failure${requestFailures === 1 ? '' : 's'}.`);
+      for (const result of agentResults) {
+        if (result.error) {
+          console.warn(`[vectorlint] ${result.ruleId}: ${result.error}`);
         }
       }
-
-      if (findings.length === 0) {
-        console.log('[vectorlint] No agent findings.');
-      } else {
-        for (const { finding, severity } of findingsWithSeverity) {
-          printAgentFinding(finding, severity);
-        }
-      }
-      printEvaluationSummaries(scoreSummary);
-    } else if (outputFormat === OutputFormat.Json) {
-      console.log(JSON.stringify(jsonPayload, null, 2));
-    } else if (outputFormat === OutputFormat.RdJson) {
-      const formatter = new RdJsonFormatter();
-      addAgentFindingsToRdJson(formatter, findings, rulesById, cwd, rdJsonFallbackFile);
-      console.log(formatter.toJson());
-    } else if (outputFormat === OutputFormat.ValeJson) {
-      console.warn('[vectorlint] vale-json is not supported in agent mode. Falling back to --output json.');
-      console.log(JSON.stringify(jsonPayload, null, 2));
     }
 
-    return {
-      totalFiles: targets.length,
-      totalErrors: errorCount,
-      totalWarnings: warningCount,
-      requestFailures,
-      hadOperationalErrors,
-      hadSeverityErrors: errorCount > 0,
-    };
-  } finally {
-    progress?.stop();
+    if (findings.length === 0) {
+      console.log('[vectorlint] No agent findings.');
+    } else {
+      for (const { finding, severity } of findingsWithSeverity) {
+        printAgentFinding(finding, severity);
+      }
+    }
+    printEvaluationSummaries(scoreSummary);
+  } else if (outputFormat === OutputFormat.Json) {
+    console.log(JSON.stringify(jsonPayload, null, 2));
+  } else if (outputFormat === OutputFormat.RdJson) {
+    const formatter = new RdJsonFormatter();
+    addAgentFindingsToRdJson(formatter, findings, rulesById, cwd, rdJsonFallbackFile);
+    console.log(formatter.toJson());
+  } else if (outputFormat === OutputFormat.ValeJson) {
+    console.warn('[vectorlint] vale-json is not supported in agent mode. Falling back to --output json.');
+    console.log(JSON.stringify(jsonPayload, null, 2));
   }
+
+  return {
+    totalFiles: targets.length,
+    totalErrors: errorCount,
+    totalWarnings: warningCount,
+    requestFailures,
+    hadOperationalErrors,
+    hadSeverityErrors: errorCount > 0,
+  };
 }
 
 /*
@@ -1341,19 +1350,33 @@ async function evaluateFile(
     });
   }
 
-  const results = await runWithConcurrency(
-    toRun,
-    concurrency,
-    async (prompt) => {
-      return runPromptEvaluation({
-        promptFile: prompt,
-        relFile,
-        content,
-        provider,
-        ...(searchProvider !== undefined && { searchProvider }),
-      });
+  const progress = outputFormat === OutputFormat.Line
+    ? new ProgressReporter({
+      runningText: LINT_PROGRESS_TEXT,
+      doneText: PROGRESS_DONE_TEXT,
+    })
+    : undefined;
+  progress?.start();
+
+  const results = await (async () => {
+    try {
+      return await runWithConcurrency(
+        toRun,
+        concurrency,
+        async (prompt) => {
+          return runPromptEvaluation({
+            promptFile: prompt,
+            relFile,
+            content,
+            provider,
+            ...(searchProvider !== undefined && { searchProvider }),
+          });
+        }
+      );
+    } finally {
+      progress?.stop();
     }
-  );
+  })();
 
   // Aggregate results from each prompt
   for (let idx = 0; idx < toRun.length; idx++) {
@@ -1461,71 +1484,61 @@ export async function evaluateFiles(
     jsonFormatter = new ValeJsonFormatter();
   }
 
-  const progress = outputFormat === OutputFormat.Line
-    ? new ProgressReporter()
-    : undefined;
+  for (const file of targets) {
+    try {
+      totalFiles += 1;
+      const fileResult = await evaluateFile({ file, options, jsonFormatter });
+      totalErrors += fileResult.errors;
+      totalWarnings += fileResult.warnings;
+      requestFailures += fileResult.requestFailures;
+      hadOperationalErrors =
+        hadOperationalErrors || fileResult.hadOperationalErrors;
+      hadSeverityErrors = hadSeverityErrors || fileResult.hadSeverityErrors;
 
-  progress?.start();
-
-  try {
-    for (const file of targets) {
-      try {
-        totalFiles += 1;
-        const fileResult = await evaluateFile({ file, options, jsonFormatter });
-        totalErrors += fileResult.errors;
-        totalWarnings += fileResult.warnings;
-        requestFailures += fileResult.requestFailures;
-        hadOperationalErrors =
-          hadOperationalErrors || fileResult.hadOperationalErrors;
-        hadSeverityErrors = hadSeverityErrors || fileResult.hadSeverityErrors;
-
-        // Aggregate token usage
-        if (fileResult.tokenUsage) {
-          totalInputTokens += fileResult.tokenUsage.totalInputTokens;
-          totalOutputTokens += fileResult.tokenUsage.totalOutputTokens;
-        }
-      } catch (e: unknown) {
-        const err = handleUnknownError(e, `Processing file ${file}`);
-        console.error(`Error processing file ${file}: ${err.message}`);
-        hadOperationalErrors = true;
+      // Aggregate token usage
+      if (fileResult.tokenUsage) {
+        totalInputTokens += fileResult.tokenUsage.totalInputTokens;
+        totalOutputTokens += fileResult.tokenUsage.totalOutputTokens;
       }
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, `Processing file ${file}`);
+      console.error(`Error processing file ${file}: ${err.message}`);
+      hadOperationalErrors = true;
     }
-
-    // Output results based on format (always to stdout for JSON formats)
-    if (
-      outputFormat === OutputFormat.Json ||
-      outputFormat === OutputFormat.ValeJson ||
-      outputFormat === OutputFormat.RdJson
-    ) {
-      const jsonStr = jsonFormatter.toJson();
-      console.log(jsonStr);
-    }
-
-    // Calculate aggregated token usage stats
-    const tokenUsage: TokenUsageStats = {
-      totalInputTokens,
-      totalOutputTokens,
-    };
-
-    // Calculate cost if pricing is configured
-    const cost = calculateCost({
-      inputTokens: totalInputTokens,
-      outputTokens: totalOutputTokens
-    }, options.pricing);
-    if (cost !== undefined) {
-      tokenUsage.totalCost = cost;
-    }
-
-    return {
-      totalFiles,
-      totalErrors,
-      totalWarnings,
-      requestFailures,
-      hadOperationalErrors,
-      hadSeverityErrors,
-      tokenUsage,
-    };
-  } finally {
-    progress?.stop();
   }
+
+  // Output results based on format (always to stdout for JSON formats)
+  if (
+    outputFormat === OutputFormat.Json ||
+    outputFormat === OutputFormat.ValeJson ||
+    outputFormat === OutputFormat.RdJson
+  ) {
+    const jsonStr = jsonFormatter.toJson();
+    console.log(jsonStr);
+  }
+
+  // Calculate aggregated token usage stats
+  const tokenUsage: TokenUsageStats = {
+    totalInputTokens,
+    totalOutputTokens,
+  };
+
+  // Calculate cost if pricing is configured
+  const cost = calculateCost({
+    inputTokens: totalInputTokens,
+    outputTokens: totalOutputTokens
+  }, options.pricing);
+  if (cost !== undefined) {
+    tokenUsage.totalCost = cost;
+  }
+
+  return {
+    totalFiles,
+    totalErrors,
+    totalWarnings,
+    requestFailures,
+    hadOperationalErrors,
+    hadSeverityErrors,
+    tokenUsage,
+  };
 }

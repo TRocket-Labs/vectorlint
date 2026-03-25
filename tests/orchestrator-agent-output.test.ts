@@ -204,8 +204,32 @@ describe('agent mode output formatting', () => {
       .join('\n');
 
     expect(stdout).not.toContain('[vectorlint] analyzing...');
+    expect(stdout).not.toContain('[vectorlint] reviewing.....');
     expect(stdout).not.toContain('[vectorlint] done.');
     expect(stderrSpy).not.toHaveBeenCalled();
+  });
+
+  it('shows reviewing spinner text in line mode and ends with a newline', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+
+    const prompt = createPrompt({
+      id: 'AgentRule',
+      name: 'Agent Rule',
+      type: 'check',
+      severity: 'warning',
+    });
+
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    await evaluateFiles(['docs/changed.md'], createBaseOptions([prompt]));
+
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(stderrOutput).toContain('[vectorlint] reviewing.....');
+    expect(stderrOutput).toContain('[vectorlint] done.\n');
   });
 
   it('computes deterministic scores from inline findings only (top-level excluded)', async () => {
