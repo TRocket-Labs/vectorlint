@@ -31,6 +31,7 @@ export class ProgressReporter {
   }
 
   setRunningText(text: string): void {
+    if (text === this.runningText) return;
     this.runningText = text;
     if (!this.isTty) return;
     this.render(true);

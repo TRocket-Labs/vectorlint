@@ -51,22 +51,17 @@ const LINT_PROGRESS_TEXT = `${STATUS_ICON} linting....`;
 const AGENT_PROGRESS_TEXT = `${STATUS_ICON} reviewing.....`;
 const PROGRESS_DONE_TEXT = `${STATUS_ICON} done`;
 const AGENT_TOOL_CONCURRENCY = 1;
+const AGENT_TOOL_ACTIONS = {
+  search_files: 'finding files',
+  search_content: 'searching content',
+  read_file: 'reading evidence',
+  list_directory: 'inspecting directories',
+  lint: 'checking writing quality',
+} as const;
 
 function describeAgentToolAction(toolName: string | undefined): string | null {
-  switch (toolName) {
-    case 'search_files':
-      return 'finding files';
-    case 'search_content':
-      return 'searching content';
-    case 'read_file':
-      return 'reading evidence';
-    case 'list_directory':
-      return 'inspecting directories';
-    case 'lint':
-      return 'checking writing quality';
-    default:
-      return null;
-  }
+  if (!toolName) return null;
+  return AGENT_TOOL_ACTIONS[toolName as keyof typeof AGENT_TOOL_ACTIONS] ?? null;
 }
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
@@ -434,12 +429,9 @@ function printAgentFindingsAsIssueRows(
   cwd: string,
   fallbackFile: string,
 ): void {
-  const normalized = findingsWithSeverity.map(({ finding, severity }) =>
-    toAgentLineIssue(finding, severity, cwd, fallbackFile),
-  );
-
   let currentFile: string | null = null;
-  for (const issue of normalized) {
+  for (const { finding, severity } of findingsWithSeverity) {
+    const issue = toAgentLineIssue(finding, severity, cwd, fallbackFile);
     if (issue.file !== currentFile) {
       printFileHeader(issue.file);
       currentFile = issue.file;
