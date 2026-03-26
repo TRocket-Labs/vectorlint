@@ -209,7 +209,7 @@ describe('agent mode output formatting', () => {
     expect(stderrSpy).not.toHaveBeenCalled();
   });
 
-  it('shows reviewing spinner text in line mode and ends with a newline', async () => {
+  it('shows block progress text in line mode and ends with run completion', async () => {
     Object.defineProperty(process.stderr, 'isTTY', {
       configurable: true,
       value: true,
@@ -228,9 +228,31 @@ describe('agent mode output formatting', () => {
     await evaluateFiles(['docs/changed.md'], createBaseOptions([prompt]));
 
     const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
-    expect(stderrOutput).toContain('◆ reviewing.....');
+    expect(stderrOutput).toContain('◈ reviewing docs/changed.md for Agent Rule');
+    expect(stderrOutput).toContain('└ calling tool lint tool');
     expect(stderrOutput).toContain('◆ done in');
     expect(stderrOutput).toContain('\n');
+  });
+
+  it('emits no progress output in line mode when stderr is not a TTY', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: false,
+    });
+
+    const prompt = createPrompt({
+      id: 'AgentRule',
+      name: 'Agent Rule',
+      type: 'check',
+      severity: 'warning',
+    });
+
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    await evaluateFiles(['docs/changed.md'], createBaseOptions([prompt]));
+
+    expect(stderrSpy).not.toHaveBeenCalled();
   });
 
   it('renders agent findings with lint-style issue rows and top-level defaults to 1:1', async () => {
@@ -319,7 +341,7 @@ describe('agent mode output formatting', () => {
     expect(payload.scores[0]?.score).toBe(9.8);
   });
 
-  it('runs agent per rule with scan-path matched files', async () => {
+  it('runs agent per file and applicable rule with scan-path filtering', async () => {
     const promptA = createPrompt({
       id: 'RuleA',
       name: 'Rule A',
@@ -391,15 +413,18 @@ describe('agent mode output formatting', () => {
       ],
     });
 
-    expect(RUN_AGENT_EXECUTOR_MOCK).toHaveBeenCalledTimes(2);
+    expect(RUN_AGENT_EXECUTOR_MOCK).toHaveBeenCalledTimes(3);
 
     const calls = RUN_AGENT_EXECUTOR_MOCK.mock.calls.map((call) => {
       const arg = call[0] as { rule: PromptFile; matchedFiles: string[] };
       return { ruleId: arg.rule.meta.id, matchedFiles: arg.matchedFiles };
     });
 
-    expect(calls).toContainEqual({ ruleId: 'RuleA', matchedFiles: ['guides/b.md'] });
-    expect(calls).toContainEqual({ ruleId: 'RuleB', matchedFiles: ['docs/a.md', 'guides/b.md'] });
+    expect(calls).toEqual([
+      { ruleId: 'RuleB', matchedFiles: ['docs/a.md'] },
+      { ruleId: 'RuleA', matchedFiles: ['guides/b.md'] },
+      { ruleId: 'RuleB', matchedFiles: ['guides/b.md'] },
+    ]);
   });
 
   it('forces serial rule execution in agent mode even with higher concurrency', async () => {
@@ -472,11 +497,21 @@ describe('agent mode output formatting', () => {
 
     RUN_AGENT_EXECUTOR_MOCK.mockImplementation((args: {
       rule: PromptFile;
-      onStatus?: (event: { type: string; stepNumber: number; toolName?: string }) => void;
+      onStatus?: (event: { type: string; stepNumber: number; toolName?: string; toolArgs?: unknown }) => void;
     }) => {
       args.onStatus?.({ type: 'step-start', stepNumber: 0 });
-      args.onStatus?.({ type: 'tool-start', stepNumber: 0, toolName: 'search_files' });
-      args.onStatus?.({ type: 'tool-finish', stepNumber: 0, toolName: 'search_files' });
+      args.onStatus?.({
+        type: 'tool-start',
+        stepNumber: 0,
+        toolName: 'search_files',
+        toolArgs: { pattern: '**/*.md', path: 'docs' },
+      });
+      args.onStatus?.({
+        type: 'tool-finish',
+        stepNumber: 0,
+        toolName: 'search_files',
+        toolArgs: { pattern: '**/*.md', path: 'docs' },
+      });
       return {
         findings: [],
         ruleId: args.rule.meta.id,
@@ -487,7 +522,101 @@ describe('agent mode output formatting', () => {
     await evaluateFiles(['docs/changed.md'], createBaseOptions([prompt]));
 
     const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
-    expect(stderrOutput).toContain('(finding files)');
+    expect(stderrOutput).toContain('calling tool search_files tool');
+    expect(stderrOutput).toContain('search_files(pattern:"**/*.md", path:"docs")');
     expect(stderrOutput).toContain('◆ done in');
+  });
+
+  it('renders lint tool line as concise rule preview (no file/ruleContent args)', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const prompt = createPrompt({
+      id: 'AgentRule',
+      name: 'Agent Rule',
+      type: 'check',
+      severity: 'warning',
+    });
+
+    RUN_AGENT_EXECUTOR_MOCK.mockImplementation((args: {
+      rule: PromptFile;
+      onStatus?: (event: { type: string; stepNumber: number; toolName?: string; toolArgs?: unknown }) => void;
+    }) => {
+      args.onStatus?.({
+        type: 'tool-start',
+        stepNumber: 0,
+        toolName: 'lint',
+        toolArgs: { file: 'README.md', ruleContent: 'Very long rule text that should not be printed as args' },
+      });
+      return {
+        findings: [],
+        ruleId: args.rule.meta.id,
+      };
+    });
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+
+    await evaluateFiles(['README.md'], createBaseOptions([prompt]));
+
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(stderrOutput).toContain('└ calling tool lint tool lint(...)');
+    expect(stderrOutput).not.toContain('ruleContent:');
+    expect(stderrOutput).not.toContain('file:"README.md"');
+  });
+
+  it('keeps one progress block per file while switching rules within the file', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const promptA = createPrompt({
+      id: 'RuleA',
+      name: 'Rule A',
+      type: 'check',
+      severity: 'warning',
+    });
+    const promptB = createPrompt({
+      id: 'RuleB',
+      name: 'Rule B',
+      type: 'check',
+      severity: 'warning',
+    });
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+
+    await evaluateFiles(['docs/one.md'], createBaseOptions([promptA, promptB]));
+
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(stderrOutput).toContain('reviewing docs/one.md for Rule A');
+    expect(stderrOutput).toContain('reviewing docs/one.md for Rule B');
+    const doneCount = (stderrOutput.match(/◆ done docs\/one\.md in/g) || []).length;
+    expect(doneCount).toBe(1);
+  });
+
+  it('appends a new progress block when moving to the next file', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const prompt = createPrompt({
+      id: 'AgentRule',
+      name: 'Agent Rule',
+      type: 'check',
+      severity: 'warning',
+    });
+
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+
+    await evaluateFiles(['docs/one.md', 'docs/two.md'], createBaseOptions([prompt]));
+
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(stderrOutput).toContain('reviewing docs/one.md for Agent Rule');
+    expect(stderrOutput).toContain('reviewing docs/two.md for Agent Rule');
+    expect(stderrOutput).toMatch(/\n[|/\-\\] ◈ reviewing docs\/two\.md for Agent Rule/);
   });
 });

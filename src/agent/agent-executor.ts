@@ -38,6 +38,7 @@ export interface AgentStatusEvent {
   type: 'step-start' | 'tool-start' | 'tool-finish';
   stepNumber: number;
   toolName?: string;
+  toolArgs?: unknown;
   success?: boolean;
 }
 
@@ -251,17 +252,23 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
         onStatus?.({ type: 'step-start', stepNumber });
       },
       experimental_onToolCallStart: ({ stepNumber, toolCall }) => {
+        const toolArgs = (toolCall as { input?: unknown; args?: unknown }).input
+          ?? (toolCall as { input?: unknown; args?: unknown }).args;
         onStatus?.({
           type: 'tool-start',
           stepNumber: stepNumber ?? 0,
           toolName: toolCall.toolName,
+          toolArgs,
         });
       },
       experimental_onToolCallFinish: ({ stepNumber, toolCall, success }) => {
+        const toolArgs = (toolCall as { input?: unknown; args?: unknown }).input
+          ?? (toolCall as { input?: unknown; args?: unknown }).args;
         onStatus?.({
           type: 'tool-finish',
           stepNumber: stepNumber ?? 0,
           toolName: toolCall.toolName,
+          toolArgs,
           success,
         });
       },

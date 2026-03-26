@@ -8,6 +8,7 @@ import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-f
 import { RdJsonFormatter } from '../output/rdjson-formatter';
 import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
 import { ProgressReporter } from '../output/progress-reporter';
+import { AgentProgressReporter } from '../output/agent-progress-reporter';
 import { checkTarget } from '../prompts/target';
 import { isJudgeResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
@@ -48,21 +49,8 @@ import {
 
 const STATUS_ICON = '◆';
 const LINT_PROGRESS_TEXT = `${STATUS_ICON} linting....`;
-const AGENT_PROGRESS_TEXT = `${STATUS_ICON} reviewing.....`;
 const PROGRESS_DONE_TEXT = `${STATUS_ICON} done`;
 const AGENT_TOOL_CONCURRENCY = 1;
-const AGENT_TOOL_ACTIONS = {
-  search_files: 'finding files',
-  search_content: 'searching content',
-  read_file: 'reading evidence',
-  list_directory: 'inspecting directories',
-  lint: 'checking writing quality',
-} as const;
-
-function describeAgentToolAction(toolName: string | undefined): string | null {
-  if (!toolName) return null;
-  return AGENT_TOOL_ACTIONS[toolName as keyof typeof AGENT_TOOL_ACTIONS] ?? null;
-}
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
   const provider = process.env.LLM_PROVIDER;
@@ -145,6 +133,11 @@ function buildDiffContext(files: string[], cwd: string): string {
   return `Changed files:\n${fileList}`;
 }
 
+function buildRulePreview(ruleBody: string): string {
+  const compact = ruleBody.replace(/\s+/g, ' ').trim();
+  return compact.length > 0 ? compact : '...';
+}
+
 function toRepoRelativePath(filePath: string, cwd: string): string {
   if (!path.isAbsolute(filePath)) return filePath;
   return path.relative(cwd, filePath) || filePath;
@@ -169,18 +162,19 @@ function isPromptActiveForResolution(
   );
 }
 
-function buildMatchedFilesByRule(
+interface AgentFileRuleUnit {
+  file: string;
+  rule: PromptFile;
+}
+
+function buildAgentFileRuleUnits(
   targets: string[],
   prompts: PromptFile[],
   scanPaths: EvaluationOptions['scanPaths'],
   cwd: string,
-): Map<string, string[]> {
+): AgentFileRuleUnit[] {
   const relTargets = targets.map((file) => toRepoRelativePath(file, cwd));
-  const matchedByRule = new Map<string, Set<string>>();
-
-  for (const prompt of prompts) {
-    matchedByRule.set(getPromptKey(prompt), new Set<string>());
-  }
+  const units: AgentFileRuleUnit[] = [];
 
   if (scanPaths && scanPaths.length > 0) {
     const resolver = new ScanPathResolver();
@@ -197,26 +191,22 @@ function buildMatchedFilesByRule(
         resolution = { packs: [], overrides: {} };
       }
 
-      for (const prompt of prompts) {
-        if (!isPromptActiveForResolution(prompt, resolution)) continue;
-        matchedByRule.get(getPromptKey(prompt))?.add(relFile);
+      const activePrompts = prompts.filter((prompt) =>
+        isPromptActiveForResolution(prompt, resolution),
+      );
+      for (const prompt of activePrompts) {
+        units.push({ file: relFile, rule: prompt });
       }
     }
   } else {
-    for (const prompt of prompts) {
-      const bucket = matchedByRule.get(getPromptKey(prompt));
-      if (!bucket) continue;
-      for (const relFile of relTargets) {
-        bucket.add(relFile);
+    for (const relFile of relTargets) {
+      for (const prompt of prompts) {
+        units.push({ file: relFile, rule: prompt });
       }
     }
   }
 
-  const normalized = new Map<string, string[]>();
-  for (const [ruleKey, files] of matchedByRule.entries()) {
-    normalized.set(ruleKey, Array.from(files));
-  }
-  return normalized;
+  return units;
 }
 
 function resolveAgentFindingSeverity(
@@ -463,51 +453,46 @@ async function runAgentMode(
 
   const model = provider.getLanguageModel();
   const diffContext = buildDiffContext(targets, cwd);
-  const matchedFilesByRule = buildMatchedFilesByRule(targets, prompts, scanPaths, cwd);
-  const promptsToRun = prompts.filter(
-    (rule) => (matchedFilesByRule.get(getPromptKey(rule)) ?? []).length > 0
-  );
-  const progress = outputFormat === OutputFormat.Line
-    ? new ProgressReporter({
-      runningText: AGENT_PROGRESS_TEXT,
-      doneText: PROGRESS_DONE_TEXT,
-    })
-    : undefined;
-  progress?.start();
+  const units = buildAgentFileRuleUnits(targets, prompts, scanPaths, cwd);
+  const usedRuleKeys = new Set(units.map((unit) => getPromptKey(unit.rule)));
+  const promptsToScore = prompts.filter((prompt) => usedRuleKeys.has(getPromptKey(prompt)));
+  const progress = outputFormat === OutputFormat.Line ? new AgentProgressReporter() : undefined;
+  progress?.startRun();
   const rulesById = new Map(prompts.map((prompt) => [prompt.meta.id, prompt]));
 
   const agentResults = await (async () => {
     const results = [] as Array<Awaited<ReturnType<typeof runAgentExecutor>>>;
     try {
-      for (let index = 0; index < promptsToRun.length; index += 1) {
-        const rule = promptsToRun[index];
-        if (!rule) continue;
-        const ruleLabel = rule.meta.id || rule.filename || `rule-${index + 1}`;
-        progress?.setRunningText(
-          `${AGENT_PROGRESS_TEXT} ${ruleLabel} (${index + 1}/${promptsToRun.length})`,
-        );
+      let currentFile: string | undefined;
+      for (const unit of units) {
+        const ruleLabel = unit.rule.meta.name || unit.rule.meta.id || unit.rule.filename;
+        if (currentFile !== unit.file) {
+          if (currentFile !== undefined) {
+            progress?.finishFile();
+          }
+          progress?.startFile(unit.file, ruleLabel);
+          currentFile = unit.file;
+        } else {
+          progress?.updateRule(ruleLabel);
+        }
 
+        const rulePreview = buildRulePreview(unit.rule.body);
         const result = await runAgentExecutor({
-          rule,
-          matchedFiles: matchedFilesByRule.get(getPromptKey(rule)) ?? [],
+          rule: unit.rule,
+          matchedFiles: [unit.file],
           cwd,
           model,
           tools: {
             ...sharedTools,
-            lint: createLintTool(cwd, rule, provider),
+            lint: createLintTool(cwd, unit.rule, provider),
           },
           diffContext,
           maxParallelToolCalls: AGENT_TOOL_CONCURRENCY,
           ...(options.agentMaxRetries !== undefined ? { maxRetries: options.agentMaxRetries } : {}),
-          onStatus: ({ type, toolName }) => {
+          onStatus: ({ type, toolName, toolArgs }) => {
             if (type === 'tool-start') {
-              const action = describeAgentToolAction(toolName);
-              if (action) {
-                progress?.setRunningText(`${AGENT_PROGRESS_TEXT} ${ruleLabel} (${action})`);
-                return;
-              }
+              progress?.updateTool(toolName ?? 'tool', toolArgs, rulePreview);
             }
-            progress?.setRunningText(`${AGENT_PROGRESS_TEXT} ${ruleLabel}`);
           },
           ...(userInstructionContent ? { userInstructions: userInstructionContent } : {}),
         });
@@ -516,14 +501,14 @@ async function runAgentMode(
 
       return results;
     } finally {
-      progress?.stop();
+      progress?.finishRun();
     }
   })();
 
   const findings = collectAgentFindings(agentResults);
   const requestFailures = agentResults.filter((result) => result.error).length;
   const hadOperationalErrors = requestFailures > 0;
-  const ruleScores = buildAgentRuleScores(findings, promptsToRun, cwd);
+  const ruleScores = buildAgentRuleScores(findings, promptsToScore, cwd);
   const scoreSummary = new Map<string, EvaluationSummary[]>(
     ruleScores.map((entry) => [
       entry.ruleId,
