@@ -204,8 +204,8 @@ describe('agent mode output formatting', () => {
       .join('\n');
 
     expect(stdout).not.toContain('[vectorlint] analyzing...');
-    expect(stdout).not.toContain('[vectorlint] reviewing.....');
-    expect(stdout).not.toContain('[vectorlint] done.');
+    expect(stdout).not.toContain('◆ reviewing.....');
+    expect(stdout).not.toContain('◆ done');
     expect(stderrSpy).not.toHaveBeenCalled();
   });
 
@@ -228,8 +228,52 @@ describe('agent mode output formatting', () => {
     await evaluateFiles(['docs/changed.md'], createBaseOptions([prompt]));
 
     const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
-    expect(stderrOutput).toContain('[vectorlint] reviewing.....');
-    expect(stderrOutput).toContain('[vectorlint] done.\n');
+    expect(stderrOutput).toContain('◆ reviewing.....');
+    expect(stderrOutput).toContain('◆ done in');
+    expect(stderrOutput).toContain('\n');
+  });
+
+  it('renders agent findings with lint-style issue rows and top-level defaults to 1:1', async () => {
+    const prompt = createPrompt({
+      id: 'AgentRule',
+      name: 'Agent Rule',
+      type: 'check',
+      severity: 'warning',
+    });
+
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([
+      {
+        kind: 'inline',
+        file: 'docs/guide.md',
+        startLine: 7,
+        endLine: 7,
+        message: 'Inline finding',
+        ruleId: 'AgentRule',
+        suggestion: 'Fix inline',
+      },
+      {
+        kind: 'top-level',
+        message: 'Top-level finding',
+        ruleId: 'AgentRule',
+        suggestion: 'Fix top-level',
+      },
+    ]);
+
+    await evaluateFiles(['docs/changed.md'], createBaseOptions([prompt]));
+
+    const stdout = vi
+      .mocked(console.log)
+      .mock
+      .calls
+      .map((call) => String(call[0]))
+      .join('\n');
+
+    expect(stdout).toContain('Inline finding');
+    expect(stdout).toContain('Top-level finding');
+    expect(stdout).toContain('7:1');
+    expect(stdout).toContain('1:1');
+    expect(stdout).toContain('suggestion:');
+    expect(stdout).not.toContain('[agent:warning]');
   });
 
   it('computes deterministic scores from inline findings only (top-level excluded)', async () => {
@@ -443,7 +487,7 @@ describe('agent mode output formatting', () => {
     await evaluateFiles(['docs/changed.md'], createBaseOptions([prompt]));
 
     const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
-    expect(stderrOutput).toContain('tool:search_files');
-    expect(stderrOutput).toContain('[vectorlint] done.');
+    expect(stderrOutput).toContain('(finding files)');
+    expect(stderrOutput).toContain('◆ done in');
   });
 });

@@ -6,7 +6,7 @@ import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
 import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
-import { printFileHeader, printIssueRow, printEvaluationSummaries, printAgentFinding, type EvaluationSummary } from '../output/reporter';
+import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
 import { ProgressReporter } from '../output/progress-reporter';
 import { checkTarget } from '../prompts/target';
 import { isJudgeResult } from '../prompts/schema';
@@ -46,10 +46,28 @@ import {
   type AgentFinding,
 } from '../agent/index';
 
-const LINT_PROGRESS_TEXT = '[vectorlint] linting....';
-const AGENT_PROGRESS_TEXT = '[vectorlint] reviewing.....';
-const PROGRESS_DONE_TEXT = '[vectorlint] done.';
+const STATUS_ICON = '◆';
+const LINT_PROGRESS_TEXT = `${STATUS_ICON} linting....`;
+const AGENT_PROGRESS_TEXT = `${STATUS_ICON} reviewing.....`;
+const PROGRESS_DONE_TEXT = `${STATUS_ICON} done`;
 const AGENT_TOOL_CONCURRENCY = 1;
+
+function describeAgentToolAction(toolName: string | undefined): string | null {
+  switch (toolName) {
+    case 'search_files':
+      return 'finding files';
+    case 'search_content':
+      return 'searching content';
+    case 'read_file':
+      return 'reading evidence';
+    case 'list_directory':
+      return 'inspecting directories';
+    case 'lint':
+      return 'checking writing quality';
+    default:
+      return null;
+  }
+}
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
   const provider = process.env.LLM_PROVIDER;
@@ -370,6 +388,73 @@ function addAgentFindingsToRdJson(
   }
 }
 
+interface AgentLineIssue {
+  file: string;
+  line: number;
+  column: number;
+  severity: Severity;
+  message: string;
+  suggestion?: string;
+  ruleName: string;
+}
+
+function toAgentLineIssue(
+  finding: AgentFinding,
+  severity: Severity,
+  cwd: string,
+  fallbackFile: string,
+): AgentLineIssue {
+  if (finding.kind === 'inline') {
+    return {
+      file: toRepoRelativePath(finding.file, cwd),
+      line: Math.max(1, finding.startLine),
+      column: 1,
+      severity,
+      message: finding.message,
+      suggestion: finding.suggestion,
+      ruleName: finding.ruleId,
+    };
+  }
+
+  const firstReference = finding.references?.[0];
+  const issueFile = firstReference ? toRepoRelativePath(firstReference.file, cwd) : fallbackFile;
+  return {
+    file: issueFile,
+    line: 1,
+    column: 1,
+    severity,
+    message: finding.message,
+    suggestion: finding.suggestion,
+    ruleName: finding.ruleId,
+  };
+}
+
+function printAgentFindingsAsIssueRows(
+  findingsWithSeverity: Array<{ finding: AgentFinding; severity: Severity }>,
+  cwd: string,
+  fallbackFile: string,
+): void {
+  const normalized = findingsWithSeverity.map(({ finding, severity }) =>
+    toAgentLineIssue(finding, severity, cwd, fallbackFile),
+  );
+
+  let currentFile: string | null = null;
+  for (const issue of normalized) {
+    if (issue.file !== currentFile) {
+      printFileHeader(issue.file);
+      currentFile = issue.file;
+    }
+
+    printIssueRow(
+      `${issue.line}:${issue.column}`,
+      issue.severity,
+      issue.message,
+      issue.ruleName,
+      { suggestion: issue.suggestion },
+    );
+  }
+}
+
 async function runAgentMode(
   targets: string[],
   options: EvaluationOptions
@@ -422,14 +507,15 @@ async function runAgentMode(
           diffContext,
           maxParallelToolCalls: AGENT_TOOL_CONCURRENCY,
           ...(options.agentMaxRetries !== undefined ? { maxRetries: options.agentMaxRetries } : {}),
-          onStatus: ({ type, toolName, stepNumber }) => {
-            const suffix =
-              type === 'tool-start' && toolName
-                ? `tool:${toolName}`
-                : type === 'tool-finish' && toolName
-                  ? `done:${toolName}`
-                  : `step:${stepNumber + 1}`;
-            progress?.setRunningText(`${AGENT_PROGRESS_TEXT} ${ruleLabel} ${suffix}`);
+          onStatus: ({ type, toolName }) => {
+            if (type === 'tool-start') {
+              const action = describeAgentToolAction(toolName);
+              if (action) {
+                progress?.setRunningText(`${AGENT_PROGRESS_TEXT} ${ruleLabel} (${action})`);
+                return;
+              }
+            }
+            progress?.setRunningText(`${AGENT_PROGRESS_TEXT} ${ruleLabel}`);
           },
           ...(userInstructionContent ? { userInstructions: userInstructionContent } : {}),
         });
@@ -487,9 +573,7 @@ async function runAgentMode(
     if (findings.length === 0) {
       console.log('[vectorlint] No agent findings.');
     } else {
-      for (const { finding, severity } of findingsWithSeverity) {
-        printAgentFinding(finding, severity);
-      }
+      printAgentFindingsAsIssueRows(findingsWithSeverity, cwd, rdJsonFallbackFile);
     }
     printEvaluationSummaries(scoreSummary);
   } else if (outputFormat === OutputFormat.Json) {

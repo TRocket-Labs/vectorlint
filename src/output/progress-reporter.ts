@@ -13,16 +13,18 @@ export class ProgressReporter {
 
   private frameIndex = 0;
   private timer: NodeJS.Timeout | undefined;
+  private startTimeMs: number | undefined;
 
   constructor(options: ProgressReporterOptions = {}) {
-    this.runningText = options.runningText ?? '[vectorlint] analyzing...';
-    this.doneText = options.doneText ?? '[vectorlint] done.';
+    this.runningText = options.runningText ?? '◆ analyzing...';
+    this.doneText = options.doneText ?? '◆ done';
     this.intervalMs = options.intervalMs ?? 125;
     this.isTty = Boolean(process.stderr.isTTY);
   }
 
   start(): void {
     if (!this.isTty) return;
+    this.startTimeMs = Date.now();
     this.render(true);
     this.timer = setInterval(() => this.render(false), this.intervalMs);
     this.timer.unref?.();
@@ -41,7 +43,9 @@ export class ProgressReporter {
       this.timer = undefined;
     }
 
-    process.stderr.write(`\r\x1b[2K${this.doneText}\n`);
+    const elapsedMs = this.startTimeMs === undefined ? 0 : Math.max(0, Date.now() - this.startTimeMs);
+    process.stderr.write(`\r\x1b[2K${this.doneText} in ${formatDuration(elapsedMs)}\n`);
+    this.startTimeMs = undefined;
   }
 
   private render(force: boolean): void {
@@ -51,4 +55,23 @@ export class ProgressReporter {
     this.frameIndex += 1;
     process.stderr.write(`\r\x1b[2K${frame} ${this.runningText}`);
   }
+}
+
+function formatDuration(elapsedMs: number): string {
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  if (totalSeconds < 1) return '<1s';
+
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  if (totalMinutes < 1) return `${seconds}s`;
+
+  const minutes = totalMinutes % 60;
+  const hours = Math.floor(totalMinutes / 60);
+  if (hours < 1) {
+    return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
+  }
+
+  if (minutes === 0 && seconds === 0) return `${hours}h`;
+  if (seconds === 0) return `${hours}h ${minutes}m`;
+  return `${hours}h ${minutes}m ${seconds}s`;
 }

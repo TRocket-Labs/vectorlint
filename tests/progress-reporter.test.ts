@@ -24,8 +24,8 @@ describe('ProgressReporter', () => {
     const writeSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
 
     const reporter = new ProgressReporter({
-      runningText: '[vectorlint] analyzing...',
-      doneText: '[vectorlint] done.',
+      runningText: '◆ reviewing.....',
+      doneText: '◆ done',
       intervalMs: 10,
     });
 
@@ -34,8 +34,8 @@ describe('ProgressReporter', () => {
     reporter.stop();
 
     const output = writeSpy.mock.calls.map((call) => String(call[0])).join('');
-    expect(output).toContain('[vectorlint] analyzing...');
-    expect(output).toContain('[vectorlint] done.');
+    expect(output).toContain('◆ reviewing.....');
+    expect(output).toContain('◆ done in <1s');
     expect(output).toContain('\r\x1b[2K');
   });
 

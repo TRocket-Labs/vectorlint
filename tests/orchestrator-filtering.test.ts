@@ -196,8 +196,9 @@ describe("CLI violation filtering", () => {
     await evaluateFiles([targetFile], createBaseOptions([prompt]));
 
     const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join("");
-    expect(stderrOutput).toContain("[vectorlint] linting....");
-    expect(stderrOutput).toContain("[vectorlint] done.\n");
+    expect(stderrOutput).toContain("◆ linting....");
+    expect(stderrOutput).toContain("◆ done in");
+    expect(stderrOutput).toContain("\n");
   });
 
   it("filters low-confidence check violations from CLI counts by default", async () => {
