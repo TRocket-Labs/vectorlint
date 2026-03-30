@@ -56,6 +56,7 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt', 'Print full prompt and injected content')
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
+    .option('-p, --print', 'Headless mode: suppress interactive runtime progress output')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
     .option('--mode <mode>', 'Evaluation mode: lint (default) or agent', DEFAULT_EVALUATION_MODE)
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
@@ -215,6 +216,7 @@ export function registerMainCommand(program: Command): void {
         verbose: cliOptions.verbose,
         debugJson: cliOptions.debugJson,
         outputFormat: outputFormat,
+        print: cliOptions.print,
         scanPaths: config.scanPaths,
         pricing: {
           inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,

@@ -18,19 +18,45 @@ export interface LintToolResult {
 export interface LintTool {
   name: 'lint';
   description: string;
-  execute(params: { file: string; ruleContent: string; context?: string }): Promise<LintToolResult>;
+  execute(params: { file: string; ruleId?: string; ruleContent: string; context?: string }): Promise<LintToolResult>;
 }
+
+type LintRuleCatalog = Map<string, PromptFile>;
+type LintRuleSource = PromptFile | LintRuleCatalog;
 
 export function createLintTool(
   cwd: string,
-  rule: PromptFile,
+  rulesByIdMap: LintRuleSource,
   provider: LLMProvider
 ): LintTool {
+  const isRuleCatalog = rulesByIdMap instanceof Map;
+
+  function resolveRule(ruleId?: string): PromptFile {
+    if (isRuleCatalog) {
+      if (!ruleId) {
+        throw new Error('ruleId is required when lint is configured with a rules catalog.');
+      }
+
+      const rule = rulesByIdMap.get(ruleId);
+      if (!rule) {
+        throw new Error(`Unknown ruleId: ${ruleId}`);
+      }
+
+      return rule;
+    }
+
+    if (ruleId && ruleId !== rulesByIdMap.meta.id) {
+      throw new Error(`Unknown ruleId: ${ruleId}`);
+    }
+
+    return rulesByIdMap;
+  }
+
   return {
     name: 'lint',
     description: 'Run per-page VectorLint evaluation on a single file. Provide ruleContent (rule body only, no YAML frontmatter) and optional context from external evidence.',
 
-    async execute({ file, ruleContent, context }) {
+    async execute({ file, ruleId, ruleContent, context }) {
       const absolutePath = resolveToCwd(file, cwd);
 
       if (!isWithinRoot(absolutePath, cwd)) {
@@ -39,6 +65,7 @@ export function createLintTool(
 
       const content = readFileSync(absolutePath, 'utf-8');
       const relFile = path.relative(cwd, absolutePath);
+      const rule = resolveRule(ruleId);
 
       const normalizedRuleContent = ruleContent.trim();
       if (normalizedRuleContent.length === 0) {

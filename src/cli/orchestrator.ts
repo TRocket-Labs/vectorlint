@@ -127,15 +127,13 @@ async function runWithConcurrency<T, R>(
   return results;
 }
 
-function buildDiffContext(files: string[], cwd: string): string {
-  if (files.length === 0) return '';
-  const fileList = files.map((file) => `- ${toRepoRelativePath(file, cwd)}`).join('\n');
-  return `Changed files:\n${fileList}`;
-}
-
 function buildRulePreview(ruleBody: string): string {
   const compact = ruleBody.replace(/\s+/g, ' ').trim();
   return compact.length > 0 ? compact : '...';
+}
+
+function getRuleLabel(rule: PromptFile): string {
+  return rule.meta.name || rule.meta.id || rule.filename;
 }
 
 function toRepoRelativePath(filePath: string, cwd: string): string {
@@ -165,6 +163,11 @@ function isPromptActiveForResolution(
 interface AgentFileRuleUnit {
   file: string;
   rule: PromptFile;
+}
+
+interface AgentFileRuleMapEntry {
+  file: string;
+  rules: PromptFile[];
 }
 
 function buildAgentFileRuleUnits(
@@ -207,6 +210,33 @@ function buildAgentFileRuleUnits(
   }
 
   return units;
+}
+
+function buildAgentFileRuleMap(
+  targets: string[],
+  prompts: PromptFile[],
+  scanPaths: EvaluationOptions['scanPaths'],
+  cwd: string,
+): AgentFileRuleMapEntry[] {
+  const units = buildAgentFileRuleUnits(targets, prompts, scanPaths, cwd);
+  const rulesByFile = new Map<string, PromptFile[]>();
+  const fileOrder: string[] = [];
+
+  for (const unit of units) {
+    const existing = rulesByFile.get(unit.file);
+    if (existing) {
+      existing.push(unit.rule);
+      continue;
+    }
+
+    rulesByFile.set(unit.file, [unit.rule]);
+    fileOrder.push(unit.file);
+  }
+
+  return fileOrder.map((file) => ({
+    file,
+    rules: rulesByFile.get(file) ?? [],
+  }));
 }
 
 function resolveAgentFindingSeverity(
@@ -441,7 +471,14 @@ async function runAgentMode(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  const { prompts, provider, scanPaths, outputFormat = OutputFormat.Line, userInstructionContent } = options;
+  const {
+    prompts,
+    provider,
+    scanPaths,
+    outputFormat = OutputFormat.Line,
+    userInstructionContent,
+    print = false,
+  } = options;
   const cwd = process.cwd();
 
   const sharedTools = {
@@ -452,55 +489,104 @@ async function runAgentMode(
   };
 
   const model = provider.getLanguageModel();
-  const diffContext = buildDiffContext(targets, cwd);
-  const units = buildAgentFileRuleUnits(targets, prompts, scanPaths, cwd);
-  const usedRuleKeys = new Set(units.map((unit) => getPromptKey(unit.rule)));
+  const fileRuleMap = buildAgentFileRuleMap(targets, prompts, scanPaths, cwd);
+  const usedRuleKeys = new Set(
+    fileRuleMap.flatMap((entry) => entry.rules.map((rule) => getPromptKey(rule))),
+  );
   const promptsToScore = prompts.filter((prompt) => usedRuleKeys.has(getPromptKey(prompt)));
-  const progress = outputFormat === OutputFormat.Line ? new AgentProgressReporter() : undefined;
+  const progress = outputFormat === OutputFormat.Line && !print
+    ? new AgentProgressReporter()
+    : undefined;
   progress?.startRun();
   const rulesById = new Map(prompts.map((prompt) => [prompt.meta.id, prompt]));
+  let activeProgressFile: string | undefined;
 
   const agentResults = await (async () => {
     const results = [] as Array<Awaited<ReturnType<typeof runAgentExecutor>>>;
     try {
-      let currentFile: string | undefined;
-      for (const unit of units) {
-        const ruleLabel = unit.rule.meta.name || unit.rule.meta.id || unit.rule.filename;
-        if (currentFile !== unit.file) {
-          if (currentFile !== undefined) {
-            progress?.finishFile();
-          }
-          progress?.startFile(unit.file, ruleLabel);
-          currentFile = unit.file;
-        } else {
-          progress?.updateRule(ruleLabel);
-        }
+      const firstGroup = fileRuleMap[0];
+      const firstRule = firstGroup?.rules[0];
+      if (firstGroup && firstRule) {
+        progress?.startFile(firstGroup.file, getRuleLabel(firstRule));
+        activeProgressFile = firstGroup.file;
+      }
 
-        const rulePreview = buildRulePreview(unit.rule.body);
-        const result = await runAgentExecutor({
-          rule: unit.rule,
-          matchedFiles: [unit.file],
-          cwd,
-          model,
-          tools: {
-            ...sharedTools,
-            lint: createLintTool(cwd, unit.rule, provider),
-          },
-          diffContext,
-          maxParallelToolCalls: AGENT_TOOL_CONCURRENCY,
-          ...(options.agentMaxRetries !== undefined ? { maxRetries: options.agentMaxRetries } : {}),
-          onStatus: ({ type, toolName, toolArgs }) => {
-            if (type === 'tool-start') {
-              progress?.updateTool(toolName ?? 'tool', toolArgs, rulePreview);
+      const result = fileRuleMap.length > 0 ? await runAgentExecutor({
+        requestedTargets: targets,
+        fileRuleMap,
+        cwd,
+        model,
+        tools: {
+          ...sharedTools,
+          lint: createLintTool(cwd, rulesById, provider),
+        },
+        maxParallelToolCalls: AGENT_TOOL_CONCURRENCY,
+        ...(options.agentMaxRetries !== undefined ? { maxRetries: options.agentMaxRetries } : {}),
+        onStatus: ({ type, toolName, toolArgs }) => {
+          if (type === 'tool-start') {
+            const tool = toolName ?? 'tool';
+            const args = (toolArgs && typeof toolArgs === 'object') ? toolArgs as Record<string, unknown> : undefined;
+
+            if (tool === 'lint') {
+              const lintFile = typeof args?.file === 'string' ? args.file : undefined;
+              const lintRuleId = typeof args?.ruleId === 'string' ? args.ruleId : undefined;
+              const lintRule = lintRuleId ? rulesById.get(lintRuleId) : undefined;
+              const ruleLabel = lintRule ? getRuleLabel(lintRule) : (lintRuleId ?? 'rule');
+              const rulePreview = lintRule ? buildRulePreview(lintRule.body) : '';
+
+              if (lintFile) {
+                if (activeProgressFile !== lintFile) {
+                  if (activeProgressFile !== undefined) {
+                    progress?.finishFile();
+                  }
+                  progress?.startFile(lintFile, ruleLabel);
+                  activeProgressFile = lintFile;
+                } else {
+                  progress?.updateRule(ruleLabel);
+                }
+              }
+
+              progress?.updateTool(tool, toolArgs, rulePreview);
+              return;
             }
-          },
-          ...(userInstructionContent ? { userInstructions: userInstructionContent } : {}),
-        });
+
+            progress?.updateTool(tool, toolArgs);
+          }
+        },
+        ...(userInstructionContent ? { userInstructions: userInstructionContent } : {}),
+      }) : undefined;
+      if (result) {
         results.push(result);
+      }
+
+      if (firstGroup && firstGroup.rules.length > 1) {
+        for (const rule of firstGroup.rules.slice(1)) {
+          progress?.updateRule(getRuleLabel(rule));
+        }
+      }
+      if (firstGroup && activeProgressFile === firstGroup.file) {
+        progress?.finishFile();
+        activeProgressFile = undefined;
+      }
+
+      for (const group of fileRuleMap.slice(1)) {
+        const groupRule = group.rules[0];
+        if (!groupRule) continue;
+        progress?.startFile(group.file, getRuleLabel(groupRule));
+        activeProgressFile = group.file;
+        for (const rule of group.rules.slice(1)) {
+          progress?.updateRule(getRuleLabel(rule));
+        }
+        progress?.finishFile();
+        activeProgressFile = undefined;
       }
 
       return results;
     } finally {
+      if (activeProgressFile !== undefined) {
+        progress?.finishFile();
+        activeProgressFile = undefined;
+      }
       progress?.finishRun();
     }
   })();
@@ -1357,6 +1443,7 @@ async function evaluateFile(
     concurrency,
     scanPaths,
     outputFormat = OutputFormat.Line,
+    print = false,
     verbose,
     debugJson,
   } = options;
@@ -1431,7 +1518,7 @@ async function evaluateFile(
     });
   }
 
-  const progress = outputFormat === OutputFormat.Line
+  const progress = outputFormat === OutputFormat.Line && !print
     ? new ProgressReporter({
       runningText: LINT_PROGRESS_TEXT,
       doneText: PROGRESS_DONE_TEXT,

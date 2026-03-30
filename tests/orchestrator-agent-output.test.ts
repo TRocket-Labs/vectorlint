@@ -255,6 +255,29 @@ describe('agent mode output formatting', () => {
     expect(stderrSpy).not.toHaveBeenCalled();
   });
 
+  it('suppresses agent interactive progress output when print mode is enabled', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const prompt = createPrompt({
+      id: 'AgentRule',
+      name: 'Agent Rule',
+      type: 'check',
+      severity: 'warning',
+    });
+
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+    await evaluateFiles(['docs/changed.md'], {
+      ...createBaseOptions([prompt]),
+      print: true,
+    });
+
+    expect(stderrSpy).not.toHaveBeenCalled();
+  });
+
   it('renders agent findings with lint-style issue rows and top-level defaults to 1:1', async () => {
     const prompt = createPrompt({
       id: 'AgentRule',
@@ -341,7 +364,7 @@ describe('agent mode output formatting', () => {
     expect(payload.scores[0]?.score).toBe(9.8);
   });
 
-  it('runs agent per file and applicable rule with scan-path filtering', async () => {
+  it('calls the agent executor once with a run-level fileRuleMap under scan-path filtering', async () => {
     const promptA = createPrompt({
       id: 'RuleA',
       name: 'Rule A',
@@ -371,14 +394,19 @@ describe('agent mode output formatting', () => {
     });
 
     expect(RUN_AGENT_EXECUTOR_MOCK).toHaveBeenCalledTimes(1);
-    const firstCallArgs = RUN_AGENT_EXECUTOR_MOCK.mock.calls[0]?.[0] as { rule: PromptFile; matchedFiles: string[] };
-    expect(firstCallArgs.rule.meta.id).toBe('RuleA');
-    expect(firstCallArgs.matchedFiles).toEqual(['docs/one.md']);
+    const firstCallArgs = RUN_AGENT_EXECUTOR_MOCK.mock.calls[0]?.[0] as {
+      requestedTargets: string[];
+      fileRuleMap: Array<{ file: string; rules: PromptFile[] }>;
+    };
+    expect(firstCallArgs.requestedTargets).toEqual(['docs/one.md', 'guides/two.md']);
+    expect(firstCallArgs.fileRuleMap).toEqual([
+      { file: 'docs/one.md', rules: [promptA] },
+    ]);
     expect(firstCallArgs.maxParallelToolCalls).toBe(1);
     expect(firstCallArgs.maxRetries).toBeUndefined();
   });
 
-  it('respects scan-path overrides when building matched files per rule', async () => {
+  it('builds the run-level fileRuleMap with scan-path overrides', async () => {
     const promptA = createPrompt({
       id: 'RuleA',
       name: 'Rule A',
@@ -413,17 +441,24 @@ describe('agent mode output formatting', () => {
       ],
     });
 
-    expect(RUN_AGENT_EXECUTOR_MOCK).toHaveBeenCalledTimes(3);
+    expect(RUN_AGENT_EXECUTOR_MOCK).toHaveBeenCalledTimes(1);
 
     const calls = RUN_AGENT_EXECUTOR_MOCK.mock.calls.map((call) => {
-      const arg = call[0] as { rule: PromptFile; matchedFiles: string[] };
-      return { ruleId: arg.rule.meta.id, matchedFiles: arg.matchedFiles };
+      const arg = call[0] as {
+        requestedTargets: string[];
+        fileRuleMap: Array<{ file: string; rules: PromptFile[] }>;
+      };
+      return { requestedTargets: arg.requestedTargets, fileRuleMap: arg.fileRuleMap };
     });
 
     expect(calls).toEqual([
-      { ruleId: 'RuleB', matchedFiles: ['docs/a.md'] },
-      { ruleId: 'RuleA', matchedFiles: ['guides/b.md'] },
-      { ruleId: 'RuleB', matchedFiles: ['guides/b.md'] },
+      {
+        requestedTargets: ['docs/a.md', 'guides/b.md'],
+        fileRuleMap: [
+          { file: 'docs/a.md', rules: [promptB] },
+          { file: 'guides/b.md', rules: [promptA, promptB] },
+        ],
+      },
     ]);
   });
 
@@ -443,14 +478,16 @@ describe('agent mode output formatting', () => {
 
     let activeRuns = 0;
     let maxActiveRuns = 0;
-    RUN_AGENT_EXECUTOR_MOCK.mockImplementation(async (args: { rule: PromptFile }) => {
+    RUN_AGENT_EXECUTOR_MOCK.mockImplementation(async (args: {
+      fileRuleMap: Array<{ file: string; rules: PromptFile[] }>;
+    }) => {
       activeRuns += 1;
       maxActiveRuns = Math.max(maxActiveRuns, activeRuns);
       await new Promise((resolve) => setTimeout(resolve, 20));
       activeRuns -= 1;
       return {
         findings: [],
-        ruleId: args.rule.meta.id,
+        ruleId: args.fileRuleMap[0]?.rules[0]?.meta.id ?? 'RuleA',
       };
     });
     COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
@@ -496,7 +533,7 @@ describe('agent mode output formatting', () => {
     });
 
     RUN_AGENT_EXECUTOR_MOCK.mockImplementation((args: {
-      rule: PromptFile;
+      fileRuleMap: Array<{ file: string; rules: PromptFile[] }>;
       onStatus?: (event: { type: string; stepNumber: number; toolName?: string; toolArgs?: unknown }) => void;
     }) => {
       args.onStatus?.({ type: 'step-start', stepNumber: 0 });
@@ -514,7 +551,7 @@ describe('agent mode output formatting', () => {
       });
       return {
         findings: [],
-        ruleId: args.rule.meta.id,
+        ruleId: args.fileRuleMap[0]?.rules[0]?.meta.id ?? 'AgentRule',
       };
     });
     COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
@@ -542,7 +579,7 @@ describe('agent mode output formatting', () => {
     });
 
     RUN_AGENT_EXECUTOR_MOCK.mockImplementation((args: {
-      rule: PromptFile;
+      fileRuleMap: Array<{ file: string; rules: PromptFile[] }>;
       onStatus?: (event: { type: string; stepNumber: number; toolName?: string; toolArgs?: unknown }) => void;
     }) => {
       args.onStatus?.({
@@ -553,7 +590,7 @@ describe('agent mode output formatting', () => {
       });
       return {
         findings: [],
-        ruleId: args.rule.meta.id,
+        ruleId: args.fileRuleMap[0]?.rules[0]?.meta.id ?? 'AgentRule',
       };
     });
     COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
@@ -618,5 +655,100 @@ describe('agent mode output formatting', () => {
     expect(stderrOutput).toContain('reviewing docs/one.md for Agent Rule');
     expect(stderrOutput).toContain('reviewing docs/two.md for Agent Rule');
     expect(stderrOutput).toMatch(/\n[|/\-\\] ◈ reviewing docs\/two\.md for Agent Rule/);
+  });
+
+  it('documents current behavior: no prompts + user instructions does not execute agent runs', async () => {
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+
+    await evaluateFiles(['docs/changed.md'], {
+      ...createBaseOptions([]),
+      userInstructionContent: 'Review docs for factual correctness against the codebase.',
+    });
+
+    expect(RUN_AGENT_EXECUTOR_MOCK).not.toHaveBeenCalled();
+    const stdout = vi
+      .mocked(console.log)
+      .mock
+      .calls
+      .map((call) => String(call[0]))
+      .join('\n');
+    expect(stdout).toContain('[vectorlint] No agent findings.');
+  });
+
+  it('renders non-lint tool activity for top-level style checks in progress output', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const prompt = createPrompt({
+      id: 'TopLevelReview',
+      name: 'Top Level Review',
+      type: 'check',
+      severity: 'warning',
+    });
+
+    RUN_AGENT_EXECUTOR_MOCK.mockImplementation((args: {
+      fileRuleMap: Array<{ file: string; rules: PromptFile[] }>;
+      onStatus?: (event: { type: string; stepNumber: number; toolName?: string; toolArgs?: unknown }) => void;
+    }) => {
+      args.onStatus?.({
+        type: 'tool-start',
+        stepNumber: 0,
+        toolName: 'list_directory',
+        toolArgs: { path: 'src' },
+      });
+      args.onStatus?.({
+        type: 'tool-start',
+        stepNumber: 1,
+        toolName: 'read_file',
+        toolArgs: { path: 'README.md' },
+      });
+      return {
+        findings: [],
+        ruleId: args.fileRuleMap[0]?.rules[0]?.meta.id ?? 'TopLevelReview',
+      };
+    });
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
+
+    await evaluateFiles(['README.md'], createBaseOptions([prompt]));
+
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(stderrOutput).toContain('calling tool list_directory tool');
+    expect(stderrOutput).toContain('list_directory(path:"src")');
+    expect(stderrOutput).toContain('calling tool read_file tool');
+    expect(stderrOutput).toContain('read_file("README.md")');
+  });
+
+  it('renders top-level findings with references in line output using 1:1 fallback location', async () => {
+    const prompt = createPrompt({
+      id: 'TopLevelReview',
+      name: 'Top Level Review',
+      type: 'check',
+      severity: 'warning',
+    });
+
+    COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([
+      {
+        kind: 'top-level',
+        message: 'README mentions feature X but implementation is missing.',
+        ruleId: 'TopLevelReview',
+        references: [{ file: 'README.md', startLine: 12, endLine: 12 }],
+      },
+    ]);
+
+    await evaluateFiles(['README.md'], createBaseOptions([prompt]));
+
+    const stdout = vi
+      .mocked(console.log)
+      .mock
+      .calls
+      .map((call) => String(call[0]))
+      .join('\n');
+
+    expect(stdout).toContain('README.md');
+    expect(stdout).toContain('1:1');
+    expect(stdout).toContain('README mentions feature X but implementation is missing.');
   });
 });

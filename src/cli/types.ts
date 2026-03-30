@@ -30,6 +30,7 @@ export interface EvaluationOptions {
     debugJson?: boolean;
     scanPaths: FilePatternConfig[];
     outputFormat?: OutputFormat;
+    print?: boolean;
     pricing?: PricingConfig;
     userInstructionContent?: string;
     agentMaxRetries?: number;

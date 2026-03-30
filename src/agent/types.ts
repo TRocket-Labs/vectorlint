@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { PromptFile } from '../schemas/prompt-schemas.js';
 
 export const INLINE_FINDING_SCHEMA = z.object({
   kind: z.literal('inline'),
@@ -28,6 +29,11 @@ export const AGENT_FINDING_SCHEMA = z.discriminatedUnion('kind', [
   INLINE_FINDING_SCHEMA,
   TOP_LEVEL_FINDING_SCHEMA,
 ]);
+
+export interface AgentFileRuleMapEntry {
+  file: string;
+  rules: PromptFile[];
+}
 
 export {
   INLINE_FINDING_SCHEMA as InlineFindingSchema,

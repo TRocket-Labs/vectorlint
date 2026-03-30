@@ -1,10 +1,12 @@
 import { generateText, NoOutputGeneratedError, Output, stepCountIs, tool } from 'ai';
 import type { LanguageModel } from 'ai';
 import { z } from 'zod';
+import * as path from 'node:path';
 import type { PromptFile } from '../schemas/prompt-schemas.js';
 import {
   AGENT_FINDING_SCHEMA,
   type AgentRunResult,
+  type AgentFileRuleMapEntry,
 } from './types.js';
 import type { ReadFileTool } from './tools/read-file.js';
 import type { SearchContentTool } from './tools/search-content.js';
@@ -21,12 +23,11 @@ export interface AgentTools {
 }
 
 export interface AgentExecutorParams {
-  rule: PromptFile;
-  matchedFiles: string[];
+  requestedTargets: string[];
+  fileRuleMap: AgentFileRuleMapEntry[];
   cwd: string;
   model: LanguageModel;
   tools: AgentTools;
-  diffContext: string;
   signal?: AbortSignal;
   userInstructions?: string;
   maxParallelToolCalls?: number;
@@ -77,9 +78,8 @@ function parseAgentOutputFromText(text: string): z.infer<typeof AGENT_OUTPUT_SCH
 }
 
 function buildSystemPrompt(
-  rule: PromptFile,
-  matchedFiles: string[],
-  diffContext: string,
+  requestedTargets: string[],
+  fileRuleMap: AgentFileRuleMapEntry[],
   cwd: string,
   userInstructions?: string,
 ): string {
@@ -90,10 +90,11 @@ function buildSystemPrompt(
 - search_content: Search file contents by regex pattern across multiple files (returns file:line: matchedtext)
 - search_files: Find files by glob pattern (e.g. **/*.md, src/**/*.ts)
 - list_directory: List directory contents; directories use / suffix and dotfiles are included
-- lint: Run structured prose evaluation on one file. Pass ruleContent (rule body only, no YAML frontmatter). Pass optional context (external evidence you gathered) when needed. Do not use lint for structural checks such as file existence or missing sections`;
+- lint: Run structured prose evaluation on one file. Pass ruleId + ruleContent (rule body only, no YAML frontmatter). Pass optional context (external evidence you gathered) when needed. Do not use lint for structural checks such as file existence or missing sections`;
 
-  const guidelines = `Guidelines:
-- Start from the matched files list below, then expand only when the rule requires it
+  const operatingPolicy = `Operating Policy (highest priority):
+- Process work sequentially: file-first, then rule-second
+- For each file, apply only the rules mapped to that file
 - Use lint for writing-quality checks (clarity, correctness, consistency) on page content
 - Use file tools for structural checks (missing files, broken links, missing sections)
 - For mixed rules, strip structural criteria from ruleContent before calling lint
@@ -107,26 +108,61 @@ function buildSystemPrompt(
 - top-level finding: { kind: "top-level", message, ruleId, suggestion?, references?: [{ file, startLine?, endLine? }] }
 If no issues exist, return "findings": []`;
 
+  const uniqueRules = new Map<string, PromptFile>();
+  for (const entry of fileRuleMap) {
+    for (const rule of entry.rules) {
+      uniqueRules.set(rule.meta.id, rule);
+    }
+  }
+
+  const fileRuleMapText = fileRuleMap.length > 0
+    ? fileRuleMap
+      .map((entry) => {
+        const file = toRepoRelativePath(entry.file, cwd);
+        const ruleIds = entry.rules.map((rule) => rule.meta.id).join(', ');
+        return `- ${file} => ${ruleIds || '(none)'}`;
+      })
+      .join('\n')
+    : '- (none)';
+
+  const rulesCatalogText = uniqueRules.size > 0
+    ? Array.from(uniqueRules.values())
+      .map((rule) => {
+        const body = rule.body.trim();
+        return `- ${rule.meta.id} (${rule.meta.name || rule.meta.id}):\n${body}`;
+      })
+      .join('\n\n')
+    : '- (none)';
+
   const sections = [
-    'You are a senior technical writer evaluating documentation quality. Use lint for per-page checks and file tools for cross-file evidence.',
-    `Rule: ${rule.meta.name} (${rule.meta.id})\n${rule.body}`,
+    'Role: You are a senior technical writer and repository reviewer.',
+    operatingPolicy,
     toolDescriptions,
-    `Matched files for this rule:\n${matchedFiles.length > 0 ? matchedFiles.map((file) => `- ${file}`).join('\n') : '- (none)'}`,
-    guidelines,
+    `Requested review targets:\n${requestedTargets.length > 0 ? formatPromptFileList(requestedTargets, cwd) : '- (none)'}`,
+    `File-rule map:\n${fileRuleMapText}`,
+    `Rules catalog:\n${rulesCatalogText}`,
   ];
 
   if (userInstructions) {
     sections.push(`User Instructions (from VECTORLINT.md):\n${userInstructions}`);
   }
 
-  if (diffContext) {
-    sections.push(`Context — what changed in this PR:\n${diffContext}`);
-  }
-
   sections.push(outputInstructions);
   sections.push(`Current date: ${date}\nRepo root: ${cwd}`);
 
   return sections.join('\n\n');
+}
+
+function formatPromptFileList(files: string[], cwd: string): string {
+  return files
+    .map((file) => (path.isAbsolute(file) ? path.relative(cwd, file) || file : file))
+    .map((file) => `- ${file}`)
+    .join('\n');
+}
+
+function toRepoRelativePath(filePath: string, cwd: string): string {
+  if (!path.isAbsolute(filePath)) return filePath;
+  return path.relative(cwd, filePath) || filePath;
 }
 
 function createConcurrencyLimiter(limit: number): <T>(operation: () => Promise<T>) => Promise<T> {
@@ -169,19 +205,25 @@ function buildProviderOptions(): Record<string, unknown> | undefined {
 
 export async function runAgentExecutor(params: AgentExecutorParams): Promise<AgentRunResult> {
   const {
-    rule,
-    matchedFiles = [],
+    requestedTargets = [],
+    fileRuleMap = [],
     cwd,
     model,
     tools,
-    diffContext,
     signal,
     userInstructions,
     maxParallelToolCalls = DEFAULT_AGENT_TOOL_CONCURRENCY,
     maxRetries = DEFAULT_AGENT_MAX_RETRIES,
     onStatus,
   } = params;
-  const systemPrompt = buildSystemPrompt(rule, matchedFiles, diffContext, cwd, userInstructions);
+  if (fileRuleMap.length === 0 || fileRuleMap.every((entry) => entry.rules.length === 0)) {
+    return {
+      findings: [],
+      ruleId: 'agent',
+    };
+  }
+
+  const systemPrompt = buildSystemPrompt(requestedTargets, fileRuleMap, cwd, userInstructions);
   const providerOptions = buildProviderOptions();
   const runToolWithLimit = createConcurrencyLimiter(
     Math.max(1, Math.floor(maxParallelToolCalls)),
@@ -231,6 +273,7 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
       description: tools.lint.description,
       inputSchema: z.object({
         file: z.string().describe('File path to lint'),
+        ruleId: z.string().describe('Rule ID from the rules catalog'),
         ruleContent: z.string().describe('Rule criteria body only (no YAML frontmatter)'),
         context: z.string().optional().describe('Optional external evidence to ground evaluation'),
       }),
@@ -242,7 +285,7 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
     const response = await generateText({
       model,
       system: systemPrompt,
-      prompt: `Evaluate documentation against rule "${rule.meta.name}". Start from matched files first, then expand with tools only as needed. Return findings as JSON.`,
+      prompt: 'Review the requested targets using the file-rule map and rules catalog. Process files sequentially and apply each mapped rule before moving to the next file. Return findings as JSON.',
       tools: sdkTools,
       stopWhen: stepCountIs(MAX_AGENT_STEPS),
       abortSignal: signal,
@@ -278,7 +321,7 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
 
     return {
       findings: response.output.findings,
-      ruleId: rule.meta.id,
+      ruleId: 'agent',
     };
   } catch (error) {
     if (NoOutputGeneratedError.isInstance(error)) {
@@ -286,7 +329,7 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
       if (fallbackOutput) {
         return {
           findings: fallbackOutput.findings,
-          ruleId: rule.meta.id,
+          ruleId: 'agent',
         };
       }
     }
@@ -294,7 +337,7 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
     const message = error instanceof Error ? error.message : String(error);
     return {
       findings: [],
-      ruleId: rule.meta.id,
+      ruleId: 'agent',
       error: `Agent execution failed: ${message}`,
     };
   }

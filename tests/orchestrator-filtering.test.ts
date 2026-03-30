@@ -201,6 +201,35 @@ describe("CLI violation filtering", () => {
     expect(stderrOutput).toContain("\n");
   });
 
+  it("suppresses lint progress output in print mode", async () => {
+    Object.defineProperty(process.stderr, "isTTY", {
+      configurable: true,
+      value: true,
+    });
+
+    const targetFile = createTempFile("Alpha text\n");
+    const prompt = createPrompt({
+      id: "CheckPrompt",
+      name: "Check Prompt",
+      type: "check",
+      severity: Severity.WARNING,
+    });
+
+    EVALUATE_MOCK.mockResolvedValue(
+      makeCheckResult({
+        violations: [],
+      })
+    );
+
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    await evaluateFiles([targetFile], {
+      ...createBaseOptions([prompt]),
+      print: true,
+    });
+
+    expect(stderrSpy).not.toHaveBeenCalled();
+  });
+
   it("filters low-confidence check violations from CLI counts by default", async () => {
     const targetFile = createTempFile("Alpha text\nBeta text\n");
     const prompt = createPrompt({

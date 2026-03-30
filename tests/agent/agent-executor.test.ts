@@ -43,12 +43,11 @@ describe('runAgentExecutor', () => {
 
       const rule = makeRule('Retries', 'Check retries and tool behavior');
       await runAgentExecutor({
-        rule: rule as never,
-        matchedFiles: ['docs/quickstart.md'],
+        requestedTargets: ['docs/quickstart.md'],
+        fileRuleMap: [{ file: 'docs/quickstart.md', rules: [rule] }],
         cwd: MOCK_CWD,
         model: MOCK_MODEL,
         tools: MOCK_TOOLS as never,
-        diffContext: 'Changed: docs/quickstart.md',
       });
 
       const call = MOCK_GENERATE_TEXT.mock.calls.at(-1)?.[0] as {
@@ -86,17 +85,16 @@ describe('runAgentExecutor', () => {
 
     const rule = makeRule('PassiveVoice', 'Check for passive voice');
     const result = await runAgentExecutor({
-      rule: rule as never,
-      matchedFiles: ['docs/quickstart.md'],
+      requestedTargets: ['docs/quickstart.md'],
+      fileRuleMap: [{ file: 'docs/quickstart.md', rules: [rule] }],
       cwd: MOCK_CWD,
       model: MOCK_MODEL,
       tools: MOCK_TOOLS as never,
-      diffContext: 'Changed: docs/quickstart.md',
     });
 
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]?.kind).toBe('inline');
-    expect(result.ruleId).toBe('PassiveVoice');
+    expect(result.ruleId).toBe('agent');
   });
 
   it('returns empty findings when agent finds nothing', async () => {
@@ -106,16 +104,15 @@ describe('runAgentExecutor', () => {
 
     const rule = makeRule('Consistency', 'Check terminology');
     const result = await runAgentExecutor({
-      rule: rule as never,
-      matchedFiles: ['docs/reference.md'],
+      requestedTargets: ['docs/reference.md'],
+      fileRuleMap: [{ file: 'docs/reference.md', rules: [rule] }],
       cwd: MOCK_CWD,
       model: MOCK_MODEL,
       tools: MOCK_TOOLS as never,
-      diffContext: '',
     });
 
     expect(result.findings).toHaveLength(0);
-    expect(result.ruleId).toBe('Consistency');
+    expect(result.ruleId).toBe('agent');
   });
 
   it('surfaces execution error metadata when generation fails', async () => {
@@ -123,12 +120,11 @@ describe('runAgentExecutor', () => {
 
     const rule = makeRule('Coverage', 'Check documentation coverage');
     const result = await runAgentExecutor({
-      rule: rule as never,
-      matchedFiles: ['docs/coverage.md'],
+      requestedTargets: ['docs/coverage.md'],
+      fileRuleMap: [{ file: 'docs/coverage.md', rules: [rule] }],
       cwd: MOCK_CWD,
       model: MOCK_MODEL,
       tools: MOCK_TOOLS as never,
-      diffContext: '',
     });
 
     expect(result.findings).toHaveLength(0);
@@ -155,16 +151,43 @@ describe('runAgentExecutor', () => {
 
     const rule = makeRule('Coverage', 'Check documentation coverage');
     const result = await runAgentExecutor({
-      rule: rule as never,
-      matchedFiles: ['docs/coverage.md'],
+      requestedTargets: ['docs/coverage.md'],
+      fileRuleMap: [{ file: 'docs/coverage.md', rules: [rule] }],
       cwd: MOCK_CWD,
       model: MOCK_MODEL,
       tools: MOCK_TOOLS as never,
-      diffContext: '',
     });
 
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]?.kind).toBe('top-level');
     expect(result.error).toBeUndefined();
+  });
+
+  it('builds system prompt in strict order: role, policy, runtime context', async () => {
+    MOCK_GENERATE_TEXT.mockResolvedValueOnce({
+      output: { findings: [] },
+      text: '{"findings":[]}',
+    });
+
+    const ruleA = makeRule('RuleA', 'Check clarity');
+    const ruleB = makeRule('RuleB', 'Check terminology');
+    await runAgentExecutor({
+      requestedTargets: ['docs/a.md', 'docs/b.md'],
+      fileRuleMap: [
+        { file: 'docs/a.md', rules: [ruleA] },
+        { file: 'docs/b.md', rules: [ruleB] },
+      ],
+      cwd: MOCK_CWD,
+      model: MOCK_MODEL,
+      tools: MOCK_TOOLS as never,
+    });
+
+    const call = MOCK_GENERATE_TEXT.mock.calls.at(-1)?.[0] as { system: string };
+    const system = call.system;
+    expect(system.indexOf('Role:')).toBeGreaterThanOrEqual(0);
+    expect(system.indexOf('Operating Policy')).toBeGreaterThan(system.indexOf('Role:'));
+    expect(system.indexOf('Requested review targets:')).toBeGreaterThan(system.indexOf('Operating Policy'));
+    expect(system).toContain('File-rule map:');
+    expect(system).toContain('Rules catalog:');
   });
 });
