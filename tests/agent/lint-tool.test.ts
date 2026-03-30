@@ -59,7 +59,7 @@ describe('createLintTool', () => {
     ).rejects.toThrow('ruleContent must not be empty');
   });
 
-  it('requires ruleId when using a rules catalog', async () => {
+  it('requires ruleKey when using a rules catalog', async () => {
     const tool = createLintTool(TMP, new Map([
       [RULE.meta.id, RULE],
     ]) as never, {
@@ -68,7 +68,23 @@ describe('createLintTool', () => {
 
     await expect(
       tool.execute({ file: 'doc.md', ruleContent: 'Check for explicit examples.' }),
-    ).rejects.toThrow('ruleId is required when lint is configured with a rules catalog.');
+    ).rejects.toThrow('ruleKey is required when lint is configured with a rules catalog.');
+  });
+
+  it('rejects unknown ruleKey when using a rules catalog', async () => {
+    const tool = createLintTool(TMP, new Map([
+      [RULE.meta.id, RULE],
+    ]) as never, {
+      runPromptStructured: vi.fn(),
+    } as never);
+
+    await expect(
+      tool.execute({
+        file: 'doc.md',
+        ruleKey: 'unknown:key',
+        ruleContent: 'Check for explicit examples.',
+      }),
+    ).rejects.toThrow('Unknown ruleKey: unknown:key');
   });
 
   it('rejects unknown ruleId when using a rules catalog', async () => {
@@ -156,5 +172,32 @@ describe('createLintTool', () => {
     expect(result.score).toBe(9);
     expect(result.violationCount).toBe(0);
     expect(result.violations).toEqual([]);
+  });
+
+  it('routes evaluation by ruleKey from a rules catalog', async () => {
+    EVALUATE_MOCK.mockResolvedValue({
+      type: 'judge',
+      final_score: 8,
+      criteria: [],
+    } as never);
+
+    const keyedCatalog = new Map([
+      ['PackA:RuleA', RULE],
+      ['PackA:RuleB', OTHER_RULE],
+    ]);
+
+    const tool = createLintTool(TMP, keyedCatalog as never, {
+      runPromptStructured: vi.fn(),
+    } as never);
+
+    const result = await tool.execute({
+      file: 'doc.md',
+      ruleKey: 'PackA:RuleB',
+      ruleContent: 'Check for explicit examples.',
+    });
+
+    const evaluatorPrompt = CREATE_EVALUATOR_MOCK.mock.calls[0]?.[2] as { meta: { id: string } } | undefined;
+    expect(evaluatorPrompt?.meta.id).toBe(OTHER_RULE.meta.id);
+    expect(result.score).toBe(8);
   });
 });

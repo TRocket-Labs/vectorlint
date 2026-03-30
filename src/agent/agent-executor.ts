@@ -90,7 +90,7 @@ function buildSystemPrompt(
 - search_content: Search file contents by regex pattern across multiple files (returns file:line: matchedtext)
 - search_files: Find files by glob pattern (e.g. **/*.md, src/**/*.ts)
 - list_directory: List directory contents; directories use / suffix and dotfiles are included
-- lint: Run structured prose evaluation on one file. Pass ruleId + ruleContent (rule body only, no YAML frontmatter). Pass optional context (external evidence you gathered) when needed. Do not use lint for structural checks such as file existence or missing sections`;
+- lint: Run structured prose evaluation on one file. Pass ruleKey + ruleContent (rule body only, no YAML frontmatter). Pass optional context (external evidence you gathered) when needed. Do not use lint for structural checks such as file existence or missing sections`;
 
   const operatingPolicy = `Operating Policy (highest priority):
 - Process work sequentially: file-first, then rule-second
@@ -119,8 +119,10 @@ If no issues exist, return "findings": []`;
     ? fileRuleMap
       .map((entry) => {
         const file = toRepoRelativePath(entry.file, cwd);
-        const ruleIds = entry.rules.map((rule) => rule.meta.id).join(', ');
-        return `- ${file} => ${ruleIds || '(none)'}`;
+        const ruleKeys = entry.rules
+          .map((rule) => `${buildRuleCatalogKey(rule)} (${rule.meta.id})`)
+          .join(', ');
+        return `- ${file} => ${ruleKeys || '(none)'}`;
       })
       .join('\n')
     : '- (none)';
@@ -129,7 +131,7 @@ If no issues exist, return "findings": []`;
     ? Array.from(uniqueRules.values())
       .map((rule) => {
         const body = rule.body.trim();
-        return `- ${rule.meta.id} (${rule.meta.name || rule.meta.id}):\n${body}`;
+        return `- ${buildRuleCatalogKey(rule)} => ${rule.meta.id} (${rule.meta.name || rule.meta.id}):\n${body}`;
       })
       .join('\n\n')
     : '- (none)';
@@ -163,6 +165,12 @@ function formatPromptFileList(files: string[], cwd: string): string {
 function toRepoRelativePath(filePath: string, cwd: string): string {
   if (!path.isAbsolute(filePath)) return filePath;
   return path.relative(cwd, filePath) || filePath;
+}
+
+function buildRuleCatalogKey(rule: PromptFile): string {
+  const pack = rule.pack || '__root__';
+  const id = rule.meta.id || rule.filename;
+  return `${pack}:${id}`;
 }
 
 function createConcurrencyLimiter(limit: number): <T>(operation: () => Promise<T>) => Promise<T> {
@@ -273,7 +281,8 @@ export async function runAgentExecutor(params: AgentExecutorParams): Promise<Age
       description: tools.lint.description,
       inputSchema: z.object({
         file: z.string().describe('File path to lint'),
-        ruleId: z.string().describe('Rule ID from the rules catalog'),
+        ruleKey: z.string().describe('Rule key from the rules catalog'),
+        ruleId: z.string().optional().describe('Legacy rule id fallback'),
         ruleContent: z.string().describe('Rule criteria body only (no YAML frontmatter)'),
         context: z.string().optional().describe('Optional external evidence to ground evaluation'),
       }),

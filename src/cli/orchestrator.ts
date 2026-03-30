@@ -132,6 +132,12 @@ function buildRulePreview(ruleBody: string): string {
   return compact.length > 0 ? compact : '...';
 }
 
+function getPromptCatalogKey(prompt: PromptFile): string {
+  const pack = prompt.pack || '__root__';
+  const id = prompt.meta.id || prompt.filename;
+  return `${pack}:${id}`;
+}
+
 function getRuleLabel(rule: PromptFile): string {
   return rule.meta.name || rule.meta.id || rule.filename;
 }
@@ -499,6 +505,7 @@ async function runAgentMode(
     : undefined;
   progress?.startRun();
   const rulesById = new Map(prompts.map((prompt) => [prompt.meta.id, prompt]));
+  const rulesByCatalogKey = new Map(prompts.map((prompt) => [getPromptCatalogKey(prompt), prompt]));
   let activeProgressFile: string | undefined;
 
   const agentResults = await (async () => {
@@ -518,7 +525,7 @@ async function runAgentMode(
         model,
         tools: {
           ...sharedTools,
-          lint: createLintTool(cwd, rulesById, provider),
+          lint: createLintTool(cwd, rulesByCatalogKey, provider),
         },
         maxParallelToolCalls: AGENT_TOOL_CONCURRENCY,
         ...(options.agentMaxRetries !== undefined ? { maxRetries: options.agentMaxRetries } : {}),
@@ -529,9 +536,12 @@ async function runAgentMode(
 
             if (tool === 'lint') {
               const lintFile = typeof args?.file === 'string' ? args.file : undefined;
+              const lintRuleKey = typeof args?.ruleKey === 'string' ? args.ruleKey : undefined;
               const lintRuleId = typeof args?.ruleId === 'string' ? args.ruleId : undefined;
-              const lintRule = lintRuleId ? rulesById.get(lintRuleId) : undefined;
-              const ruleLabel = lintRule ? getRuleLabel(lintRule) : (lintRuleId ?? 'rule');
+              const lintRule = lintRuleKey
+                ? rulesByCatalogKey.get(lintRuleKey)
+                : (lintRuleId ? rulesById.get(lintRuleId) : undefined);
+              const ruleLabel = lintRule ? getRuleLabel(lintRule) : (lintRuleKey ?? lintRuleId ?? 'rule');
               const rulePreview = lintRule ? buildRulePreview(lintRule.body) : '';
 
               if (lintFile) {
@@ -557,28 +567,6 @@ async function runAgentMode(
       }) : undefined;
       if (result) {
         results.push(result);
-      }
-
-      if (firstGroup && firstGroup.rules.length > 1) {
-        for (const rule of firstGroup.rules.slice(1)) {
-          progress?.updateRule(getRuleLabel(rule));
-        }
-      }
-      if (firstGroup && activeProgressFile === firstGroup.file) {
-        progress?.finishFile();
-        activeProgressFile = undefined;
-      }
-
-      for (const group of fileRuleMap.slice(1)) {
-        const groupRule = group.rules[0];
-        if (!groupRule) continue;
-        progress?.startFile(group.file, getRuleLabel(groupRule));
-        activeProgressFile = group.file;
-        for (const rule of group.rules.slice(1)) {
-          progress?.updateRule(getRuleLabel(rule));
-        }
-        progress?.finishFile();
-        activeProgressFile = undefined;
       }
 
       return results;

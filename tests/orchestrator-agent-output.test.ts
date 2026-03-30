@@ -622,6 +622,23 @@ describe('agent mode output formatting', () => {
       type: 'check',
       severity: 'warning',
     });
+    RUN_AGENT_EXECUTOR_MOCK.mockImplementation((args: {
+      onStatus?: (event: { type: string; stepNumber: number; toolName?: string; toolArgs?: unknown }) => void;
+    }) => {
+      args.onStatus?.({
+        type: 'tool-start',
+        stepNumber: 0,
+        toolName: 'lint',
+        toolArgs: { file: 'docs/one.md', ruleKey: 'TestPack:RuleA', ruleContent: '...' },
+      });
+      args.onStatus?.({
+        type: 'tool-start',
+        stepNumber: 1,
+        toolName: 'lint',
+        toolArgs: { file: 'docs/one.md', ruleKey: 'TestPack:RuleB', ruleContent: '...' },
+      });
+      return { findings: [], ruleId: 'agent' };
+    });
     COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
 
     await evaluateFiles(['docs/one.md'], createBaseOptions([promptA, promptB]));
@@ -647,6 +664,23 @@ describe('agent mode output formatting', () => {
       severity: 'warning',
     });
 
+    RUN_AGENT_EXECUTOR_MOCK.mockImplementation((args: {
+      onStatus?: (event: { type: string; stepNumber: number; toolName?: string; toolArgs?: unknown }) => void;
+    }) => {
+      args.onStatus?.({
+        type: 'tool-start',
+        stepNumber: 0,
+        toolName: 'lint',
+        toolArgs: { file: 'docs/one.md', ruleKey: 'TestPack:AgentRule', ruleContent: '...' },
+      });
+      args.onStatus?.({
+        type: 'tool-start',
+        stepNumber: 1,
+        toolName: 'lint',
+        toolArgs: { file: 'docs/two.md', ruleKey: 'TestPack:AgentRule', ruleContent: '...' },
+      });
+      return { findings: [], ruleId: 'agent' };
+    });
     COLLECT_AGENT_FINDINGS_MOCK.mockReturnValue([]);
 
     await evaluateFiles(['docs/one.md', 'docs/two.md'], createBaseOptions([prompt]));
