@@ -99,6 +99,23 @@ For documents >600 words, VectorLint automatically chunks content:
 - Rule YAML: `name` (human), `id` (PascalCase), criteria `id` (PascalCase)
 - IDs shown as `PromptId.CriterionId` in output
 
+### Semantic Naming Rule (Via Negativa)
+
+Use names that describe business meaning, not implementation accidents. Semantically correct names reduce cognitive load, lower review friction, and make behavior obvious without tracing the whole call chain.
+
+Before finalizing any function, variable, class, or type name, ask:
+
+- Is this name tied to implementation detail instead of business intent (e.g., `temp`, `data2`, `unit`, `helper`)?
+- Could this name still be "technically true" if behavior changed, while still being misleading?
+- Does this name require reading the full function body to understand what it represents?
+- Does this name imply one domain concept while the value actually belongs to another domain concept?
+- Does this name hide scope (local variable vs module state vs shared/system state)?
+- Is this abbreviation ambiguous to someone new to the codebase?
+- Does this name conflict with terminology already used in documentation, UI text, or domain language?
+- Would a reviewer likely ask "what does this mean?" on first read?
+
+Acceptance gate: if all answers are **No**, the name is semantically correct. If any answer is **Yes**, rename.
+
 ## Testing Guidelines
 
 - Framework: Vitest; locate tests under `tests/` with `*.test.ts`
