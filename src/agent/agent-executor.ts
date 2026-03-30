@@ -47,7 +47,7 @@ const AGENT_OUTPUT_SCHEMA = z.object({
   findings: z.array(AGENT_FINDING_SCHEMA),
 });
 const MAX_AGENT_STEPS = 25;
-const DEFAULT_AGENT_MAX_RETRIES = 5;
+const DEFAULT_AGENT_MAX_RETRIES = 10;
 const DEFAULT_AGENT_TOOL_CONCURRENCY = 1;
 
 function parseAgentOutputFromText(text: string): z.infer<typeof AGENT_OUTPUT_SCHEMA> | null {

@@ -20,7 +20,7 @@ const DEFAULT_GLOBAL_CONFIG_TEMPLATE = `# VectorLint Environment Configuration
 # Choose ONE provider by uncommenting its section
 # ============================================
 # Optional agent setting:
-# AGENT_MAX_RETRIES = "5"   # retries per agent model call (0 disables retries)
+# AGENT_MAX_RETRIES = "10"   # retries per agent model call (0 disables retries)
 
 # --- Option 1: OpenAI (Standard) ---
 # LLM_PROVIDER = "openai"

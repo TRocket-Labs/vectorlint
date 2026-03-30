@@ -54,7 +54,7 @@ describe('runAgentExecutor', () => {
         maxRetries?: number;
         providerOptions?: Record<string, unknown>;
       };
-      expect(call.maxRetries).toBe(5);
+      expect(call.maxRetries).toBe(10);
       expect(call.providerOptions).toEqual({
         anthropic: { disableParallelToolUse: true },
       });
