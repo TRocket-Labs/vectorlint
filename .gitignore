@@ -14,4 +14,7 @@ vectorlint.ini
 /npm
 VECTORLINT.md
 .vectorlint/runs/
-docs
+/docs/logs/
+/docs/artifacts/
+/docs/plans/
+/docs/superpowers/plans/
