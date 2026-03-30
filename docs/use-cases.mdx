@@ -1,0 +1,65 @@
+---
+title: Use cases
+description: See how teams use VectorLint to enforce content standards across documentation, marketing, and developer content.
+---
+
+VectorLint is a general-purpose content evaluation tool. Any team that publishes written content at scale — and needs consistent, measurable quality — can use it. These are the most common use cases.
+
+## Enforce a style guide automatically
+
+Most organizations have a style guide that exists as a PDF or a wiki page. VectorLint converts those written standards into an automated check that runs on every file, every time.
+
+You define your standards once — either in `VECTORLINT.md` as plain-language instructions, or as targeted rule pack files — and VectorLint enforces them consistently across your entire content library. No more manual review for comma usage, passive voice, or banned terminology.
+
+**Who uses this:** technical writing teams, content operations teams, developer advocacy teams
+
+## Catch AI-generated writing patterns
+
+As LLM-assisted writing becomes standard, content quality risks shifting toward a recognizable pattern: hollow openings, overused buzzwords, formulaic transitions, excessive hedging. VectorLint's built-in AI Pattern Detector rule flags these patterns before they reach readers.
+
+Teams can tune the rule to match their voice — stricter for customer-facing content, more lenient for internal drafts.
+
+**Who uses this:** developer relations, marketing, documentation teams publishing AI-assisted content
+
+## Verify technical accuracy
+
+The `technical-accuracy` evaluator uses a search provider to check factual claims in your content against current external sources. This catches outdated version numbers, deprecated API references, and incorrect command syntax — the category of errors that's hardest to catch in manual review.
+
+**Who uses this:** developer documentation teams, API reference authors, teams maintaining large technical content libraries
+
+## Gate content quality in CI
+
+VectorLint runs from the command line and exits with a non-zero status code on violations, making it a natural fit for CI pipelines. Teams add it as a pre-merge check so content that fails quality thresholds never reaches production.
+
+```bash
+# Example GitHub Actions step
+- name: Lint documentation
+  run: vectorlint content/docs/**/*.md
+```
+
+**Who uses this:** engineering teams treating docs as code, platform teams managing documentation infrastructure
+
+## Set different standards for different content types
+
+Not all content deserves the same scrutiny. VectorLint's cascading configuration lets you apply strict rules to customer-facing documentation, standard rules to blog posts, and no rules to drafts — all in a single `.vectorlint.ini`.
+
+```ini
+[content/docs/**/*.md]
+RunRules=TechDocs
+GrammarChecker.strictness=9
+
+[content/blog/**/*.md]
+RunRules=TechDocs
+GrammarChecker.strictness=5
+
+[content/drafts/**/*.md]
+RunRules=
+```
+
+**Who uses this:** content teams with multiple publication channels and different quality expectations per channel
+
+## Next steps
+
+- [Quickstart](/quickstart) — run your first evaluation in minutes
+- [How it works](/how-it-works) — understand the evaluation pipeline
+- [Defining your style rules](/style-guide) — create rules for your specific standards

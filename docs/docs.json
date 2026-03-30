@@ -1,0 +1,131 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "VectorLint",
+  "colors": {
+    "primary": "#7C3AED",
+    "light": "#A78BFA",
+    "dark": "#5B21B6"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "introduction",
+              "how-it-works",
+              "use-cases"
+            ]
+          },
+          {
+            "group": "Get started",
+            "pages": [
+              "quickstart",
+              "installation",
+              "initial-style-check"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration",
+              "project-config",
+              "style-guide",
+              "customize-style-rules",
+              "llm-providers",
+              "presets"
+            ]
+          },
+          {
+            "group": "Quality scoring",
+            "pages": [
+              "quality-scoring",
+              "density-scoring",
+              "rubric-scoring"
+            ]
+          },
+          {
+            "group": "For teams & organizations",
+            "pages": [
+              "ci-integration",
+              "team-rule-packs",
+              "false-positive-tuning"
+            ]
+          },
+          {
+            "group": "Best practices",
+            "pages": [
+              "best-practices"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Reference",
+            "pages": [
+              "cli-reference",
+              "configuration-schema",
+              "env-variables",
+              "frontmatter-fields",
+              "troubleshooting"
+            ]
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/TRocket-Labs/vectorlint",
+          "icon": "github"
+        },
+        {
+          "anchor": "npm",
+          "href": "https://www.npmjs.com/package/vectorlint",
+          "icon": "box"
+        }
+      ]
+    }
+  },
+  "logo": {
+    "light": "/logo/logo.svg",
+    "dark": "/logo/logo.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/TRocket-Labs/vectorlint"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Get started",
+      "href": "https://www.npmjs.com/package/vectorlint"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "cursor",
+      "vscode"
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/TRocket-Labs/vectorlint"
+    }
+  }
+}

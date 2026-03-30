@@ -1,0 +1,93 @@
+---
+title: Environment variables
+description: Complete reference for all environment variables that configure VectorLint's runtime behavior.
+---
+
+VectorLint reads configuration from environment variables at runtime. You can set them in two places:
+
+- **`~/.vectorlint/config.toml`** — global defaults that apply across all projects
+- **`.env` in your project root** — project-level overrides that take precedence over the global config
+
+In CI, pass them directly as pipeline environment variables or secrets. See [CI Integration](/ci-integration) for examples.
+
+<Note>
+  Never commit API keys to version control. Add `.env` to your `.gitignore`.
+</Note>
+
+## LLM provider
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `LLM_PROVIDER` | Yes | The LLM provider to use. Accepted values: `openai`, `anthropic`, `gemini`, `azure`. |
+| `OPENAI_API_KEY` | If using OpenAI | API key for OpenAI. |
+| `ANTHROPIC_API_KEY` | If using Anthropic | API key for Anthropic. |
+| `GEMINI_API_KEY` | If using Gemini | API key for Google Gemini. |
+| `AZURE_OPENAI_API_KEY` | If using Azure | API key for Azure OpenAI. |
+| `AZURE_OPENAI_ENDPOINT` | If using Azure | Your Azure OpenAI resource endpoint URL. |
+| `AZURE_OPENAI_DEPLOYMENT` | If using Azure | Your Azure OpenAI deployment name. |
+
+## Search provider
+
+Required only for rules that use the `technical-accuracy` evaluator. If not set, rules that depend on external lookup return reduced-confidence results.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SEARCH_PROVIDER` | If using technical-accuracy | Search provider to use. Accepted value: `perplexity`. |
+| `PERPLEXITY_API_KEY` | If using Perplexity | API key for Perplexity search. |
+
+## Evaluation behavior
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CONFIDENCE_THRESHOLD` | `0.75` | PAT pipeline confidence gate. Controls how strictly raw model candidates are filtered before surfacing violations. Accepted range: `0`–`1`. Invalid values fall back to `0.75`. |
+
+Lower values surface more findings (higher recall, more noise). Higher values surface fewer findings (higher precision, fewer false positives). See [Tuning evaluation precision](/false-positive-tuning) for guidance on when to adjust this.
+
+## Example configurations
+
+### OpenAI — global config.toml
+
+```toml
+[env]
+LLM_PROVIDER = "openai"
+OPENAI_API_KEY = "sk-..."
+```
+
+### Anthropic — project .env
+
+```bash
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### With search provider
+
+```toml
+[env]
+LLM_PROVIDER = "openai"
+OPENAI_API_KEY = "sk-..."
+SEARCH_PROVIDER = "perplexity"
+PERPLEXITY_API_KEY = "pplx-..."
+```
+
+### CI environment with higher confidence threshold
+
+```bash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+CONFIDENCE_THRESHOLD=0.85
+```
+
+## Precedence
+
+When the same variable is set in multiple places, VectorLint resolves it in this order — highest precedence first:
+
+1. Project `.env` file
+2. Global `~/.vectorlint/config.toml`
+3. System environment variables
+
+## Related
+
+- [LLM Providers](/llm-providers) — configure your provider with full setup examples
+- [CI Integration](/ci-integration) — pass environment variables securely in pipelines
+- [Tuning evaluation precision](/false-positive-tuning) — when and how to adjust `CONFIDENCE_THRESHOLD`

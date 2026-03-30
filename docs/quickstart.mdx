@@ -1,0 +1,95 @@
+---
+title: "Quickstart"
+description: "Run your first VectorLint content check in minutes using zero-config mode."
+---
+
+## Before you begin
+
+VectorLint requires Node.js. Use an LTS release for best compatibility.
+
+You will also need an API key for a supported LLM provider — OpenAI, Anthropic, Gemini, or Azure. VectorLint sends your content to the provider you configure for evaluation.
+
+---
+
+## Step 1: Initialize your project
+
+Run the quick-init command in your project root:
+
+```bash
+npx vectorlint init --quick
+```
+
+This creates a `VECTORLINT.md` file in your project root. VectorLint automatically generates a "Style Guide Compliance" rule from its contents and uses it for all evaluations.
+
+Open `VECTORLINT.md` and paste in your style guide — or add a few plain-language instructions to start:
+
+```md
+- Use active voice.
+- Avoid jargon and unexplained acronyms.
+- Write in second person (you, your).
+- Keep sentences under 25 words where possible.
+```
+
+<Tip>
+  You don't need a comprehensive style guide to get useful output. A few clear instructions are enough to run a meaningful first check.
+</Tip>
+
+---
+
+## Step 2: Configure your LLM provider
+
+<Warning>
+  You must complete this step before running a check. VectorLint will not produce output without a configured provider and valid API key.
+</Warning>
+
+Open `~/.vectorlint/config.toml` and set your provider and API key.
+
+For OpenAI:
+
+```toml
+[env]
+LLM_PROVIDER = "openai"
+OPENAI_API_KEY = "sk-..."
+```
+
+For Anthropic:
+
+```toml
+[env]
+LLM_PROVIDER = "anthropic"
+ANTHROPIC_API_KEY = "sk-ant-..."
+```
+
+<Tip>
+  You can also set these values in a `.env` file in your project root. Project-level values take precedence over `config.toml`.
+</Tip>
+
+---
+
+## Step 3: Run a check
+
+Point VectorLint at any Markdown file in your project:
+
+```bash
+npx vectorlint path/to/doc.md
+```
+
+VectorLint evaluates the file against your `VECTORLINT.md` instructions and returns findings in your terminal.
+
+{/* TBD: Add representative terminal output here once confirmed — scored (1–10) or violations list */}
+
+---
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="How VectorLint works" icon="gear" href="/how-it-works">
+    Understand the evaluation pipeline — rules, PAT filtering, and scoring.
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Install VectorLint globally or review Node.js version requirements.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/configuration">
+    Set up rule packs, file patterns, and provider settings for a full project.
+  </Card>
+</CardGroup>

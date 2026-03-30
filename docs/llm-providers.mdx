@@ -1,0 +1,116 @@
+---
+title: LLM Providers
+description: Configure the AI model that powers VectorLint evaluations.
+---
+
+VectorLint sends your content to a large language model (LLM) for evaluation. You choose which provider and model to use. Your API key stays in your local config file and is never transmitted to VectorLint servers.
+
+## Supported Providers
+
+| Provider | `LLM_PROVIDER` value | Key variable |
+|----------|----------------------|--------------|
+| OpenAI | `openai` | `OPENAI_API_KEY` |
+| Anthropic | `anthropic` | `ANTHROPIC_API_KEY` |
+| Google Gemini | `gemini` | `GEMINI_API_KEY` |
+| Azure OpenAI | `azure` | `AZURE_OPENAI_API_KEY` |
+
+## Where to Set Credentials
+
+VectorLint reads provider credentials from two locations. Project-level settings take precedence over global ones.
+
+### Global config (applies to all projects)
+
+`~/.vectorlint/config.toml` — created automatically when you run `vectorlint init`.
+
+```toml
+[env]
+LLM_PROVIDER = "openai"
+OPENAI_API_KEY = "sk-..."
+```
+
+Uncomment the section for your preferred provider and add your API key.
+
+### Project-level `.env` (overrides global config)
+
+Place a `.env` file in your project root to use a different provider for that project:
+
+```bash
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+<Note>
+Add `.env` to your `.gitignore`. API keys committed to version control are a security risk.
+</Note>
+
+## Configuring Each Provider
+
+### OpenAI
+
+```toml
+[env]
+LLM_PROVIDER = "openai"
+OPENAI_API_KEY = "sk-..."
+```
+
+### Anthropic
+
+```toml
+[env]
+LLM_PROVIDER = "anthropic"
+ANTHROPIC_API_KEY = "sk-ant-..."
+```
+
+### Google Gemini
+
+```toml
+[env]
+LLM_PROVIDER = "gemini"
+GEMINI_API_KEY = "AIza..."
+```
+
+### Azure OpenAI
+
+```toml
+[env]
+LLM_PROVIDER = "azure"
+AZURE_OPENAI_API_KEY = "..."
+AZURE_OPENAI_ENDPOINT = "https://your-resource.openai.azure.com/"
+AZURE_OPENAI_DEPLOYMENT = "your-deployment-name"
+```
+
+## Search Provider (Optional)
+
+Certain evaluators — most notably `TechnicalAccuracy` — require access to current external knowledge to verify facts against live sources. VectorLint supports pluggable search providers for this purpose.
+
+### Perplexity
+
+```toml
+[env]
+SEARCH_PROVIDER = "perplexity"
+PERPLEXITY_API_KEY = "pplx-..."
+```
+
+If no search provider is configured, rules that depend on external lookup will either skip verification or return reduced-confidence results, depending on how the rule is written.
+
+## Confidence Threshold
+
+VectorLint's PAT (Pay A Tax) filtering reduces false positives by applying gate checks before surfacing violations. You can tune how aggressively findings are filtered with the `CONFIDENCE_THRESHOLD` setting.
+
+```bash
+CONFIDENCE_THRESHOLD=0.75
+```
+
+| Value | Effect |
+|-------|--------|
+| Default (`0.75`) | Balanced precision and recall |
+| Lower (e.g., `0.5`) | More findings surfaced — higher recall, more noise |
+| Higher (e.g., `0.9`) | Fewer findings surfaced — higher precision, fewer false positives |
+
+Set this in your global `config.toml` or project `.env`. Invalid values fall back to `0.75`.
+
+## Next Steps
+
+- [Project Configuration](/project-config) — map files to rule packs in `.vectorlint.ini`
+- [Creating Rules](/style-guide) — write custom evaluations for your style guide
+- [Environment variables](/env-variables) — complete reference for all provider and runtime variables

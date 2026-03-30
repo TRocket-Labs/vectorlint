@@ -1,0 +1,192 @@
+---
+title: Troubleshooting
+description: Diagnose and fix common VectorLint issues with installation, configuration, API keys, and evaluation output.
+---
+
+<Note>
+  VectorLint's exact error message strings are not yet documented here. If you see an error not covered on this page, check the [VectorLint GitHub issues](https://github.com/TRocket-Labs/vectorlint/issues) or open a new one.
+</Note>
+
+## Installation issues
+
+### VectorLint command not found after global install
+
+**Symptom:** Running `vectorlint` after `npm install -g vectorlint` returns "command not found."
+
+**Cause:** npm's global bin directory is not on your `PATH`.
+
+**Fix:** Find your npm global bin directory and add it to your `PATH`:
+
+```bash
+npm bin -g
+```
+
+Add the output path to your shell profile (`.bashrc`, `.zshrc`, or equivalent):
+
+```bash
+export PATH="$PATH:/path/from/npm/bin"
+```
+
+Restart your terminal and try again.
+
+---
+
+### Node.js version error on install
+
+**Symptom:** npm returns an error referencing an unsupported Node.js version during install.
+
+**Cause:** VectorLint requires Node.js 18 or later.
+
+**Fix:** Check your current version:
+
+```bash
+node --version
+```
+
+If it's below 18, upgrade using [nvm](https://github.com/nvm-sh/nvm):
+
+```bash
+nvm install --lts
+nvm use --lts
+```
+
+---
+
+## API key and provider issues
+
+### No output — VectorLint runs but produces nothing
+
+**Symptom:** `vectorlint doc.md` completes silently with no findings and no errors.
+
+**Possible causes and fixes:**
+
+1. **`CONFIDENCE_THRESHOLD` is too high.** Lower it temporarily to see if the model is finding candidates that are being filtered out:
+   ```bash
+   CONFIDENCE_THRESHOLD=0.5 vectorlint doc.md
+   ```
+   If findings appear, your threshold is filtering too aggressively. Adjust it in your config.
+
+2. **The file matches a pattern with `RunRules=` (empty).** Check your `.vectorlint.ini` for a pattern that matches the file and has no rules assigned — this is intentional skip behavior for drafts. Confirm the file path matches the pattern you expect.
+
+3. **The content genuinely passes.** If you've lowered the threshold and still see nothing, the content may actually meet your standards. Try a file you know has issues to confirm the rule is working.
+
+---
+
+### Authentication error from LLM provider
+
+**Symptom:** VectorLint returns an authentication or authorization error when running a check.
+
+**Cause:** API key is missing, incorrect, or not being read from the right location.
+
+**Fix:** Verify the key is set and readable:
+
+```bash
+# Check if the variable is set in your environment
+echo $OPENAI_API_KEY
+```
+
+If empty, set it in your project `.env` file or `~/.vectorlint/config.toml`. Confirm the variable name matches exactly — `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `AZURE_OPENAI_API_KEY` depending on your provider.
+
+Also confirm `LLM_PROVIDER` matches the key you've set:
+
+```toml
+[env]
+LLM_PROVIDER = "anthropic"
+ANTHROPIC_API_KEY = "sk-ant-..."
+```
+
+See [Environment variables](/env-variables) for the full variable reference.
+
+---
+
+### Search provider not working for TechnicalAccuracy rules
+
+**Symptom:** Rules using `evaluator: technical-accuracy` produce no findings or return an error about search.
+
+**Cause:** No search provider is configured.
+
+**Fix:** Add a search provider to your config:
+
+```toml
+[env]
+SEARCH_PROVIDER = "perplexity"
+PERPLEXITY_API_KEY = "pplx-..."
+```
+
+Without a search provider, `technical-accuracy` evaluators cannot verify facts against external sources and will return reduced-confidence or no results.
+
+---
+
+## Configuration issues
+
+### Rules not running on a file
+
+**Symptom:** A file you expect to be checked produces no output even though rules are configured.
+
+**Possible causes and fixes:**
+
+1. **Glob pattern doesn't match.** Test your pattern mentally against the file path. `**/*.md` matches any `.md` file in any subdirectory. `content/docs/**/*.md` only matches files under `content/docs/`. A file at `docs/api.md` would not match `content/docs/**/*.md`.
+
+2. **`RulesPath` not set or incorrect.** If you're using custom rule packs, confirm `RulesPath` in `.vectorlint.ini` points to the directory containing your pack subdirectories:
+   ```ini
+   RulesPath=.github/rules
+   ```
+
+3. **Pack name doesn't match directory name.** `RunRules=Acme` looks for a subdirectory called `Acme` (case-sensitive) inside `RulesPath`. Confirm the directory exists and the name matches exactly.
+
+---
+
+### VECTORLINT.md token warning
+
+**Symptom:** VectorLint emits a warning that `VECTORLINT.md` exceeds approximately 4,000 tokens.
+
+**Cause:** The file is too large to serve as reliable global context. Very large context degrades LLM precision and increases API costs.
+
+**Fix:** Trim `VECTORLINT.md` to under 800 tokens — the practical working target. Move specific or detailed rules into dedicated rule pack files where they can be applied selectively rather than globally. See [Defining your style rules](/style-guide) for the extraction prompt that converts a full style guide into a compact `VECTORLINT.md`.
+
+---
+
+### Cascading configuration not behaving as expected
+
+**Symptom:** A file is running the wrong rules or using the wrong strictness settings.
+
+**Cause:** VectorLint applies all matching patterns from general to specific. More specific patterns override settings from general ones, but rule packs accumulate — a file can run rules from multiple patterns.
+
+**Fix:** Trace which patterns match your file path. For a file at `content/docs/api.md`, both `**/*.md` and `content/docs/**/*.md` match. The file will run rules from both patterns, with `content/docs/**/*.md` overriding any settings (like strictness) that conflict. See [Project Configuration](/project-config) for the full cascade reference.
+
+---
+
+## CI issues
+
+### CI pipeline fails immediately with no findings output
+
+**Symptom:** The VectorLint step in CI exits with a non-zero code but prints no findings.
+
+**Possible causes and fixes:**
+
+1. **API key secret not passed to the job.** Confirm the secret is defined in your CI environment and referenced correctly in the workflow:
+   ```yaml
+   env:
+     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+   ```
+
+2. **Node.js version in CI is below 18.** Add an explicit setup step:
+   ```yaml
+   - uses: actions/setup-node@v4
+     with:
+       node-version: lts/*
+   ```
+
+3. **Glob pattern in the run command doesn't expand correctly.** Some CI shells don't expand globs the same way as your local shell. Quote the pattern or use `find`:
+   ```bash
+   find content/docs -name "*.md" | xargs vectorlint
+   ```
+
+---
+
+## Getting more help
+
+- [VectorLint GitHub issues](https://github.com/TRocket-Labs/vectorlint/issues) — search existing issues or open a new one
+- [CLI reference](/cli-reference) — confirm command syntax and flags
+- [Environment variables](/env-variables) — verify variable names and precedence
+- [Project Configuration](/project-config) — debug `.vectorlint.ini` pattern matching

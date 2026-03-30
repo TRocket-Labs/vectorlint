@@ -1,0 +1,69 @@
+---
+title: "Introduction"
+description: "VectorLint is an LLM-based prose linter that enforces your style guide in one prompt."
+---
+
+## What is VectorLint?
+
+VectorLint is a command-line tool that evaluates and scores documentation using large language models (LLMs). Instead of regex patterns that can only catch surface-level issues, VectorLint uses an [LLM-as-a-Judge](https://en.wikipedia.org/wiki/LLM-as-a-Judge) approach to catch terminology misuse, technical inaccuracies, and style inconsistencies that require contextual understanding to detect.
+
+If you can write a prompt for it, you can lint it with VectorLint.
+
+## Why VectorLint exists
+
+Traditional prose linters like Vale work by matching text against fixed regex patterns and word lists. They catch what you explicitly tell them to catch — but they can't reason about meaning, context, or technical accuracy.
+
+VectorLint fills that gap. You define a rule once as a Markdown prompt, and the LLM applies it across your entire content library — scoring each document, surfacing specific violations, and explaining why each violation matters.
+
+This gives documentation teams something they haven't had before: a **shared, measurable definition of content quality** that scales across writers, repositories, and content types.
+
+## What you can check
+
+<CardGroup cols={2}>
+  <Card title="Technical accuracy" icon="circle-check">
+    Catch outdated API references, incorrect command syntax, and factually wrong claims before they reach users.
+  </Card>
+  <Card title="Style guide compliance" icon="pen-line">
+    Enforce tone, terminology, and voice consistently across all content — not just the pages you manually review.
+  </Card>
+  <Card title="AI-generated content detection" icon="robot">
+    Identify artificial writing patterns like formulaic transitions, buzzword overuse, and unnatural sentence structure.
+  </Card>
+  <Card title="SEO optimization" icon="magnifying-glass">
+    Verify that content follows SEO best practices for headings, keyword usage, and metadata.
+  </Card>
+</CardGroup>
+
+## How scoring works
+
+VectorLint uses two scoring methods depending on the rule type:
+
+**Density-based scoring** is used for rules that count discrete violations (like a grammar checker). Scores are calculated based on error density — errors per 100 words — so quality assessment is fair across documents of any length.
+
+**Rubric-based scoring** is used for rules that measure quality on a spectrum (like tone or completeness). The LLM scores each criterion on a 1–4 scale, which VectorLint normalizes to a 1–10 scale for consistent reporting.
+
+## How false positives are reduced
+
+VectorLint uses a PAT (Pay A Tax) evaluation pipeline to keep output precise:
+
+1. **Candidate generation** — the LLM returns all potential violations, each with required gate-check fields: rule support, exact evidence, context support, plausible non-violation, and fix quality.
+2. **Deterministic filtering** — VectorLint applies a strict filter and only surfaces violations that pass all required gates.
+
+VectorLint's output is intentionally stricter than raw model candidates — only findings that pass all gates are reported. You can tune how aggressively the pipeline filters findings to match your content workflow. See [Tuning evaluation precision](/false-positive-tuning).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install VectorLint globally or run it with npx — no setup required.
+  </Card>
+  <Card title="Quick start" icon="bolt" href="/quickstart">
+    Run your first content check in under five minutes.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/configuration">
+    Set up rule packs, file patterns, and LLM providers.
+  </Card>
+  <Card title="Customizing style rules" icon="file-pen" href="/customize-style-rules">
+    Write effective LLM prompts for your rule pack files to enforce your specific standards.
+  </Card>
+</CardGroup>

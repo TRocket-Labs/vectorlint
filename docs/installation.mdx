@@ -1,0 +1,60 @@
+---
+title: "Installation"
+description: "Install VectorLint globally or run it with npx. Covers Node.js requirements and verifying your installation."
+---
+
+## Before you begin
+
+VectorLint requires Node.js 18 or later. Node.js 22 LTS is recommended. If you need to install or update Node.js, use [nvm](https://github.com/nvm-sh/nvm) (recommended) or download directly from [nodejs.org](https://nodejs.org).
+
+---
+
+## Option 1: Global install
+
+Install VectorLint globally from npm:
+
+```bash
+npm install -g vectorlint
+```
+
+Verify the installation:
+
+```bash
+vectorlint --help
+```
+
+A global install makes the `vectorlint` command available from any directory on your machine. Use this option if you plan to run VectorLint regularly across multiple projects.
+
+For a full reference of commands and flags, see [CLI reference](/cli-reference).
+
+---
+
+## Option 2: Run with npx
+
+Run VectorLint without installing it:
+
+```bash
+npx vectorlint path/to/doc.md
+```
+
+npx downloads and runs the latest version of VectorLint on demand. No installation or version management required. Use this option for one-off checks or to try VectorLint before committing to a global install.
+
+<Tip>
+  If you use npx regularly, pin a specific version to avoid unexpected behavior when VectorLint releases updates: `npx vectorlint@2.5.0 path/to/doc.md`
+</Tip>
+
+---
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="bolt" href="/quickstart">
+    Run your first content check using zero-config mode.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/configuration">
+    Set up rule packs, file patterns, and provider settings.
+  </Card>
+  <Card title="LLM providers" icon="key" href="/llm-providers">
+    Configure your API keys for OpenAI, Anthropic, Gemini, or Azure.
+  </Card>
+</CardGroup>
