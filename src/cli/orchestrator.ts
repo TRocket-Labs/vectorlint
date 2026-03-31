@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { randomUUID } from 'crypto';
 import * as path from 'path';
+import * as os from 'os';
 import type { PromptFile } from '../prompts/prompt-loader';
 import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
@@ -14,6 +15,8 @@ import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { OutputFormat } from './types';
+import { runAgentExecutor, type AgentExecutorResult, type AgentFinding } from '../agent/executor';
+import { AgentProgressReporter, shouldEmitAgentProgress } from '../agent/progress';
 import type {
   EvaluationOptions, EvaluationResult, ErrorTrackingResult,
   ReportIssueParams, ProcessViolationsParams,
@@ -1052,6 +1055,135 @@ async function evaluateFile(
   };
 }
 
+function reportAgentFinding(params: {
+  finding: AgentFinding;
+  outputFormat: OutputFormat;
+  jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
+}): void {
+  const { finding, outputFormat, jsonFormatter } = params;
+
+  reportIssue({
+    file: finding.file,
+    line: finding.line,
+    column: finding.column,
+    severity: finding.severity,
+    summary: finding.message,
+    ruleName: finding.ruleId,
+    outputFormat,
+    jsonFormatter,
+    ...(finding.analysis ? { analysis: finding.analysis } : {}),
+    ...(finding.suggestion ? { suggestion: finding.suggestion } : {}),
+    ...(finding.fix ? { fix: finding.fix } : {}),
+    ...(finding.match ? { match: finding.match } : {}),
+  });
+}
+
+async function evaluateFilesInAgentMode(
+  targets: string[],
+  options: EvaluationOptions,
+  outputFormat: OutputFormat,
+  jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter
+): Promise<EvaluationResult> {
+  const repositoryRoot = inferAgentRepositoryRoot(targets);
+  const progressReporter = new AgentProgressReporter(
+    shouldEmitAgentProgress({
+      outputFormat,
+      printMode: options.printMode ?? false,
+    })
+  );
+
+  const agentResult: AgentExecutorResult = await runAgentExecutor({
+    targets,
+    prompts: options.prompts,
+    provider: options.provider,
+    repositoryRoot,
+    scanPaths: options.scanPaths,
+    outputFormat,
+    printMode: options.printMode ?? false,
+    sessionHomeDir: os.homedir(),
+    progressReporter,
+    maxParallelToolCalls: 1,
+  });
+
+  if (outputFormat === OutputFormat.Line) {
+    const seenFiles = new Set<string>();
+    for (const target of targets) {
+      const rel = path.relative(repositoryRoot, target) || target;
+      if (seenFiles.has(rel)) continue;
+      seenFiles.add(rel);
+      printFileHeader(rel);
+    }
+  }
+
+  let totalErrors = 0;
+  let totalWarnings = 0;
+  for (const finding of agentResult.findings) {
+    reportAgentFinding({ finding, outputFormat, jsonFormatter });
+    if (finding.severity === Severity.ERROR) {
+      totalErrors += 1;
+    } else {
+      totalWarnings += 1;
+    }
+  }
+
+  if (
+    outputFormat === OutputFormat.Json ||
+    outputFormat === OutputFormat.ValeJson ||
+    outputFormat === OutputFormat.RdJson
+  ) {
+    console.log(jsonFormatter.toJson());
+  }
+
+  const tokenUsage = {
+    totalInputTokens: agentResult.usage?.inputTokens ?? 0,
+    totalOutputTokens: agentResult.usage?.outputTokens ?? 0,
+  };
+
+  return {
+    totalFiles: targets.length,
+    totalErrors,
+    totalWarnings,
+    requestFailures: agentResult.hadOperationalErrors ? 1 : 0,
+    hadOperationalErrors: agentResult.hadOperationalErrors,
+    hadSeverityErrors: totalErrors > 0,
+    tokenUsage,
+  };
+}
+
+function inferAgentRepositoryRoot(targets: string[]): string {
+  if (targets.length === 0) {
+    return process.cwd();
+  }
+
+  const directories = targets.map((target) => path.dirname(path.resolve(target)));
+  let root = directories[0]!;
+
+  for (const directory of directories.slice(1)) {
+    root = commonPathPrefix(root, directory);
+  }
+
+  return root;
+}
+
+function commonPathPrefix(left: string, right: string): string {
+  let candidate = path.resolve(left);
+  const target = path.resolve(right);
+
+  while (true) {
+    const relative = path.relative(candidate, target);
+    const insideCandidate = !relative.startsWith('..') && !path.isAbsolute(relative);
+    if (insideCandidate) {
+      return candidate;
+    }
+
+    const parent = path.dirname(candidate);
+    if (parent === candidate) {
+      return candidate;
+    }
+    candidate = parent;
+  }
+}
+
 /*
  * Runs evaluations across all target files with configurable concurrency.
  * Coordinates prompt-to-file mapping, evaluation execution, and result aggregation.
@@ -1061,7 +1193,7 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  const { outputFormat = OutputFormat.Line } = options;
+  const { outputFormat = OutputFormat.Line, mode = 'standard' } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -1079,6 +1211,10 @@ export async function evaluateFiles(
     jsonFormatter = new RdJsonFormatter();
   } else {
     jsonFormatter = new ValeJsonFormatter();
+  }
+
+  if (mode === 'agent') {
+    return evaluateFilesInAgentMode(targets, options, outputFormat, jsonFormatter);
   }
 
   for (const file of targets) {

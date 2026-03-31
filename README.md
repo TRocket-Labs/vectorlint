@@ -123,6 +123,27 @@ VectorLint is bundled with a `VectorLint` preset containing rules for AI pattern
 
 👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
 
+## Agent Mode
+
+Run VectorLint in autonomous agent mode:
+
+```bash
+vectorlint doc.md --mode agent
+```
+
+For machine-parseable output without interactive progress:
+
+```bash
+vectorlint doc.md --mode agent --output json --print
+```
+
+Agent mode guarantees:
+
+- Read-only analysis tools only (`lint`, `report_finding`, `read_file`, `search_files`, `list_directory`, `search_content`)
+- Session success requires exactly one `finalize_review` tool call
+- Session events are written to `~/.vectorlint/reviews/<session-id>.jsonl`
+- Replay is resilient: malformed JSONL lines are skipped, valid events are preserved
+
 ## Contributing
 
 We welcome your contributions! Whether it's adding new rules, fixing bugs, or improving documentation, please check out our [Contributing Guidelines](.github/CONTRIBUTING.md) to get started.

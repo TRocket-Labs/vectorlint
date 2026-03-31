@@ -80,7 +80,7 @@ describe('VercelAIProvider agent loop', () => {
         finalize_review: {
           description: 'Finalize review session',
           inputSchema: z.object({ summary: z.string().optional() }),
-          execute: async () => ({ ok: true }),
+          execute: () => Promise.resolve({ ok: true }),
         },
       },
     });
@@ -127,7 +127,7 @@ describe('VercelAIProvider agent loop', () => {
         finalize_review: {
           description: 'Finalize review session',
           inputSchema: z.object({ summary: z.string().optional() }),
-          execute: async () => ({ ok: true }),
+          execute: () => Promise.resolve({ ok: true }),
         },
       },
     });
@@ -171,7 +171,7 @@ describe('VercelAIProvider agent loop', () => {
         finalize_review: {
           description: 'Finalize review session',
           inputSchema: z.object({ summary: z.string().optional() }),
-          execute: async () => ({ ok: true }),
+          execute: () => Promise.resolve({ ok: true }),
         },
       },
     });

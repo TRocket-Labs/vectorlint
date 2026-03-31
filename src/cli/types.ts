@@ -18,6 +18,8 @@ export enum OutputFormat {
     RdJson = "rdjson",
 }
 
+export type EvaluationMode = 'standard' | 'agent';
+
 export interface EvaluationOptions {
     prompts: PromptFile[];
     rulesPath: string | undefined;
@@ -28,6 +30,8 @@ export interface EvaluationOptions {
     debugJson?: boolean;
     scanPaths: FilePatternConfig[];
     outputFormat?: OutputFormat;
+    mode?: EvaluationMode;
+    printMode?: boolean;
     pricing?: PricingConfig;
     userInstructionContent?: string;
 }

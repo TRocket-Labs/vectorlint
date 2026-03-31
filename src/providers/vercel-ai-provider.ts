@@ -1,7 +1,7 @@
-import { generateText, Output, NoObjectGeneratedError } from 'ai';
+import { generateText, Output, NoObjectGeneratedError, stepCountIs, tool } from 'ai';
 import type { LanguageModel } from 'ai';
 import { z } from 'zod';
-import { LLMProvider, LLMResult } from './llm-provider';
+import { AgentToolLoopParams, AgentToolLoopResult, LLMProvider, LLMResult } from './llm-provider';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 
 export interface VercelAIConfig {
@@ -24,7 +24,7 @@ export class VercelAIProvider implements LLMProvider {
       ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
     };
     this.builder = builder ?? new DefaultRequestBuilder();
-  }
+  };
 
   async runPromptStructured<T = unknown>(
     content: string,
@@ -110,6 +110,43 @@ export class VercelAIProvider implements LLMProvider {
       const err = e instanceof Error ? e : new Error(String(e));
       throw new Error(`Vercel AI SDK call failed: ${err.message}`);
     }
+  }
+
+  runAgentToolLoop = async (params: AgentToolLoopParams): Promise<AgentToolLoopResult> => {
+    const maxParallel = params.maxParallelToolCalls ?? 1;
+    const parallelToolCalls = maxParallel > 1;
+
+    const mappedTools = Object.fromEntries(
+      Object.entries(params.tools).map(([name, definition]) => [
+        name,
+        tool({
+          description: definition.description,
+          inputSchema: definition.inputSchema,
+          execute: definition.execute,
+        }),
+      ])
+    );
+
+    const result = await generateText({
+      model: this.config.model,
+      system: params.systemPrompt,
+      prompt: params.prompt,
+      ...(params.maxRetries !== undefined ? { maxRetries: params.maxRetries } : {}),
+      ...(params.maxSteps !== undefined ? { stopWhen: stepCountIs(params.maxSteps) } : {}),
+      providerOptions: {
+        openai: { parallelToolCalls },
+      },
+      tools: mappedTools,
+    });
+
+    return {
+      usage: result.usage
+        ? {
+          inputTokens: result.usage.inputTokens ?? 0,
+          outputTokens: result.usage.outputTokens ?? 0,
+        }
+        : undefined,
+    };
   }
 
   /**

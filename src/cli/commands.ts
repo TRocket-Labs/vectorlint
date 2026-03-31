@@ -56,6 +56,8 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
+    .option('--mode <mode>', 'Execution mode: standard (default) or agent', 'standard')
+    .option('-p, --print', 'Suppress interactive progress output in agent mode')
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
     .action(async (paths: string[] = []) => {
@@ -202,6 +204,11 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
+      if (cliOptions.mode !== 'standard' && cliOptions.mode !== 'agent') {
+        console.error(`Error: Invalid mode '${String(cliOptions.mode)}'. Valid options: standard, agent`);
+        process.exit(1);
+      }
+
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
         prompts,
@@ -212,6 +219,8 @@ export function registerMainCommand(program: Command): void {
         verbose: cliOptions.verbose,
         debugJson: cliOptions.debugJson,
         outputFormat: outputFormat,
+        mode: cliOptions.mode,
+        printMode: cliOptions.print,
         scanPaths: config.scanPaths,
         pricing: {
           inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,
