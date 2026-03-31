@@ -242,6 +242,100 @@ describe('agent orchestrator output', () => {
     expect(stderrOutput).toContain('◆ done in');
   });
 
+  it('renders rich tool-call previews for lint and non-lint tools in agent line output', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+
+        await tools.lint.execute({
+          file: 'doc.md',
+          ruleSource: 'packs/default/consistency.md',
+        });
+        await tools.search_files.execute({ pattern: '**/*.md' });
+        await tools.read_file.execute({ path: 'doc.md' });
+        await tools.finalize_review.execute({});
+
+        return { usage: { inputTokens: 4, outputTokens: 2 } };
+      },
+    } as unknown as LLMProvider;
+
+    await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Line,
+      mode: 'agent' as never,
+      printMode: false,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(stderrOutput).toContain('lint(');
+    expect(stderrOutput).toContain('search_files(');
+    expect(stderrOutput).toContain('read_file(');
+  });
+
+  it('renders interactive tool lines without a trailing newline', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          ruleSource: 'packs/default/consistency.md',
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 2, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Line,
+      mode: 'agent' as never,
+      printMode: false,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    const firstToolLine = stderrSpy.mock.calls
+      .map((call) => String(call[0]))
+      .find((chunk) => chunk.includes('calling tool'));
+
+    expect(firstToolLine).toBeDefined();
+    expect(firstToolLine?.endsWith('\n')).toBe(false);
+  });
+
   it('uses in-place progress updates for repeated tool calls instead of appending only plain lines', async () => {
     Object.defineProperty(process.stderr, 'isTTY', {
       configurable: true,
@@ -329,6 +423,92 @@ describe('agent orchestrator output', () => {
     const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
     expect(stderrOutput).toContain('for AI Pattern');
     expect(stderrOutput).toContain('for Consistency');
+  });
+
+  it('shows quality scores in agent line output and keeps operational failures explicit when finalize_review is missing', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({
+          data: {
+            reasoning: 'detected issue',
+            violations: [
+              {
+                line: 1,
+                quoted_text: 'bad phrase',
+                context_before: '',
+                context_after: '',
+                description: 'Bad phrase used',
+                analysis: 'This wording is inconsistent.',
+                message: 'Use consistent wording',
+                suggestion: 'Replace bad phrase',
+                fix: 'better phrase',
+                rule_quote: 'Avoid vague wording',
+                checks: {
+                  rule_supports_claim: true,
+                  evidence_exact: true,
+                  context_supports_violation: true,
+                  plausible_non_violation: false,
+                  fix_is_drop_in: true,
+                  fix_preserves_meaning: true,
+                },
+                check_notes: {
+                  rule_supports_claim: 'clear',
+                  evidence_exact: 'exact',
+                  context_supports_violation: 'yes',
+                  plausible_non_violation: 'none',
+                  fix_is_drop_in: 'yes',
+                  fix_preserves_meaning: 'yes',
+                },
+                confidence: 0.95,
+              },
+            ],
+          },
+        });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          ruleSource: 'packs/default/consistency.md',
+        });
+        return { usage: { inputTokens: 6, outputTokens: 3 } };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Line,
+      mode: 'agent' as never,
+      printMode: false,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    const stdout = vi
+      .mocked(console.log)
+      .mock
+      .calls
+      .map((call) => String(call[0]))
+      .join('\n');
+
+    expect(result.hadOperationalErrors).toBe(true);
+    expect(result.requestFailures).toBe(1);
+    expect(stdout).toContain('Use consistent wording');
+    expect(stdout).toContain('Quality Scores:');
+    expect(stderrSpy).toHaveBeenCalled();
   });
 
   it('suppresses progress output when print mode is enabled', async () => {
