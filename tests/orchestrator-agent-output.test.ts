@@ -83,6 +83,13 @@ function makeNoFinalizeProvider(): LLMProvider {
         file: 'doc.md',
         ruleSource: 'packs/default/consistency.md',
       });
+      await tools.report_finding.execute({
+        kind: 'top-level',
+        ruleSource: 'packs/default/consistency.md',
+        message: 'Finding recorded before session ended',
+        references: [{ file: 'doc.md', startLine: 1, endLine: 1 }],
+      });
+      // intentionally omit finalize_review to simulate missing-finalize scenario
       return { usage: { inputTokens: 3, outputTokens: 2 } };
     },
   } as unknown as LLMProvider;

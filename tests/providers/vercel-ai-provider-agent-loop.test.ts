@@ -87,101 +87,81 @@ describe('VercelAIProvider agent loop', () => {
 
     const call = MOCK_GENERATE_TEXT.mock.calls.at(-1)?.[0] as {
       maxRetries?: number;
-      providerOptions?: Record<string, unknown>;
     };
 
     expect(call.maxRetries).toBe(4);
-    expect(call.providerOptions).toEqual({
-      openai: { parallelToolCalls: false },
-    });
   });
 
-  it('enables provider-level parallel tool calls when maxParallelToolCalls is greater than one', async () => {
-    MOCK_GENERATE_TEXT.mockResolvedValue({
-      text: 'done',
-      usage: { inputTokens: 10, outputTokens: 5 },
+  it('limits concurrent tool executes to maxParallelToolCalls', async () => {
+    let maxConcurrent = 0;
+    let currentConcurrent = 0;
+
+    MOCK_GENERATE_TEXT.mockImplementation(async (args: Record<string, unknown>) => {
+      const tools = args.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      await Promise.all(Object.values(tools).map((t) => t.execute({})));
+      return { text: 'done', usage: { inputTokens: 10, outputTokens: 5 } };
     });
+
+    const trackingExecute = async () => {
+      currentConcurrent++;
+      maxConcurrent = Math.max(maxConcurrent, currentConcurrent);
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+      currentConcurrent--;
+      return {};
+    };
 
     const provider = new VercelAIProvider({
       model: { provider: 'openai' } as unknown as LanguageModel,
     });
 
-    const runAgentToolLoop = (
-      provider as unknown as {
-        runAgentToolLoop?: (params: Record<string, unknown>) => Promise<unknown>;
-      }
-    ).runAgentToolLoop;
-
-    expect(typeof runAgentToolLoop).toBe('function');
-    if (typeof runAgentToolLoop !== 'function') {
-      throw new Error('runAgentToolLoop is not implemented');
-    }
-
-    await runAgentToolLoop({
+    await provider.runAgentToolLoop({
       systemPrompt: 'system',
       prompt: 'prompt',
-      maxRetries: 4,
-      maxSteps: 42,
-      maxParallelToolCalls: 3,
+      maxParallelToolCalls: 2,
       tools: {
-        finalize_review: {
-          description: 'Finalize review session',
-          inputSchema: z.object({ summary: z.string().optional() }),
-          execute: () => Promise.resolve({ ok: true }),
-        },
+        tool_a: { description: 'a', inputSchema: z.object({}), execute: trackingExecute },
+        tool_b: { description: 'b', inputSchema: z.object({}), execute: trackingExecute },
+        tool_c: { description: 'c', inputSchema: z.object({}), execute: trackingExecute },
+        tool_d: { description: 'd', inputSchema: z.object({}), execute: trackingExecute },
       },
     });
 
-    const call = MOCK_GENERATE_TEXT.mock.calls.at(-1)?.[0] as {
-      providerOptions?: Record<string, unknown>;
-    };
-
-    expect(call.providerOptions).toEqual({
-      openai: { parallelToolCalls: true },
-    });
+    expect(maxConcurrent).toBeLessThanOrEqual(2);
+    expect(maxConcurrent).toBeGreaterThan(1);
   });
 
-  it('keeps provider tool execution serial when maxParallelToolCalls is not supplied', async () => {
-    MOCK_GENERATE_TEXT.mockResolvedValue({
-      text: 'done',
-      usage: { inputTokens: 10, outputTokens: 5 },
+  it('defaults tool concurrency to 1 when maxParallelToolCalls is not supplied', async () => {
+    let maxConcurrent = 0;
+    let currentConcurrent = 0;
+
+    MOCK_GENERATE_TEXT.mockImplementation(async (args: Record<string, unknown>) => {
+      const tools = args.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      await Promise.all(Object.values(tools).map((t) => t.execute({})));
+      return { text: 'done', usage: { inputTokens: 10, outputTokens: 5 } };
     });
+
+    const trackingExecute = async () => {
+      currentConcurrent++;
+      maxConcurrent = Math.max(maxConcurrent, currentConcurrent);
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+      currentConcurrent--;
+      return {};
+    };
 
     const provider = new VercelAIProvider({
       model: { provider: 'openai' } as unknown as LanguageModel,
     });
 
-    const runAgentToolLoop = (
-      provider as unknown as {
-        runAgentToolLoop?: (params: Record<string, unknown>) => Promise<unknown>;
-      }
-    ).runAgentToolLoop;
-
-    expect(typeof runAgentToolLoop).toBe('function');
-    if (typeof runAgentToolLoop !== 'function') {
-      throw new Error('runAgentToolLoop is not implemented');
-    }
-
-    await runAgentToolLoop({
+    await provider.runAgentToolLoop({
       systemPrompt: 'system',
       prompt: 'prompt',
-      maxRetries: 4,
-      maxSteps: 42,
       tools: {
-        finalize_review: {
-          description: 'Finalize review session',
-          inputSchema: z.object({ summary: z.string().optional() }),
-          execute: () => Promise.resolve({ ok: true }),
-        },
+        tool_a: { description: 'a', inputSchema: z.object({}), execute: trackingExecute },
+        tool_b: { description: 'b', inputSchema: z.object({}), execute: trackingExecute },
+        tool_c: { description: 'c', inputSchema: z.object({}), execute: trackingExecute },
       },
     });
 
-    const call = MOCK_GENERATE_TEXT.mock.calls.at(-1)?.[0] as {
-      providerOptions?: Record<string, unknown>;
-    };
-
-    expect(call.providerOptions).toEqual({
-      openai: { parallelToolCalls: false },
-    });
+    expect(maxConcurrent).toBe(1);
   });
 });
