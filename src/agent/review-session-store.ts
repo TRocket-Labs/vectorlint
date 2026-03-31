@@ -34,8 +34,10 @@ export async function createReviewSessionStore(
   let sessionId = createSessionId();
   let sessionFilePath = path.join(reviewsDir, `${sessionId}.jsonl`);
 
+  const maxCreateAttempts = 10;
+
   // Collision-resilient exclusive create.
-  for (let attempt = 0; attempt < 10; attempt += 1) {
+  for (let attempt = 0; attempt < maxCreateAttempts; attempt += 1) {
     try {
       const handle = await fs.open(sessionFilePath, 'wx');
       await handle.close();
@@ -44,6 +46,9 @@ export async function createReviewSessionStore(
       const err = error as NodeJS.ErrnoException;
       if (err.code !== 'EEXIST') {
         throw err;
+      }
+      if (attempt === maxCreateAttempts - 1) {
+        throw new Error(`Failed to create unique session file after ${maxCreateAttempts} attempts`);
       }
       sessionId = createSessionId();
       sessionFilePath = path.join(reviewsDir, `${sessionId}.jsonl`);
@@ -73,7 +78,15 @@ export async function createReviewSessionStore(
         if (!trimmed) {
           continue;
         }
-        events.push(SESSION_EVENT_SCHEMA.parse(JSON.parse(trimmed)));
+        try {
+          events.push(SESSION_EVENT_SCHEMA.parse(JSON.parse(trimmed)));
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          const preview = trimmed.slice(0, 120);
+          console.warn(
+            `[vectorlint] Skipping malformed session event in ${sessionFilePath}: ${message} (${preview})`
+          );
+        }
       }
       return events;
     },
