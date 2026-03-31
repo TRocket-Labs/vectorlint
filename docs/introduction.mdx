@@ -44,7 +44,7 @@ VectorLint uses two scoring methods depending on the rule type:
 
 ## How false positives are reduced
 
-VectorLint uses a PAT (Pay A Tax) evaluation pipeline to keep output precise:
+VectorLint uses a two-stage evaluation pipeline to keep output precise:
 
 1. **Candidate generation** — the LLM returns all potential violations, each with required gate-check fields: rule support, exact evidence, context support, plausible non-violation, and fix quality.
 2. **Deterministic filtering** — VectorLint applies a strict filter and only surfaces violations that pass all required gates.

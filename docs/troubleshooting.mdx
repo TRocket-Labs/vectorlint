@@ -140,7 +140,7 @@ Without a search provider, `technical-accuracy` evaluators cannot verify facts a
 
 **Symptom:** VectorLint emits a warning that `VECTORLINT.md` exceeds approximately 4,000 tokens.
 
-**Cause:** The file is too large to serve as reliable global context. Very large context degrades LLM precision and increases API costs.
+**Cause:** The file is too large to serve as reliable global context. Excessively large context degrades LLM precision and increases API costs.
 
 **Fix:** Trim `VECTORLINT.md` to under 800 tokens — the practical working target. Move specific or detailed rules into dedicated rule pack files where they can be applied selectively rather than globally. See [Defining your style rules](/style-guide) for the extraction prompt that converts a full style guide into a compact `VECTORLINT.md`.
 
