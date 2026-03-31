@@ -1192,7 +1192,7 @@ async function evaluateFilesInAgentMode(
     printMode: options.printMode ?? false,
     sessionHomeDir: os.homedir(),
     progressReporter,
-    maxParallelToolCalls: 1,
+    maxParallelToolCalls: 3,
     maxRetries: options.agentMaxRetries ?? 10,
     userInstructions: options.userInstructionContent,
   });
