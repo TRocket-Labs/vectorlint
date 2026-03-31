@@ -445,7 +445,7 @@ describe('agent executor', () => {
     expect(result.hadOperationalErrors).toBe(false);
   });
 
-  it('returns an operational error when the run ends without finalize_review', async () => {
+  it('marks the run as operationally failed but preserves findings when finalize_review is missing', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
     const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
@@ -473,6 +473,6 @@ describe('agent executor', () => {
 
     expect(result.hadOperationalErrors).toBe(true);
     expect(result.errorMessage).toContain('finalize_review');
-    expect(result.findings.length).toBe(0);
+    expect(result.findings.length).toBeGreaterThan(0);
   });
 });

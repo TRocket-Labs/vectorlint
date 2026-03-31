@@ -7,16 +7,24 @@ import type { PromptFile } from '../src/prompts/prompt-loader';
 import type { LLMProvider } from '../src/providers/llm-provider';
 import { Severity } from '../src/evaluators/types';
 
-function makePrompt(): PromptFile {
+function makePrompt(params?: {
+  id?: string;
+  name?: string;
+  source?: string;
+}): PromptFile {
+  const id = params?.id ?? 'consistency';
+  const name = params?.name ?? 'Consistency';
+  const source = params?.source ?? 'packs/default/consistency.md';
+
   return {
-    id: 'consistency',
-    filename: 'consistency.md',
-    fullPath: 'packs/default/consistency.md',
+    id,
+    filename: `${id}.md`,
+    fullPath: source,
     pack: 'Default',
     body: 'Find inconsistent wording',
     meta: {
-      id: 'Consistency',
-      name: 'Consistency',
+      id: name,
+      name,
       type: 'check',
       severity: Severity.WARNING,
     },
@@ -60,6 +68,22 @@ function makeTopLevelOnlyProvider(): LLMProvider {
       });
       await tools.finalize_review.execute({});
       return { usage: { inputTokens: 2, outputTokens: 1 } };
+    },
+  } as unknown as LLMProvider;
+}
+
+function makeNoFinalizeProvider(): LLMProvider {
+  return {
+    runPromptStructured() {
+      return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+    },
+    runAgentToolLoop: async (params: Record<string, unknown>) => {
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      await tools.lint.execute({
+        file: 'doc.md',
+        ruleSource: 'packs/default/consistency.md',
+      });
+      return { usage: { inputTokens: 3, outputTokens: 2 } };
     },
   } as unknown as LLMProvider;
 }
@@ -216,6 +240,95 @@ describe('agent orchestrator output', () => {
     expect(stderrOutput).toMatch(/[|/\-\\] ◈ reviewing doc\.md for Consistency/);
     expect(stderrOutput).not.toContain('[vectorlint]');
     expect(stderrOutput).toContain('◆ done in');
+  });
+
+  it('uses in-place progress updates for repeated tool calls instead of appending only plain lines', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({ file: 'doc.md', ruleSource: 'packs/default/ai-pattern.md' });
+        await tools.lint.execute({ file: 'doc.md', ruleSource: 'packs/default/consistency.md' });
+        await tools.lint.execute({ file: 'doc.md', ruleSource: 'packs/default/wordiness.md' });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 3, outputTokens: 2 } };
+      },
+    } as unknown as LLMProvider;
+
+    await evaluateFiles([file], {
+      prompts: [
+        makePrompt({ id: 'ai-pattern', name: 'AI Pattern', source: 'packs/default/ai-pattern.md' }),
+        makePrompt({ id: 'consistency', name: 'Consistency', source: 'packs/default/consistency.md' }),
+        makePrompt({ id: 'wordiness', name: 'Wordiness', source: 'packs/default/wordiness.md' }),
+      ],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Line,
+      mode: 'agent' as never,
+      printMode: false,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(stderrOutput).toContain('\x1b[1A');
+  });
+
+  it('updates progress rule labels as the active lint rule changes', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({ file: 'doc.md', ruleSource: 'packs/default/ai-pattern.md' });
+        await tools.lint.execute({ file: 'doc.md', ruleSource: 'packs/default/consistency.md' });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 2, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    await evaluateFiles([file], {
+      prompts: [
+        makePrompt({ id: 'ai-pattern', name: 'AI Pattern', source: 'packs/default/ai-pattern.md' }),
+        makePrompt({ id: 'consistency', name: 'Consistency', source: 'packs/default/consistency.md' }),
+      ],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Line,
+      mode: 'agent' as never,
+      printMode: false,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(stderrOutput).toContain('for AI Pattern');
+    expect(stderrOutput).toContain('for Consistency');
   });
 
   it('suppresses progress output when print mode is enabled', async () => {
@@ -458,5 +571,94 @@ describe('agent orchestrator output', () => {
     expect(stdout).not.toContain('◈ reviewing');
     expect(stdout).not.toContain('└ calling tool');
     expect(stderrSpy).not.toHaveBeenCalled();
+  });
+
+  it('surfaces findings recorded before missing finalize while still reporting an operational failure', async () => {
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    const result = await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider: makeNoFinalizeProvider(),
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Json,
+      mode: 'agent' as never,
+      printMode: true,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    expect(result.totalWarnings).toBeGreaterThan(0);
+    expect(result.requestFailures).toBe(1);
+    expect(result.hadOperationalErrors).toBe(true);
+  });
+
+  it('passes a default agent retry budget to the provider tool loop', async () => {
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    let receivedParams: Record<string, unknown> | undefined;
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        receivedParams = params;
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Json,
+      mode: 'agent' as never,
+      printMode: true,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    expect(receivedParams?.maxRetries).toBe(10);
+  });
+
+  it('passes configured agent retry budget to the provider tool loop', async () => {
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    let receivedParams: Record<string, unknown> | undefined;
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        receivedParams = params;
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Json,
+      mode: 'agent' as never,
+      printMode: true,
+      agentMaxRetries: 4,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    expect(receivedParams?.maxRetries).toBe(4);
   });
 });
