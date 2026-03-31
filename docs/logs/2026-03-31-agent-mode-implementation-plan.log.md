@@ -39,3 +39,8 @@
 - **What was done**: Changed lint execution flow to record inline findings as `finding_recorded_inline` session events immediately and derive in-memory findings from recorded events; kept `report_finding` for top-level findings with persistent event writes.
 - **Files changed**: src/agent/agent-executor.ts, src/agent/merger.ts, tests/agent/agent-executor.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
 
+### Task: Enforce finalize_review (Hard Failure if Missing)
+- **Status**: completed
+- **What was done**: Added hard completion enforcement by validating `session_finalized` existence at executor end; missing finalize now returns explicit executor error and propagates to orchestrator as `hadOperationalErrors=true`.
+- **Files changed**: src/agent/agent-executor.ts, src/agent/index.ts, src/cli/types.ts, tests/agent/agent-executor.test.ts, tests/orchestrator-agent-output.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
+

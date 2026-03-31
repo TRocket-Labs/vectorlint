@@ -117,4 +117,20 @@ describe('agent executor', () => {
 
     expect(events.some((event) => event.eventType === 'finding_recorded_inline')).toBe(true);
   });
+
+  it('fails hard when finalize_review is not called', async () => {
+    const result = await runAgentExecutor({
+      targets: ['doc.md'],
+      prompts: [createPrompt()],
+      runRule: async () => ({ violations: [] }),
+      executeAgent: async ({ lint }) => {
+        await lint({
+          file: 'doc.md',
+          ruleSource: 'packs/default/consistency.md',
+        });
+      },
+    });
+
+    expect(result.error).toContain('finalize_review was not called');
+  });
 });

@@ -40,6 +40,7 @@ export interface RunAgentExecutorResult {
   validRuleSources: string[];
   findings: AgentFinding[];
   finalized: boolean;
+  error?: string;
   ruleSourceRegistry: Record<string, RuleSourceRegistryEntry>;
   fileRuleMap: Record<string, string[]>;
 }
@@ -225,15 +226,29 @@ export async function runAgentExecutor(
     },
   };
 
-  if (params.executeAgent) {
-    await params.executeAgent(tools);
-  } else {
-    for (const file of params.targets) {
-      for (const ruleSource of fileRuleMap[file] ?? []) {
-        await tools.lint({ file, ruleSource });
+  let error: string | undefined;
+
+  try {
+    if (params.executeAgent) {
+      await params.executeAgent(tools);
+    } else {
+      for (const file of params.targets) {
+        for (const ruleSource of fileRuleMap[file] ?? []) {
+          await tools.lint({ file, ruleSource });
+        }
       }
+      await tools.finalize_review({ totalFindings: findings.length });
     }
-    await tools.finalize_review({ totalFindings: findings.length });
+  } catch (caught: unknown) {
+    error = caught instanceof Error ? caught.message : String(caught);
+  }
+
+  const hasFinalizedEvent = await store.hasFinalizedEvent();
+  finalized = hasFinalizedEvent;
+  if (!hasFinalizedEvent) {
+    error = error
+      ? `${error}; finalize_review was not called`
+      : "finalize_review was not called";
   }
 
   return {
@@ -242,6 +257,7 @@ export async function runAgentExecutor(
     validRuleSources,
     findings,
     finalized,
+    ...(error ? { error } : {}),
     ruleSourceRegistry: registry,
     fileRuleMap,
   };

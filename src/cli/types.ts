@@ -20,6 +20,23 @@ export enum OutputFormat {
 
 export type RuntimeMode = "lint" | "agent";
 
+export interface AgentExecutionOptions {
+    homeDir?: string;
+    execute?: (tools: {
+        lint: (input: unknown) => Promise<unknown>;
+        report_finding: (input: unknown) => Promise<unknown>;
+        finalize_review: (input?: { totalFindings?: number }) => Promise<void>;
+    }) => Promise<void>;
+    runRule?: (context: unknown) => Promise<{
+        violations: Array<{
+            line: number;
+            message: string;
+            column?: number;
+            suggestion?: string;
+        }>;
+    }>;
+}
+
 export interface EvaluationOptions {
     prompts: PromptFile[];
     rulesPath: string | undefined;
@@ -34,6 +51,7 @@ export interface EvaluationOptions {
     userInstructionContent?: string;
     mode?: RuntimeMode;
     print?: boolean;
+    agent?: AgentExecutionOptions;
 }
 
 export interface EvaluationResult {
