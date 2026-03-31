@@ -1,6 +1,7 @@
 import { generateText, Output, NoObjectGeneratedError, stepCountIs, tool } from 'ai';
 import type { LanguageModel } from 'ai';
 import { z } from 'zod';
+import pLimit from 'p-limit';
 import { AgentToolLoopParams, AgentToolLoopResult, LLMProvider, LLMResult } from './llm-provider';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 
@@ -114,15 +115,15 @@ export class VercelAIProvider implements LLMProvider {
 
   runAgentToolLoop = async (params: AgentToolLoopParams): Promise<AgentToolLoopResult> => {
     const maxParallel = params.maxParallelToolCalls ?? 1;
-    const disableParallel = maxParallel <= 1;
+    const limit = pLimit(maxParallel);
 
     const mappedTools = Object.fromEntries(
       Object.entries(params.tools).map(([name, definition]) => [
         name,
         tool({
           description: definition.description,
-          inputSchema: definition.inputSchema,
-          execute: definition.execute,
+          inputSchema: definition.inputSchema as z.ZodType,
+          execute: (input: unknown) => limit(() => definition.execute(input)),
         }),
       ])
     );
@@ -132,13 +133,23 @@ export class VercelAIProvider implements LLMProvider {
       system: params.systemPrompt,
       prompt: params.prompt,
       ...(params.maxRetries !== undefined ? { maxRetries: params.maxRetries } : {}),
-      ...(params.maxSteps !== undefined ? { stopWhen: stepCountIs(params.maxSteps) } : {}),
-      providerOptions: {
-        openai: { parallelToolCalls: !disableParallel },
-        anthropic: { disableParallelToolUse: disableParallel },
-      },
+      stopWhen: stepCountIs(params.maxSteps ?? 1000),
       tools: mappedTools,
     });
+
+    if (this.config.debug) {
+      for (const [i, step] of result.steps.entries()) {
+        const toolNames = step.toolCalls.map((c) => c.toolName).join(', ') || '(none)';
+        console.log(`[agent] step ${i + 1}: finishReason=${step.finishReason} tools=[${toolNames}]`);
+        if (step.text) {
+          console.log(`[agent] step ${i + 1} text: ${step.text.slice(0, 500)}${step.text.length > 500 ? '...' : ''}`);
+        }
+      }
+      console.log(`[agent] final finishReason=${result.finishReason} steps=${result.steps.length}`);
+      if (result.text) {
+        console.log(`[agent] final text: ${result.text.slice(0, 500)}${result.text.length > 500 ? '...' : ''}`);
+      }
+    }
 
     return {
       usage: result.usage
