@@ -1218,10 +1218,6 @@ async function evaluateFilesInAgentMode(
     }
   }
 
-  if (agentResult.hadOperationalErrors && totalWarnings === 0) {
-    totalWarnings = 1;
-  }
-
   if (outputFormat === OutputFormat.Line) {
     const ruleScores = buildAgentRuleScores(agentResult.findings, options.prompts, repositoryRoot);
     const scoreSummary = new Map<string, EvaluationSummary[]>(
@@ -1231,6 +1227,11 @@ async function evaluateFilesInAgentMode(
       ])
     );
     printEvaluationSummaries(scoreSummary);
+
+    if (agentResult.hadOperationalErrors) {
+      const message = agentResult.errorMessage ?? 'Agent run encountered an operational error.';
+      console.error(`\n[agent] ${message}`);
+    }
   }
 
   if (

@@ -63,7 +63,7 @@ export function createAgentTools(params: {
       execute: (input) => runTool('search_content', input, handlers.search_content),
     },
     finalize_review: {
-      description: 'Finalize review output and close the session.',
+      description: 'REQUIRED: Call this tool when all assigned file-rule pairs have been reviewed. This is the only valid way to end the session — do not reply with text when finished, call this tool instead.',
       inputSchema: FINALIZE_REVIEW_INPUT_SCHEMA,
       execute: (input) => runTool('finalize_review', input, handlers.finalize_review),
     },

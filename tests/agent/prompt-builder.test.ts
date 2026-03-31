@@ -6,10 +6,9 @@ describe('agent prompt builder', () => {
 
     const prompt = buildAgentSystemPrompt({
       repositoryRoot: '/repo',
-      targets: ['README.md'],
-      availableRuleSources: [
-        'packs/default/ai-pattern.md',
-        'packs/default/consistency.md',
+      reviewAssignments: [
+        { file: 'README.md', ruleSource: 'packs/default/ai-pattern.md' },
+        { file: 'README.md', ruleSource: 'packs/default/consistency.md' },
       ],
       availableTools: [
         { name: 'read_file', description: 'Read a file inside the repository root.' },
@@ -27,8 +26,7 @@ describe('agent prompt builder', () => {
 
     const withoutUserInstructions = buildAgentSystemPrompt({
       repositoryRoot: '/repo',
-      targets: ['README.md'],
-      availableRuleSources: ['packs/default/consistency.md'],
+      reviewAssignments: [{ file: 'README.md', ruleSource: 'packs/default/consistency.md' }],
       availableTools: [
         { name: 'lint', description: 'Run a configured lint rule against a file.' },
       ],
@@ -36,8 +34,7 @@ describe('agent prompt builder', () => {
 
     const prompt = buildAgentSystemPrompt({
       repositoryRoot: '/repo',
-      targets: ['README.md'],
-      availableRuleSources: ['packs/default/consistency.md'],
+      reviewAssignments: [{ file: 'README.md', ruleSource: 'packs/default/consistency.md' }],
       availableTools: [
         { name: 'lint', description: 'Run a configured lint rule against a file.' },
       ],

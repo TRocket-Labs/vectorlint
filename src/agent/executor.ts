@@ -11,6 +11,7 @@ import type { OutputFormat } from '../cli/types';
 import { createEvaluator } from '../evaluators';
 import { createReviewSessionStore } from './review-session-store';
 import { buildAgentSystemPrompt } from './prompt-builder';
+import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import {
   createAgentTools,
   listAvailableTools,
@@ -159,12 +160,41 @@ function findingsFromEvents(events: SessionEvent[]): AgentFinding[] {
   return findings;
 }
 
+function buildReviewAssignments(
+  relativeTargets: string[],
+  prompts: PromptFile[],
+  scanPaths: Array<{ pattern: string; runRules: string[]; overrides: Record<string, string> }>
+): Array<{ file: string; ruleSource: string }> {
+  const resolver = new ScanPathResolver();
+  const availablePacks = Array.from(new Set(prompts.map((p) => p.pack).filter((p): p is string => !!p)));
+  const assignments: Array<{ file: string; ruleSource: string }> = [];
+
+  for (const relFile of relativeTargets) {
+    const resolution = resolver.resolveConfiguration(relFile, scanPaths, availablePacks);
+    const matchedPrompts = prompts.filter((p) => {
+      if (!p.pack || p.pack === '') return false;
+      if (!resolution.packs.includes(p.pack)) return false;
+      if (!p.meta?.id) return true;
+      const disableKey = `${p.pack}.${p.meta.id}`;
+      const overrideValue = resolution.overrides[disableKey];
+      return typeof overrideValue !== 'string' || overrideValue.toLowerCase() !== 'disabled';
+    });
+
+    for (const prompt of matchedPrompts) {
+      assignments.push({ file: relFile, ruleSource: normalizeRuleSource(prompt.fullPath) });
+    }
+  }
+
+  return assignments;
+}
+
 export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<AgentExecutorResult> {
   const {
     targets,
     prompts,
     provider,
     repositoryRoot,
+    scanPaths,
     sessionHomeDir = os.homedir(),
     progressReporter,
     maxSteps,
@@ -184,6 +214,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   const relativeTargets = targets.map((target) =>
     toRelativePathFromRoot(repositoryRoot, resolveWithinRoot(repositoryRoot, target))
   );
+  const reviewAssignments = buildReviewAssignments(relativeTargets, prompts, scanPaths);
   const defaultRuleName = String(prompts[0]?.meta.name || prompts[0]?.meta.id || 'Rule');
 
   if (relativeTargets.length > 0) {
@@ -500,8 +531,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     const result = await provider.runAgentToolLoop({
       systemPrompt: buildAgentSystemPrompt({
         repositoryRoot,
-        targets: relativeTargets,
-        availableRuleSources: validSources,
+        reviewAssignments,
         availableTools,
         userInstructions,
       }),

@@ -114,7 +114,7 @@ export class VercelAIProvider implements LLMProvider {
 
   runAgentToolLoop = async (params: AgentToolLoopParams): Promise<AgentToolLoopResult> => {
     const maxParallel = params.maxParallelToolCalls ?? 1;
-    const parallelToolCalls = maxParallel > 1;
+    const disableParallel = maxParallel <= 1;
 
     const mappedTools = Object.fromEntries(
       Object.entries(params.tools).map(([name, definition]) => [
@@ -134,7 +134,8 @@ export class VercelAIProvider implements LLMProvider {
       ...(params.maxRetries !== undefined ? { maxRetries: params.maxRetries } : {}),
       ...(params.maxSteps !== undefined ? { stopWhen: stepCountIs(params.maxSteps) } : {}),
       providerOptions: {
-        openai: { parallelToolCalls },
+        openai: { parallelToolCalls: !disableParallel },
+        anthropic: { disableParallelToolUse: disableParallel },
       },
       tools: mappedTools,
     });
