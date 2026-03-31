@@ -13,7 +13,8 @@ import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
-import { OutputFormat } from './types';
+import { OutputFormat, RunMode } from './types';
+import { runAgentExecutor } from '../agent/executor';
 import type {
   EvaluationOptions, EvaluationResult, ErrorTrackingResult,
   ReportIssueParams, ProcessViolationsParams,
@@ -106,6 +107,59 @@ async function runWithConcurrency<T, R>(
     });
   await Promise.all(workers);
   return results;
+}
+
+function emitAgentFindings(
+  findings: Array<{
+    file: string;
+    line: number;
+    column: number;
+    message: string;
+    ruleId: string;
+    severity: Severity;
+    suggestion?: string;
+    match?: string;
+  }>,
+  outputFormat: OutputFormat,
+  jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter
+): { errors: number; warnings: number } {
+  let errors = 0;
+  let warnings = 0;
+
+  const grouped = new Map<string, typeof findings>();
+  for (const finding of findings) {
+    if (!grouped.has(finding.file)) {
+      grouped.set(finding.file, []);
+    }
+    grouped.get(finding.file)!.push(finding);
+  }
+
+  for (const [file, rows] of grouped.entries()) {
+    if (outputFormat === OutputFormat.Line) {
+      printFileHeader(file);
+    }
+    for (const row of rows) {
+      if (row.severity === Severity.ERROR) {
+        errors += 1;
+      } else {
+        warnings += 1;
+      }
+      reportIssue({
+        file,
+        line: row.line,
+        column: row.column,
+        severity: row.severity,
+        summary: row.message,
+        ruleName: row.ruleId,
+        outputFormat,
+        jsonFormatter,
+        ...(row.suggestion ? { suggestion: row.suggestion } : {}),
+        match: row.match || '',
+      });
+    }
+  }
+
+  return { errors, warnings };
 }
 
 /*
@@ -1062,6 +1116,7 @@ export async function evaluateFiles(
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
   const { outputFormat = OutputFormat.Line } = options;
+  const runMode = options.mode ?? RunMode.Standard;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -1079,6 +1134,75 @@ export async function evaluateFiles(
     jsonFormatter = new RdJsonFormatter();
   } else {
     jsonFormatter = new ValeJsonFormatter();
+  }
+
+  if (runMode === RunMode.Agent) {
+    let agent;
+    try {
+      agent = await runAgentExecutor({
+        targets,
+        prompts: options.prompts,
+        provider: options.provider,
+        repositoryRoot: process.cwd(),
+        scanPaths: options.scanPaths,
+        outputFormat,
+        printMode: options.printMode ?? false,
+        ...(options.agentModelRunner ? { modelRunner: options.agentModelRunner } : {}),
+        ...(options.agentMaxTurns ? { maxTurns: options.agentMaxTurns } : {}),
+        ...(options.userInstructionContent !== undefined
+          ? { userInstructionContent: options.userInstructionContent }
+          : {}),
+      });
+    } catch (e: unknown) {
+      const err = handleUnknownError(e, 'Running agent mode');
+      if (outputFormat === OutputFormat.Line) {
+        console.error(`Error: ${err.message}`);
+      } else {
+        console.log(jsonFormatter.toJson());
+      }
+      return {
+        totalFiles: targets.length,
+        totalErrors: 0,
+        totalWarnings: 0,
+        requestFailures: 1,
+        hadOperationalErrors: true,
+        hadSeverityErrors: false,
+      };
+    }
+
+    const findingCounts = emitAgentFindings(
+      agent.findings.map((finding) => ({
+        file: finding.file,
+        line: finding.line,
+        column: finding.column,
+        message: finding.message,
+        ruleId: finding.ruleId,
+        severity: finding.severity,
+        ...(finding.suggestion ? { suggestion: finding.suggestion } : {}),
+        ...(finding.match ? { match: finding.match } : {}),
+      })),
+      outputFormat,
+      jsonFormatter
+    );
+
+    if (
+      outputFormat === OutputFormat.Json ||
+      outputFormat === OutputFormat.ValeJson ||
+      outputFormat === OutputFormat.RdJson
+    ) {
+      const jsonStr = jsonFormatter.toJson();
+      console.log(jsonStr);
+    }
+
+    return {
+      totalFiles: targets.length,
+      totalErrors: findingCounts.errors,
+      totalWarnings: findingCounts.warnings,
+      requestFailures: agent.hadOperationalErrors ? 1 : 0,
+      hadOperationalErrors: agent.hadOperationalErrors,
+      hadSeverityErrors: findingCounts.errors > 0,
+      tokenUsage: agent.tokenUsage,
+    };
   }
 
   for (const file of targets) {

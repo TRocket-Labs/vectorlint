@@ -18,7 +18,7 @@ import { resolveTargets } from '../scan/file-resolver';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
-import { OutputFormat } from './types';
+import { OutputFormat, RunMode } from './types';
 import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -55,6 +55,8 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt', 'Print full prompt and injected content')
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
+    .option('--mode <mode>', 'Execution mode: standard (default) or agent', 'standard')
+    .option('-p, --print', 'Print final report only (suppresses interactive agent progress)')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
@@ -202,6 +204,12 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
+      const runMode = cliOptions.mode as RunMode;
+      if (!Object.values(RunMode).includes(runMode)) {
+        console.error(`Error: Invalid mode '${cliOptions.mode}'. Valid options: standard, agent`);
+        process.exit(1);
+      }
+
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
         prompts,
@@ -212,6 +220,8 @@ export function registerMainCommand(program: Command): void {
         verbose: cliOptions.verbose,
         debugJson: cliOptions.debugJson,
         outputFormat: outputFormat,
+        mode: runMode,
+        printMode: cliOptions.print,
         scanPaths: config.scanPaths,
         pricing: {
           inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,

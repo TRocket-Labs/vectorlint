@@ -10,12 +10,18 @@ import { RdJsonFormatter } from '../output/rdjson-formatter';
 import type { PromptEvaluationResult, JudgeResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
 import type { TokenUsageStats, PricingConfig } from '../providers/token-usage';
+import type { AgentExecutorParams } from '../agent/executor';
 
 export enum OutputFormat {
     Line = "line",
     Json = "json",
     ValeJson = "vale-json",
     RdJson = "rdjson",
+}
+
+export enum RunMode {
+    Standard = "standard",
+    Agent = "agent",
 }
 
 export interface EvaluationOptions {
@@ -28,6 +34,10 @@ export interface EvaluationOptions {
     debugJson?: boolean;
     scanPaths: FilePatternConfig[];
     outputFormat?: OutputFormat;
+    mode?: RunMode;
+    printMode?: boolean;
+    agentModelRunner?: AgentExecutorParams['modelRunner'];
+    agentMaxTurns?: number;
     pricing?: PricingConfig;
     userInstructionContent?: string;
 }
