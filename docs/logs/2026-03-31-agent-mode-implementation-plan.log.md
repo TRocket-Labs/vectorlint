@@ -19,3 +19,8 @@
 - **What was done**: Introduced rule-source based tool schemas, canonical `Pack.Rule` normalization, and a typed session event union including explicit finalization events for deterministic replay contracts.
 - **Files changed**: src/agent/types.ts, src/agent/index.ts, tests/agent/types-redesign.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
 
+### Task: Build File-Backed Session Store (Primary Source of Truth)
+- **Status**: completed
+- **What was done**: Added a collision-resilient JSONL-backed review session store that creates exclusive session files, appends typed lifecycle/finding events, replays deterministic event order, and checks finalize presence.
+- **Files changed**: src/agent/review-session-store.ts, src/agent/index.ts, tests/agent/review-session-store.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
+
