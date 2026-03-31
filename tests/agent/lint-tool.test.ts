@@ -3,7 +3,7 @@ import { createLintTool } from '../../src/agent/tools';
 
 describe('agent lint tool', () => {
   it('accepts ruleSource instead of ruleKey/ruleId', async () => {
-    const runRule = vi.fn(async () => ({
+    const runRule = vi.fn(() => Promise.resolve({
       violations: [
         {
           line: 2,
@@ -28,10 +28,9 @@ describe('agent lint tool', () => {
       context: 'optional context',
     });
 
-    expect(result.violations[0]).toMatchObject({
-      line: 2,
-      message: expect.any(String),
-    });
+    const firstViolation = result.violations[0];
+    expect(firstViolation?.line).toBe(2);
+    expect(typeof firstViolation?.message).toBe('string');
     expect(runRule).toHaveBeenCalledTimes(1);
   });
 });

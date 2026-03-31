@@ -2,6 +2,7 @@ import type { PromptFile } from "../prompts/prompt-loader";
 import { canonicalRuleIdFromPackRule, ruleSourceFromPrompt } from "../prompts/rule-identity";
 import {
   TopLevelReportInputSchema,
+  LintToolInputSchema,
   type AgentFinding,
 } from "./types";
 import { createReviewSessionStore } from "./review-session-store";
@@ -11,7 +12,6 @@ import {
   type LintRunContext,
   type LintRunOutput,
   type LintToolResult,
-  type RuleRegistry,
 } from "./tools/lint-tool";
 
 export interface RuleSourceRegistryEntry {
@@ -32,6 +32,13 @@ export interface RunAgentExecutorParams {
   homeDir?: string;
   runRule?: (context: LintRunContext) => Promise<LintRunOutput>;
   executeAgent?: (tools: AgentToolset) => Promise<void>;
+  progressReporter?: {
+    onReviewContext(file: string, ruleSource: string): void;
+    onToolCall(toolName: string, detail?: string): void;
+    onFileDone(file: string, durationMs: number): void;
+    onRunDone(durationMs: number): void;
+    onFindingsStart(): void;
+  };
 }
 
 export interface RunAgentExecutorResult {
@@ -75,10 +82,12 @@ function buildRuleSourceRegistry(
     }
 
     for (const file of targets) {
-      if (!fileRuleMap[file]) {
-        fileRuleMap[file] = [];
+      let rulesForFile = fileRuleMap[file];
+      if (!rulesForFile) {
+        rulesForFile = [];
+        fileRuleMap[file] = rulesForFile;
       }
-      fileRuleMap[file]!.push(ruleSource);
+      rulesForFile.push(ruleSource);
     }
   }
 
@@ -104,14 +113,22 @@ export async function runAgentExecutor(
   });
 
   const lintTool = createLintTool({
-    ruleRegistry: registry as RuleRegistry,
-    runRule: params.runRule ?? (async () => ({ violations: [] })),
+    ruleRegistry: registry,
+    runRule: params.runRule ?? (() => Promise.resolve({ violations: [] })),
   });
 
   let finalized = false;
+  const runStart = Date.now();
 
   const tools: AgentToolset = {
     lint: async (input): Promise<LintToolResult> => {
+      const parsedInput = LintToolInputSchema.parse(input);
+      params.progressReporter?.onReviewContext(
+        parsedInput.file,
+        parsedInput.ruleSource
+      );
+      params.progressReporter?.onToolCall("lint", parsedInput.ruleSource);
+
       await store.append({
         eventType: "tool_call_started",
         payload: { toolName: "lint", input },
@@ -134,7 +151,9 @@ export async function runAgentExecutor(
             eventType: "finding_recorded_inline",
             payload: { finding },
           });
-          findings = mergeAgentFindings(findings, [recordedEvent.payload.finding]);
+          if (recordedEvent.eventType === "finding_recorded_inline") {
+            findings = mergeAgentFindings(findings, [recordedEvent.payload.finding]);
+          }
         }
 
         await store.append({
@@ -156,6 +175,7 @@ export async function runAgentExecutor(
       }
     },
     report_finding: async (input): Promise<AgentFinding> => {
+      params.progressReporter?.onToolCall("report_finding");
       await store.append({
         eventType: "tool_call_started",
         payload: { toolName: "report_finding", input },
@@ -185,7 +205,9 @@ export async function runAgentExecutor(
           eventType: "finding_recorded_top_level",
           payload: { finding },
         });
-        findings = mergeAgentFindings(findings, [recordedEvent.payload.finding]);
+        if (recordedEvent.eventType === "finding_recorded_top_level") {
+          findings = mergeAgentFindings(findings, [recordedEvent.payload.finding]);
+        }
 
         await store.append({
           eventType: "tool_call_finished",
@@ -206,6 +228,7 @@ export async function runAgentExecutor(
       }
     },
     finalize_review: async (input): Promise<void> => {
+      params.progressReporter?.onToolCall("finalize_review");
       await store.append({
         eventType: "tool_call_started",
         payload: { toolName: "finalize_review", input: input ?? {} },
@@ -233,9 +256,11 @@ export async function runAgentExecutor(
       await params.executeAgent(tools);
     } else {
       for (const file of params.targets) {
+        const fileStart = Date.now();
         for (const ruleSource of fileRuleMap[file] ?? []) {
           await tools.lint({ file, ruleSource });
         }
+        params.progressReporter?.onFileDone(file, Date.now() - fileStart);
       }
       await tools.finalize_review({ totalFindings: findings.length });
     }
@@ -250,6 +275,8 @@ export async function runAgentExecutor(
       ? `${error}; finalize_review was not called`
       : "finalize_review was not called";
   }
+  params.progressReporter?.onRunDone(Date.now() - runStart);
+  params.progressReporter?.onFindingsStart();
 
   return {
     sessionId: store.sessionId,

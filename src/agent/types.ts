@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { z } from "zod";
 
 export const RuleSourceSchema = z.string().min(1);

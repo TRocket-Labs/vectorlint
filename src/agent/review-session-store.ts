@@ -54,6 +54,12 @@ export async function createReviewSessionStore(
       const handle = await open(sessionFilePath, 'wx');
       await handle.close();
 
+      const replay = async (): Promise<SessionEvent[]> => {
+        const contents = await readFile(sessionFilePath, 'utf-8');
+        const lines = contents.split(/\r?\n/).filter(Boolean);
+        return lines.map((line) => SessionEventSchema.parse(JSON.parse(line)));
+      };
+
       return {
         sessionId,
         sessionFilePath,
@@ -72,13 +78,9 @@ export async function createReviewSessionStore(
 
           return normalizedEvent;
         },
-        async replay() {
-          const contents = await readFile(sessionFilePath, 'utf-8');
-          const lines = contents.split(/\r?\n/).filter(Boolean);
-          return lines.map((line) => SessionEventSchema.parse(JSON.parse(line)));
-        },
+        replay,
         async hasFinalizedEvent() {
-          const events = await this.replay();
+          const events = await replay();
           return events.some((event) => event.eventType === 'session_finalized');
         },
       };

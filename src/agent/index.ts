@@ -1,6 +1,7 @@
-import type { EvaluationOptions, EvaluationResult } from '../cli/types';
+import { OutputFormat, type EvaluationOptions, type EvaluationResult } from '../cli/types';
 import { runAgentExecutor, type RunAgentExecutorParams } from './agent-executor';
 import { buildAgentReplayReport } from './session-replay';
+import { createAgentProgressReporter } from '../output/agent-progress-reporter';
 
 export async function runAgentModeEvaluation(
   targets: string[],
@@ -24,6 +25,17 @@ export async function runAgentModeEvaluation(
   const runResult = await runAgentExecutor({
     targets,
     prompts: options.prompts,
+    ...(options.outputFormat === OutputFormat.Line &&
+    !options.print &&
+    process.stderr.isTTY
+      ? {
+        progressReporter: createAgentProgressReporter({
+          write: (text: string) => {
+            process.stderr.write(text);
+          },
+        }),
+      }
+      : {}),
     ...(options.agent?.homeDir ? { homeDir: options.agent.homeDir } : {}),
     ...(options.agent?.runRule
       ? { runRule: options.agent.runRule as RunAgentExecutorParams['runRule'] }

@@ -25,7 +25,7 @@ describe('agent executor', () => {
     const result = await runAgentExecutor({
       targets: ['doc.md'],
       prompts: [createPrompt()],
-      runRule: async () => ({ violations: [] }),
+      runRule: () => Promise.resolve({ violations: [] }),
       executeAgent: async ({ finalize_review }) => {
         await finalize_review({ totalFindings: 0 });
       },
@@ -35,7 +35,7 @@ describe('agent executor', () => {
   });
 
   it('does not require model-provided ruleId for inline findings', async () => {
-    const runRule = vi.fn(async () => ({
+    const runRule = vi.fn(() => Promise.resolve({
       violations: [
         {
           line: 2,
@@ -64,7 +64,7 @@ describe('agent executor', () => {
     const result = await runAgentExecutor({
       targets: ['doc.md'],
       prompts: [createPrompt()],
-      runRule: async () => ({
+      runRule: () => Promise.resolve({
         violations: [
           {
             line: 2,
@@ -92,7 +92,7 @@ describe('agent executor', () => {
       targets: ['doc.md'],
       prompts: [createPrompt()],
       homeDir: tempHome,
-      runRule: async () => ({
+      runRule: () => Promise.resolve({
         violations: [
           {
             line: 2,
@@ -122,7 +122,7 @@ describe('agent executor', () => {
     const result = await runAgentExecutor({
       targets: ['doc.md'],
       prompts: [createPrompt()],
-      runRule: async () => ({ violations: [] }),
+      runRule: () => Promise.resolve({ violations: [] }),
       executeAgent: async ({ lint }) => {
         await lint({
           file: 'doc.md',

@@ -49,3 +49,8 @@
 - **What was done**: Added session replay utilities and switched agent-mode final reporting to derive findings and scores from persisted session events, then wired JSON-family output emission from replayed report data.
 - **Files changed**: src/agent/session-replay.ts, src/agent/index.ts, src/cli/orchestrator.ts, src/cli/types.ts, tests/orchestrator-agent-output.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
 
+### Task: Preserve UX Contracts (line, --print, JSON-family) and Final Validation
+- **Status**: completed
+- **What was done**: Added TTY-gated agent progress reporting with exact contract lines, enforced `--print` suppression, preserved machine-clean JSON-family output, and validated with lint/build/agent test suite plus `--mode=agent` smoke runs (normal + print).
+- **Files changed**: src/output/agent-progress-reporter.ts, src/agent/agent-executor.ts, src/agent/index.ts, src/agent/review-session-store.ts, src/agent/types.ts, tests/orchestrator-agent-output.test.ts, tests/agent/agent-executor.test.ts, tests/agent/lint-tool.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
+
