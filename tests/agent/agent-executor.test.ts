@@ -475,4 +475,87 @@ describe('agent executor', () => {
     expect(result.errorMessage).toContain('finalize_review');
     expect(result.findings.length).toBeGreaterThan(0);
   });
+
+  it('applies lint context only to that lint invocation prompt body', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const promptBodies: string[] = [];
+    const provider: LLMProvider = {
+      runPromptStructured(_content, promptText: string) {
+        promptBodies.push(promptText);
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          ruleSource: 'packs/default/consistency.md',
+          context: 'Use this evidence context while checking wording consistency.',
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [makePrompt()],
+      provider,
+      repositoryRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(promptBodies.length).toBeGreaterThan(0);
+    expect(promptBodies[0]).toContain('Find inconsistent wording.');
+    expect(promptBodies[0]).toContain('Additional context for this lint run:');
+    expect(promptBodies[0]).toContain(
+      'Use this evidence context while checking wording consistency.'
+    );
+  });
+
+  it('keeps lint prompt body unchanged when lint context is not provided', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const promptBodies: string[] = [];
+    const provider: LLMProvider = {
+      runPromptStructured(_content, promptText: string) {
+        promptBodies.push(promptText);
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          ruleSource: 'packs/default/consistency.md',
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [makePrompt()],
+      provider,
+      repositoryRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(promptBodies.length).toBeGreaterThan(0);
+    expect(promptBodies[0]).toBe('Find inconsistent wording.');
+  });
 });

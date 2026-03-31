@@ -57,11 +57,13 @@ export interface RunAgentExecutorParams {
   maxSteps?: number;
   maxRetries?: number;
   maxParallelToolCalls?: number;
+  userInstructions?: string;
 }
 
 export interface AgentExecutorResult {
   findings: AgentFinding[];
   events: SessionEvent[];
+  requestFailures: number;
   hadOperationalErrors: boolean;
   errorMessage?: string;
   usage?: AgentToolLoopResult['usage'];
@@ -116,6 +118,18 @@ function resolveTargetForTopLevel(
   return '.';
 }
 
+function withLintContext(prompt: PromptFile, context?: string): PromptFile {
+  const contextText = context?.trim();
+  if (!contextText) {
+    return prompt;
+  }
+  const baseBody = prompt.body?.trim() ?? '';
+  return {
+    ...prompt,
+    body: `${baseBody}\n\nAdditional context for this lint run:\n${contextText}`,
+  };
+}
+
 function findingsFromEvents(events: SessionEvent[]): AgentFinding[] {
   const findings: AgentFinding[] = [];
 
@@ -156,6 +170,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     maxSteps,
     maxRetries,
     maxParallelToolCalls,
+    userInstructions,
   } = params;
 
   const promptBySource = new Map<string, PromptFile>();
@@ -242,15 +257,16 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     if (!prompt) {
       throw buildUnknownRuleSourceError(parsed.ruleSource, validSources);
     }
+    const promptForCall = withLintContext(prompt, parsed.context);
 
     const absoluteFile = resolveWithinRoot(repositoryRoot, parsed.file);
     const relFile = toRelativePathFromRoot(repositoryRoot, absoluteFile);
     const content = await readFile(absoluteFile, 'utf8');
 
     const evaluator = createEvaluator(
-      resolveEvaluatorType(prompt.meta.evaluator),
+      resolveEvaluatorType(promptForCall.meta.evaluator),
       provider,
-      prompt
+      promptForCall
     );
     const result = await evaluator.evaluate(relFile, content);
 
@@ -476,6 +492,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   const availableTools = listAvailableTools(tools);
 
   let usage: AgentToolLoopResult['usage'] | undefined;
+  let requestFailures = 0;
   let hadOperationalErrors = false;
   let errorMessage: string | undefined;
 
@@ -486,6 +503,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
         targets: relativeTargets,
         availableRuleSources: validSources,
         availableTools,
+        userInstructions,
       }),
       prompt: [
         `Repository root: ${repositoryRoot}`,
@@ -499,6 +517,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     });
     usage = result.usage;
   } catch (error) {
+    requestFailures += 1;
     hadOperationalErrors = true;
     errorMessage = error instanceof Error ? error.message : String(error);
   } finally {
@@ -530,6 +549,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   return {
     findings,
     events,
+    requestFailures,
     hadOperationalErrors,
     ...(errorMessage ? { errorMessage } : {}),
     ...(usage ? { usage } : {}),

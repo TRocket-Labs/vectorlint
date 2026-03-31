@@ -505,7 +505,7 @@ describe('agent orchestrator output', () => {
       .join('\n');
 
     expect(result.hadOperationalErrors).toBe(true);
-    expect(result.requestFailures).toBe(1);
+    expect(result.requestFailures).toBe(0);
     expect(stdout).toContain('Use consistent wording');
     expect(stdout).toContain('Quality Scores:');
     expect(stderrSpy).toHaveBeenCalled();
@@ -771,8 +771,74 @@ describe('agent orchestrator output', () => {
     } as never);
 
     expect(result.totalWarnings).toBeGreaterThan(0);
-    expect(result.requestFailures).toBe(1);
+    expect(result.requestFailures).toBe(0);
     expect(result.hadOperationalErrors).toBe(true);
+  });
+
+  it('passes userInstructionContent into the agent system prompt', async () => {
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    let capturedSystemPrompt = '';
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const systemPrompt = params.systemPrompt;
+        capturedSystemPrompt = typeof systemPrompt === 'string' ? systemPrompt : '';
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Json,
+      mode: 'agent' as never,
+      printMode: true,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      userInstructionContent: 'Always enforce concise phrasing.',
+    } as never);
+
+    expect(capturedSystemPrompt).toContain('User Instructions (from VECTORLINT.md):');
+    expect(capturedSystemPrompt).toContain('Always enforce concise phrasing.');
+  });
+
+  it('counts provider tool-loop failures as request failures in agent mode', async () => {
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop() {
+        return Promise.reject(new Error('provider request failed'));
+      },
+    } as unknown as LLMProvider;
+
+    const result = await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Json,
+      mode: 'agent' as never,
+      printMode: true,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    expect(result.hadOperationalErrors).toBe(true);
+    expect(result.requestFailures).toBe(1);
   });
 
   it('passes a default agent retry budget to the provider tool loop', async () => {

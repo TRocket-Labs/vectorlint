@@ -15,37 +15,27 @@ function formatBulletedList(values: string[]): string {
 
 export function buildAgentSystemPrompt(params: BuildAgentSystemPromptParams): string {
   const date = new Date().toISOString().slice(0, 10);
-  const sections = [
-    'Role: You are a senior technical writer and repository reviewer.',
-    [
-      'Operating Policy (highest priority):',
-      '- Use read-only tools for analysis.',
-      '- Process work sequentially: target-first, then rule-second.',
-      '- Call lint for each ruleSource against relevant targets.',
-      '- Inline lint violations are recorded automatically by the lint tool.',
-      '- Use report_finding for top-level findings that are not emitted by lint.',
-      '- You MUST call finalize_review exactly once when done.',
-    ].join('\n'),
-    `Available tools:\n${formatBulletedList(
-      params.availableTools.map((toolDef) => `${toolDef.name}: ${toolDef.description}`)
-    )}`,
-    [
-      'Finding contract:',
-      '- Lint inline violations are persisted automatically when lint succeeds.',
-      '- Submit top-level findings with report_finding as soon as evidence is sufficient.',
-      '- Include precise file and line context for inline findings.',
-      '- Do not rely on free-form completion text to report findings.',
-    ].join('\n'),
-    `Requested review targets:\n${formatBulletedList(params.targets)}`,
-    `Available ruleSources:\n${formatBulletedList(params.availableRuleSources)}`,
-  ];
-
   const userInstructions = params.userInstructions?.trim();
-  if (userInstructions) {
-    sections.push(`User Instructions (from VECTORLINT.md):\n${userInstructions}`);
-  }
 
-  sections.push(`Current date: ${date}\nRepo root: ${params.repositoryRoot}`);
+  return `You are a senior technical writer. You evaluate documentation files against lint rules to identify quality issues, inconsistencies, and violations.
 
-  return sections.join('\n\n');
+Your goal is to produce a thorough, complete review of every file against every rule assigned to it.
+
+Workflow:
+1. You are given a mapping of files to rules. Work through each file one at a time — complete every rule assigned to a file before moving to the next.
+2. For each file-rule pair, lint the file against the rule.
+3. After linting, read the rule. If the rule contains top-level review instructions — such as checking for documentation drift, verifying that certain files exist, or any other repository-level check — carry them out and report any findings.
+4. When every file has been reviewed against all of its assigned rules, finalize the review.
+
+Available tools:
+${formatBulletedList(params.availableTools.map((toolDef) => `${toolDef.name}: ${toolDef.description}`))}
+
+Requested review targets:
+${formatBulletedList(params.targets)}
+
+Available ruleSources:
+${formatBulletedList(params.availableRuleSources)}${userInstructions ? `\n\nUser Instructions (from VECTORLINT.md):\n${userInstructions}` : ''}
+
+Current date: ${date}
+Repo root: ${params.repositoryRoot}`;
 }

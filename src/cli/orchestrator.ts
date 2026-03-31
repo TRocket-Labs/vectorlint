@@ -1194,6 +1194,7 @@ async function evaluateFilesInAgentMode(
     progressReporter,
     maxParallelToolCalls: 1,
     maxRetries: options.agentMaxRetries ?? 10,
+    userInstructions: options.userInstructionContent,
   });
 
   if (outputFormat === OutputFormat.Line) {
@@ -1249,7 +1250,7 @@ async function evaluateFilesInAgentMode(
     totalFiles: targets.length,
     totalErrors,
     totalWarnings,
-    requestFailures: agentResult.hadOperationalErrors ? 1 : 0,
+    requestFailures: agentResult.requestFailures,
     hadOperationalErrors: agentResult.hadOperationalErrors,
     hadSeverityErrors: totalErrors > 0,
     tokenUsage,
