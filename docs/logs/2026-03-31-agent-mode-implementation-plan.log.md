@@ -44,3 +44,8 @@
 - **What was done**: Added hard completion enforcement by validating `session_finalized` existence at executor end; missing finalize now returns explicit executor error and propagates to orchestrator as `hadOperationalErrors=true`.
 - **Files changed**: src/agent/agent-executor.ts, src/agent/index.ts, src/cli/types.ts, tests/agent/agent-executor.test.ts, tests/orchestrator-agent-output.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
 
+### Task: Replay Session File for Deterministic Final Output
+- **Status**: completed
+- **What was done**: Added session replay utilities and switched agent-mode final reporting to derive findings and scores from persisted session events, then wired JSON-family output emission from replayed report data.
+- **Files changed**: src/agent/session-replay.ts, src/agent/index.ts, src/cli/orchestrator.ts, src/cli/types.ts, tests/orchestrator-agent-output.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
+

@@ -1,5 +1,6 @@
 import type { EvaluationOptions, EvaluationResult } from '../cli/types';
 import { runAgentExecutor, type RunAgentExecutorParams } from './agent-executor';
+import { buildAgentReplayReport } from './session-replay';
 
 export async function runAgentModeEvaluation(
   targets: string[],
@@ -31,11 +32,12 @@ export async function runAgentModeEvaluation(
       ? { executeAgent: options.agent.execute as RunAgentExecutorParams['executeAgent'] }
       : {}),
   });
+  const replayReport = await buildAgentReplayReport(runResult.sessionFilePath);
 
   return {
     totalFiles: targets.length,
-    totalErrors: 0,
-    totalWarnings: runResult.findings.length,
+    totalErrors: replayReport.summary.errors,
+    totalWarnings: replayReport.summary.warnings,
     requestFailures: 0,
     hadOperationalErrors: Boolean(runResult.error),
     hadSeverityErrors: false,
@@ -43,9 +45,11 @@ export async function runAgentModeEvaluation(
       totalInputTokens: 0,
       totalOutputTokens: 0,
     },
+    agentReport: replayReport,
   };
 }
 
 export * from './agent-executor';
 export * from './review-session-store';
+export * from './session-replay';
 export * from './types';

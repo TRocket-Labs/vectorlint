@@ -37,6 +37,27 @@ export interface AgentExecutionOptions {
     }>;
 }
 
+export interface AgentOutputReport {
+    summary: {
+        errors: number;
+        warnings: number;
+        totalFindings: number;
+    };
+    findings: Array<{
+        kind: "inline" | "top-level";
+        ruleId: string;
+        ruleSource: string;
+        message: string;
+        file?: string;
+        line?: number;
+        column?: number;
+    }>;
+    scores: Array<{
+        ruleId: string;
+        score: number;
+    }>;
+}
+
 export interface EvaluationOptions {
     prompts: PromptFile[];
     rulesPath: string | undefined;
@@ -62,6 +83,7 @@ export interface EvaluationResult {
     hadOperationalErrors: boolean;
     hadSeverityErrors: boolean;
     tokenUsage?: TokenUsageStats;
+    agentReport?: AgentOutputReport;
 }
 
 export interface ErrorTrackingResult {

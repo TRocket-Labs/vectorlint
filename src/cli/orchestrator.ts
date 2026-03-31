@@ -1063,7 +1063,17 @@ export async function evaluateFiles(
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
   if (options.mode === "agent") {
-    return runAgentModeEvaluation(targets, options);
+    const agentResult = await runAgentModeEvaluation(targets, options);
+    const outputFormat = options.outputFormat ?? OutputFormat.Line;
+    if (
+      (outputFormat === OutputFormat.Json ||
+        outputFormat === OutputFormat.RdJson ||
+        outputFormat === OutputFormat.ValeJson) &&
+      agentResult.agentReport
+    ) {
+      console.log(JSON.stringify(agentResult.agentReport));
+    }
+    return agentResult;
   }
 
   const { outputFormat = OutputFormat.Line } = options;
