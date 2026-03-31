@@ -1,3 +1,1 @@
-export interface AgentToolPlaceholder {
-  readonly name: 'bootstrap';
-}
+export * from "./lint-tool";

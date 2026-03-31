@@ -24,3 +24,8 @@
 - **What was done**: Added a collision-resilient JSONL-backed review session store that creates exclusive session files, appends typed lifecycle/finding events, replays deterministic event order, and checks finalize presence.
 - **Files changed**: src/agent/review-session-store.ts, src/agent/index.ts, tests/agent/review-session-store.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
 
+### Task: Refactor Lint Tool API to ruleSource + Structured Violations
+- **Status**: completed
+- **What was done**: Implemented `createLintTool` with `ruleSource` lookup against a runtime registry, removed any `ruleId`/content requirement from tool input, and returned structured violations with canonical rule identity in output.
+- **Files changed**: src/agent/tools/lint-tool.ts, src/agent/tools/index.ts, tests/agent/lint-tool.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
+
