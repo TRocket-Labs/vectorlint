@@ -2,6 +2,7 @@ export interface BuildAgentSystemPromptParams {
   repositoryRoot: string;
   targets: string[];
   availableRuleSources: string[];
+  availableTools: Array<{ name: string; description: string }>;
   userInstructions?: string;
 }
 
@@ -21,22 +22,17 @@ export function buildAgentSystemPrompt(params: BuildAgentSystemPromptParams): st
       '- Use read-only tools for analysis.',
       '- Process work sequentially: target-first, then rule-second.',
       '- Call lint for each ruleSource against relevant targets.',
-      '- Record every confirmed issue with report_finding.',
+      '- Inline lint violations are recorded automatically by the lint tool.',
+      '- Use report_finding for top-level findings that are not emitted by lint.',
       '- You MUST call finalize_review exactly once when done.',
     ].join('\n'),
-    [
-      'Available tools:',
-      '- read_file: Read text file contents with optional pagination.',
-      '- search_content: Search text content in files by substring pattern.',
-      '- search_files: Find files by glob pattern.',
-      '- list_directory: List files and directories under a path.',
-      '- lint: Run one configured ruleSource against a single file.',
-      '- report_finding: Persist one finding into the review session.',
-      '- finalize_review: Close the run. Must be called exactly once.',
-    ].join('\n'),
+    `Available tools:\n${formatBulletedList(
+      params.availableTools.map((toolDef) => `${toolDef.name}: ${toolDef.description}`)
+    )}`,
     [
       'Finding contract:',
-      '- Submit each finding with report_finding as soon as evidence is sufficient.',
+      '- Lint inline violations are persisted automatically when lint succeeds.',
+      '- Submit top-level findings with report_finding as soon as evidence is sufficient.',
       '- Include precise file and line context for inline findings.',
       '- Do not rely on free-form completion text to report findings.',
     ].join('\n'),

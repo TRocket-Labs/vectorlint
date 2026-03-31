@@ -11,12 +11,22 @@ describe('agent prompt builder', () => {
         'packs/default/ai-pattern.md',
         'packs/default/consistency.md',
       ],
+      availableTools: [
+        { name: 'read_file', description: 'Read a file inside the repository root.' },
+        { name: 'lint', description: 'Run a configured lint rule against a file.' },
+        { name: 'finalize_review', description: 'Finalize review output and close the session.' },
+      ],
     });
 
     expect(prompt).toContain('Role: You are a senior technical writer and repository reviewer.');
     expect(prompt).toContain('Operating Policy');
     expect(prompt).toContain('Available tools:');
+    expect(prompt).toContain('- read_file: Read a file inside the repository root.');
+    expect(prompt).toContain('- lint: Run a configured lint rule against a file.');
+    expect(prompt).toContain('- finalize_review: Finalize review output and close the session.');
     expect(prompt).toContain('Finding contract:');
+    expect(prompt).toContain('Lint inline violations are persisted automatically when lint succeeds.');
+    expect(prompt).toContain('Submit top-level findings with report_finding as soon as evidence is sufficient.');
     expect(prompt).toContain('Requested review targets:');
     expect(prompt).toContain('- README.md');
     expect(prompt).toContain('Available ruleSources:');
@@ -34,6 +44,9 @@ describe('agent prompt builder', () => {
       repositoryRoot: '/repo',
       targets: ['README.md'],
       availableRuleSources: ['packs/default/consistency.md'],
+      availableTools: [
+        { name: 'lint', description: 'Run a configured lint rule against a file.' },
+      ],
       userInstructions: 'Always enforce concise phrasing.',
     });
 

@@ -63,6 +63,62 @@ export interface AgentExecutorResult {
   usage?: AgentToolLoopResult['usage'];
 }
 
+type AgentToolName =
+  | 'lint'
+  | 'report_finding'
+  | 'read_file'
+  | 'search_files'
+  | 'list_directory'
+  | 'search_content'
+  | 'finalize_review';
+
+type AgentToolHandlers = Record<AgentToolName, ToolHandler>;
+
+function createAgentTools(params: {
+  runTool: (toolName: string, input: unknown, handler: ToolHandler) => Promise<unknown>;
+  handlers: AgentToolHandlers;
+}): Record<string, AgentToolDefinition> {
+  const { runTool, handlers } = params;
+
+  return {
+    lint: {
+      description: 'Run a configured lint rule against a file.',
+      inputSchema: LINT_TOOL_INPUT_SCHEMA,
+      execute: (input) => runTool('lint', input, handlers.lint),
+    },
+    report_finding: {
+      description: 'Record a top-level finding for the report.',
+      inputSchema: TOP_LEVEL_REPORT_INPUT_SCHEMA,
+      execute: (input) => runTool('report_finding', input, handlers.report_finding),
+    },
+    read_file: {
+      description: 'Read a file inside the repository root.',
+      inputSchema: READ_FILE_INPUT_SCHEMA,
+      execute: (input) => runTool('read_file', input, handlers.read_file),
+    },
+    search_files: {
+      description: 'Find files in the repository by glob pattern.',
+      inputSchema: SEARCH_FILES_INPUT_SCHEMA,
+      execute: (input) => runTool('search_files', input, handlers.search_files),
+    },
+    list_directory: {
+      description: 'List files and directories inside a path in the repository.',
+      inputSchema: LIST_DIRECTORY_INPUT_SCHEMA,
+      execute: (input) => runTool('list_directory', input, handlers.list_directory),
+    },
+    search_content: {
+      description: 'Search repository text content by substring and optional glob.',
+      inputSchema: SEARCH_CONTENT_INPUT_SCHEMA,
+      execute: (input) => runTool('search_content', input, handlers.search_content),
+    },
+    finalize_review: {
+      description: 'Finalize review output and close the session.',
+      inputSchema: FINALIZE_REVIEW_INPUT_SCHEMA,
+      execute: (input) => runTool('finalize_review', input, handlers.finalize_review),
+    },
+  };
+}
+
 function normalizeRuleSource(ruleSource: string): string {
   return ruleSource.replace(/\\/g, '/').replace(/^\.\//, '');
 }
@@ -450,43 +506,22 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     return { ok: true };
   }
 
-  const tools: Record<string, AgentToolDefinition> = {
-    lint: {
-      description: 'Run a configured lint rule against a file.',
-      inputSchema: LINT_TOOL_INPUT_SCHEMA,
-      execute: (input) => runTool('lint', input, lintToolHandler),
+  const tools = createAgentTools({
+    runTool,
+    handlers: {
+      lint: lintToolHandler,
+      report_finding: reportFindingToolHandler,
+      read_file: readFileToolHandler,
+      search_files: searchFilesToolHandler,
+      list_directory: listDirectoryToolHandler,
+      search_content: searchContentToolHandler,
+      finalize_review: finalizeReviewToolHandler,
     },
-    report_finding: {
-      description: 'Record a top-level finding for the report.',
-      inputSchema: TOP_LEVEL_REPORT_INPUT_SCHEMA,
-      execute: (input) => runTool('report_finding', input, reportFindingToolHandler),
-    },
-    read_file: {
-      description: 'Read a file inside the repository root.',
-      inputSchema: READ_FILE_INPUT_SCHEMA,
-      execute: (input) => runTool('read_file', input, readFileToolHandler),
-    },
-    search_files: {
-      description: 'Find files in the repository by glob pattern.',
-      inputSchema: SEARCH_FILES_INPUT_SCHEMA,
-      execute: (input) => runTool('search_files', input, searchFilesToolHandler),
-    },
-    list_directory: {
-      description: 'List files and directories inside a path in the repository.',
-      inputSchema: LIST_DIRECTORY_INPUT_SCHEMA,
-      execute: (input) => runTool('list_directory', input, listDirectoryToolHandler),
-    },
-    search_content: {
-      description: 'Search repository text content by substring and optional glob.',
-      inputSchema: SEARCH_CONTENT_INPUT_SCHEMA,
-      execute: (input) => runTool('search_content', input, searchContentToolHandler),
-    },
-    finalize_review: {
-      description: 'Finalize review output and close the session.',
-      inputSchema: FINALIZE_REVIEW_INPUT_SCHEMA,
-      execute: (input) => runTool('finalize_review', input, finalizeReviewToolHandler),
-    },
-  };
+  });
+  const availableTools = Object.entries(tools).map(([name, definition]) => ({
+    name,
+    description: definition.description,
+  }));
 
   let usage: AgentToolLoopResult['usage'] | undefined;
   let hadOperationalErrors = false;
@@ -498,6 +533,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
         repositoryRoot,
         targets: relativeTargets,
         availableRuleSources: validSources,
+        availableTools,
       }),
       prompt: [
         `Repository root: ${repositoryRoot}`,
