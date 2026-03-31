@@ -52,6 +52,8 @@ function resolvePresetsDir(dir: string): string {
 export function registerMainCommand(program: Command): void {
   program
     .option('-v, --verbose', 'Enable verbose logging')
+    .option('--mode <mode>', 'Evaluation mode: lint (default) or agent', 'lint')
+    .option('-p, --print', 'Print mode (suppresses interactive progress UI)')
     .option('--show-prompt', 'Print full prompt and injected content')
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
@@ -212,6 +214,8 @@ export function registerMainCommand(program: Command): void {
         verbose: cliOptions.verbose,
         debugJson: cliOptions.debugJson,
         outputFormat: outputFormat,
+        mode: cliOptions.mode,
+        print: cliOptions.print,
         scanPaths: config.scanPaths,
         pricing: {
           inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,

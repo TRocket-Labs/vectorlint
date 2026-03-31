@@ -32,6 +32,7 @@ import {
   type FilterDecision,
 } from "../evaluators/violation-filter";
 import { writeDebugRunArtifact } from "../debug/run-artifact";
+import { runAgentModeEvaluation } from "../agent";
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
   const provider = process.env.LLM_PROVIDER;
@@ -1061,6 +1062,10 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
+  if (options.mode === "agent") {
+    return runAgentModeEvaluation(targets, options);
+  }
+
   const { outputFormat = OutputFormat.Line } = options;
 
   let hadOperationalErrors = false;

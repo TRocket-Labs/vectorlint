@@ -18,6 +18,8 @@ export enum OutputFormat {
     RdJson = "rdjson",
 }
 
+export type RuntimeMode = "lint" | "agent";
+
 export interface EvaluationOptions {
     prompts: PromptFile[];
     rulesPath: string | undefined;
@@ -30,6 +32,8 @@ export interface EvaluationOptions {
     outputFormat?: OutputFormat;
     pricing?: PricingConfig;
     userInstructionContent?: string;
+    mode?: RuntimeMode;
+    print?: boolean;
 }
 
 export interface EvaluationResult {
