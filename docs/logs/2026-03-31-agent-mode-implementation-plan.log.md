@@ -29,3 +29,8 @@
 - **What was done**: Implemented `createLintTool` with `ruleSource` lookup against a runtime registry, removed any `ruleId`/content requirement from tool input, and returned structured violations with canonical rule identity in output.
 - **Files changed**: src/agent/tools/lint-tool.ts, src/agent/tools/index.ts, tests/agent/lint-tool.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
 
+### Task: Add Rule-Source Registry and Rebuild Executor Tooling
+- **Status**: completed
+- **What was done**: Added a clean agent executor that builds deterministic `ruleSource` registries from runtime prompts, wires `lint`/`report_finding`/`finalize_review` tool contracts, and resolves canonical `Pack.Rule` identities without model-provided rule IDs.
+- **Files changed**: src/agent/agent-executor.ts, src/prompts/rule-identity.ts, src/agent/index.ts, tests/agent/agent-executor.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
+

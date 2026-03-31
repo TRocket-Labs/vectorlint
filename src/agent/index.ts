@@ -18,5 +18,6 @@ export async function runAgentModeEvaluation(
   };
 }
 
+export * from './agent-executor';
 export * from './review-session-store';
 export * from './types';
