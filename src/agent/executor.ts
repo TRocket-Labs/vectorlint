@@ -10,6 +10,7 @@ import type { AgentToolDefinition, AgentToolLoopResult, LLMProvider } from '../p
 import type { OutputFormat } from '../cli/types';
 import { createEvaluator } from '../evaluators';
 import { createReviewSessionStore } from './review-session-store';
+import { buildAgentSystemPrompt } from './prompt-builder';
 import {
   FINALIZE_REVIEW_INPUT_SCHEMA,
   LINT_TOOL_INPUT_SCHEMA,
@@ -481,11 +482,11 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
 
   try {
     const result = await provider.runAgentToolLoop({
-      systemPrompt: [
-        'You are VectorLint in agent mode.',
-        'Use read-only tools for analysis.',
-        'You MUST call finalize_review exactly once when done.',
-      ].join('\n'),
+      systemPrompt: buildAgentSystemPrompt({
+        repositoryRoot,
+        targets: relativeTargets,
+        availableRuleSources: validSources,
+      }),
       prompt: [
         `Repository root: ${repositoryRoot}`,
         `Targets: ${relativeTargets.join(', ')}`,
