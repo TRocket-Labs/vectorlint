@@ -5,6 +5,7 @@ import {
   type AgentFinding,
 } from "./types";
 import { createReviewSessionStore } from "./review-session-store";
+import { mergeAgentFindings } from "./merger";
 import {
   createLintTool,
   type LintRunContext,
@@ -91,7 +92,7 @@ export async function runAgentExecutor(
     params.prompts
   );
   const validRuleSources = Object.keys(registry).sort();
-  const findings: AgentFinding[] = [];
+  let findings: AgentFinding[] = [];
 
   const store = await createReviewSessionStore({
     ...(params.homeDir ? { homeDir: params.homeDir } : {}),
@@ -118,7 +119,7 @@ export async function runAgentExecutor(
       try {
         const result = await lintTool.execute(input);
         for (const violation of result.violations) {
-          findings.push({
+          const finding: AgentFinding = {
             kind: "inline",
             ruleSource: result.ruleSource,
             ruleId: result.ruleId,
@@ -127,7 +128,12 @@ export async function runAgentExecutor(
             ...(violation.column ? { column: violation.column } : {}),
             message: violation.message,
             ...(violation.suggestion ? { suggestion: violation.suggestion } : {}),
+          };
+          const recordedEvent = await store.append({
+            eventType: "finding_recorded_inline",
+            payload: { finding },
           });
+          findings = mergeAgentFindings(findings, [recordedEvent.payload.finding]);
         }
 
         await store.append({
@@ -174,12 +180,11 @@ export async function runAgentExecutor(
           ...(firstReference?.file ? { file: firstReference.file } : {}),
           ...(firstReference?.startLine ? { line: firstReference.startLine } : {}),
         };
-        findings.push(finding);
-
-        await store.append({
+        const recordedEvent = await store.append({
           eventType: "finding_recorded_top_level",
           payload: { finding },
         });
+        findings = mergeAgentFindings(findings, [recordedEvent.payload.finding]);
 
         await store.append({
           eventType: "tool_call_finished",

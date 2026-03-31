@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
+import { mkdtempSync, readFileSync } from 'fs';
+import { tmpdir } from 'os';
 import path from 'path';
 import { runAgentExecutor } from '../../src/agent/agent-executor';
 import type { PromptFile } from '../../src/prompts/prompt-loader';
@@ -56,5 +58,63 @@ describe('agent executor', () => {
     });
 
     expect(result.findings[0]?.ruleId).toBe('Default.Consistency');
+  });
+
+  it('records inline findings from lint tool output without report_finding call', async () => {
+    const result = await runAgentExecutor({
+      targets: ['doc.md'],
+      prompts: [createPrompt()],
+      runRule: async () => ({
+        violations: [
+          {
+            line: 2,
+            message: 'Term mismatch',
+          },
+        ],
+      }),
+      executeAgent: async ({ lint, finalize_review }) => {
+        await lint({
+          file: 'doc.md',
+          ruleSource: 'packs/default/consistency.md',
+        });
+        await finalize_review({ totalFindings: 1 });
+      },
+    });
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]?.kind).toBe('inline');
+  });
+
+  it('appends finding_recorded_inline events to session jsonl', async () => {
+    const tempHome = mkdtempSync(path.join(tmpdir(), 'vectorlint-agent-executor-'));
+
+    const result = await runAgentExecutor({
+      targets: ['doc.md'],
+      prompts: [createPrompt()],
+      homeDir: tempHome,
+      runRule: async () => ({
+        violations: [
+          {
+            line: 2,
+            message: 'Term mismatch',
+          },
+        ],
+      }),
+      executeAgent: async ({ lint, finalize_review }) => {
+        await lint({
+          file: 'doc.md',
+          ruleSource: 'packs/default/consistency.md',
+        });
+        await finalize_review({ totalFindings: 1 });
+      },
+    });
+
+    const raw = readFileSync(result.sessionFilePath, 'utf-8');
+    const events = raw
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as { eventType: string });
+
+    expect(events.some((event) => event.eventType === 'finding_recorded_inline')).toBe(true);
   });
 });

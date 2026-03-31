@@ -34,3 +34,8 @@
 - **What was done**: Added a clean agent executor that builds deterministic `ruleSource` registries from runtime prompts, wires `lint`/`report_finding`/`finalize_review` tool contracts, and resolves canonical `Pack.Rule` identities without model-provided rule IDs.
 - **Files changed**: src/agent/agent-executor.ts, src/prompts/rule-identity.ts, src/agent/index.ts, tests/agent/agent-executor.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
 
+### Task: Make Lint Calls Authoritative for Inline Findings and Persist Events
+- **Status**: completed
+- **What was done**: Changed lint execution flow to record inline findings as `finding_recorded_inline` session events immediately and derive in-memory findings from recorded events; kept `report_finding` for top-level findings with persistent event writes.
+- **Files changed**: src/agent/agent-executor.ts, src/agent/merger.ts, tests/agent/agent-executor.test.ts, docs/logs/2026-03-31-agent-mode-implementation-plan.log.md
+
