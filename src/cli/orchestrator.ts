@@ -29,6 +29,7 @@ import {
   TokenUsageStats
 } from '../providers/token-usage';
 import { calculateCheckScore } from '../scoring';
+import { countWords } from '../chunking/utils';
 import { locateQuotedText } from "../output/location";
 import {
   computeFilterDecision,
@@ -1078,6 +1079,95 @@ function reportAgentFinding(params: {
   });
 }
 
+type AgentRuleScore = {
+  ruleId: string;
+  score: number;
+  scoreText: string;
+};
+
+function buildAgentRuleId(prompt: PromptFile): string {
+  const pack = prompt.pack || 'Default';
+  const rule = String(prompt.meta.id || prompt.filename || 'Rule');
+  return `${pack}.${rule}`;
+}
+
+function getAgentFileWordCount(
+  file: string,
+  repositoryRoot: string,
+  cache: Map<string, number>
+): number {
+  const repoRelative = path.relative(repositoryRoot, path.resolve(repositoryRoot, file)) || file;
+  if (cache.has(repoRelative)) {
+    return cache.get(repoRelative)!;
+  }
+
+  const absolutePath = path.resolve(repositoryRoot, repoRelative);
+  try {
+    const content = readFileSync(absolutePath, 'utf-8');
+    const words = Math.max(1, countWords(content) || 1);
+    cache.set(repoRelative, words);
+    return words;
+  } catch {
+    cache.set(repoRelative, 1);
+    return 1;
+  }
+}
+
+function buildAgentRuleScores(
+  findings: AgentFinding[],
+  prompts: PromptFile[],
+  repositoryRoot: string
+): AgentRuleScore[] {
+  const fileWordCountCache = new Map<string, number>();
+  const findingsByRule = new Map<string, AgentFinding[]>();
+
+  for (const finding of findings) {
+    const existing = findingsByRule.get(finding.ruleId) ?? [];
+    existing.push(finding);
+    findingsByRule.set(finding.ruleId, existing);
+  }
+
+  return prompts.map((prompt) => {
+    const ruleId = buildAgentRuleId(prompt);
+    const ruleFindings = findingsByRule.get(ruleId) ?? [];
+
+    if (ruleFindings.length === 0) {
+      return {
+        ruleId,
+        score: 10,
+        scoreText: '10.0/10',
+      };
+    }
+
+    const files = new Set(ruleFindings.map((finding) => finding.file));
+    let totalWords = 0;
+    for (const file of files) {
+      totalWords += getAgentFileWordCount(file, repositoryRoot, fileWordCountCache);
+    }
+
+    const syntheticViolations = Array.from({ length: ruleFindings.length }, (_, index) => ({
+      line: index + 1,
+      description: 'Agent finding',
+      analysis: 'Agent finding',
+    }));
+
+    const scored = calculateCheckScore(
+      syntheticViolations,
+      Math.max(1, totalWords),
+      {
+        strictness: prompt.meta.strictness,
+        promptSeverity: prompt.meta.severity,
+      }
+    );
+
+    return {
+      ruleId,
+      score: scored.final_score,
+      scoreText: `${scored.final_score.toFixed(1)}/10`,
+    };
+  });
+}
+
 async function evaluateFilesInAgentMode(
   targets: string[],
   options: EvaluationOptions,
@@ -1129,6 +1219,17 @@ async function evaluateFilesInAgentMode(
 
   if (agentResult.hadOperationalErrors && totalWarnings === 0) {
     totalWarnings = 1;
+  }
+
+  if (outputFormat === OutputFormat.Line) {
+    const ruleScores = buildAgentRuleScores(agentResult.findings, options.prompts, repositoryRoot);
+    const scoreSummary = new Map<string, EvaluationSummary[]>(
+      ruleScores.map((entry) => [
+        entry.ruleId,
+        [{ id: 'overall', scoreText: entry.scoreText, score: entry.score }],
+      ])
+    );
+    printEvaluationSummaries(scoreSummary);
   }
 
   if (
