@@ -1103,6 +1103,7 @@ async function evaluateFilesInAgentMode(
     sessionHomeDir: os.homedir(),
     progressReporter,
     maxParallelToolCalls: 1,
+    maxRetries: options.agentMaxRetries ?? 10,
   });
 
   if (outputFormat === OutputFormat.Line) {
@@ -1124,6 +1125,10 @@ async function evaluateFilesInAgentMode(
     } else {
       totalWarnings += 1;
     }
+  }
+
+  if (agentResult.hadOperationalErrors && totalWarnings === 0) {
+    totalWarnings = 1;
   }
 
   if (

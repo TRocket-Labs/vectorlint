@@ -182,11 +182,23 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   let finalized = false;
 
   async function runTool(toolName: string, input: unknown, handler: ToolHandler): Promise<unknown> {
+    let progressRuleName: string | undefined;
+    if (toolName === 'lint') {
+      const parsed = LINT_TOOL_INPUT_SCHEMA.safeParse(input);
+      if (parsed.success) {
+        const prompt = resolvePromptBySource(parsed.data.ruleSource, promptBySource);
+        progressRuleName = String(prompt?.meta.name || prompt?.meta.id || 'Rule');
+      }
+    }
+
     await store.append({
       eventType: 'tool_call_started',
       payload: { toolName, input },
     });
-    progressReporter?.toolCallStarted(toolName);
+    if (progressRuleName) {
+      progressReporter?.updateRule(progressRuleName);
+    }
+    progressReporter?.toolCallStarted(toolName, progressRuleName);
 
     try {
       const output = await handler(input);
@@ -525,7 +537,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     }
   }
 
-  const findings = hasFinalizedEvent ? findingsFromEvents(events) : [];
+  const findings = findingsFromEvents(events);
 
   return {
     findings,
