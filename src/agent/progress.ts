@@ -152,48 +152,58 @@ export class AgentProgressReporter {
 function formatInvocationLine(params: VisibleToolProgress): string {
   switch (params.toolName) {
     case 'read_file':
-      return `${TOOL_PREFIX}Read(${sanitizePath(params.path)})`;
+      return formatToolLine(`Read(${sanitizePath(params.path)})`);
     case 'list_directory':
-      return `${TOOL_PREFIX}List(${sanitizePath(params.path)})`;
+      return formatToolLine(`List(${sanitizePath(params.path)})`);
     case 'lint':
-      return `${TOOL_PREFIX}Lint("${formatRuleSnippet(params.ruleText)}")`;
+      return formatToolLine(`Lint("${formatRuleSnippet(params.ruleText)}")`);
   }
 }
 
 function formatRetryingLine(params: VisibleToolProgress): string {
   switch (params.toolName) {
     case 'read_file':
-      return `${TOOL_PREFIX}Retrying Read(${sanitizePath(params.path)})...`;
+      return formatToolLine(`Retrying Read(${sanitizePath(params.path)})...`);
     case 'list_directory':
-      return `${TOOL_PREFIX}Retrying List(${sanitizePath(params.path)})...`;
+      return formatToolLine(`Retrying List(${sanitizePath(params.path)})...`);
     case 'lint':
-      return `${TOOL_PREFIX}Retrying Lint("${formatRuleSnippet(params.ruleText)}")...`;
+      return formatToolLine(`Retrying Lint("${formatRuleSnippet(params.ruleText)}")...`);
   }
 }
 
 function formatSuccessLine(params: VisibleToolProgress): string {
   switch (params.toolName) {
     case 'read_file':
-      return `${TOOL_PREFIX}Read ${formatCount(params.lineCount ?? 0, 'line')} from ${sanitizePath(params.path)}`;
+      return formatToolLine(
+        `Read ${formatCount(params.lineCount ?? 0, 'line')} from ${sanitizePath(params.path)}`
+      );
     case 'list_directory':
-      return `${TOOL_PREFIX}Listed ${formatCount(params.entryCount ?? 0, 'entry')} in ${sanitizePath(params.path)}`;
+      return formatToolLine(
+        `Listed ${formatCount(params.entryCount ?? 0, 'entry')} in ${sanitizePath(params.path)}`
+      );
     case 'lint':
       if ((params.findingsCount ?? 0) === 0) {
-        return `${TOOL_PREFIX}Found no issues in ${sanitizePath(params.path)}`;
+        return formatToolLine(`Found no issues in ${sanitizePath(params.path)}`);
       }
-      return `${TOOL_PREFIX}Found ${formatCount(params.findingsCount ?? 0, 'issue')} in ${sanitizePath(params.path)}`;
+      return formatToolLine(
+        `Found ${formatCount(params.findingsCount ?? 0, 'issue')} in ${sanitizePath(params.path)}`
+      );
   }
 }
 
 function formatErrorLine(params: VisibleToolProgress): string {
   switch (params.toolName) {
     case 'read_file':
-      return `${TOOL_PREFIX}Error reading ${sanitizePath(params.path)}`;
+      return formatToolLine(`Error reading ${sanitizePath(params.path)}`);
     case 'list_directory':
-      return `${TOOL_PREFIX}Error listing ${sanitizePath(params.path)}`;
+      return formatToolLine(`Error listing ${sanitizePath(params.path)}`);
     case 'lint':
-      return `${TOOL_PREFIX}Error linting ${sanitizePath(params.path)}`;
+      return formatToolLine(`Error linting ${sanitizePath(params.path)}`);
   }
+}
+
+function formatToolLine(message: string): string {
+  return truncate(`${TOOL_PREFIX}${message}`, MAX_TOOL_LINE_LENGTH);
 }
 
 function formatRuleSnippet(ruleText: string | undefined): string {
