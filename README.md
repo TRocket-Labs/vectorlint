@@ -131,18 +131,19 @@ Run VectorLint in autonomous agent mode:
 vectorlint doc.md --mode agent
 ```
 
-For machine-parseable output without interactive progress:
+For machine-parseable output:
 
 ```bash
-vectorlint doc.md --mode agent --output json --print
+vectorlint doc.md --mode agent --output json
 ```
 
-Agent mode guarantees:
+To suppress interactive progress in line output:
 
-- Read-only analysis tools only (`lint`, `report_finding`, `read_file`, `search_files`, `list_directory`, `search_content`)
-- Session success requires exactly one `finalize_review` tool call
-- Session events are written to `~/.vectorlint/reviews/<session-id>.jsonl`
-- Replay is resilient: malformed JSONL lines are skipped, valid events are preserved
+```bash
+vectorlint doc.md --mode agent --print
+```
+
+Agent mode performs an autonomous, read-only review of the files you provide and reports findings using the same output formats as standard mode.
 
 ## Contributing
 
