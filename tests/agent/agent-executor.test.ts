@@ -779,4 +779,43 @@ describe('agent executor', () => {
       contentLength: 'secret text\n'.length,
     });
   });
+
+  it('records started and failed events for visible-tool path errors', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const provider = makeProvider(async (params) => {
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      await expect(tools.read_file.execute({ path: '../outside.md' })).rejects.toThrow();
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [makePrompt()],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    const started = result.events.find(
+      (event: { eventType: string; payload?: { toolName?: string } }) =>
+        event.eventType === SESSION_EVENT_TYPE.ToolCallStarted && event.payload?.toolName === 'read_file'
+    );
+    const failed = result.events.find(
+      (event: { eventType: string; payload?: { toolName?: string; ok?: boolean; error?: string } }) =>
+        event.eventType === SESSION_EVENT_TYPE.ToolCallFinished
+        && event.payload?.toolName === 'read_file'
+        && event.payload?.ok === false
+    );
+
+    expect(started).toBeDefined();
+    expect(failed?.payload?.error).toContain('outside workspace root');
+  });
 });

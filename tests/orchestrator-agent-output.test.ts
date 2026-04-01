@@ -545,6 +545,45 @@ describe('agent orchestrator output', () => {
     expect(stderrOutput).toContain('Read 1 line from retriable.md');
   });
 
+  it('shows visible-tool path errors even when path validation fails before file access', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await expect(tools.read_file.execute({ path: '../outside.md' })).rejects.toThrow();
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 2, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Line,
+      mode: AGENT_REVIEW_MODE as never,
+      printMode: false,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(stderrOutput).toContain('Error reading ../outside.md');
+  });
+
   it('shows quality scores in agent line output and keeps operational failures explicit when finalize_review is missing', async () => {
     Object.defineProperty(process.stderr, 'isTTY', {
       configurable: true,
@@ -629,6 +668,9 @@ describe('agent orchestrator output', () => {
     expect(stdout).toContain('Use consistent wording');
     expect(stdout).toContain('Quality Scores:');
     expect(stderrSpy).toHaveBeenCalled();
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(stderrOutput).toContain('Review failed after');
+    expect(stderrOutput).not.toContain('Completed review in');
   });
 
   it('suppresses progress output when print mode is enabled', async () => {

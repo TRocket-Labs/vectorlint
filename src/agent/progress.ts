@@ -17,6 +17,8 @@ export interface VisibleToolProgress {
   findingsCount?: number;
 }
 
+type RunStatus = 'completed' | 'failed';
+
 export class AgentProgressReporter {
   private readonly enabled: boolean;
   private readonly spinner: Ora | undefined;
@@ -131,7 +133,7 @@ export class AgentProgressReporter {
     this.renderCurrent();
   }
 
-  finishRun(): void {
+  finishRun(status: RunStatus = 'completed'): void {
     if (!this.enabled) {
       return;
     }
@@ -142,7 +144,7 @@ export class AgentProgressReporter {
         text: this.currentBlockText(),
       });
     }
-    this.writeLine(`Completed review in ${formatElapsed(this.runStartedAt)}.`);
+    this.writeLine(formatRunFooter(status, this.runStartedAt));
     this.activeFile = undefined;
     this.activeRuleName = undefined;
     this.activeLine = TOOL_PREFIX;
@@ -247,6 +249,13 @@ function formatElapsed(startedAt: number): string {
     return `${minutes}m ${seconds}s`;
   }
   return `${seconds}s`;
+}
+
+function formatRunFooter(status: RunStatus, startedAt: number): string {
+  const elapsed = formatElapsed(startedAt);
+  return status === 'failed'
+    ? `Review failed after ${elapsed}.`
+    : `Completed review in ${elapsed}.`;
 }
 
 function createOraStream(stream: NodeJS.WriteStream): NodeJS.WriteStream {

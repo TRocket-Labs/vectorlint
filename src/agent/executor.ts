@@ -262,6 +262,14 @@ function countLines(content: string): number {
   }).length;
 }
 
+function tryResolveRelativePath(workspaceRoot: string, rawPath: string): string | undefined {
+  try {
+    return toRelativePathFromRoot(workspaceRoot, resolveWithinRoot(workspaceRoot, rawPath));
+  } catch {
+    return undefined;
+  }
+}
+
 function resolveVisibleToolContext(params: {
   toolName: AgentToolName;
   input: unknown;
@@ -291,14 +299,14 @@ function resolveVisibleToolContext(params: {
       if (!parsed.success) {
         return undefined;
       }
-      const path = toRelativePathFromRoot(
-        workspaceRoot,
-        resolveWithinRoot(workspaceRoot, parsed.data.path)
-      );
+      const resolvedPath = tryResolveRelativePath(workspaceRoot, parsed.data.path);
+      const path = resolvedPath ?? parsed.data.path;
       return {
         toolName: 'read_file',
         path,
-        progressFile: targetFiles.has(path) ? path : (currentProgressFile ?? defaultProgressFile),
+        progressFile: resolvedPath && targetFiles.has(resolvedPath)
+          ? resolvedPath
+          : (currentProgressFile ?? defaultProgressFile),
         signature: `read_file:${path}`,
       };
     }
@@ -307,10 +315,8 @@ function resolveVisibleToolContext(params: {
       if (!parsed.success) {
         return undefined;
       }
-      const path = toRelativePathFromRoot(
-        workspaceRoot,
-        resolveWithinRoot(workspaceRoot, parsed.data.path)
-      );
+      const resolvedPath = tryResolveRelativePath(workspaceRoot, parsed.data.path);
+      const path = resolvedPath ?? parsed.data.path;
       return {
         toolName: 'list_directory',
         path,
@@ -324,17 +330,17 @@ function resolveVisibleToolContext(params: {
         return undefined;
       }
       const prompt = resolvePromptBySource(parsed.data.ruleSource, promptBySource);
-      const path = toRelativePathFromRoot(
-        workspaceRoot,
-        resolveWithinRoot(workspaceRoot, parsed.data.file)
-      );
+      const resolvedPath = tryResolveRelativePath(workspaceRoot, parsed.data.file);
+      const path = resolvedPath ?? parsed.data.file;
       const ruleText = parsed.data.reviewInstruction?.trim() || prompt?.body || '';
       return {
         toolName: 'lint',
         path,
         ruleName: String(prompt?.meta.name || prompt?.meta.id || 'Rule'),
         ruleText,
-        progressFile: targetFiles.has(path) ? path : (currentProgressFile ?? defaultProgressFile),
+        progressFile: resolvedPath && targetFiles.has(resolvedPath)
+          ? resolvedPath
+          : (currentProgressFile ?? defaultProgressFile),
         signature: `lint:${path}:${normalizeRuleSource(parsed.data.ruleSource)}:${ruleText}`,
       };
     }
@@ -809,8 +815,6 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     requestFailures += 1;
     hadOperationalErrors = true;
     errorMessage = error instanceof Error ? error.message : String(error);
-  } finally {
-    progressReporter?.finishRun();
   }
 
   const events = await store.replay();
@@ -825,6 +829,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
 
   const findings = findingsFromEvents(events);
   const aggregatedUsage = mergeTokenUsage(usage, nestedToolUsage);
+  progressReporter?.finishRun(hadOperationalErrors ? 'failed' : 'completed');
 
   return {
     findings,
