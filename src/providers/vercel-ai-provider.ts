@@ -138,6 +138,11 @@ export class VercelAIProvider implements LLMProvider {
       prompt: params.prompt,
       ...(params.maxRetries !== undefined ? { maxRetries: params.maxRetries } : {}),
       stopWhen: stepCountIs(params.maxSteps ?? 1000),
+      providerOptions: {
+        openai: {
+          parallelToolCalls: maxParallel > 1,
+        },
+      },
       tools: mappedTools,
     });
 

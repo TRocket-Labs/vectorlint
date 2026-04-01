@@ -5,3 +5,7 @@ export function buildRuleId(prompt: PromptFile): string {
   const rule = String(prompt.meta.id || prompt.filename || 'Rule');
   return `${pack}.${rule}`;
 }
+
+export function normalizeRuleSource(ruleSource: string): string {
+  return ruleSource.replace(/\\/g, '/').replace(/^\.\//, '');
+}

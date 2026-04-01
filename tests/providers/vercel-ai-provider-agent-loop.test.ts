@@ -88,9 +88,13 @@ describe('VercelAIProvider agent loop', () => {
 
     const call = MOCK_GENERATE_TEXT.mock.calls.at(-1)?.[0] as {
       maxRetries?: number;
+      providerOptions?: { openai?: { parallelToolCalls?: boolean } };
     };
 
     expect(call.maxRetries).toBe(4);
+    expect(call.providerOptions).toEqual({
+      openai: { parallelToolCalls: false },
+    });
   });
 
   it('limits concurrent tool executes to maxParallelToolCalls', async () => {
@@ -129,6 +133,12 @@ describe('VercelAIProvider agent loop', () => {
 
     expect(maxConcurrent).toBeLessThanOrEqual(2);
     expect(maxConcurrent).toBeGreaterThan(1);
+    const call = MOCK_GENERATE_TEXT.mock.calls.at(-1)?.[0] as {
+      providerOptions?: { openai?: { parallelToolCalls?: boolean } };
+    };
+    expect(call.providerOptions).toEqual({
+      openai: { parallelToolCalls: true },
+    });
   });
 
   it('defaults tool concurrency to 1 when maxParallelToolCalls is not supplied', async () => {

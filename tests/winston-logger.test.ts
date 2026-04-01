@@ -38,4 +38,26 @@ describe('createWinstonLogger', () => {
       stderrLevels: [...LOG_LEVELS],
     });
   });
+
+  it('falls back gracefully when metadata cannot be serialized', () => {
+    createWinstonLogger({ level: 'debug' });
+
+    const formatter = MOCK_PRINTF.mock.calls.at(-1)?.[0] as
+      | ((info: Record<string, unknown>) => string)
+      | undefined;
+
+    expect(formatter).toBeDefined();
+
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    const rendered = formatter?.({
+      timestamp: '2026-04-01T00:00:00.000Z',
+      level: 'info',
+      message: 'test',
+      meta: circular,
+    });
+
+    expect(rendered).toContain('[unserializable metadata]');
+  });
 });

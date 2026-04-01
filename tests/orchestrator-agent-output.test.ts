@@ -72,6 +72,25 @@ function makeTopLevelOnlyProvider(): LLMProvider {
   } as unknown as LLMProvider;
 }
 
+function makeCrossFileTopLevelProvider(): LLMProvider {
+  return {
+    runPromptStructured() {
+      return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+    },
+    runAgentToolLoop: async (params: Record<string, unknown>) => {
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      await tools.report_finding.execute({
+        kind: 'top-level',
+        ruleSource: 'packs/default/consistency.md',
+        message: 'Cross-file issue found',
+        references: [{ file: 'other.md', startLine: 1, endLine: 1 }],
+      });
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 2, outputTokens: 1 } };
+    },
+  } as unknown as LLMProvider;
+}
+
 function makeNoFinalizeProvider(): LLMProvider {
   return {
     runPromptStructured() {
@@ -641,6 +660,115 @@ describe('agent orchestrator output', () => {
 
     expect(stdout).toContain('Top-level without references');
     expect(stdout).toContain('1:1');
+  });
+
+  it('prints lazy file headers for non-target referenced findings in line output', async () => {
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    const otherFile = path.join(repo, 'other.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+    writeFileSync(otherFile, 'other content\n', 'utf8');
+
+    await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider: makeCrossFileTopLevelProvider(),
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Line,
+      mode: AGENT_REVIEW_MODE as never,
+      printMode: true,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    const stdout = vi
+      .mocked(console.log)
+      .mock
+      .calls
+      .map((call) => String(call[0]))
+      .join('\n');
+
+    expect(stdout).toContain('other.md');
+    expect(stdout).toContain('Cross-file issue found');
+  });
+
+  it('scores against every matched file, including clean files without findings', async () => {
+    const repo = createTempRepo();
+    const firstFile = path.join(repo, 'doc.md');
+    const secondFile = path.join(repo, 'other.md');
+    writeFileSync(firstFile, 'one two three four five six seven eight nine ten\n', 'utf8');
+    writeFileSync(secondFile, 'alpha beta gamma delta epsilon zeta eta theta iota kappa\n', 'utf8');
+
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({
+          data: {
+            reasoning: 'detected issue',
+            violations: [
+              {
+                line: 1,
+                quoted_text: 'one',
+                context_before: '',
+                context_after: '',
+                description: 'Issue found',
+                analysis: 'Needs cleanup.',
+                message: 'Fix the wording',
+                suggestion: 'Use clearer wording',
+                fix: 'clear wording',
+                rule_quote: 'Be precise',
+                checks: {
+                  rule_supports_claim: true,
+                  evidence_exact: true,
+                  context_supports_violation: true,
+                  plausible_non_violation: false,
+                  fix_is_drop_in: true,
+                  fix_preserves_meaning: true,
+                },
+                check_notes: {
+                  rule_supports_claim: 'clear',
+                  evidence_exact: 'exact',
+                  context_supports_violation: 'yes',
+                  plausible_non_violation: 'none',
+                  fix_is_drop_in: 'yes',
+                  fix_preserves_meaning: 'yes',
+                },
+                confidence: 0.95,
+              },
+            ],
+          },
+        });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          ruleSource: 'packs/default/consistency.md',
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 3, outputTokens: 2 } };
+      },
+    } as unknown as LLMProvider;
+
+    await evaluateFiles([firstFile, secondFile], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Line,
+      mode: AGENT_REVIEW_MODE as never,
+      printMode: true,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    const stdout = vi
+      .mocked(console.log)
+      .mock
+      .calls
+      .map((call) => String(call[0]))
+      .join('\n');
+
+    expect(stdout).toContain('5.0/10');
   });
 
   it('keeps canonical rule identity and warning severity aligned across json and rdjson outputs', async () => {

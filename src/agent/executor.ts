@@ -32,7 +32,7 @@ import {
 } from './types';
 import { resolveGlobPatternWithinRoot, resolveWithinRoot, toRelativePathFromRoot } from './path-utils';
 import type { AgentProgressReporter } from './progress';
-import { buildRuleId } from './rule-id';
+import { buildRuleId, normalizeRuleSource } from './rule-id';
 export interface AgentFinding {
   file: string;
   line: number;
@@ -66,6 +66,7 @@ export interface RunAgentExecutorParams {
 export interface AgentExecutorResult {
   findings: AgentFinding[];
   events: SessionEvent[];
+  fileRuleMatches: Array<{ file: string; ruleSource: string }>;
   requestFailures: number;
   hadOperationalErrors: boolean;
   errorMessage?: string;
@@ -74,10 +75,6 @@ export interface AgentExecutorResult {
 
 const MAX_SEARCH_FILE_RESULTS = 500;
 const MAX_CONTENT_MATCH_RESULTS = 200;
-
-function normalizeRuleSource(ruleSource: string): string {
-  return ruleSource.replace(/\\/g, '/').replace(/^\.\//, '');
-}
 
 function buildUnknownRuleSourceError(ruleSource: string, validSources: string[]): Error {
   const validHint = validSources.length > 0 ? validSources.join(', ') : '(none)';
@@ -172,25 +169,153 @@ function buildFileRuleMatches(
 ): Array<{ file: string; ruleSource: string }> {
   const resolver = new ScanPathResolver();
   const availablePacks = Array.from(new Set(prompts.map((p) => p.pack).filter((p): p is string => !!p)));
-  const assignments: Array<{ file: string; ruleSource: string }> = [];
+  const matches: Array<{ file: string; ruleSource: string }> = [];
 
   for (const relFile of relativeTargets) {
-    const resolution = resolver.resolveConfiguration(relFile, scanPaths, availablePacks);
-    const matchedPrompts = prompts.filter((p) => {
-      if (!p.pack || p.pack === '') return false;
-      if (!resolution.packs.includes(p.pack)) return false;
-      if (!p.meta?.id) return true;
-      const disableKey = `${p.pack}.${p.meta.id}`;
+    const resolution =
+      scanPaths.length > 0
+        ? resolver.resolveConfiguration(relFile, scanPaths, availablePacks)
+        : { packs: availablePacks, overrides: {} };
+    const matchedPrompts = prompts.filter((prompt) => {
+      if (prompt.pack === '') return true;
+      if (!prompt.pack) return false;
+      if (scanPaths.length > 0 && !resolution.packs.includes(prompt.pack)) return false;
+      if (!prompt.meta?.id) return true;
+      const disableKey = `${prompt.pack}.${prompt.meta.id}`;
       const overrideValue = resolution.overrides[disableKey];
       return typeof overrideValue !== 'string' || overrideValue.toLowerCase() !== 'disabled';
     });
 
     for (const prompt of matchedPrompts) {
-      assignments.push({ file: relFile, ruleSource: normalizeRuleSource(prompt.fullPath) });
+      matches.push({ file: relFile, ruleSource: normalizeRuleSource(prompt.fullPath) });
     }
   }
 
-  return assignments;
+  return matches;
+}
+
+function summarizeToolOutput(toolName: AgentToolName, output: unknown): unknown {
+  if (typeof output !== 'object' || output === null) {
+    return output;
+  }
+
+  const candidate = output as Record<string, unknown>;
+
+  switch (toolName) {
+    case 'read_file': {
+      const content = typeof candidate.content === 'string' ? candidate.content : '';
+      return {
+        ...(typeof candidate.path === 'string' ? { path: candidate.path } : {}),
+        contentLength: content.length,
+      };
+    }
+    case 'search_content': {
+      const matches = Array.isArray(candidate.matches) ? candidate.matches : [];
+      return {
+        matchCount: matches.length,
+        ...(candidate.truncated === true ? { truncated: true } : {}),
+      };
+    }
+    case 'search_files': {
+      const matches = Array.isArray(candidate.matches) ? candidate.matches : [];
+      return {
+        matchCount: matches.length,
+        ...(candidate.truncated === true ? { truncated: true } : {}),
+      };
+    }
+    case 'list_directory': {
+      const entries = Array.isArray(candidate.entries) ? candidate.entries : [];
+      return {
+        ...(typeof candidate.path === 'string' ? { path: candidate.path } : {}),
+        entryCount: entries.length,
+      };
+    }
+    default:
+      return output;
+  }
+}
+
+type FindingLikeViolation = {
+  line?: number;
+  quoted_text?: string;
+  context_before?: string;
+  context_after?: string;
+  description?: string;
+  analysis?: string;
+  message?: string;
+  suggestion?: string;
+  fix?: string;
+  confidence?: number;
+  checks?: {
+    plausible_non_violation?: boolean;
+    context_supports_violation?: boolean;
+    rule_supports_claim?: boolean;
+  };
+};
+
+async function appendInlineFinding(params: {
+  violation: FindingLikeViolation;
+  result: PromptEvaluationResult;
+  content: string;
+  relFile: string;
+  prompt: PromptFile;
+  ruleSource: string;
+  store: Awaited<ReturnType<typeof createReviewSessionStore>>;
+}): Promise<boolean> {
+  const { violation, result, content, relFile, prompt, ruleSource, store } = params;
+  const filterDecision = computeFilterDecision(violation);
+  if (!filterDecision.surface) {
+    return false;
+  }
+
+  const location = locateQuotedText(
+    content,
+    {
+      quoted_text: violation.quoted_text || '',
+      context_before: violation.context_before || '',
+      context_after: violation.context_after || '',
+    },
+    80,
+    violation.line
+  );
+
+  const line = location?.line ?? Math.max(1, Math.trunc(violation.line ?? 1));
+  const column = location?.column ?? 1;
+  const match = location?.match ?? violation.quoted_text ?? '';
+  const message = (violation.message || violation.description || fallbackMessage(result)).trim();
+
+  const finding: AgentFinding = {
+    file: relFile,
+    line,
+    column,
+    severity: severityFromPrompt(prompt),
+    message,
+    ruleId: buildRuleId(prompt),
+    ruleSource: normalizeRuleSource(ruleSource),
+    ...(violation.analysis ? { analysis: violation.analysis } : {}),
+    ...(violation.suggestion ? { suggestion: violation.suggestion } : {}),
+    ...(violation.fix ? { fix: violation.fix } : {}),
+    ...(match ? { match } : {}),
+  };
+
+  await store.append({
+    eventType: SESSION_EVENT_TYPE.FindingRecordedInline,
+    payload: {
+      file: finding.file,
+      line: finding.line,
+      column: finding.column,
+      severity: finding.severity,
+      ruleId: finding.ruleId,
+      ruleSource: finding.ruleSource,
+      message: finding.message,
+      ...(finding.analysis ? { analysis: finding.analysis } : {}),
+      ...(finding.suggestion ? { suggestion: finding.suggestion } : {}),
+      ...(finding.fix ? { fix: finding.fix } : {}),
+      ...(finding.match ? { match: finding.match } : {}),
+    },
+  });
+
+  return true;
 }
 
 export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<AgentExecutorResult> {
@@ -269,7 +394,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
         payload: {
           toolName,
           ok: true,
-          output,
+          output: summarizeToolOutput(toolName, output),
         },
       });
       return output;
@@ -307,61 +432,22 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     const result = await evaluator.evaluate(relFile, content);
 
     let findingsRecorded = 0;
-    if (!isJudgeResult(result)) {
-      for (const violation of result.violations) {
-        const filterDecision = computeFilterDecision(violation);
-        if (!filterDecision.surface) {
-          continue;
-        }
-
-        const location = locateQuotedText(
-          content,
-          {
-            quoted_text: violation.quoted_text || '',
-            context_before: violation.context_before || '',
-            context_after: violation.context_after || '',
-          },
-          80,
-          violation.line
-        );
-
-        const line = location?.line ?? Math.max(1, Math.trunc(violation.line ?? 1));
-        const column = location?.column ?? 1;
-        const match = location?.match ?? violation.quoted_text ?? '';
-        const message = (violation.message || violation.description || fallbackMessage(result)).trim();
-
-        const finding: AgentFinding = {
-          file: relFile,
-          line,
-          column,
-          severity: severityFromPrompt(prompt),
-          message,
-          ruleId: buildRuleId(prompt),
-          ruleSource: normalizeRuleSource(parsed.ruleSource),
-          ...(violation.analysis ? { analysis: violation.analysis } : {}),
-          ...(violation.suggestion ? { suggestion: violation.suggestion } : {}),
-          ...(violation.fix ? { fix: violation.fix } : {}),
-          ...(match ? { match } : {}),
-        };
-
+    const violations = isJudgeResult(result)
+      ? result.criteria.flatMap((criterion) => criterion.violations)
+      : result.violations;
+    for (const violation of violations) {
+      const wasRecorded = await appendInlineFinding({
+        violation,
+        result,
+        content,
+        relFile,
+        prompt,
+        ruleSource: parsed.ruleSource,
+        store,
+      });
+      if (wasRecorded) {
         findingsCount += 1;
         findingsRecorded += 1;
-        await store.append({
-          eventType: SESSION_EVENT_TYPE.FindingRecordedInline,
-          payload: {
-            file: finding.file,
-            line: finding.line,
-            column: finding.column,
-            severity: finding.severity,
-            ruleId: finding.ruleId,
-            ruleSource: finding.ruleSource,
-            message: finding.message,
-            ...(finding.analysis ? { analysis: finding.analysis } : {}),
-            ...(finding.suggestion ? { suggestion: finding.suggestion } : {}),
-            ...(finding.fix ? { fix: finding.fix } : {}),
-            ...(finding.match ? { match: finding.match } : {}),
-          },
-        });
       }
     }
 
@@ -513,7 +599,6 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
         'FINALIZE_REVIEW_ALREADY_CALLED'
       );
     }
-    finalized = true;
     await store.append({
       eventType: SESSION_EVENT_TYPE.SessionFinalized,
       payload: {
@@ -521,6 +606,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
         ...(parsed.summary ? { summary: parsed.summary } : {}),
       },
     });
+    finalized = true;
     return { ok: true };
   }
 
@@ -595,6 +681,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   return {
     findings,
     events,
+    fileRuleMatches,
     requestFailures,
     hadOperationalErrors,
     ...(errorMessage ? { errorMessage } : {}),

@@ -108,6 +108,9 @@ describe('agent executor', () => {
     });
 
     expect(result.hadOperationalErrors).toBe(false);
+    expect(result.fileRuleMatches).toEqual([
+      { file: 'doc.md', ruleSource: 'packs/default/consistency.md' },
+    ]);
   });
 
   it('returns explicit tool error for unknown ruleSource with valid-source hints', async () => {
@@ -227,6 +230,35 @@ describe('agent executor', () => {
       )
     ).toBe(true);
     expect(result.events.some((event: { eventType: string }) => event.eventType === SESSION_EVENT_TYPE.SessionFinalized)).toBe(true);
+  });
+
+  it('falls back to matching all prompts when scanPaths is empty', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const provider = makeProvider(async (params) => {
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [makePrompt()],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(result.fileRuleMatches).toEqual([
+      { file: 'doc.md', ruleSource: 'packs/default/consistency.md' },
+    ]);
   });
 
   it('records the required session event stream and preserves lifecycle ordering', async () => {
@@ -565,5 +597,139 @@ describe('agent executor', () => {
     expect(result.hadOperationalErrors).toBe(false);
     expect(promptBodies.length).toBeGreaterThan(0);
     expect(promptBodies[0]).toBe('Find inconsistent wording.');
+  });
+
+  it('records judge-style violations as inline findings in agent mode', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const basePrompt = makePrompt();
+    const judgePrompt: PromptFile = {
+      ...basePrompt,
+      body: 'Judge the document for clarity.',
+      meta: {
+        ...basePrompt.meta,
+        type: 'judge',
+        criteria: [{ id: 'Clarity', name: 'Clarity', weight: 1 }],
+      },
+    };
+
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({
+          data: {
+            criteria: [
+              {
+                name: 'Clarity',
+                score: 2,
+                summary: 'Needs work',
+                reasoning: 'The wording is unclear.',
+                violations: [
+                  {
+                    line: 1,
+                    quoted_text: 'bad phrase',
+                    context_before: '',
+                    context_after: '',
+                    description: 'Unclear wording',
+                    analysis: 'This phrase is vague.',
+                    message: 'Use clearer wording',
+                    suggestion: 'Replace the vague phrase',
+                    fix: 'better phrase',
+                    rule_quote: 'Prefer precise language',
+                    checks: {
+                      rule_supports_claim: true,
+                      evidence_exact: true,
+                      context_supports_violation: true,
+                      plausible_non_violation: false,
+                      fix_is_drop_in: true,
+                      fix_preserves_meaning: true,
+                    },
+                    check_notes: {
+                      rule_supports_claim: 'clear',
+                      evidence_exact: 'exact',
+                      context_supports_violation: 'yes',
+                      plausible_non_violation: 'none',
+                      fix_is_drop_in: 'yes',
+                      fix_preserves_meaning: 'yes',
+                    },
+                    confidence: 0.95,
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          ruleSource: 'packs/default/consistency.md',
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [judgePrompt],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: 'doc.md',
+          ruleId: 'Default.Consistency',
+          message: 'Use clearer wording',
+        }),
+      ])
+    );
+  });
+
+  it('redacts raw read_file content from persisted tool_call_finished events', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    writeFileSync(path.join(repo, 'doc.md'), 'secret text\n', 'utf8');
+
+    const provider = makeProvider(async (params) => {
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      await tools.read_file.execute({ path: 'doc.md' });
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [makePrompt()],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    const readFileEvent = result.events.find(
+      (event: {
+        eventType: string;
+        payload?: { toolName?: string; output?: { path?: string; contentLength?: number } };
+      }) => event.eventType === SESSION_EVENT_TYPE.ToolCallFinished && event.payload?.toolName === 'read_file'
+    );
+
+    expect(readFileEvent?.payload?.output).toEqual({
+      path: 'doc.md',
+      contentLength: 'secret text\n'.length,
+    });
   });
 });

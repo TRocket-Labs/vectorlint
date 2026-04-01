@@ -31,7 +31,7 @@ import {
 } from '../providers/token-usage';
 import { calculateCheckScore } from '../scoring';
 import { countWords } from '../chunking/utils';
-import { buildRuleId } from '../agent/rule-id';
+import { buildRuleId, normalizeRuleSource } from '../agent/rule-id';
 import { locateQuotedText } from "../output/location";
 import {
   computeFilterDecision,
@@ -1106,23 +1106,31 @@ async function getAgentFileWordCount(
 async function buildAgentRuleScores(
   findings: AgentFinding[],
   prompts: PromptFile[],
+  fileRuleMatches: Array<{ file: string; ruleSource: string }>,
   workspaceRoot: string
 ): Promise<AgentRuleScore[]> {
   const fileWordCountCache = new Map<string, number>();
   const findingsByRule = new Map<string, AgentFinding[]>();
+  const filesByRuleSource = new Map<string, Set<string>>();
 
   for (const finding of findings) {
     const existing = findingsByRule.get(finding.ruleId) ?? [];
     existing.push(finding);
     findingsByRule.set(finding.ruleId, existing);
   }
+  for (const match of fileRuleMatches) {
+    const files = filesByRuleSource.get(match.ruleSource) ?? new Set<string>();
+    files.add(match.file);
+    filesByRuleSource.set(match.ruleSource, files);
+  }
 
   const results: AgentRuleScore[] = [];
   for (const prompt of prompts) {
     const ruleId = buildRuleId(prompt);
     const ruleFindings = findingsByRule.get(ruleId) ?? [];
+    const matchedFiles = filesByRuleSource.get(normalizeRuleSource(prompt.fullPath)) ?? new Set<string>();
 
-    if (ruleFindings.length === 0) {
+    if (matchedFiles.size === 0) {
       results.push({
         ruleId,
         score: 10,
@@ -1131,9 +1139,8 @@ async function buildAgentRuleScores(
       continue;
     }
 
-    const files = new Set(ruleFindings.map((finding) => finding.file));
     let totalWords = 0;
-    for (const file of files) {
+    for (const file of matchedFiles) {
       totalWords += await getAgentFileWordCount(file, workspaceRoot, fileWordCountCache);
     }
 
@@ -1190,19 +1197,14 @@ async function evaluateFilesInAgentMode(
     userInstructions: options.userInstructionContent,
   });
 
-  if (outputFormat === OutputFormat.Line) {
-    const seenFiles = new Set<string>();
-    for (const target of targets) {
-      const rel = path.relative(workspaceRoot, target) || target;
-      if (seenFiles.has(rel)) continue;
-      seenFiles.add(rel);
-      printFileHeader(rel);
-    }
-  }
-
   let totalErrors = 0;
   let totalWarnings = 0;
+  const printedFileHeaders = new Set<string>();
   for (const finding of agentResult.findings) {
+    if (outputFormat === OutputFormat.Line && !printedFileHeaders.has(finding.file)) {
+      printFileHeader(finding.file);
+      printedFileHeaders.add(finding.file);
+    }
     reportAgentFinding({ finding, outputFormat, jsonFormatter });
     if (finding.severity === Severity.ERROR) {
       totalErrors += 1;
@@ -1212,7 +1214,12 @@ async function evaluateFilesInAgentMode(
   }
 
   if (outputFormat === OutputFormat.Line) {
-    const ruleScores = await buildAgentRuleScores(agentResult.findings, options.prompts, workspaceRoot);
+    const ruleScores = await buildAgentRuleScores(
+      agentResult.findings,
+      options.prompts,
+      agentResult.fileRuleMatches,
+      workspaceRoot
+    );
     const scoreSummary = new Map<string, EvaluationSummary[]>(
       ruleScores.map((entry) => [
         entry.ruleId,

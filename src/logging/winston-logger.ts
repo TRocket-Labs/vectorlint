@@ -25,6 +25,14 @@ class WinstonLoggerAdapter implements Logger {
   }
 }
 
+function serializeLogMeta(meta: Record<string, unknown>): string {
+  try {
+    return JSON.stringify(meta);
+  } catch {
+    return '[unserializable metadata]';
+  }
+}
+
 export function createWinstonLogger(options: WinstonLoggerOptions = {}): Logger {
   const logger = winston.createLogger({
     level: options.level ?? 'info',
@@ -33,7 +41,7 @@ export function createWinstonLogger(options: WinstonLoggerOptions = {}): Logger 
       winston.format.timestamp(),
       winston.format.printf(({ timestamp, level, message, ...meta }) => {
         const hasMeta = Object.keys(meta).length > 0;
-        const serializedMeta = hasMeta ? JSON.stringify(meta) : '';
+        const serializedMeta = hasMeta ? serializeLogMeta(meta) : '';
         const metaText = hasMeta && serializedMeta ? ` ${serializedMeta}` : '';
         return `${String(timestamp)} ${String(level)}: ${String(message)}${metaText}`;
       })
