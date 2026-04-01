@@ -1,8 +1,8 @@
 import winston from 'winston';
-import type { Logger, LogMeta } from './logger';
+import { LOG_LEVELS, type Logger, type LogLevel, type LogMeta } from './logger';
 
 export interface WinstonLoggerOptions {
-  level?: string;
+  level?: LogLevel;
 }
 
 class WinstonLoggerAdapter implements Logger {
@@ -40,7 +40,7 @@ export function createWinstonLogger(options: WinstonLoggerOptions = {}): Logger 
     ),
     transports: [
       new winston.transports.Console({
-        stderrLevels: ['error', 'warn', 'info', 'debug'],
+        stderrLevels: [...LOG_LEVELS],
       }),
     ],
   });

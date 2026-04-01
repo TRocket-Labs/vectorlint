@@ -4,6 +4,7 @@ import { createPerplexity } from '@ai-sdk/perplexity';
 import type { SearchProvider } from './search-provider';
 import type { PerplexityResult } from '../schemas/perplexity-responses';
 import { createNoopLogger, type Logger } from '../logging/logger';
+import { handleUnknownError } from '../errors';
 
 // Boundary validation schema for Perplexity source data.
 // The AI SDK's typed Source may not include provider-specific fields (text, publishedDate),
@@ -19,14 +20,12 @@ const PERPLEXITY_SOURCES_SCHEMA = z.array(PERPLEXITY_SOURCE_SCHEMA);
 export interface PerplexitySearchConfig {
   apiKey?: string;
   maxResults?: number;
-  debug?: boolean;
   logger?: Logger;
 }
 
 export class PerplexitySearchProvider implements SearchProvider {
   private client: ReturnType<typeof createPerplexity>;
   private maxResults: number;
-  private debug: boolean;
   private logger: Logger;
 
   constructor(config: PerplexitySearchConfig = {}) {
@@ -37,14 +36,13 @@ export class PerplexitySearchProvider implements SearchProvider {
     }
     this.client = createPerplexity({ apiKey });
     this.maxResults = config.maxResults ?? 5;
-    this.debug = config.debug ?? false;
     this.logger = config.logger ?? createNoopLogger();
   }
 
   async search(query: string): Promise<PerplexityResult[]> {
     if (!query?.trim()) throw new Error('Search query cannot be empty.');
 
-    if (this.debug) this.logger.debug(`[Perplexity] Searching: "${query}"`);
+    this.logger.debug('Perplexity search started', { query });
 
     try {
       const result = await generateText({
@@ -56,30 +54,28 @@ export class PerplexitySearchProvider implements SearchProvider {
       // fields not present in the typed Source interface
       const rawSources: unknown[] = Array.isArray(result.sources) ? result.sources.slice(0, this.maxResults) : [];
       const parseResult = PERPLEXITY_SOURCES_SCHEMA.safeParse(rawSources);
-      if (!parseResult.success && this.debug) {
-        this.logger.warn('[Perplexity] Source validation failed for raw sources', {
+      if (!parseResult.success) {
+        this.logger.warn('Perplexity source validation failed', {
           error: parseResult.error.message,
         });
       }
       const sources = parseResult.success ? parseResult.data : [];
 
-      const results: PerplexityResult[] = sources.slice(0, this.maxResults).map(source => ({
+      const results: PerplexityResult[] = sources.map(source => ({
         title: source.title || 'Untitled',
         snippet: source.text || '',
         url: source.url || '',
         date: source.publishedDate || '',
       }));
 
-      if (this.debug) {
-        this.logger.debug(`[Perplexity] Found ${results.length} results`);
-        this.logger.debug('[Perplexity] Result preview', {
-          results: results.slice(0, 2),
-        });
-      }
+      this.logger.debug('Perplexity search completed', { resultCount: results.length });
+      this.logger.debug('Perplexity result preview', {
+        results: results.slice(0, 2),
+      });
 
       return results;
     } catch (e: unknown) {
-      const err = e instanceof Error ? e : new Error(String(e));
+      const err = handleUnknownError(e, 'Perplexity API call');
       throw new Error(`Perplexity API call failed: ${err.message}`);
     }
   }

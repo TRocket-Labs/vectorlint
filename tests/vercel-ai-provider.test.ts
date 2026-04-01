@@ -40,6 +40,7 @@ vi.mock('ai', () => {
 import { VercelAIProvider, type VercelAIConfig } from '../src/providers/vercel-ai-provider';
 import { DefaultRequestBuilder, type RequestBuilder } from '../src/providers/request-builder';
 import type { LanguageModel } from 'ai';
+import { createMockLogger } from './utils';
 
 // Mock model stub — only stored in config and passed through to the mocked
 // generateText function, so it doesn't need to implement the full interface.
@@ -261,12 +262,7 @@ describe('VercelAIProvider', () => {
   });
 
   describe('Debugging and Logging', () => {
-    const logger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    };
+    const logger = createMockLogger();
 
     beforeEach(() => {
       vi.clearAllMocks();

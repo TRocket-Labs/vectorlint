@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import type { LanguageModel } from 'ai';
+import { createMockLogger } from '../utils';
 
 const MOCK_GENERATE_TEXT = vi.hoisted(() => vi.fn());
 const MOCK_STEP_COUNT_IS = vi.hoisted(() => vi.fn(() => ({ type: 'stepCount' })));
@@ -179,12 +180,7 @@ describe('VercelAIProvider agent loop', () => {
       usage: { inputTokens: 10, outputTokens: 5 },
     });
 
-    const logger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    };
+    const logger = createMockLogger();
 
     const provider = new VercelAIProvider({
       model: { provider: 'openai' } as unknown as LanguageModel,

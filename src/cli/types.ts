@@ -18,6 +18,15 @@ export enum OutputFormat {
     RdJson = "rdjson",
 }
 
+export const OUTPUT_FORMATS = [
+    OutputFormat.Line,
+    OutputFormat.Json,
+    OutputFormat.ValeJson,
+    OutputFormat.RdJson,
+] as const;
+
+export const DEFAULT_OUTPUT_FORMAT = OUTPUT_FORMATS[0];
+
 export const REVIEW_MODES = ['standard', 'agent'] as const;
 export const DEFAULT_REVIEW_MODE = REVIEW_MODES[0];
 export const AGENT_REVIEW_MODE = REVIEW_MODES[1];
