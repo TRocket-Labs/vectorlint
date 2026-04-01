@@ -161,14 +161,15 @@ describe('PerplexitySearchProvider', () => {
   });
 
   describe('Debug Logging', () => {
-    let consoleSpy: ReturnType<typeof vi.spyOn>;
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
 
     beforeEach(() => {
-      consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
-    });
-
-    afterEach(() => {
-      consoleSpy.mockRestore();
+      vi.clearAllMocks();
     });
 
     it('logs search query when debug is enabled', async () => {
@@ -176,10 +177,10 @@ describe('PerplexitySearchProvider', () => {
         sources: MOCK_SOURCES,
       });
 
-      const provider = new PerplexitySearchProvider({ debug: true });
+      const provider = new PerplexitySearchProvider({ debug: true, logger });
       await provider.search('test query');
 
-      expect(consoleSpy).toHaveBeenCalledWith('[Perplexity] Searching: "test query"');
+      expect(logger.debug).toHaveBeenCalledWith('[Perplexity] Searching: "test query"');
     });
 
     it('logs results count when debug is enabled', async () => {
@@ -187,10 +188,10 @@ describe('PerplexitySearchProvider', () => {
         sources: MOCK_SOURCES,
       });
 
-      const provider = new PerplexitySearchProvider({ debug: true });
+      const provider = new PerplexitySearchProvider({ debug: true, logger });
       await provider.search('test query');
 
-      expect(consoleSpy).toHaveBeenCalledWith('[Perplexity] Found 2 results');
+      expect(logger.debug).toHaveBeenCalledWith('[Perplexity] Found 2 results');
     });
 
     it('does not log when debug is disabled', async () => {
@@ -198,10 +199,10 @@ describe('PerplexitySearchProvider', () => {
         sources: MOCK_SOURCES,
       });
 
-      const provider = new PerplexitySearchProvider({ debug: false });
+      const provider = new PerplexitySearchProvider({ debug: false, logger });
       await provider.search('test query');
 
-      expect(consoleSpy).not.toHaveBeenCalled();
+      expect(logger.debug).not.toHaveBeenCalled();
     });
   });
 

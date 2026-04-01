@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createPerplexity } from '@ai-sdk/perplexity';
 import type { SearchProvider } from './search-provider';
 import type { PerplexityResult } from '../schemas/perplexity-responses';
+import { createNoopLogger, type Logger } from '../logging/logger';
 
 // Boundary validation schema for Perplexity source data.
 // The AI SDK's typed Source may not include provider-specific fields (text, publishedDate),
@@ -13,17 +14,20 @@ const PERPLEXITY_SOURCE_SCHEMA = z.object({
   url: z.string().optional(),
   publishedDate: z.string().optional(),
 }).passthrough();
+const PERPLEXITY_SOURCES_SCHEMA = z.array(PERPLEXITY_SOURCE_SCHEMA);
 
 export interface PerplexitySearchConfig {
   apiKey?: string;
   maxResults?: number;
   debug?: boolean;
+  logger?: Logger;
 }
 
 export class PerplexitySearchProvider implements SearchProvider {
   private client: ReturnType<typeof createPerplexity>;
   private maxResults: number;
   private debug: boolean;
+  private logger: Logger;
 
   constructor(config: PerplexitySearchConfig = {}) {
     // Use provided API key or fall back to environment variable
@@ -34,12 +38,13 @@ export class PerplexitySearchProvider implements SearchProvider {
     this.client = createPerplexity({ apiKey });
     this.maxResults = config.maxResults ?? 5;
     this.debug = config.debug ?? false;
+    this.logger = config.logger ?? createNoopLogger();
   }
 
   async search(query: string): Promise<PerplexityResult[]> {
     if (!query?.trim()) throw new Error('Search query cannot be empty.');
 
-    if (this.debug) console.log(`[Perplexity] Searching: "${query}"`);
+    if (this.debug) this.logger.debug(`[Perplexity] Searching: "${query}"`);
 
     try {
       const result = await generateText({
@@ -49,10 +54,12 @@ export class PerplexitySearchProvider implements SearchProvider {
 
       // Validate sources at the boundary — the SDK may include provider-specific
       // fields not present in the typed Source interface
-      const rawSources: unknown = result.sources ?? [];
-      const parseResult = z.array(PERPLEXITY_SOURCE_SCHEMA).safeParse(rawSources);
+      const rawSources: unknown[] = Array.isArray(result.sources) ? result.sources.slice(0, this.maxResults) : [];
+      const parseResult = PERPLEXITY_SOURCES_SCHEMA.safeParse(rawSources);
       if (!parseResult.success && this.debug) {
-        console.warn(`[Perplexity] Source validation failed for raw sources:`, parseResult.error);
+        this.logger.warn('[Perplexity] Source validation failed for raw sources', {
+          error: parseResult.error.message,
+        });
       }
       const sources = parseResult.success ? parseResult.data : [];
 
@@ -64,8 +71,10 @@ export class PerplexitySearchProvider implements SearchProvider {
       }));
 
       if (this.debug) {
-        console.log(`[Perplexity] Found ${results.length} results`);
-        console.log(results.slice(0, 2));
+        this.logger.debug(`[Perplexity] Found ${results.length} results`);
+        this.logger.debug('[Perplexity] Result preview', {
+          results: results.slice(0, 2),
+        });
       }
 
       return results;

@@ -106,15 +106,17 @@ export function registerMainCommand(program: Command): void {
         console.log(`[vectorlint] Loaded user instructions from ${USER_INSTRUCTION_FILENAME} (${userInstructions.tokenEstimate} estimated tokens)`);
       }
 
+      const runtimeLogger = createWinstonLogger({
+        level: cliOptions.verbose ? 'debug' : 'info',
+      });
+
       const provider = createProvider(
         env,
         {
           debug: cliOptions.verbose,
           showPrompt: cliOptions.showPrompt,
           showPromptTrunc: cliOptions.showPromptTrunc,
-          logger: createWinstonLogger({
-            level: cliOptions.verbose ? 'debug' : 'info',
-          }),
+          logger: runtimeLogger,
         },
         new DefaultRequestBuilder(directive, userInstructions.content || undefined)
       );
@@ -199,7 +201,7 @@ export function registerMainCommand(program: Command): void {
 
       // Create search provider if API key is available
       const searchProvider: SearchProvider | undefined = process.env.PERPLEXITY_API_KEY
-        ? new PerplexitySearchProvider({ debug: false })
+        ? new PerplexitySearchProvider({ debug: false, logger: runtimeLogger })
         : undefined;
 
       const outputFormat = cliOptions.output as OutputFormat;

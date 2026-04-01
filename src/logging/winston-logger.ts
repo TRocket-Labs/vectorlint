@@ -32,12 +32,17 @@ export function createWinstonLogger(options: WinstonLoggerOptions = {}): Logger 
       winston.format.colorize(),
       winston.format.timestamp(),
       winston.format.printf(({ timestamp, level, message, ...meta }) => {
-        const serializedMeta = JSON.stringify(meta);
-        const metaText = Object.keys(meta).length > 0 && serializedMeta ? ` ${serializedMeta}` : '';
+        const hasMeta = Object.keys(meta).length > 0;
+        const serializedMeta = hasMeta ? JSON.stringify(meta) : '';
+        const metaText = hasMeta && serializedMeta ? ` ${serializedMeta}` : '';
         return `${String(timestamp)} ${String(level)}: ${String(message)}${metaText}`;
       })
     ),
-    transports: [new winston.transports.Console()],
+    transports: [
+      new winston.transports.Console({
+        stderrLevels: ['error', 'warn', 'info', 'debug'],
+      }),
+    ],
   });
 
   return new WinstonLoggerAdapter(logger);
