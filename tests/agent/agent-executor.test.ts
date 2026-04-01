@@ -1,7 +1,7 @@
-import { mkdtempSync, writeFileSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { PromptFile } from '../../src/prompts/prompt-loader';
 import type { LLMProvider } from '../../src/providers/llm-provider';
 import { Severity } from '../../src/evaluators/types';
@@ -72,10 +72,24 @@ function makeProvider(
 }
 
 describe('agent executor', () => {
+  const tempDirs: string[] = [];
+
+  function createTempRepo(): string {
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    tempDirs.push(repo);
+    return repo;
+  }
+
+  afterEach(() => {
+    for (const dir of tempDirs.splice(0, tempDirs.length)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('exposes only non-mutating analysis tools plus finalize_review', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const provider = makeProvider(async (params) => {
@@ -116,17 +130,23 @@ describe('agent executor', () => {
   it('returns explicit tool error for unknown ruleSource with valid-source hints', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const provider = makeProvider(async (params) => {
       const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
-      await expect(
-        tools.lint.execute({
+      let errorMessage = '';
+      try {
+        await tools.lint.execute({
           file: 'doc.md',
           ruleSource: 'packs/default/does-not-exist.md',
-        })
-      ).rejects.toBeInstanceOf(AgentToolError);
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(AgentToolError);
+        errorMessage = error instanceof Error ? error.message : String(error);
+      }
+      expect(errorMessage).toContain('Unknown ruleSource');
+      expect(errorMessage).toContain('Valid sources');
       await tools.finalize_review.execute({});
       return { usage: { inputTokens: 1, outputTokens: 1 } };
     });
@@ -148,7 +168,7 @@ describe('agent executor', () => {
   it('returns explicit tool error for unknown ruleSource in report_finding', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const provider = makeProvider(async (params) => {
@@ -180,7 +200,7 @@ describe('agent executor', () => {
   it('returns findings reconstructed from persisted inline and top-level session events', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const provider = makeProvider(async (params) => {
@@ -235,7 +255,7 @@ describe('agent executor', () => {
   it('aggregates nested lint usage with agent loop usage', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const provider: LLMProvider = {
@@ -282,7 +302,7 @@ describe('agent executor', () => {
   it('falls back to matching all prompts when scanPaths is empty', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const provider = makeProvider(async (params) => {
@@ -311,7 +331,7 @@ describe('agent executor', () => {
   it('records the required session event stream and preserves lifecycle ordering', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const provider = makeProvider(async (params) => {
@@ -360,7 +380,7 @@ describe('agent executor', () => {
   it('returns an operational error when finalize_review is called more than once', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const provider = makeProvider(async (params) => {
@@ -412,7 +432,7 @@ describe('agent executor', () => {
     async ({ toolName, input }) => {
       const { runAgentExecutor } = await import('../../src/agent/executor');
 
-      const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+      const repo = createTempRepo();
       writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
       let toolError = '';
@@ -453,7 +473,7 @@ describe('agent executor', () => {
   it('continues producing findings after a recoverable tool error and reports the tool diagnostic', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     let toolError = '';
@@ -504,7 +524,7 @@ describe('agent executor', () => {
   it('allows read-only search_content tool usage without requiring mutation capabilities', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\nanother line\n', 'utf8');
 
     const provider = makeProvider(async (params) => {
@@ -537,7 +557,7 @@ describe('agent executor', () => {
   it('marks the run as operationally failed but preserves findings when finalize_review is missing', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const provider = makeProvider(async (params) => {
@@ -568,7 +588,7 @@ describe('agent executor', () => {
   it('uses reviewInstruction to override the prompt body for that lint invocation', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const promptBodies: string[] = [];
@@ -610,7 +630,7 @@ describe('agent executor', () => {
   it('keeps lint prompt body unchanged when reviewInstruction is not provided', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const promptBodies: string[] = [];
@@ -649,7 +669,7 @@ describe('agent executor', () => {
   it('records judge-style violations as inline findings in agent mode', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const basePrompt = makePrompt();
@@ -746,7 +766,7 @@ describe('agent executor', () => {
   it('redacts raw read_file content from persisted tool_call_finished events', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'secret text\n', 'utf8');
 
     const provider = makeProvider(async (params) => {
@@ -783,7 +803,7 @@ describe('agent executor', () => {
   it('records started and failed events for visible-tool path errors', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
-    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const provider = makeProvider(async (params) => {
