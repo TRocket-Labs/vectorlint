@@ -1,6 +1,7 @@
 import { OutputFormat } from '../cli/types';
+import * as readline from 'node:readline';
+import ora, { type Ora } from 'ora';
 
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 const TOOL_PREFIX = '  └ ';
 const MAX_TOOL_LINE_LENGTH = 140;
 
@@ -18,14 +19,22 @@ export interface VisibleToolProgress {
 
 export class AgentProgressReporter {
   private readonly enabled: boolean;
-  private spinnerIndex = 0;
+  private readonly spinner: Ora | undefined;
   private activeFile: string | undefined;
   private activeRuleName: string | undefined;
   private activeLine = TOOL_PREFIX;
-  private hasPrintedBlock = false;
 
   constructor(enabled: boolean) {
     this.enabled = enabled;
+    if (enabled) {
+      this.spinner = ora({
+        spinner: 'dots',
+        stream: createOraStream(process.stderr),
+        isEnabled: true,
+        discardStdin: false,
+        color: false,
+      });
+    }
   }
 
   private writeLine(message: string): void {
@@ -35,50 +44,34 @@ export class AgentProgressReporter {
     process.stderr.write(`${message}\n`);
   }
 
-  private writeInline(message: string): void {
-    if (!this.enabled) {
-      return;
-    }
-    process.stderr.write(message);
-  }
-
-  private renderHeader(file: string, ruleName: string): string {
-    const frame = SPINNER_FRAMES[this.spinnerIndex % SPINNER_FRAMES.length];
-    this.spinnerIndex += 1;
-    return `${frame} Reviewing ${file} for ${ruleName}`;
-  }
-
-  private renderBlock(header: string, detailLine: string): void {
-    if (!this.enabled) {
-      return;
-    }
-
-    if (!this.hasPrintedBlock) {
-      this.writeInline(`${header}\n${detailLine}`);
-      this.hasPrintedBlock = true;
-      return;
-    }
-
-    this.writeInline(`\x1b[1A\r\x1b[2K${header}\n\r\x1b[2K${detailLine}`);
+  private currentBlockText(): string {
+    return `Reviewing ${this.activeFile ?? ''} for ${this.activeRuleName ?? 'Rule'}\n${this.activeLine}`;
   }
 
   private renderCurrent(): void {
-    if (!this.enabled || !this.activeFile) {
+    if (!this.enabled || !this.activeFile || !this.spinner) {
       return;
     }
-    this.renderBlock(
-      this.renderHeader(this.activeFile, this.activeRuleName ?? 'Rule'),
-      this.activeLine
-    );
+
+    const nextText = this.currentBlockText();
+    if (!this.spinner.isSpinning) {
+      this.spinner.start(nextText);
+      return;
+    }
+    this.spinner.text = nextText;
+    this.spinner.render();
   }
 
   startFile(file: string, ruleName: string): void {
-    if (!this.enabled) {
+    if (!this.enabled || !this.spinner) {
       return;
     }
 
-    if (this.hasPrintedBlock && this.activeFile && this.activeFile !== file) {
-      this.writeLine('');
+    if (this.spinner.isSpinning && this.activeFile && this.activeFile !== file) {
+      this.spinner.stopAndPersist({
+        symbol: '',
+        text: this.currentBlockText(),
+      });
     }
 
     this.activeFile = file;
@@ -142,11 +135,13 @@ export class AgentProgressReporter {
       return;
     }
 
-    if (this.hasPrintedBlock) {
-      this.writeLine('');
+    if (this.spinner?.isSpinning && this.activeFile) {
+      this.spinner.stopAndPersist({
+        symbol: '',
+        text: this.currentBlockText(),
+      });
     }
     this.writeLine('Completed review.');
-    this.hasPrintedBlock = false;
     this.activeFile = undefined;
     this.activeRuleName = undefined;
     this.activeLine = TOOL_PREFIX;
@@ -226,6 +221,18 @@ function truncate(value: string, maxLength: number): string {
     return value;
   }
   return `${value.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+function createOraStream(stream: NodeJS.WriteStream): NodeJS.WriteStream {
+  return {
+    ...stream,
+    isTTY: stream.isTTY === true,
+    columns: stream.columns,
+    write: stream.write.bind(stream),
+    cursorTo: (x: number) => readline.cursorTo(stream, x),
+    clearLine: (dir: -1 | 0 | 1) => readline.clearLine(stream, dir),
+    moveCursor: (dx: number, dy: number) => readline.moveCursor(stream, dx, dy),
+  } as NodeJS.WriteStream;
 }
 
 export function shouldEmitAgentProgress(params: { outputFormat: OutputFormat; printMode: boolean }): boolean {
