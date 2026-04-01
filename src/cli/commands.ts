@@ -18,8 +18,9 @@ import { resolveTargets } from '../scan/file-resolver';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
-import { OutputFormat } from './types';
+import { DEFAULT_REVIEW_MODE, OutputFormat, REVIEW_MODES } from './types';
 import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
+import { createWinstonLogger } from '../logging/winston-logger';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const __filename = fileURLToPath(import.meta.url);
@@ -56,7 +57,7 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
     .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
-    .option('--mode <mode>', 'Execution mode: standard (default) or agent', 'standard')
+    .option('--mode <mode>', 'Execution mode: standard (default) or agent', DEFAULT_REVIEW_MODE)
     .option('-p, --print', 'Suppress interactive progress output in agent mode')
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
@@ -111,6 +112,9 @@ export function registerMainCommand(program: Command): void {
           debug: cliOptions.verbose,
           showPrompt: cliOptions.showPrompt,
           showPromptTrunc: cliOptions.showPromptTrunc,
+          logger: createWinstonLogger({
+            level: cliOptions.verbose ? 'debug' : 'info',
+          }),
         },
         new DefaultRequestBuilder(directive, userInstructions.content || undefined)
       );
@@ -204,8 +208,10 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
-      if (cliOptions.mode !== 'standard' && cliOptions.mode !== 'agent') {
-        console.error(`Error: Invalid mode '${String(cliOptions.mode)}'. Valid options: standard, agent`);
+      if (!REVIEW_MODES.includes(cliOptions.mode)) {
+        console.error(
+          `Error: Invalid mode '${String(cliOptions.mode)}'. Valid options: ${REVIEW_MODES.join(', ')}`
+        );
         process.exit(1);
       }
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_REVIEW_MODE, REVIEW_MODES } from '../cli/types';
 
 // CLI options schema for command line argument validation
 export const CLI_OPTIONS_SCHEMA = z.object({
@@ -7,7 +8,7 @@ export const CLI_OPTIONS_SCHEMA = z.object({
   showPromptTrunc: z.boolean().default(false),
   debugJson: z.boolean().default(false),
   output: z.enum(['line', 'json', 'vale-json', 'rdjson']).default('line'),
-  mode: z.enum(['standard', 'agent']).default('standard'),
+  mode: z.enum(REVIEW_MODES).default(DEFAULT_REVIEW_MODE),
   print: z.boolean().default(false),
   prompts: z.string().optional(),
   config: z.string().optional(),

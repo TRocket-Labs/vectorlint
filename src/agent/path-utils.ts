@@ -1,5 +1,6 @@
 import { realpathSync } from 'fs';
 import * as path from 'path';
+import { AgentToolError } from '../errors';
 
 function isGlobSegment(segment: string): boolean {
   return /[*?[\]{}()!+@]/.test(segment);
@@ -13,7 +14,10 @@ export function resolveWithinRoot(root: string, inputPath: string): string {
   const relative = path.relative(rootResolved, targetResolved);
   const outsideRoot = relative.startsWith('..') || path.isAbsolute(relative);
   if (outsideRoot) {
-    throw new Error(`Path "${inputPath}" is outside repository root bounds.`);
+    throw new AgentToolError(
+      `Path "${inputPath}" is outside workspace root bounds.`,
+      'PATH_OUTSIDE_WORKSPACE_ROOT'
+    );
   }
 
   // Symlink check: resolve symlinks on both sides before comparing, so that
@@ -23,7 +27,10 @@ export function resolveWithinRoot(root: string, inputPath: string): string {
     const realTarget = realpathSync(targetResolved);
     const realRelative = path.relative(realRoot, realTarget);
     if (realRelative.startsWith('..') || path.isAbsolute(realRelative)) {
-      throw new Error(`Path "${inputPath}" escapes repository root via symlink.`);
+      throw new AgentToolError(
+        `Path "${inputPath}" escapes workspace root via symlink.`,
+        'PATH_ESCAPES_WORKSPACE_ROOT_SYMLINK'
+      );
     }
   } catch (err) {
     // ENOENT means the path does not yet exist — no symlinks to follow,

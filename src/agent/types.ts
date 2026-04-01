@@ -1,9 +1,18 @@
 import { z } from 'zod';
 
+export const SESSION_EVENT_TYPE = {
+  SessionStarted: 'session_started',
+  ToolCallStarted: 'tool_call_started',
+  ToolCallFinished: 'tool_call_finished',
+  FindingRecordedInline: 'finding_recorded_inline',
+  FindingRecordedTopLevel: 'finding_recorded_top_level',
+  SessionFinalized: 'session_finalized',
+} as const;
+
 export const LINT_TOOL_INPUT_SCHEMA = z.object({
   file: z.string().min(1),
   ruleSource: z.string().min(1),
-  context: z.string().optional(),
+  reviewInstruction: z.string().min(1).optional(),
 });
 
 export const TOP_LEVEL_REFERENCE_SCHEMA = z.object({
@@ -48,7 +57,7 @@ const SESSION_EVENT_BASE_SCHEMA = z.object({
 });
 
 const SESSION_STARTED_EVENT_SCHEMA = SESSION_EVENT_BASE_SCHEMA.extend({
-  eventType: z.literal('session_started'),
+  eventType: z.literal(SESSION_EVENT_TYPE.SessionStarted),
   payload: z.object({
     cwd: z.string().min(1),
     targets: z.array(z.string().min(1)),
@@ -56,7 +65,7 @@ const SESSION_STARTED_EVENT_SCHEMA = SESSION_EVENT_BASE_SCHEMA.extend({
 });
 
 const TOOL_CALL_STARTED_EVENT_SCHEMA = SESSION_EVENT_BASE_SCHEMA.extend({
-  eventType: z.literal('tool_call_started'),
+  eventType: z.literal(SESSION_EVENT_TYPE.ToolCallStarted),
   payload: z.object({
     toolName: z.string().min(1),
     input: z.unknown(),
@@ -64,7 +73,7 @@ const TOOL_CALL_STARTED_EVENT_SCHEMA = SESSION_EVENT_BASE_SCHEMA.extend({
 });
 
 const TOOL_CALL_FINISHED_EVENT_SCHEMA = SESSION_EVENT_BASE_SCHEMA.extend({
-  eventType: z.literal('tool_call_finished'),
+  eventType: z.literal(SESSION_EVENT_TYPE.ToolCallFinished),
   payload: z.object({
     toolName: z.string().min(1),
     ok: z.boolean(),
@@ -74,7 +83,7 @@ const TOOL_CALL_FINISHED_EVENT_SCHEMA = SESSION_EVENT_BASE_SCHEMA.extend({
 });
 
 const FINDING_RECORDED_INLINE_EVENT_SCHEMA = SESSION_EVENT_BASE_SCHEMA.extend({
-  eventType: z.literal('finding_recorded_inline'),
+  eventType: z.literal(SESSION_EVENT_TYPE.FindingRecordedInline),
   payload: z.object({
     file: z.string().min(1),
     line: z.number().int().positive(),
@@ -91,7 +100,7 @@ const FINDING_RECORDED_INLINE_EVENT_SCHEMA = SESSION_EVENT_BASE_SCHEMA.extend({
 });
 
 const FINDING_RECORDED_TOP_LEVEL_EVENT_SCHEMA = SESSION_EVENT_BASE_SCHEMA.extend({
-  eventType: z.literal('finding_recorded_top_level'),
+  eventType: z.literal(SESSION_EVENT_TYPE.FindingRecordedTopLevel),
   payload: z.object({
     file: z.string().min(1).optional(),
     line: z.number().int().positive().optional(),
@@ -106,7 +115,7 @@ const FINDING_RECORDED_TOP_LEVEL_EVENT_SCHEMA = SESSION_EVENT_BASE_SCHEMA.extend
 });
 
 const SESSION_FINALIZED_EVENT_SCHEMA = SESSION_EVENT_BASE_SCHEMA.extend({
-  eventType: z.literal('session_finalized'),
+  eventType: z.literal(SESSION_EVENT_TYPE.SessionFinalized),
   payload: z.object({
     totalFindings: z.number().int().nonnegative(),
     summary: z.string().optional(),

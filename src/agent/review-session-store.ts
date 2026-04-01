@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { appendFile, mkdir, open, readFile } from 'fs/promises';
 import * as path from 'path';
-import { SESSION_EVENT_SCHEMA, type SessionEvent } from './types';
+import { SESSION_EVENT_SCHEMA, SESSION_EVENT_TYPE, type SessionEvent } from './types';
 
 type AppendableSessionEvent = Omit<SessionEvent, 'sessionId' | 'timestamp'>;
 
@@ -81,7 +81,7 @@ export async function createReviewSessionStore({ homeDir }: { homeDir: string })
 
   async function hasFinalizedEvent(): Promise<boolean> {
     const events = await replay();
-    return events.some((event) => event.eventType === 'session_finalized');
+    return events.some((event) => event.eventType === SESSION_EVENT_TYPE.SessionFinalized);
   }
 
   return {

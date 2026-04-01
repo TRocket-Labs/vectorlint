@@ -164,4 +164,56 @@ describe('VercelAIProvider agent loop', () => {
 
     expect(maxConcurrent).toBe(1);
   });
+
+  it('emits agent-loop debug output through the injected logger', async () => {
+    MOCK_GENERATE_TEXT.mockResolvedValue({
+      text: 'final summary',
+      finishReason: 'stop',
+      steps: [
+        {
+          finishReason: 'tool-calls',
+          text: 'step text',
+          toolCalls: [{ toolName: 'lint' }],
+        },
+      ],
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+
+    const provider = new VercelAIProvider({
+      model: { provider: 'openai' } as unknown as LanguageModel,
+      debug: true,
+      logger,
+    });
+
+    await provider.runAgentToolLoop({
+      systemPrompt: 'system',
+      prompt: 'prompt',
+      tools: {
+        finalize_review: {
+          description: 'Finalize review session',
+          inputSchema: z.object({ summary: z.string().optional() }),
+          execute: () => Promise.resolve({ ok: true }),
+        },
+      },
+    });
+
+    expect(logger.debug).toHaveBeenCalled();
+    expect(
+      logger.debug.mock.calls.some(([message]) =>
+        String(message).includes('[agent] step 1: finishReason=tool-calls tools=[lint]')
+      )
+    ).toBe(true);
+    expect(
+      logger.debug.mock.calls.some(([message]) =>
+        String(message).includes('[agent] final finishReason=stop steps=1')
+      )
+    ).toBe(true);
+  });
 });

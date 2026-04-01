@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 
 // Mock the Vercel AI SDK — use vi.hoisted so the mock is available in the vi.mock factory
@@ -261,20 +261,22 @@ describe('VercelAIProvider', () => {
   });
 
   describe('Debugging and Logging', () => {
-    let consoleSpy: ReturnType<typeof vi.spyOn>;
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
 
     beforeEach(() => {
-      consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
-    });
-
-    afterEach(() => {
-      consoleSpy.mockRestore();
+      vi.clearAllMocks();
     });
 
     it('logs debug information when debug is enabled', async () => {
       const config: VercelAIConfig = {
         model: MOCK_MODEL,
         debug: true,
+        logger,
       };
 
       const mockResult = {
@@ -297,13 +299,13 @@ describe('VercelAIProvider', () => {
 
       await provider.runPromptStructured('Test content', 'Test prompt', schema);
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[vectorlint] Sending request via Vercel AI SDK:',
+      expect(logger.debug).toHaveBeenCalledWith(
+        '[vectorlint] Sending request via Vercel AI SDK',
         expect.any(Object)
       );
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[vectorlint] LLM response meta:',
+      expect(logger.debug).toHaveBeenCalledWith(
+        '[vectorlint] LLM response meta',
         expect.objectContaining({
           usage: expect.objectContaining({
             input_tokens: 100,
@@ -318,6 +320,7 @@ describe('VercelAIProvider', () => {
       const config: VercelAIConfig = {
         model: MOCK_MODEL,
         debug: false,
+        logger,
       };
 
       const mockResult = { output: { result: 'success' } };
@@ -331,7 +334,7 @@ describe('VercelAIProvider', () => {
 
       await provider.runPromptStructured('Test content', 'Test prompt', schema);
 
-      expect(consoleSpy).not.toHaveBeenCalled();
+      expect(logger.debug).not.toHaveBeenCalled();
     });
   });
 

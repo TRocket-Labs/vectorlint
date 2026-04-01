@@ -33,7 +33,7 @@ export function createAgentTools(params: {
 
   return {
     lint: {
-      description: 'Run a configured lint rule against a file.',
+      description: 'Review a file against a source-backed rule, optionally using an override review instruction for that call.',
       inputSchema: LINT_TOOL_INPUT_SCHEMA,
       execute: (input) => runTool('lint', input, handlers.lint),
     },
@@ -43,27 +43,27 @@ export function createAgentTools(params: {
       execute: (input) => runTool('report_finding', input, handlers.report_finding),
     },
     read_file: {
-      description: 'Read a file inside the repository root.',
+      description: 'Read a file inside the workspace root.',
       inputSchema: READ_FILE_INPUT_SCHEMA,
       execute: (input) => runTool('read_file', input, handlers.read_file),
     },
     search_files: {
-      description: 'Find files in the repository by glob pattern.',
+      description: 'Find files in the workspace by glob pattern.',
       inputSchema: SEARCH_FILES_INPUT_SCHEMA,
       execute: (input) => runTool('search_files', input, handlers.search_files),
     },
     list_directory: {
-      description: 'List files and directories inside a path in the repository.',
+      description: 'List files and directories inside a path in the workspace.',
       inputSchema: LIST_DIRECTORY_INPUT_SCHEMA,
       execute: (input) => runTool('list_directory', input, handlers.list_directory),
     },
     search_content: {
-      description: 'Search repository text content by substring and optional glob.',
+      description: 'Search workspace text content by substring and optional glob.',
       inputSchema: SEARCH_CONTENT_INPUT_SCHEMA,
       execute: (input) => runTool('search_content', input, handlers.search_content),
     },
     finalize_review: {
-      description: 'REQUIRED: Call this tool when all assigned file-rule pairs have been reviewed. This is the only valid way to end the session — do not reply with text when finished, call this tool instead.',
+      description: 'REQUIRED: Call this tool when all matched file-rule pairs have been reviewed.',
       inputSchema: FINALIZE_REVIEW_INPUT_SCHEMA,
       execute: (input) => runTool('finalize_review', input, handlers.finalize_review),
     },

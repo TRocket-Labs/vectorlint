@@ -2,6 +2,7 @@ import { appendFileSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } f
 import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SESSION_EVENT_TYPE } from '../../src/agent/types';
 
 beforeEach(() => {
   vi.resetModules();
@@ -37,11 +38,11 @@ describe('review session store', () => {
     const store = await createReviewSessionStore({ homeDir: home });
 
     await store.append({
-      eventType: 'session_started',
+      eventType: SESSION_EVENT_TYPE.SessionStarted,
       payload: { cwd: '/repo', targets: ['doc.md'] },
     });
     await store.append({
-      eventType: 'session_finalized',
+      eventType: SESSION_EVENT_TYPE.SessionFinalized,
       payload: { totalFindings: 0, summary: 'done' },
     });
 
@@ -51,8 +52,8 @@ describe('review session store', () => {
 
     const parsed = lines.map((line) => JSON.parse(line) as { eventType?: string });
     expect(parsed.map((event) => event.eventType)).toEqual([
-      'session_started',
-      'session_finalized',
+      SESSION_EVENT_TYPE.SessionStarted,
+      SESSION_EVENT_TYPE.SessionFinalized,
     ]);
   });
 
@@ -67,18 +68,18 @@ describe('review session store', () => {
     expect(await store.hasFinalizedEvent()).toBe(false);
 
     await store.append({
-      eventType: 'session_started',
+      eventType: SESSION_EVENT_TYPE.SessionStarted,
       payload: { cwd: '/repo', targets: ['doc.md'] },
     });
     await store.append({
-      eventType: 'session_finalized',
+      eventType: SESSION_EVENT_TYPE.SessionFinalized,
       payload: { totalFindings: 0, summary: 'done' },
     });
 
     const events = await store.replay();
     expect(events.map((event) => event.eventType)).toEqual([
-      'session_started',
-      'session_finalized',
+      SESSION_EVENT_TYPE.SessionStarted,
+      SESSION_EVENT_TYPE.SessionFinalized,
     ]);
     expect(await store.hasFinalizedEvent()).toBe(true);
   });
@@ -92,7 +93,7 @@ describe('review session store', () => {
     const store = await createReviewSessionStore({ homeDir: home });
 
     await store.append({
-      eventType: 'session_started',
+      eventType: SESSION_EVENT_TYPE.SessionStarted,
       payload: { cwd: '/repo', targets: ['doc.md'] },
     });
 
@@ -100,14 +101,14 @@ describe('review session store', () => {
     appendFileSync(store.sessionFilePath, '{"eventType":"unknown"}\n', 'utf8');
 
     await store.append({
-      eventType: 'session_finalized',
+      eventType: SESSION_EVENT_TYPE.SessionFinalized,
       payload: { totalFindings: 0 },
     });
 
     const events = await store.replay();
     expect(events.map((event) => event.eventType)).toEqual([
-      'session_started',
-      'session_finalized',
+      SESSION_EVENT_TYPE.SessionStarted,
+      SESSION_EVENT_TYPE.SessionFinalized,
     ]);
   });
 

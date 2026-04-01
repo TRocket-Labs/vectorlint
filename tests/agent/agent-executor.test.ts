@@ -6,6 +6,8 @@ import type { PromptFile } from '../../src/prompts/prompt-loader';
 import type { LLMProvider } from '../../src/providers/llm-provider';
 import { Severity } from '../../src/evaluators/types';
 import { OutputFormat } from '../../src/cli/types';
+import { SESSION_EVENT_TYPE } from '../../src/agent/types';
+import { AgentToolError } from '../../src/errors';
 
 function makePrompt(): PromptFile {
   return {
@@ -98,7 +100,7 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider,
-      repositoryRoot: repo,
+      workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       outputFormat: OutputFormat.Json,
       printMode: true,
@@ -116,10 +118,13 @@ describe('agent executor', () => {
 
     const provider = makeProvider(async (params) => {
       const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
-      await tools.lint.execute({
-        file: 'doc.md',
-        ruleSource: 'packs/default/does-not-exist.md',
-      });
+      await expect(
+        tools.lint.execute({
+          file: 'doc.md',
+          ruleSource: 'packs/default/does-not-exist.md',
+        })
+      ).rejects.toBeInstanceOf(AgentToolError);
+      await tools.finalize_review.execute({});
       return { usage: { inputTokens: 1, outputTokens: 1 } };
     });
 
@@ -127,16 +132,14 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider,
-      repositoryRoot: repo,
+      workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       outputFormat: OutputFormat.Json,
       printMode: true,
       sessionHomeDir: repo,
     });
 
-    expect(result.hadOperationalErrors).toBe(true);
-    expect(result.errorMessage).toContain('Unknown ruleSource');
-    expect(result.errorMessage).toContain('Valid sources');
+    expect(result.hadOperationalErrors).toBe(false);
   });
 
   it('returns explicit tool error for unknown ruleSource in report_finding', async () => {
@@ -159,7 +162,7 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider,
-      repositoryRoot: repo,
+      workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       outputFormat: OutputFormat.Json,
       printMode: true,
@@ -197,7 +200,7 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider,
-      repositoryRoot: repo,
+      workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       outputFormat: OutputFormat.Json,
       printMode: true,
@@ -206,10 +209,10 @@ describe('agent executor', () => {
 
     expect(result.hadOperationalErrors).toBe(false);
     const inlineEventCount = result.events.filter(
-      (event: { eventType: string }) => event.eventType === 'finding_recorded_inline'
+      (event: { eventType: string }) => event.eventType === SESSION_EVENT_TYPE.FindingRecordedInline
     ).length;
     const topLevelEventCount = result.events.filter(
-      (event: { eventType: string }) => event.eventType === 'finding_recorded_top_level'
+      (event: { eventType: string }) => event.eventType === SESSION_EVENT_TYPE.FindingRecordedTopLevel
     ).length;
     const replayableFindingEvents = inlineEventCount + topLevelEventCount;
 
@@ -223,7 +226,7 @@ describe('agent executor', () => {
           finding.ruleSource === 'packs/default/consistency.md'
       )
     ).toBe(true);
-    expect(result.events.some((event: { eventType: string }) => event.eventType === 'session_finalized')).toBe(true);
+    expect(result.events.some((event: { eventType: string }) => event.eventType === SESSION_EVENT_TYPE.SessionFinalized)).toBe(true);
   });
 
   it('records the required session event stream and preserves lifecycle ordering', async () => {
@@ -253,7 +256,7 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider,
-      repositoryRoot: repo,
+      workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       outputFormat: OutputFormat.Json,
       printMode: true,
@@ -261,14 +264,18 @@ describe('agent executor', () => {
     });
 
     const eventTypes = result.events.map((event: { eventType: string }) => event.eventType);
-    expect(eventTypes).toContain('session_started');
-    expect(eventTypes).toContain('tool_call_started');
-    expect(eventTypes).toContain('tool_call_finished');
-    expect(eventTypes).toContain('finding_recorded_inline');
-    expect(eventTypes).toContain('finding_recorded_top_level');
-    expect(eventTypes).toContain('session_finalized');
-    expect(eventTypes.indexOf('session_started')).toBeLessThan(eventTypes.indexOf('session_finalized'));
-    expect(eventTypes.indexOf('finding_recorded_inline')).toBeLessThan(eventTypes.indexOf('session_finalized'));
+    expect(eventTypes).toContain(SESSION_EVENT_TYPE.SessionStarted);
+    expect(eventTypes).toContain(SESSION_EVENT_TYPE.ToolCallStarted);
+    expect(eventTypes).toContain(SESSION_EVENT_TYPE.ToolCallFinished);
+    expect(eventTypes).toContain(SESSION_EVENT_TYPE.FindingRecordedInline);
+    expect(eventTypes).toContain(SESSION_EVENT_TYPE.FindingRecordedTopLevel);
+    expect(eventTypes).toContain(SESSION_EVENT_TYPE.SessionFinalized);
+    expect(eventTypes.indexOf(SESSION_EVENT_TYPE.SessionStarted)).toBeLessThan(
+      eventTypes.indexOf(SESSION_EVENT_TYPE.SessionFinalized)
+    );
+    expect(eventTypes.indexOf(SESSION_EVENT_TYPE.FindingRecordedInline)).toBeLessThan(
+      eventTypes.indexOf(SESSION_EVENT_TYPE.SessionFinalized)
+    );
   });
 
   it('returns an operational error when finalize_review is called more than once', async () => {
@@ -289,7 +296,7 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider,
-      repositoryRoot: repo,
+      workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       outputFormat: OutputFormat.Json,
       printMode: true,
@@ -299,7 +306,7 @@ describe('agent executor', () => {
     expect(result.hadOperationalErrors).toBe(true);
     expect(result.errorMessage).toContain('finalize_review');
     const finalizedCount = result.events.filter(
-      (event: { eventType: string }) => event.eventType === 'session_finalized'
+      (event: { eventType: string }) => event.eventType === SESSION_EVENT_TYPE.SessionFinalized
     ).length;
     expect(finalizedCount).toBe(1);
   });
@@ -330,6 +337,7 @@ describe('agent executor', () => {
       writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
       let toolError = '';
+      let toolErrorValue: unknown;
 
       const provider = makeProvider(async (params) => {
         const tools = params.tools as Record<string, { execute: (payload: unknown) => Promise<unknown> }>;
@@ -337,6 +345,7 @@ describe('agent executor', () => {
         try {
           await tools[toolName]!.execute(input);
         } catch (error) {
+          toolErrorValue = error;
           toolError = error instanceof Error ? error.message : String(error);
         }
 
@@ -348,7 +357,7 @@ describe('agent executor', () => {
         targets: [path.join(repo, 'doc.md')],
         prompts: [makePrompt()],
         provider,
-        repositoryRoot: repo,
+        workspaceRoot: repo,
         scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
         outputFormat: OutputFormat.Json,
         printMode: true,
@@ -356,8 +365,9 @@ describe('agent executor', () => {
       });
 
       expect(result.hadOperationalErrors).toBe(false);
+      expect(toolErrorValue).toBeInstanceOf(AgentToolError);
       expect(toolError).toBeTruthy();
-      expect(toolError).toMatch(/outside|repository|root|bounds/i);
+      expect(toolError).toMatch(/outside|workspace|root|bounds/i);
     }
   );
 
@@ -394,7 +404,7 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider,
-      repositoryRoot: repo,
+      workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       outputFormat: OutputFormat.Json,
       printMode: true,
@@ -407,7 +417,7 @@ describe('agent executor', () => {
     expect(
       result.events.some(
         (event: { eventType: string; payload?: { ok?: boolean } }) =>
-          event.eventType === 'tool_call_finished' && event.payload?.ok === false
+          event.eventType === SESSION_EVENT_TYPE.ToolCallFinished && event.payload?.ok === false
       )
     ).toBe(true);
   });
@@ -435,7 +445,7 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider,
-      repositoryRoot: repo,
+      workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       outputFormat: OutputFormat.Json,
       printMode: true,
@@ -464,7 +474,7 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider,
-      repositoryRoot: repo,
+      workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       outputFormat: OutputFormat.Json,
       printMode: true,
@@ -476,7 +486,7 @@ describe('agent executor', () => {
     expect(result.findings.length).toBeGreaterThan(0);
   });
 
-  it('applies lint context only to that lint invocation prompt body', async () => {
+  it('uses reviewInstruction to override the prompt body for that lint invocation', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
     const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
@@ -493,7 +503,7 @@ describe('agent executor', () => {
         await tools.lint.execute({
           file: 'doc.md',
           ruleSource: 'packs/default/consistency.md',
-          context: 'Use this evidence context while checking wording consistency.',
+          reviewInstruction: 'Review this file for wording consistency using the evidence you gathered.',
         });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 1, outputTokens: 1 } };
@@ -504,7 +514,7 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider,
-      repositoryRoot: repo,
+      workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       outputFormat: OutputFormat.Json,
       printMode: true,
@@ -513,14 +523,12 @@ describe('agent executor', () => {
 
     expect(result.hadOperationalErrors).toBe(false);
     expect(promptBodies.length).toBeGreaterThan(0);
-    expect(promptBodies[0]).toContain('Find inconsistent wording.');
-    expect(promptBodies[0]).toContain('Additional context for this lint run:');
-    expect(promptBodies[0]).toContain(
-      'Use this evidence context while checking wording consistency.'
+    expect(promptBodies[0]).toBe(
+      'Review this file for wording consistency using the evidence you gathered.'
     );
   });
 
-  it('keeps lint prompt body unchanged when lint context is not provided', async () => {
+  it('keeps lint prompt body unchanged when reviewInstruction is not provided', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
     const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
@@ -547,7 +555,7 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider,
-      repositoryRoot: repo,
+      workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       outputFormat: OutputFormat.Json,
       printMode: true,

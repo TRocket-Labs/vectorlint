@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { evaluateFiles } from '../src/cli/orchestrator';
-import { OutputFormat } from '../src/cli/types';
+import { AGENT_REVIEW_MODE, OutputFormat } from '../src/cli/types';
 import type { PromptFile } from '../src/prompts/prompt-loader';
 import type { LLMProvider } from '../src/providers/llm-provider';
 import { Severity } from '../src/evaluators/types';
@@ -133,7 +133,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Json,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -155,7 +155,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Json,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -204,7 +204,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Json,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -236,7 +236,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Line,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: false,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -286,7 +286,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Line,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: false,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -330,7 +330,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Line,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: false,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -379,7 +379,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Line,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: false,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -422,7 +422,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Line,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: false,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -499,7 +499,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Line,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: false,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -536,7 +536,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Line,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -562,7 +562,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Json,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: false,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -600,7 +600,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Line,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: false,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -627,7 +627,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Line,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -655,7 +655,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Json,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -680,7 +680,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.RdJson,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -720,7 +720,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.RdJson,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: false,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -749,7 +749,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.ValeJson,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: false,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -772,7 +772,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Json,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -808,7 +808,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Json,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       userInstructionContent: 'Always enforce concise phrasing.',
@@ -839,7 +839,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Json,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -873,7 +873,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Json,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     } as never);
@@ -906,7 +906,7 @@ describe('agent orchestrator output', () => {
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Json,
-      mode: 'agent' as never,
+      mode: AGENT_REVIEW_MODE as never,
       printMode: true,
       agentMaxRetries: 4,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],

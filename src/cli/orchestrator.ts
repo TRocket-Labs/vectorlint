@@ -15,8 +15,8 @@ import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
-import { OutputFormat } from './types';
-import { runAgentExecutor, resolveEvaluatorType, type AgentExecutorResult, type AgentFinding } from '../agent/executor';
+import { AGENT_REVIEW_MODE, DEFAULT_REVIEW_MODE, OutputFormat } from './types';
+import { runAgentExecutor, type AgentExecutorResult, type AgentFinding } from '../agent/executor';
 import { AgentProgressReporter, shouldEmitAgentProgress } from '../agent/progress';
 import type {
   EvaluationOptions, EvaluationResult, ErrorTrackingResult,
@@ -31,6 +31,7 @@ import {
 } from '../providers/token-usage';
 import { calculateCheckScore } from '../scoring';
 import { countWords } from '../chunking/utils';
+import { buildRuleId } from '../agent/rule-id';
 import { locateQuotedText } from "../output/location";
 import {
   computeFilterDecision,
@@ -61,10 +62,6 @@ function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string
   return { ...(provider && { provider }), ...(name && { name }), ...(tag && { tag }) };
 }
 
-
-/*
- * Returns the evaluator type, defaulting to 'base' if not specified.
- */
 
 /*
  * Constructs a hierarchical rule name following the pattern:
@@ -846,11 +843,12 @@ async function runPromptEvaluation(
   try {
     const meta = promptFile.meta;
 
-    const evaluatorType = resolveEvaluatorType(meta.evaluator);
+    const evaluatorType = String(meta.evaluator || Type.BASE);
+    const baseEvaluatorType = String(Type.BASE);
 
     // Specialized evaluators (e.g., technical-accuracy) require criteria
     // BaseEvaluator handles both modes: scored (with criteria) and basic (without)
-    if (evaluatorType !== (Type.BASE as string)) {
+    if (evaluatorType !== baseEvaluatorType) {
       if (
         !meta ||
         !Array.isArray(meta.criteria) ||
@@ -1083,30 +1081,24 @@ type AgentRuleScore = {
   scoreText: string;
 };
 
-function buildAgentRuleId(prompt: PromptFile): string {
-  const pack = prompt.pack || 'Default';
-  const rule = String(prompt.meta.id || prompt.filename || 'Rule');
-  return `${pack}.${rule}`;
-}
-
 async function getAgentFileWordCount(
   file: string,
-  repositoryRoot: string,
+  workspaceRoot: string,
   cache: Map<string, number>
 ): Promise<number> {
-  const repoRelative = path.relative(repositoryRoot, path.resolve(repositoryRoot, file)) || file;
-  if (cache.has(repoRelative)) {
-    return cache.get(repoRelative)!;
+  const workspaceRelative = path.relative(workspaceRoot, path.resolve(workspaceRoot, file)) || file;
+  if (cache.has(workspaceRelative)) {
+    return cache.get(workspaceRelative)!;
   }
 
-  const absolutePath = path.resolve(repositoryRoot, repoRelative);
+  const absolutePath = path.resolve(workspaceRoot, workspaceRelative);
   try {
     const content = await readFile(absolutePath, 'utf-8');
     const words = Math.max(1, countWords(content) || 1);
-    cache.set(repoRelative, words);
+    cache.set(workspaceRelative, words);
     return words;
   } catch {
-    cache.set(repoRelative, 1);
+    cache.set(workspaceRelative, 1);
     return 1;
   }
 }
@@ -1114,7 +1106,7 @@ async function getAgentFileWordCount(
 async function buildAgentRuleScores(
   findings: AgentFinding[],
   prompts: PromptFile[],
-  repositoryRoot: string
+  workspaceRoot: string
 ): Promise<AgentRuleScore[]> {
   const fileWordCountCache = new Map<string, number>();
   const findingsByRule = new Map<string, AgentFinding[]>();
@@ -1127,7 +1119,7 @@ async function buildAgentRuleScores(
 
   const results: AgentRuleScore[] = [];
   for (const prompt of prompts) {
-    const ruleId = buildAgentRuleId(prompt);
+    const ruleId = buildRuleId(prompt);
     const ruleFindings = findingsByRule.get(ruleId) ?? [];
 
     if (ruleFindings.length === 0) {
@@ -1142,7 +1134,7 @@ async function buildAgentRuleScores(
     const files = new Set(ruleFindings.map((finding) => finding.file));
     let totalWords = 0;
     for (const file of files) {
-      totalWords += await getAgentFileWordCount(file, repositoryRoot, fileWordCountCache);
+      totalWords += await getAgentFileWordCount(file, workspaceRoot, fileWordCountCache);
     }
 
     const syntheticViolations = Array.from({ length: ruleFindings.length }, (_, index) => ({
@@ -1175,7 +1167,7 @@ async function evaluateFilesInAgentMode(
   outputFormat: OutputFormat,
   jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter
 ): Promise<EvaluationResult> {
-  const repositoryRoot = inferAgentRepositoryRoot(targets);
+  const workspaceRoot = inferAgentWorkspaceRoot(targets);
   const progressReporter = new AgentProgressReporter(
     shouldEmitAgentProgress({
       outputFormat,
@@ -1187,7 +1179,7 @@ async function evaluateFilesInAgentMode(
     targets,
     prompts: options.prompts,
     provider: options.provider,
-    repositoryRoot,
+    workspaceRoot,
     scanPaths: options.scanPaths,
     outputFormat,
     printMode: options.printMode ?? false,
@@ -1201,7 +1193,7 @@ async function evaluateFilesInAgentMode(
   if (outputFormat === OutputFormat.Line) {
     const seenFiles = new Set<string>();
     for (const target of targets) {
-      const rel = path.relative(repositoryRoot, target) || target;
+      const rel = path.relative(workspaceRoot, target) || target;
       if (seenFiles.has(rel)) continue;
       seenFiles.add(rel);
       printFileHeader(rel);
@@ -1220,7 +1212,7 @@ async function evaluateFilesInAgentMode(
   }
 
   if (outputFormat === OutputFormat.Line) {
-    const ruleScores = await buildAgentRuleScores(agentResult.findings, options.prompts, repositoryRoot);
+    const ruleScores = await buildAgentRuleScores(agentResult.findings, options.prompts, workspaceRoot);
     const scoreSummary = new Map<string, EvaluationSummary[]>(
       ruleScores.map((entry) => [
         entry.ruleId,
@@ -1259,7 +1251,7 @@ async function evaluateFilesInAgentMode(
   };
 }
 
-function inferAgentRepositoryRoot(targets: string[]): string {
+function inferAgentWorkspaceRoot(targets: string[]): string {
   if (targets.length === 0) {
     return process.cwd();
   }
@@ -1302,7 +1294,7 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  const { outputFormat = OutputFormat.Line, mode = 'standard' } = options;
+  const { outputFormat = OutputFormat.Line, mode = DEFAULT_REVIEW_MODE } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -1322,7 +1314,7 @@ export async function evaluateFiles(
     jsonFormatter = new ValeJsonFormatter();
   }
 
-  if (mode === 'agent') {
+  if (mode === AGENT_REVIEW_MODE) {
     return evaluateFilesInAgentMode(targets, options, outputFormat, jsonFormatter);
   }
 

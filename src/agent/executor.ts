@@ -11,6 +11,7 @@ import type { OutputFormat } from '../cli/types';
 import { createEvaluator } from '../evaluators';
 import { createReviewSessionStore } from './review-session-store';
 import { buildAgentSystemPrompt } from './prompt-builder';
+import { AgentToolError } from '../errors';
 import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import {
   createAgentTools,
@@ -26,11 +27,12 @@ import {
   SEARCH_CONTENT_INPUT_SCHEMA,
   SEARCH_FILES_INPUT_SCHEMA,
   TOP_LEVEL_REPORT_INPUT_SCHEMA,
+  SESSION_EVENT_TYPE,
   type SessionEvent,
 } from './types';
 import { resolveGlobPatternWithinRoot, resolveWithinRoot, toRelativePathFromRoot } from './path-utils';
 import type { AgentProgressReporter } from './progress';
-
+import { buildRuleId } from './rule-id';
 export interface AgentFinding {
   file: string;
   line: number;
@@ -49,7 +51,7 @@ export interface RunAgentExecutorParams {
   targets: string[];
   prompts: PromptFile[];
   provider: LLMProvider;
-  repositoryRoot: string;
+  workspaceRoot: string;
   scanPaths: Array<{ pattern: string; runRules: string[]; overrides: Record<string, string> }>;
   outputFormat: OutputFormat;
   printMode: boolean;
@@ -77,15 +79,12 @@ function normalizeRuleSource(ruleSource: string): string {
   return ruleSource.replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
-function buildRuleId(prompt: PromptFile): string {
-  const pack = prompt.pack || 'Default';
-  const rule = String(prompt.meta.id || prompt.filename || 'Rule');
-  return `${pack}.${rule}`;
-}
-
 function buildUnknownRuleSourceError(ruleSource: string, validSources: string[]): Error {
   const validHint = validSources.length > 0 ? validSources.join(', ') : '(none)';
-  return new Error(`Unknown ruleSource "${ruleSource}". Valid sources: ${validHint}`);
+  return new AgentToolError(
+    `Unknown ruleSource "${ruleSource}". Valid sources: ${validHint}`,
+    'UNKNOWN_RULE_SOURCE'
+  );
 }
 
 function fallbackMessage(result: PromptEvaluationResult): string {
@@ -108,29 +107,28 @@ function resolvePromptBySource(
 }
 
 function resolveTargetForTopLevel(
-  repositoryRoot: string,
+  workspaceRoot: string,
   targets: string[],
   file?: string
 ): string {
   if (file && file.trim().length > 0) {
-    const resolved = resolveWithinRoot(repositoryRoot, file);
-    return toRelativePathFromRoot(repositoryRoot, resolved);
+    const resolved = resolveWithinRoot(workspaceRoot, file);
+    return toRelativePathFromRoot(workspaceRoot, resolved);
   }
   if (targets.length > 0) {
-    return toRelativePathFromRoot(repositoryRoot, targets[0]!);
+    return toRelativePathFromRoot(workspaceRoot, targets[0]!);
   }
   return '.';
 }
 
-function withLintContext(prompt: PromptFile, context?: string): PromptFile {
-  const contextText = context?.trim();
-  if (!contextText) {
+function withReviewInstructionOverride(prompt: PromptFile, reviewInstruction?: string): PromptFile {
+  const instruction = reviewInstruction?.trim();
+  if (!instruction) {
     return prompt;
   }
-  const baseBody = prompt.body?.trim() ?? '';
   return {
     ...prompt,
-    body: `${baseBody}\n\nAdditional context for this lint run:\n${contextText}`,
+    body: instruction,
   };
 }
 
@@ -138,7 +136,10 @@ function findingsFromEvents(events: SessionEvent[]): AgentFinding[] {
   const findings: AgentFinding[] = [];
 
   for (const event of events) {
-    if (event.eventType !== 'finding_recorded_inline' && event.eventType !== 'finding_recorded_top_level') {
+    if (
+      event.eventType !== SESSION_EVENT_TYPE.FindingRecordedInline &&
+      event.eventType !== SESSION_EVENT_TYPE.FindingRecordedTopLevel
+    ) {
       continue;
     }
 
@@ -163,7 +164,8 @@ function findingsFromEvents(events: SessionEvent[]): AgentFinding[] {
   return findings;
 }
 
-function buildReviewAssignments(
+// Build the concrete matched file-to-rule pairs that the agent should review for this run.
+function buildFileRuleMatches(
   relativeTargets: string[],
   prompts: PromptFile[],
   scanPaths: Array<{ pattern: string; runRules: string[]; overrides: Record<string, string> }>
@@ -196,7 +198,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     targets,
     prompts,
     provider,
-    repositoryRoot,
+    workspaceRoot,
     scanPaths,
     sessionHomeDir = os.homedir(),
     progressReporter,
@@ -215,9 +217,9 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   const store = await createReviewSessionStore({ homeDir: sessionHomeDir });
   let findingsCount = 0;
   const relativeTargets = targets.map((target) =>
-    toRelativePathFromRoot(repositoryRoot, resolveWithinRoot(repositoryRoot, target))
+    toRelativePathFromRoot(workspaceRoot, resolveWithinRoot(workspaceRoot, target))
   );
-  const reviewAssignments = buildReviewAssignments(relativeTargets, prompts, scanPaths);
+  const fileRuleMatches = buildFileRuleMatches(relativeTargets, prompts, scanPaths);
   const defaultRuleName = String(prompts[0]?.meta.name || prompts[0]?.meta.id || 'Rule');
 
   if (relativeTargets.length > 0) {
@@ -225,9 +227,9 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   }
 
   await store.append({
-    eventType: 'session_started',
+    eventType: SESSION_EVENT_TYPE.SessionStarted,
     payload: {
-      cwd: repositoryRoot,
+      cwd: workspaceRoot,
       targets: relativeTargets,
     },
   });
@@ -251,7 +253,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     }
 
     await store.append({
-      eventType: 'tool_call_started',
+      eventType: SESSION_EVENT_TYPE.ToolCallStarted,
       payload: { toolName, input },
     });
     progressReporter?.toolCallStarted(toolName, {
@@ -263,7 +265,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     try {
       const output = await handler(input);
       await store.append({
-        eventType: 'tool_call_finished',
+        eventType: SESSION_EVENT_TYPE.ToolCallFinished,
         payload: {
           toolName,
           ok: true,
@@ -274,7 +276,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await store.append({
-        eventType: 'tool_call_finished',
+        eventType: SESSION_EVENT_TYPE.ToolCallFinished,
         payload: {
           toolName,
           ok: false,
@@ -291,14 +293,14 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     if (!prompt) {
       throw buildUnknownRuleSourceError(parsed.ruleSource, validSources);
     }
-    const promptForCall = withLintContext(prompt, parsed.context);
+    const promptForCall = withReviewInstructionOverride(prompt, parsed.reviewInstruction);
 
-    const absoluteFile = resolveWithinRoot(repositoryRoot, parsed.file);
-    const relFile = toRelativePathFromRoot(repositoryRoot, absoluteFile);
+    const absoluteFile = resolveWithinRoot(workspaceRoot, parsed.file);
+    const relFile = toRelativePathFromRoot(workspaceRoot, absoluteFile);
     const content = await readFile(absoluteFile, 'utf8');
 
     const evaluator = createEvaluator(
-      resolveEvaluatorType(promptForCall.meta.evaluator),
+      promptForCall.meta.evaluator || Type.BASE,
       provider,
       promptForCall
     );
@@ -345,7 +347,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
         findingsCount += 1;
         findingsRecorded += 1;
         await store.append({
-          eventType: 'finding_recorded_inline',
+          eventType: SESSION_EVENT_TYPE.FindingRecordedInline,
           payload: {
             file: finding.file,
             line: finding.line,
@@ -379,11 +381,11 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
 
     const references = parsed.references && parsed.references.length > 0
       ? parsed.references
-      : [{ file: resolveTargetForTopLevel(repositoryRoot, targets), startLine: 1, endLine: 1 }];
+      : [{ file: resolveTargetForTopLevel(workspaceRoot, targets), startLine: 1, endLine: 1 }];
 
     let findingsRecorded = 0;
     for (const reference of references) {
-      const relFile = resolveTargetForTopLevel(repositoryRoot, targets, reference.file);
+      const relFile = resolveTargetForTopLevel(workspaceRoot, targets, reference.file);
       const finding: AgentFinding = {
         file: relFile,
         line: Math.max(1, Math.trunc(reference.startLine)),
@@ -398,7 +400,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
       findingsCount += 1;
       findingsRecorded += 1;
       await store.append({
-        eventType: 'finding_recorded_top_level',
+        eventType: SESSION_EVENT_TYPE.FindingRecordedTopLevel,
         payload: {
           file: finding.file,
           line: finding.line,
@@ -418,17 +420,17 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
 
   async function readFileToolHandler(input: unknown): Promise<unknown> {
     const parsed = READ_FILE_INPUT_SCHEMA.parse(input);
-    const absolutePath = resolveWithinRoot(repositoryRoot, parsed.path);
+    const absolutePath = resolveWithinRoot(workspaceRoot, parsed.path);
     const content = await readFile(absolutePath, 'utf8');
     return {
-      path: toRelativePathFromRoot(repositoryRoot, absolutePath),
+      path: toRelativePathFromRoot(workspaceRoot, absolutePath),
       content,
     };
   }
 
   async function searchFilesToolHandler(input: unknown): Promise<unknown> {
     const parsed = SEARCH_FILES_INPUT_SCHEMA.parse(input);
-    const scope = resolveGlobPatternWithinRoot(repositoryRoot, parsed.pattern);
+    const scope = resolveGlobPatternWithinRoot(workspaceRoot, parsed.pattern);
     const allMatches = await fg(scope.pattern, {
       cwd: scope.cwd,
       dot: false,
@@ -439,7 +441,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     const truncated = allMatches.length > MAX_SEARCH_FILE_RESULTS;
     const matches = allMatches
       .slice(0, MAX_SEARCH_FILE_RESULTS)
-      .map((match) => toRelativePathFromRoot(repositoryRoot, match))
+      .map((match) => toRelativePathFromRoot(workspaceRoot, match))
       .sort((a, b) => a.localeCompare(b));
 
     return { matches, ...(truncated ? { truncated: true } : {}) };
@@ -447,11 +449,11 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
 
   async function listDirectoryToolHandler(input: unknown): Promise<unknown> {
     const parsed = LIST_DIRECTORY_INPUT_SCHEMA.parse(input);
-    const absolutePath = resolveWithinRoot(repositoryRoot, parsed.path);
+    const absolutePath = resolveWithinRoot(workspaceRoot, parsed.path);
     const entries = await readdir(absolutePath, { withFileTypes: true });
 
     return {
-      path: toRelativePathFromRoot(repositoryRoot, absolutePath),
+      path: toRelativePathFromRoot(workspaceRoot, absolutePath),
       entries: entries
         .map((entry) => ({
           name: entry.name,
@@ -463,7 +465,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
 
   async function searchContentToolHandler(input: unknown): Promise<unknown> {
     const parsed = SEARCH_CONTENT_INPUT_SCHEMA.parse(input);
-    const absoluteSearchRoot = resolveWithinRoot(repositoryRoot, parsed.path || '.');
+    const absoluteSearchRoot = resolveWithinRoot(workspaceRoot, parsed.path || '.');
     const globScope = resolveGlobPatternWithinRoot(absoluteSearchRoot, parsed.glob || '**/*');
     const files = await fg(globScope.pattern, {
       cwd: globScope.cwd,
@@ -492,7 +494,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
             break outer;
           }
           matches.push({
-            file: toRelativePathFromRoot(repositoryRoot, filePath),
+            file: toRelativePathFromRoot(workspaceRoot, filePath),
             line: index + 1,
             text: line,
           });
@@ -506,11 +508,14 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   async function finalizeReviewToolHandler(input: unknown): Promise<unknown> {
     const parsed = FINALIZE_REVIEW_INPUT_SCHEMA.parse(input);
     if (finalized) {
-      throw new Error('finalize_review can only be called once per session.');
+      throw new AgentToolError(
+        'finalize_review can only be called once per session.',
+        'FINALIZE_REVIEW_ALREADY_CALLED'
+      );
     }
     finalized = true;
     await store.append({
-      eventType: 'session_finalized',
+      eventType: SESSION_EVENT_TYPE.SessionFinalized,
       payload: {
         totalFindings: findingsCount,
         ...(parsed.summary ? { summary: parsed.summary } : {}),
@@ -541,13 +546,13 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   try {
     const result = await provider.runAgentToolLoop({
       systemPrompt: buildAgentSystemPrompt({
-        repositoryRoot,
-        reviewAssignments,
+        workspaceRoot,
+        fileRuleMatches,
         availableTools,
         userInstructions,
       }),
       prompt: [
-        `Repository root: ${repositoryRoot}`,
+        `Workspace root: ${workspaceRoot}`,
         `Targets: ${relativeTargets.join(', ')}`,
         `Available ruleSources: ${validSources.join(', ')}`,
       ].join('\n'),
@@ -576,7 +581,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   }
 
   const events = await store.replay();
-  const hasFinalizedEvent = events.some((event) => event.eventType === 'session_finalized');
+  const hasFinalizedEvent = events.some((event) => event.eventType === SESSION_EVENT_TYPE.SessionFinalized);
 
   if (!hasFinalizedEvent) {
     hadOperationalErrors = true;
@@ -595,8 +600,4 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     ...(errorMessage ? { errorMessage } : {}),
     ...(usage ? { usage } : {}),
   };
-}
-
-export function resolveEvaluatorType(evaluator: string | undefined): string {
-  return evaluator || Type.BASE;
 }

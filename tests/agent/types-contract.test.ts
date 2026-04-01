@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { SESSION_EVENT_TYPE } from '../../src/agent/types';
 
 describe('agent contracts', () => {
   it('accepts ruleSource-based inputs for lint and top-level findings', async () => {
@@ -7,7 +8,7 @@ describe('agent contracts', () => {
     const lintInput = contracts.LINT_TOOL_INPUT_SCHEMA.parse({
       file: 'docs/guide.md',
       ruleSource: 'packs/default/consistency.md',
-      context: 'optional context',
+      reviewInstruction: 'Review this file for consistency.',
     });
     expect(lintInput.ruleSource).toBe('packs/default/consistency.md');
 
@@ -27,11 +28,11 @@ describe('agent contracts', () => {
     const event = contracts.SESSION_EVENT_SCHEMA.parse({
       sessionId: 'session-1',
       timestamp: '2026-03-31T00:00:00.000Z',
-      eventType: 'session_finalized',
+      eventType: SESSION_EVENT_TYPE.SessionFinalized,
       payload: { totalFindings: 1, summary: 'done' },
     });
 
-    expect(event.eventType).toBe('session_finalized');
+    expect(event.eventType).toBe(SESSION_EVENT_TYPE.SessionFinalized);
     expect(event.payload.totalFindings).toBe(1);
   });
 
@@ -41,21 +42,21 @@ describe('agent contracts', () => {
     const started = contracts.SESSION_EVENT_SCHEMA.parse({
       sessionId: 'session-1',
       timestamp: '2026-03-31T00:00:00.000Z',
-      eventType: 'tool_call_started',
+      eventType: SESSION_EVENT_TYPE.ToolCallStarted,
       payload: { toolName: 'lint', input: { file: 'docs/guide.md' } },
     });
 
     const finished = contracts.SESSION_EVENT_SCHEMA.parse({
       sessionId: 'session-1',
       timestamp: '2026-03-31T00:00:01.000Z',
-      eventType: 'tool_call_finished',
+      eventType: SESSION_EVENT_TYPE.ToolCallFinished,
       payload: { toolName: 'lint', ok: true },
     });
 
     const inlineFinding = contracts.SESSION_EVENT_SCHEMA.parse({
       sessionId: 'session-1',
       timestamp: '2026-03-31T00:00:02.000Z',
-      eventType: 'finding_recorded_inline',
+      eventType: SESSION_EVENT_TYPE.FindingRecordedInline,
       payload: {
         file: 'docs/guide.md',
         line: 2,
@@ -67,16 +68,16 @@ describe('agent contracts', () => {
     const topLevelFinding = contracts.SESSION_EVENT_SCHEMA.parse({
       sessionId: 'session-1',
       timestamp: '2026-03-31T00:00:03.000Z',
-      eventType: 'finding_recorded_top_level',
+      eventType: SESSION_EVENT_TYPE.FindingRecordedTopLevel,
       payload: {
         message: 'Cross-file mismatch',
         ruleSource: 'packs/default/consistency.md',
       },
     });
 
-    expect(started.eventType).toBe('tool_call_started');
-    expect(finished.eventType).toBe('tool_call_finished');
-    expect(inlineFinding.eventType).toBe('finding_recorded_inline');
-    expect(topLevelFinding.eventType).toBe('finding_recorded_top_level');
+    expect(started.eventType).toBe(SESSION_EVENT_TYPE.ToolCallStarted);
+    expect(finished.eventType).toBe(SESSION_EVENT_TYPE.ToolCallFinished);
+    expect(inlineFinding.eventType).toBe(SESSION_EVENT_TYPE.FindingRecordedInline);
+    expect(topLevelFinding.eventType).toBe(SESSION_EVENT_TYPE.FindingRecordedTopLevel);
   });
 });
