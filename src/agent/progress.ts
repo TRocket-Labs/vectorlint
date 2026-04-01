@@ -20,6 +20,7 @@ export interface VisibleToolProgress {
 export class AgentProgressReporter {
   private readonly enabled: boolean;
   private readonly spinner: Ora | undefined;
+  private readonly runStartedAt = Date.now();
   private activeFile: string | undefined;
   private activeRuleName: string | undefined;
   private activeLine = TOOL_PREFIX;
@@ -141,7 +142,7 @@ export class AgentProgressReporter {
         text: this.currentBlockText(),
       });
     }
-    this.writeLine('Completed review.');
+    this.writeLine(`Completed review in ${formatElapsed(this.runStartedAt)}.`);
     this.activeFile = undefined;
     this.activeRuleName = undefined;
     this.activeLine = TOOL_PREFIX;
@@ -221,6 +222,21 @@ function truncate(value: string, maxLength: number): string {
     return value;
   }
   return `${value.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+function formatElapsed(startedAt: number): string {
+  const elapsedSeconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+  const hours = Math.floor(elapsedSeconds / 3600);
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+  const seconds = elapsedSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+  return `${seconds}s`;
 }
 
 function createOraStream(stream: NodeJS.WriteStream): NodeJS.WriteStream {

@@ -7,6 +7,7 @@ import { Type, Severity } from '../evaluators/types';
 import { computeFilterDecision } from '../evaluators/violation-filter';
 import { locateQuotedText } from '../output/location';
 import type { AgentToolLoopResult, LLMProvider } from '../providers/llm-provider';
+import type { TokenUsage } from '../providers/token-usage';
 import type { OutputFormat } from '../cli/types';
 import { createEvaluator } from '../evaluators';
 import { createReviewSessionStore } from './review-session-store';
@@ -76,6 +77,17 @@ export interface AgentExecutorResult {
 const MAX_SEARCH_FILE_RESULTS = 500;
 const MAX_CONTENT_MATCH_RESULTS = 200;
 const VISIBLE_TOOL_NAMES = new Set<VisibleToolName>(['read_file', 'list_directory', 'lint']);
+
+function mergeTokenUsage(left?: TokenUsage, right?: TokenUsage): TokenUsage | undefined {
+  if (!left && !right) {
+    return undefined;
+  }
+
+  return {
+    inputTokens: (left?.inputTokens ?? 0) + (right?.inputTokens ?? 0),
+    outputTokens: (left?.outputTokens ?? 0) + (right?.outputTokens ?? 0),
+  };
+}
 
 function buildUnknownRuleSourceError(ruleSource: string, validSources: string[]): Error {
   const validHint = validSources.length > 0 ? validSources.join(', ') : '(none)';
@@ -485,6 +497,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   let finalized = false;
   let currentProgressFile: string | undefined;
   const failedVisibleToolSignatures = new Set<string>();
+  let nestedToolUsage: TokenUsage | undefined;
 
   async function runTool(
     toolName: AgentToolName,
@@ -573,6 +586,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
       promptForCall
     );
     const result = await evaluator.evaluate(relFile, content);
+    nestedToolUsage = mergeTokenUsage(nestedToolUsage, result.usage);
 
     let findingsRecorded = 0;
     const violations = isJudgeResult(result)
@@ -810,6 +824,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   }
 
   const findings = findingsFromEvents(events);
+  const aggregatedUsage = mergeTokenUsage(usage, nestedToolUsage);
 
   return {
     findings,
@@ -818,6 +833,6 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     requestFailures,
     hadOperationalErrors,
     ...(errorMessage ? { errorMessage } : {}),
-    ...(usage ? { usage } : {}),
+    ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
   };
 }

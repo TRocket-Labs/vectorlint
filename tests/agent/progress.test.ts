@@ -28,4 +28,19 @@ describe('agent progress reporter', () => {
 
     reporter.finishRun();
   });
+
+  it('formats the completion footer with elapsed time', () => {
+    vi.useFakeTimers();
+
+    const writeSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const reporter = new AgentProgressReporter(true);
+    reporter.startFile('README.md', 'Repetition');
+
+    vi.advanceTimersByTime(85_000);
+    reporter.finishRun();
+
+    const output = writeSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(output).toContain('Completed review in 1m 25s.');
+  });
 });

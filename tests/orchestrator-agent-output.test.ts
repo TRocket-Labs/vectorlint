@@ -164,6 +164,47 @@ describe('agent orchestrator output', () => {
     expect(result.hadOperationalErrors).toBe(false);
   });
 
+  it('includes nested lint usage in the final agent-mode token totals', async () => {
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({
+          data: { reasoning: 'ok', violations: [] },
+          usage: { inputTokens: 7, outputTokens: 3 },
+        });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          ruleSource: 'packs/default/consistency.md',
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 11, outputTokens: 5 } };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Json,
+      mode: AGENT_REVIEW_MODE as never,
+      printMode: true,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    expect(result.tokenUsage).toEqual({
+      totalInputTokens: 18,
+      totalOutputTokens: 8,
+    });
+  });
+
   it('keeps json output shape consistent with formatter-based structure', async () => {
     const repo = createTempRepo();
     const file = path.join(repo, 'doc.md');
@@ -266,7 +307,7 @@ describe('agent orchestrator output', () => {
     expect(stderrOutput).toContain('Reviewing doc.md for Consistency');
     expect(stderrOutput).toContain('  └ Found no issues in doc.md');
     expect(stderrOutput).not.toContain('[vectorlint]');
-    expect(stderrOutput).toContain('Completed review.');
+    expect(stderrOutput).toMatch(/Completed review in \d+s\./);
   });
 
   it('renders visible tool invocations and results while hiding internal agent tools', async () => {
@@ -701,7 +742,7 @@ describe('agent orchestrator output', () => {
     const secondFileIndex = stderrOutput.indexOf('Reviewing doc2.md for Consistency');
     expect(firstFileIndex).toBeGreaterThan(-1);
     expect(secondFileIndex).toBeGreaterThan(firstFileIndex);
-    expect(stderrOutput).toContain('Completed review.');
+    expect(stderrOutput).toMatch(/Completed review in \d+s\./);
   });
 
   it('renders top-level findings without explicit references at 1:1 in line output', async () => {

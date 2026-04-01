@@ -232,6 +232,53 @@ describe('agent executor', () => {
     expect(result.events.some((event: { eventType: string }) => event.eventType === SESSION_EVENT_TYPE.SessionFinalized)).toBe(true);
   });
 
+  it('aggregates nested lint usage with agent loop usage', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'vectorlint-agent-'));
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({
+          data: {
+            reasoning: 'detected issue',
+            violations: [],
+          },
+          usage: {
+            inputTokens: 7,
+            outputTokens: 3,
+          },
+        });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          ruleSource: 'packs/default/consistency.md',
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 11, outputTokens: 5 } };
+      },
+    };
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [makePrompt()],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.usage).toEqual({
+      inputTokens: 18,
+      outputTokens: 8,
+    });
+  });
+
   it('falls back to matching all prompts when scanPaths is empty', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
