@@ -27,11 +27,10 @@ async function createUniqueSessionFile(reviewsDir: string): Promise<{ sessionId:
       await handle.close();
       return { sessionId, sessionFilePath };
     } catch (error) {
-      const err = error as NodeJS.ErrnoException;
-      if (err.code === 'EEXIST') {
+      if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'EEXIST') {
         continue;
       }
-      throw err;
+      throw error;
     }
   }
 }
@@ -56,11 +55,10 @@ export async function createReviewSessionStore({ homeDir }: { homeDir: string })
     try {
       raw = await readFile(sessionFilePath, 'utf8');
     } catch (error) {
-      const err = error as NodeJS.ErrnoException;
-      if (err.code === 'ENOENT') {
+      if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'ENOENT') {
         return [];
       }
-      throw err;
+      throw error;
     }
 
     const events: SessionEvent[] = [];

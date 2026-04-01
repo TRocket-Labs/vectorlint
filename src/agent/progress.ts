@@ -156,8 +156,6 @@ function formatToolCall(toolName: string, toolArgs?: unknown, rulePreview?: stri
       pushEntry(entries, 'pattern', args?.pattern);
       pushEntry(entries, 'path', args?.path);
       pushEntry(entries, 'glob', args?.glob);
-      pushEntry(entries, 'ignoreCase', args?.ignoreCase);
-      pushEntry(entries, 'context', args?.context);
       pushEntry(entries, 'limit', args?.limit);
       break;
     case 'search_files':

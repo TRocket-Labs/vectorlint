@@ -1,4 +1,5 @@
 import { readFileSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { randomUUID } from 'crypto';
 import * as path from 'path';
 import * as os from 'os';
@@ -15,7 +16,7 @@ import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { OutputFormat } from './types';
-import { runAgentExecutor, type AgentExecutorResult, type AgentFinding } from '../agent/executor';
+import { runAgentExecutor, resolveEvaluatorType, type AgentExecutorResult, type AgentFinding } from '../agent/executor';
 import { AgentProgressReporter, shouldEmitAgentProgress } from '../agent/progress';
 import type {
   EvaluationOptions, EvaluationResult, ErrorTrackingResult,
@@ -64,9 +65,6 @@ function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string
 /*
  * Returns the evaluator type, defaulting to 'base' if not specified.
  */
-function resolveEvaluatorType(evaluator: string | undefined): string {
-  return evaluator || Type.BASE;
-}
 
 /*
  * Constructs a hierarchical rule name following the pattern:
@@ -1091,11 +1089,11 @@ function buildAgentRuleId(prompt: PromptFile): string {
   return `${pack}.${rule}`;
 }
 
-function getAgentFileWordCount(
+async function getAgentFileWordCount(
   file: string,
   repositoryRoot: string,
   cache: Map<string, number>
-): number {
+): Promise<number> {
   const repoRelative = path.relative(repositoryRoot, path.resolve(repositoryRoot, file)) || file;
   if (cache.has(repoRelative)) {
     return cache.get(repoRelative)!;
@@ -1103,7 +1101,7 @@ function getAgentFileWordCount(
 
   const absolutePath = path.resolve(repositoryRoot, repoRelative);
   try {
-    const content = readFileSync(absolutePath, 'utf-8');
+    const content = await readFile(absolutePath, 'utf-8');
     const words = Math.max(1, countWords(content) || 1);
     cache.set(repoRelative, words);
     return words;
@@ -1113,11 +1111,11 @@ function getAgentFileWordCount(
   }
 }
 
-function buildAgentRuleScores(
+async function buildAgentRuleScores(
   findings: AgentFinding[],
   prompts: PromptFile[],
   repositoryRoot: string
-): AgentRuleScore[] {
+): Promise<AgentRuleScore[]> {
   const fileWordCountCache = new Map<string, number>();
   const findingsByRule = new Map<string, AgentFinding[]>();
 
@@ -1127,22 +1125,24 @@ function buildAgentRuleScores(
     findingsByRule.set(finding.ruleId, existing);
   }
 
-  return prompts.map((prompt) => {
+  const results: AgentRuleScore[] = [];
+  for (const prompt of prompts) {
     const ruleId = buildAgentRuleId(prompt);
     const ruleFindings = findingsByRule.get(ruleId) ?? [];
 
     if (ruleFindings.length === 0) {
-      return {
+      results.push({
         ruleId,
         score: 10,
         scoreText: '10.0/10',
-      };
+      });
+      continue;
     }
 
     const files = new Set(ruleFindings.map((finding) => finding.file));
     let totalWords = 0;
     for (const file of files) {
-      totalWords += getAgentFileWordCount(file, repositoryRoot, fileWordCountCache);
+      totalWords += await getAgentFileWordCount(file, repositoryRoot, fileWordCountCache);
     }
 
     const syntheticViolations = Array.from({ length: ruleFindings.length }, (_, index) => ({
@@ -1160,12 +1160,13 @@ function buildAgentRuleScores(
       }
     );
 
-    return {
+    results.push({
       ruleId,
       score: scored.final_score,
       scoreText: `${scored.final_score.toFixed(1)}/10`,
-    };
-  });
+    });
+  }
+  return results;
 }
 
 async function evaluateFilesInAgentMode(
@@ -1219,7 +1220,7 @@ async function evaluateFilesInAgentMode(
   }
 
   if (outputFormat === OutputFormat.Line) {
-    const ruleScores = buildAgentRuleScores(agentResult.findings, options.prompts, repositoryRoot);
+    const ruleScores = await buildAgentRuleScores(agentResult.findings, options.prompts, repositoryRoot);
     const scoreSummary = new Map<string, EvaluationSummary[]>(
       ruleScores.map((entry) => [
         entry.ruleId,

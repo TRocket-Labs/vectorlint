@@ -70,6 +70,9 @@ export interface AgentExecutorResult {
   usage?: AgentToolLoopResult['usage'];
 }
 
+const MAX_SEARCH_FILE_RESULTS = 500;
+const MAX_CONTENT_MATCH_RESULTS = 200;
+
 function normalizeRuleSource(ruleSource: string): string {
   return ruleSource.replace(/\\/g, '/').replace(/^\.\//, '');
 }
@@ -210,7 +213,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   const validSources = Array.from(promptBySource.keys()).sort();
 
   const store = await createReviewSessionStore({ homeDir: sessionHomeDir });
-  const findingsBuffer: AgentFinding[] = [];
+  let findingsCount = 0;
   const relativeTargets = targets.map((target) =>
     toRelativePathFromRoot(repositoryRoot, resolveWithinRoot(repositoryRoot, target))
   );
@@ -339,7 +342,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
           ...(match ? { match } : {}),
         };
 
-        findingsBuffer.push(finding);
+        findingsCount += 1;
         findingsRecorded += 1;
         await store.append({
           eventType: 'finding_recorded_inline',
@@ -392,7 +395,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
         ...(parsed.suggestion ? { suggestion: parsed.suggestion } : {}),
       };
 
-      findingsBuffer.push(finding);
+      findingsCount += 1;
       findingsRecorded += 1;
       await store.append({
         eventType: 'finding_recorded_top_level',
@@ -426,18 +429,20 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   async function searchFilesToolHandler(input: unknown): Promise<unknown> {
     const parsed = SEARCH_FILES_INPUT_SCHEMA.parse(input);
     const scope = resolveGlobPatternWithinRoot(repositoryRoot, parsed.pattern);
-    const matches = await fg(scope.pattern, {
+    const allMatches = await fg(scope.pattern, {
       cwd: scope.cwd,
       dot: false,
       onlyFiles: true,
       absolute: true,
     });
 
-    return {
-      matches: matches
-        .map((match) => toRelativePathFromRoot(repositoryRoot, match))
-        .sort((a, b) => a.localeCompare(b)),
-    };
+    const truncated = allMatches.length > MAX_SEARCH_FILE_RESULTS;
+    const matches = allMatches
+      .slice(0, MAX_SEARCH_FILE_RESULTS)
+      .map((match) => toRelativePathFromRoot(repositoryRoot, match))
+      .sort((a, b) => a.localeCompare(b));
+
+    return { matches, ...(truncated ? { truncated: true } : {}) };
   }
 
   async function listDirectoryToolHandler(input: unknown): Promise<unknown> {
@@ -468,7 +473,9 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     });
 
     const matches: Array<{ file: string; line: number; text: string }> = [];
-    for (const filePath of files) {
+    let truncated = false;
+
+    outer: for (const filePath of files) {
       let content = '';
       try {
         content = await readFile(filePath, 'utf8');
@@ -480,6 +487,10 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
       for (let index = 0; index < lines.length; index += 1) {
         const line = lines[index]!;
         if (line.includes(parsed.pattern)) {
+          if (matches.length >= MAX_CONTENT_MATCH_RESULTS) {
+            truncated = true;
+            break outer;
+          }
           matches.push({
             file: toRelativePathFromRoot(repositoryRoot, filePath),
             line: index + 1,
@@ -489,7 +500,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
       }
     }
 
-    return { matches };
+    return { matches, ...(truncated ? { truncated: true } : {}) };
   }
 
   async function finalizeReviewToolHandler(input: unknown): Promise<unknown> {
@@ -501,7 +512,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     await store.append({
       eventType: 'session_finalized',
       payload: {
-        totalFindings: findingsBuffer.length,
+        totalFindings: findingsCount,
         ...(parsed.summary ? { summary: parsed.summary } : {}),
       },
     });
@@ -586,6 +597,6 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   };
 }
 
-function resolveEvaluatorType(evaluator: string | undefined): string {
+export function resolveEvaluatorType(evaluator: string | undefined): string {
   return evaluator || Type.BASE;
 }
