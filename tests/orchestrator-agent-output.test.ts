@@ -11,17 +11,19 @@ function makePrompt(params?: {
   id?: string;
   name?: string;
   source?: string;
+  body?: string;
 }): PromptFile {
   const id = params?.id ?? 'consistency';
   const name = params?.name ?? 'Consistency';
   const source = params?.source ?? 'packs/default/consistency.md';
+  const body = params?.body ?? 'Find inconsistent wording';
 
   return {
     id,
     filename: `${id}.md`,
     fullPath: source,
     pack: 'Default',
-    body: 'Find inconsistent wording',
+    body,
     meta: {
       id: name,
       name,
@@ -261,14 +263,13 @@ describe('agent orchestrator output', () => {
     } as never);
 
     const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
-    expect(stderrOutput).toContain('◈ reviewing doc.md for Consistency');
-    expect(stderrOutput).toContain('└ calling tool lint tool');
-    expect(stderrOutput).toMatch(/[|/\-\\] ◈ reviewing doc\.md for Consistency/);
+    expect(stderrOutput).toContain('Reviewing doc.md for Consistency');
+    expect(stderrOutput).toContain('  └ Found no issues in doc.md');
     expect(stderrOutput).not.toContain('[vectorlint]');
-    expect(stderrOutput).toContain('◆ done in');
+    expect(stderrOutput).toContain('Completed review.');
   });
 
-  it('renders rich tool-call previews for lint and non-lint tools in agent line output', async () => {
+  it('renders visible tool invocations and results while hiding internal agent tools', async () => {
     Object.defineProperty(process.stderr, 'isTTY', {
       configurable: true,
       value: true,
@@ -292,9 +293,11 @@ describe('agent orchestrator output', () => {
         });
         await tools.search_files.execute({ pattern: '**/*.md' });
         await tools.read_file.execute({ path: 'doc.md' });
+        await tools.list_directory.execute({ path: '.' });
+        await tools.search_content.execute({ pattern: 'bad phrase', path: '.', glob: '**/*.md' });
         await tools.finalize_review.execute({});
 
-        return { usage: { inputTokens: 4, outputTokens: 2 } };
+        return { usage: { inputTokens: 6, outputTokens: 2 } };
       },
     } as unknown as LLMProvider;
 
@@ -311,9 +314,15 @@ describe('agent orchestrator output', () => {
     } as never);
 
     const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
-    expect(stderrOutput).toContain('lint(');
-    expect(stderrOutput).toContain('search_files(');
-    expect(stderrOutput).toContain('read_file(');
+    expect(stderrOutput).toContain('Lint("Find inconsistent wording...")');
+    expect(stderrOutput).toContain('Found no issues in doc.md');
+    expect(stderrOutput).toContain('Read(doc.md)');
+    expect(stderrOutput).toContain('Read 1 line from doc.md');
+    expect(stderrOutput).toContain('List(.)');
+    expect(stderrOutput).toContain('Listed 1 entry in .');
+    expect(stderrOutput).not.toContain('SearchFiles(');
+    expect(stderrOutput).not.toContain('SearchContent(');
+    expect(stderrOutput).not.toContain('Finalize(');
   });
 
   it('renders interactive tool lines without a trailing newline', async () => {
@@ -356,7 +365,7 @@ describe('agent orchestrator output', () => {
 
     const firstToolLine = stderrSpy.mock.calls
       .map((call) => String(call[0]))
-      .find((chunk) => chunk.includes('calling tool'));
+      .find((chunk) => chunk.includes('  └ '));
 
     expect(firstToolLine).toBeDefined();
     expect(firstToolLine?.endsWith('\n')).toBe(false);
@@ -449,6 +458,50 @@ describe('agent orchestrator output', () => {
     const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
     expect(stderrOutput).toContain('for AI Pattern');
     expect(stderrOutput).toContain('for Consistency');
+  });
+
+  it('shows visible tool retry status after a visible tool failure', async () => {
+    Object.defineProperty(process.stderr, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    const retriable = path.join(repo, 'retriable.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await expect(tools.read_file.execute({ path: 'retriable.md' })).rejects.toThrow();
+        writeFileSync(retriable, 'hello\n', 'utf8');
+        await tools.read_file.execute({ path: 'retriable.md' });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 2, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Line,
+      mode: AGENT_REVIEW_MODE as never,
+      printMode: false,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
+    expect(stderrOutput).toContain('Error reading retriable.md');
+    expect(stderrOutput).toContain('Retrying Read(retriable.md)...');
+    expect(stderrOutput).toContain('Read 1 line from retriable.md');
   });
 
   it('shows quality scores in agent line output and keeps operational failures explicit when finalize_review is missing', async () => {
@@ -593,13 +646,13 @@ describe('agent orchestrator output', () => {
       .map((call) => String(call[0]))
       .join('\n');
 
-    expect(stdout).not.toContain('◈ reviewing');
-    expect(stdout).not.toContain('└ calling tool');
-    expect(stdout).not.toContain('◆ done');
+    expect(stdout).not.toContain('Reviewing');
+    expect(stdout).not.toContain('  └ ');
+    expect(stdout).not.toContain('Completed review.');
     expect(stderrSpy).not.toHaveBeenCalled();
   });
 
-  it('emits per-file progress transitions for multi-file agent runs', async () => {
+  it('appends a new two-line block when agent work moves to the next file', async () => {
     Object.defineProperty(process.stderr, 'isTTY', {
       configurable: true,
       value: true,
@@ -612,10 +665,25 @@ describe('agent orchestrator output', () => {
     writeFileSync(fileOne, 'bad phrase\n', 'utf8');
     writeFileSync(fileTwo, 'another bad phrase\n', 'utf8');
 
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.read_file.execute({ path: 'doc.md' });
+        await tools.lint.execute({ file: 'doc.md', ruleSource: 'packs/default/consistency.md' });
+        await tools.read_file.execute({ path: 'doc2.md' });
+        await tools.lint.execute({ file: 'doc2.md', ruleSource: 'packs/default/consistency.md' });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 4, outputTokens: 2 } };
+      },
+    } as unknown as LLMProvider;
+
     await evaluateFiles([fileOne, fileTwo], {
       prompts: [makePrompt()],
       rulesPath: undefined,
-      provider: makeProvider(),
+      provider,
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Line,
@@ -625,13 +693,15 @@ describe('agent orchestrator output', () => {
     } as never);
 
     const stderrOutput = stderrSpy.mock.calls.map((call) => String(call[0])).join('');
-    expect(stderrOutput).toContain('◈ reviewing doc.md for Consistency');
-    expect(stderrOutput).toContain('◆ done doc.md in');
-    const firstFileDoneIndex = stderrOutput.indexOf('◆ done doc.md in');
-    const secondFileStartIndex = stderrOutput.indexOf('◈ reviewing doc2.md for Consistency');
-    expect(firstFileDoneIndex).toBeGreaterThan(-1);
-    expect(secondFileStartIndex).toBeGreaterThan(firstFileDoneIndex);
-    expect(stderrOutput).toContain('◆ done in');
+    expect(stderrOutput).toContain('Reviewing doc.md for Consistency');
+    expect(stderrOutput).toContain('Read 1 line from doc.md');
+    expect(stderrOutput).toContain('Reviewing doc2.md for Consistency');
+    expect(stderrOutput).toContain('Read 1 line from doc2.md');
+    const firstFileIndex = stderrOutput.indexOf('Reviewing doc.md for Consistency');
+    const secondFileIndex = stderrOutput.indexOf('Reviewing doc2.md for Consistency');
+    expect(firstFileIndex).toBeGreaterThan(-1);
+    expect(secondFileIndex).toBeGreaterThan(firstFileIndex);
+    expect(stderrOutput).toContain('Completed review.');
   });
 
   it('renders top-level findings without explicit references at 1:1 in line output', async () => {
@@ -854,8 +924,8 @@ describe('agent orchestrator output', () => {
     } as never);
 
     const stdout = vi.mocked(console.log).mock.calls.map((call) => String(call[0])).join('\n');
-    expect(stdout).not.toContain('◈ reviewing');
-    expect(stdout).not.toContain('└ calling tool');
+    expect(stdout).not.toContain('Reviewing');
+    expect(stdout).not.toContain('  └ ');
     expect(stderrSpy).not.toHaveBeenCalled();
   });
 
@@ -883,8 +953,8 @@ describe('agent orchestrator output', () => {
     } as never);
 
     const stdout = vi.mocked(console.log).mock.calls.map((call) => String(call[0])).join('\n');
-    expect(stdout).not.toContain('◈ reviewing');
-    expect(stdout).not.toContain('└ calling tool');
+    expect(stdout).not.toContain('Reviewing');
+    expect(stdout).not.toContain('  └ ');
     expect(stderrSpy).not.toHaveBeenCalled();
   });
 

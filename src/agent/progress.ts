@@ -1,29 +1,27 @@
 import { OutputFormat } from '../cli/types';
 
-const SPINNER_FRAMES = ['|', '/', '-', '\\'];
-const TOOL_PREFIX = '└ ';
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const TOOL_PREFIX = '  └ ';
 const MAX_TOOL_LINE_LENGTH = 140;
-const DEFAULT_TOOL_NAME = 'lint';
 
-function formatDuration(startedAt: number): string {
-  const seconds = Math.max(0, (Date.now() - startedAt) / 1000);
-  return `${seconds.toFixed(1)}s`;
-}
+export type VisibleToolName = 'read_file' | 'list_directory' | 'lint';
 
-interface ToolCallProgress {
+export interface VisibleToolProgress {
+  toolName: VisibleToolName;
+  path?: string;
   ruleName?: string;
-  toolArgs?: unknown;
-  rulePreview?: string;
+  ruleText?: string;
+  lineCount?: number;
+  entryCount?: number;
+  findingsCount?: number;
 }
 
 export class AgentProgressReporter {
   private readonly enabled: boolean;
   private spinnerIndex = 0;
-  private readonly runStartedAt = Date.now();
-  private readonly fileStartedAt = new Map<string, number>();
   private activeFile: string | undefined;
   private activeRuleName: string | undefined;
-  private activeToolLine = `${TOOL_PREFIX}calling tool lint tool`;
+  private activeLine = TOOL_PREFIX;
   private hasPrintedBlock = false;
 
   constructor(enabled: boolean) {
@@ -47,81 +45,96 @@ export class AgentProgressReporter {
   private renderHeader(file: string, ruleName: string): string {
     const frame = SPINNER_FRAMES[this.spinnerIndex % SPINNER_FRAMES.length];
     this.spinnerIndex += 1;
-    return `${frame} ◈ reviewing ${file} for ${ruleName}`;
+    return `${frame} Reviewing ${file} for ${ruleName}`;
   }
 
-  private renderBlock(header: string, toolLine: string): void {
+  private renderBlock(header: string, detailLine: string): void {
     if (!this.enabled) {
       return;
     }
 
     if (!this.hasPrintedBlock) {
-      this.writeInline(`${header}\n${toolLine}`);
+      this.writeInline(`${header}\n${detailLine}`);
       this.hasPrintedBlock = true;
       return;
     }
 
-    this.writeInline(`\x1b[1A\r\x1b[2K${header}\n\r\x1b[2K${toolLine}`);
+    this.writeInline(`\x1b[1A\r\x1b[2K${header}\n\r\x1b[2K${detailLine}`);
   }
 
-  startFile(file: string, ruleName: string): void {
-    this.fileStartedAt.set(file, Date.now());
-    this.activeFile = file;
-    this.activeRuleName = ruleName;
-    this.activeToolLine = `${TOOL_PREFIX}calling tool ${DEFAULT_TOOL_NAME} tool`;
-    if (this.hasPrintedBlock) {
-      this.writeLine('');
-    }
-    this.renderBlock(this.renderHeader(file, ruleName), this.activeToolLine);
-  }
-
-  updateRule(ruleName: string): void {
+  private renderCurrent(): void {
     if (!this.enabled || !this.activeFile) {
       return;
     }
-    if (this.activeRuleName === ruleName) {
-      return;
-    }
-    this.activeRuleName = ruleName;
-    this.renderBlock(this.renderHeader(this.activeFile, ruleName), this.activeToolLine);
-  }
-
-  toolCallStarted(toolName: string, params?: ToolCallProgress): void {
-    if (!this.enabled || !this.activeFile) {
-      return;
-    }
-
-    if (params?.ruleName && params.ruleName !== this.activeRuleName) {
-      this.activeRuleName = params.ruleName;
-    }
-
-    this.activeToolLine = `${TOOL_PREFIX}calling tool ${toolName} tool ${formatToolCall(
-      toolName,
-      params?.toolArgs,
-      params?.rulePreview
-    )}`;
     this.renderBlock(
       this.renderHeader(this.activeFile, this.activeRuleName ?? 'Rule'),
-      this.activeToolLine
+      this.activeLine
     );
   }
 
-  finishFile(file: string): void {
-    const startedAt = this.fileStartedAt.get(file) ?? this.runStartedAt;
+  startFile(file: string, ruleName: string): void {
     if (!this.enabled) {
       return;
     }
 
-    if (this.activeFile === file && this.hasPrintedBlock) {
-      this.writeInline(
-        `\x1b[1A\r\x1b[2K◆ done ${file} in ${formatDuration(startedAt)}\n\r\x1b[2K${this.activeToolLine}`
-      );
-      this.activeFile = undefined;
-      this.activeRuleName = undefined;
+    if (this.hasPrintedBlock && this.activeFile && this.activeFile !== file) {
+      this.writeLine('');
+    }
+
+    this.activeFile = file;
+    this.activeRuleName = ruleName;
+    this.activeLine = TOOL_PREFIX;
+    this.renderCurrent();
+  }
+
+  updateRule(ruleName: string): void {
+    if (!this.enabled || !this.activeFile || this.activeRuleName === ruleName) {
       return;
     }
 
-    this.writeLine(`◆ done ${file} in ${formatDuration(startedAt)}`);
+    this.activeRuleName = ruleName;
+    this.renderCurrent();
+  }
+
+  showVisibleToolStart(params: VisibleToolProgress & { retrying?: boolean }): void {
+    if (!this.enabled || !this.activeFile) {
+      return;
+    }
+
+    if (params.ruleName) {
+      this.activeRuleName = params.ruleName;
+    }
+
+    this.activeLine = params.retrying
+      ? formatRetryingLine(params)
+      : formatInvocationLine(params);
+    this.renderCurrent();
+  }
+
+  showVisibleToolSuccess(params: VisibleToolProgress): void {
+    if (!this.enabled || !this.activeFile) {
+      return;
+    }
+
+    if (params.ruleName) {
+      this.activeRuleName = params.ruleName;
+    }
+
+    this.activeLine = formatSuccessLine(params);
+    this.renderCurrent();
+  }
+
+  showVisibleToolError(params: VisibleToolProgress): void {
+    if (!this.enabled || !this.activeFile) {
+      return;
+    }
+
+    if (params.ruleName) {
+      this.activeRuleName = params.ruleName;
+    }
+
+    this.activeLine = formatErrorLine(params);
+    this.renderCurrent();
   }
 
   finishRun(): void {
@@ -132,83 +145,76 @@ export class AgentProgressReporter {
     if (this.hasPrintedBlock) {
       this.writeLine('');
     }
-    this.writeLine(`◆ done in ${formatDuration(this.runStartedAt)}`);
+    this.writeLine('Completed review.');
     this.hasPrintedBlock = false;
+    this.activeFile = undefined;
+    this.activeRuleName = undefined;
+    this.activeLine = TOOL_PREFIX;
   }
 }
 
-function formatToolCall(toolName: string, toolArgs?: unknown, rulePreview?: string): string {
-  const args = asRecord(toolArgs);
-  const sanitizedName = sanitizeInline(toolName);
-  if (!args && sanitizedName !== DEFAULT_TOOL_NAME) {
-    return `${sanitizedName}()`;
-  }
-
-  const entries: string[] = [];
-
-  switch (sanitizedName) {
+function formatInvocationLine(params: VisibleToolProgress): string {
+  switch (params.toolName) {
     case 'read_file':
-      pushValueEntry(entries, args?.path);
-      pushEntry(entries, 'offset', args?.offset);
-      pushEntry(entries, 'limit', args?.limit);
-      break;
-    case 'search_content':
-      pushEntry(entries, 'pattern', args?.pattern);
-      pushEntry(entries, 'path', args?.path);
-      pushEntry(entries, 'glob', args?.glob);
-      pushEntry(entries, 'limit', args?.limit);
-      break;
-    case 'search_files':
-      pushEntry(entries, 'pattern', args?.pattern);
-      pushEntry(entries, 'path', args?.path);
-      pushEntry(entries, 'limit', args?.limit);
-      break;
+      return `${TOOL_PREFIX}Read(${sanitizePath(params.path)})`;
     case 'list_directory':
-      pushEntry(entries, 'path', args?.path);
-      pushEntry(entries, 'limit', args?.limit);
-      break;
+      return `${TOOL_PREFIX}List(${sanitizePath(params.path)})`;
     case 'lint':
-      entries.push(
-        rulePreview && rulePreview.trim().length > 0
-          ? `${truncate(sanitizeInline(rulePreview), 48)}...`
-          : '...',
-      );
-      break;
-    default:
-      if (args) {
-        for (const [key, value] of Object.entries(args).slice(0, 3)) {
-          pushEntry(entries, key, value);
-        }
+      return `${TOOL_PREFIX}Lint("${formatRuleSnippet(params.ruleText)}")`;
+  }
+}
+
+function formatRetryingLine(params: VisibleToolProgress): string {
+  switch (params.toolName) {
+    case 'read_file':
+      return `${TOOL_PREFIX}Retrying Read(${sanitizePath(params.path)})...`;
+    case 'list_directory':
+      return `${TOOL_PREFIX}Retrying List(${sanitizePath(params.path)})...`;
+    case 'lint':
+      return `${TOOL_PREFIX}Retrying Lint("${formatRuleSnippet(params.ruleText)}")...`;
+  }
+}
+
+function formatSuccessLine(params: VisibleToolProgress): string {
+  switch (params.toolName) {
+    case 'read_file':
+      return `${TOOL_PREFIX}Read ${formatCount(params.lineCount ?? 0, 'line')} from ${sanitizePath(params.path)}`;
+    case 'list_directory':
+      return `${TOOL_PREFIX}Listed ${formatCount(params.entryCount ?? 0, 'entry')} in ${sanitizePath(params.path)}`;
+    case 'lint':
+      if ((params.findingsCount ?? 0) === 0) {
+        return `${TOOL_PREFIX}Found no issues in ${sanitizePath(params.path)}`;
       }
-      break;
+      return `${TOOL_PREFIX}Found ${formatCount(params.findingsCount ?? 0, 'issue')} in ${sanitizePath(params.path)}`;
   }
-
-  return truncate(`${sanitizedName}(${entries.join(', ')})`, MAX_TOOL_LINE_LENGTH);
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
-
-function pushEntry(target: string[], key: string, value: unknown): void {
-  if (value === undefined || value === null) return;
-  target.push(`${key}:${formatValue(value)}`);
-}
-
-function pushValueEntry(target: string[], value: unknown): void {
-  if (value === undefined || value === null) return;
-  target.push(formatValue(value));
-}
-
-function formatValue(value: unknown): string {
-  if (typeof value === 'string') {
-    return `"${truncate(sanitizeInline(value), 52)}"`;
+function formatErrorLine(params: VisibleToolProgress): string {
+  switch (params.toolName) {
+    case 'read_file':
+      return `${TOOL_PREFIX}Error reading ${sanitizePath(params.path)}`;
+    case 'list_directory':
+      return `${TOOL_PREFIX}Error listing ${sanitizePath(params.path)}`;
+    case 'lint':
+      return `${TOOL_PREFIX}Error linting ${sanitizePath(params.path)}`;
   }
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
+}
+
+function formatRuleSnippet(ruleText: string | undefined): string {
+  const sanitized = sanitizeInline(ruleText || '');
+  if (sanitized.length === 0) {
+    return '...';
   }
-  return '<object>';
+  return truncate(`${sanitized}...`, 52);
+}
+
+function sanitizePath(path: string | undefined): string {
+  const value = sanitizeInline(path || '.');
+  return value.length > 0 ? value : '.';
+}
+
+function formatCount(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
 function sanitizeInline(value: string): string {
@@ -216,7 +222,9 @@ function sanitizeInline(value: string): string {
 }
 
 function truncate(value: string, maxLength: number): string {
-  if (value.length <= maxLength) return value;
+  if (value.length <= maxLength) {
+    return value;
+  }
   return `${value.slice(0, Math.max(0, maxLength - 3))}...`;
 }
 

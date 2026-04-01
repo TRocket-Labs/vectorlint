@@ -31,7 +31,7 @@ import {
   type SessionEvent,
 } from './types';
 import { resolveGlobPatternWithinRoot, resolveWithinRoot, toRelativePathFromRoot } from './path-utils';
-import type { AgentProgressReporter } from './progress';
+import type { AgentProgressReporter, VisibleToolName, VisibleToolProgress } from './progress';
 import { buildRuleId, normalizeRuleSource } from './rule-id';
 export interface AgentFinding {
   file: string;
@@ -75,6 +75,7 @@ export interface AgentExecutorResult {
 
 const MAX_SEARCH_FILE_RESULTS = 500;
 const MAX_CONTENT_MATCH_RESULTS = 200;
+const VISIBLE_TOOL_NAMES = new Set<VisibleToolName>(['read_file', 'list_directory', 'lint']);
 
 function buildUnknownRuleSourceError(ruleSource: string, validSources: string[]): Error {
   const validHint = validSources.length > 0 ? validSources.join(', ') : '(none)';
@@ -235,6 +236,131 @@ function summarizeToolOutput(toolName: AgentToolName, output: unknown): unknown 
   }
 }
 
+interface VisibleToolContext extends VisibleToolProgress {
+  signature: string;
+  progressFile?: string;
+}
+
+function countLines(content: string): number {
+  if (content.length === 0) {
+    return 0;
+  }
+  return content.split('\n').filter((_, index, lines) => {
+    return !(index === lines.length - 1 && lines[index] === '');
+  }).length;
+}
+
+function resolveVisibleToolContext(params: {
+  toolName: AgentToolName;
+  input: unknown;
+  workspaceRoot: string;
+  promptBySource: Map<string, PromptFile>;
+  targetFiles: Set<string>;
+  currentProgressFile?: string;
+  defaultProgressFile?: string;
+}): VisibleToolContext | undefined {
+  const {
+    toolName,
+    input,
+    workspaceRoot,
+    promptBySource,
+    targetFiles,
+    currentProgressFile,
+    defaultProgressFile,
+  } = params;
+
+  if (!VISIBLE_TOOL_NAMES.has(toolName as VisibleToolName)) {
+    return undefined;
+  }
+
+  switch (toolName) {
+    case 'read_file': {
+      const parsed = READ_FILE_INPUT_SCHEMA.safeParse(input);
+      if (!parsed.success) {
+        return undefined;
+      }
+      const path = toRelativePathFromRoot(
+        workspaceRoot,
+        resolveWithinRoot(workspaceRoot, parsed.data.path)
+      );
+      return {
+        toolName: 'read_file',
+        path,
+        progressFile: targetFiles.has(path) ? path : (currentProgressFile ?? defaultProgressFile),
+        signature: `read_file:${path}`,
+      };
+    }
+    case 'list_directory': {
+      const parsed = LIST_DIRECTORY_INPUT_SCHEMA.safeParse(input);
+      if (!parsed.success) {
+        return undefined;
+      }
+      const path = toRelativePathFromRoot(
+        workspaceRoot,
+        resolveWithinRoot(workspaceRoot, parsed.data.path)
+      );
+      return {
+        toolName: 'list_directory',
+        path,
+        progressFile: currentProgressFile ?? defaultProgressFile,
+        signature: `list_directory:${path}`,
+      };
+    }
+    case 'lint': {
+      const parsed = LINT_TOOL_INPUT_SCHEMA.safeParse(input);
+      if (!parsed.success) {
+        return undefined;
+      }
+      const prompt = resolvePromptBySource(parsed.data.ruleSource, promptBySource);
+      const path = toRelativePathFromRoot(
+        workspaceRoot,
+        resolveWithinRoot(workspaceRoot, parsed.data.file)
+      );
+      const ruleText = parsed.data.reviewInstruction?.trim() || prompt?.body || '';
+      return {
+        toolName: 'lint',
+        path,
+        ruleName: String(prompt?.meta.name || prompt?.meta.id || 'Rule'),
+        ruleText,
+        progressFile: targetFiles.has(path) ? path : (currentProgressFile ?? defaultProgressFile),
+        signature: `lint:${path}:${normalizeRuleSource(parsed.data.ruleSource)}:${ruleText}`,
+      };
+    }
+  }
+}
+
+function buildVisibleToolSuccessState(
+  context: VisibleToolContext,
+  output: unknown
+): VisibleToolProgress {
+  switch (context.toolName) {
+    case 'read_file': {
+      const record = typeof output === 'object' && output !== null ? (output as Record<string, unknown>) : {};
+      const content = typeof record.content === 'string' ? record.content : '';
+      return {
+        ...context,
+        lineCount: countLines(content),
+      };
+    }
+    case 'list_directory': {
+      const record = typeof output === 'object' && output !== null ? (output as Record<string, unknown>) : {};
+      const entries = Array.isArray(record.entries) ? record.entries : [];
+      return {
+        ...context,
+        entryCount: entries.length,
+      };
+    }
+    case 'lint': {
+      const record = typeof output === 'object' && output !== null ? (output as Record<string, unknown>) : {};
+      return {
+        ...context,
+        findingsCount:
+          typeof record.findingsRecorded === 'number' ? Math.max(0, Math.trunc(record.findingsRecorded)) : 0,
+      };
+    }
+  }
+}
+
 type FindingLikeViolation = {
   line?: number;
   quoted_text?: string;
@@ -346,10 +472,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   );
   const fileRuleMatches = buildFileRuleMatches(relativeTargets, prompts, scanPaths);
   const defaultRuleName = String(prompts[0]?.meta.name || prompts[0]?.meta.id || 'Rule');
-
-  if (relativeTargets.length > 0) {
-    progressReporter?.startFile(relativeTargets[0]!, defaultRuleName);
-  }
+  const targetFiles = new Set(relativeTargets);
 
   await store.append({
     eventType: SESSION_EVENT_TYPE.SessionStarted,
@@ -360,20 +483,31 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   });
 
   let finalized = false;
+  let currentProgressFile: string | undefined;
+  const failedVisibleToolSignatures = new Set<string>();
 
   async function runTool(
     toolName: AgentToolName,
     input: unknown,
     handler: AgentToolHandler
   ): Promise<unknown> {
-    let progressRuleName: string | undefined;
-    let rulePreview: string | undefined;
-    if (toolName === 'lint') {
-      const parsed = LINT_TOOL_INPUT_SCHEMA.safeParse(input);
-      if (parsed.success) {
-        const prompt = resolvePromptBySource(parsed.data.ruleSource, promptBySource);
-        progressRuleName = String(prompt?.meta.name || prompt?.meta.id || 'Rule');
-        rulePreview = prompt?.body;
+    const visibleToolContext = resolveVisibleToolContext({
+      toolName,
+      input,
+      workspaceRoot,
+      promptBySource,
+      targetFiles,
+      currentProgressFile,
+      defaultProgressFile: relativeTargets[0],
+    });
+
+    if (visibleToolContext?.progressFile) {
+      const nextRuleName = visibleToolContext.ruleName ?? defaultRuleName;
+      if (currentProgressFile !== visibleToolContext.progressFile) {
+        progressReporter?.startFile(visibleToolContext.progressFile, nextRuleName);
+        currentProgressFile = visibleToolContext.progressFile;
+      } else if (visibleToolContext.ruleName) {
+        progressReporter?.updateRule(visibleToolContext.ruleName);
       }
     }
 
@@ -381,11 +515,12 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
       eventType: SESSION_EVENT_TYPE.ToolCallStarted,
       payload: { toolName, input },
     });
-    progressReporter?.toolCallStarted(toolName, {
-      ...(progressRuleName ? { ruleName: progressRuleName } : {}),
-      toolArgs: input,
-      ...(rulePreview ? { rulePreview } : {}),
-    });
+    if (visibleToolContext) {
+      progressReporter?.showVisibleToolStart({
+        ...visibleToolContext,
+        retrying: failedVisibleToolSignatures.has(visibleToolContext.signature),
+      });
+    }
 
     try {
       const output = await handler(input);
@@ -397,6 +532,10 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
           output: summarizeToolOutput(toolName, output),
         },
       });
+      if (visibleToolContext) {
+        progressReporter?.showVisibleToolSuccess(buildVisibleToolSuccessState(visibleToolContext, output));
+        failedVisibleToolSignatures.delete(visibleToolContext.signature);
+      }
       return output;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -408,6 +547,10 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
           error: message,
         },
       });
+      if (visibleToolContext) {
+        progressReporter?.showVisibleToolError(visibleToolContext);
+        failedVisibleToolSignatures.add(visibleToolContext.signature);
+      }
       throw error;
     }
   }
@@ -653,16 +796,6 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     hadOperationalErrors = true;
     errorMessage = error instanceof Error ? error.message : String(error);
   } finally {
-    if (relativeTargets.length > 0) {
-      for (let index = 0; index < relativeTargets.length; index += 1) {
-        const file = relativeTargets[index]!;
-        progressReporter?.finishFile(file);
-        const next = relativeTargets[index + 1];
-        if (next) {
-          progressReporter?.startFile(next, defaultRuleName);
-        }
-      }
-    }
     progressReporter?.finishRun();
   }
 
