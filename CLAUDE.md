@@ -130,8 +130,13 @@ For documents >600 words, VectorLint automatically chunks content:
 - Dependency inversion: depend on `LLMProvider` and `SearchProvider` interfaces; keep providers thin (transport only)
 - Dependency injection: inject `RequestBuilder` via provider constructor to avoid coupling
 - Separation of concerns: rules define rubric; schemas enforce structure; CLI orchestrates; evaluators process; reporters format
+- Separation of concerns: when a file starts combining contracts, orchestration, and utility logic, extract shared helpers and types into focused modules
 - Extensibility: add providers by implementing `LLMProvider` or `SearchProvider`; add evaluators via registry pattern
-- Error handling: custom error types with proper inheritance; catch blocks use `unknown` type
+- Error handling: prefer the repository's custom error hierarchy over native `Error`; catch blocks use `unknown` type and extend existing custom error types before introducing raw exceptions
+- Shared domain constants: avoid magic strings for core runtime concepts; define shared constants, enums, or types and import them where needed
+- Naming: choose domain-accurate names that reflect the real abstraction level; avoid use-case-specific terminology in shared runtime code
+- Logging: route runtime logging through an injected logger interface; keep concrete logger implementations behind the abstraction
+- Incremental change management: prefer small, capability-focused commits for refactors and new runtime infrastructure so behavior changes can be isolated and reverted safely
 
 ## Output Formats
 

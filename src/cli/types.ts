@@ -18,6 +18,21 @@ export enum OutputFormat {
     RdJson = "rdjson",
 }
 
+export const OUTPUT_FORMATS = [
+    OutputFormat.Line,
+    OutputFormat.Json,
+    OutputFormat.ValeJson,
+    OutputFormat.RdJson,
+] as const;
+
+export const DEFAULT_OUTPUT_FORMAT = OUTPUT_FORMATS[0];
+
+export const REVIEW_MODES = ['standard', 'agent'] as const;
+export const DEFAULT_REVIEW_MODE = REVIEW_MODES[0];
+export const AGENT_REVIEW_MODE = REVIEW_MODES[1];
+
+export type ReviewMode = (typeof REVIEW_MODES)[number];
+
 export interface EvaluationOptions {
     prompts: PromptFile[];
     rulesPath: string | undefined;
@@ -28,6 +43,9 @@ export interface EvaluationOptions {
     debugJson?: boolean;
     scanPaths: FilePatternConfig[];
     outputFormat?: OutputFormat;
+    mode?: ReviewMode;
+    printMode?: boolean;
+    agentMaxRetries?: number;
     pricing?: PricingConfig;
     userInstructionContent?: string;
 }

@@ -1,8 +1,10 @@
-import { generateText, Output, NoObjectGeneratedError } from 'ai';
+import { generateText, Output, NoObjectGeneratedError, stepCountIs, tool } from 'ai';
 import type { LanguageModel } from 'ai';
 import { z } from 'zod';
-import { LLMProvider, LLMResult } from './llm-provider';
+import pLimit from 'p-limit';
+import { AgentToolLoopParams, AgentToolLoopResult, LLMProvider, LLMResult } from './llm-provider';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
+import { createNoopLogger, type Logger } from '../logging/logger';
 
 export interface VercelAIConfig {
   model: LanguageModel;
@@ -11,11 +13,13 @@ export interface VercelAIConfig {
   debug?: boolean;
   showPrompt?: boolean;
   showPromptTrunc?: boolean;
+  logger?: Logger;
 }
 
 export class VercelAIProvider implements LLMProvider {
   private config: VercelAIConfig;
   private builder: RequestBuilder;
+  private logger: Logger;
 
   constructor(config: VercelAIConfig, builder?: RequestBuilder) {
     this.config = {
@@ -24,7 +28,8 @@ export class VercelAIProvider implements LLMProvider {
       ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
     };
     this.builder = builder ?? new DefaultRequestBuilder();
-  }
+    this.logger = config.logger ?? createNoopLogger();
+  };
 
   async runPromptStructured<T = unknown>(
     content: string,
@@ -38,25 +43,25 @@ export class VercelAIProvider implements LLMProvider {
     const zodSchema = this.jsonSchemaToZod(schema);
 
     if (this.config.debug) {
-      console.log('[vectorlint] Sending request via Vercel AI SDK:', {
+      this.logger.debug('[vectorlint] Sending request via Vercel AI SDK', {
         model: this.config.model,
         temperature: this.config.temperature,
         ...(this.config.maxTokens !== undefined && { maxTokens: this.config.maxTokens }),
       });
 
       if (this.config.showPrompt) {
-        console.log('[vectorlint] System prompt (full):');
-        console.log(systemPrompt);
-        console.log('[vectorlint] User content (full):');
-        console.log(content);
+        this.logger.debug('[vectorlint] System prompt (full)');
+        this.logger.debug(systemPrompt);
+        this.logger.debug('[vectorlint] User content (full)');
+        this.logger.debug(content);
       } else if (this.config.showPromptTrunc) {
-        console.log('[vectorlint] System prompt (first 500 chars):');
-        console.log(systemPrompt.slice(0, 500));
-        if (systemPrompt.length > 500) console.log('... [truncated]');
+        this.logger.debug('[vectorlint] System prompt (first 500 chars)');
+        this.logger.debug(systemPrompt.slice(0, 500));
+        if (systemPrompt.length > 500) this.logger.debug('... [truncated]');
         const preview = content.slice(0, 500);
-        console.log('[vectorlint] User content preview (first 500 chars):');
-        console.log(preview);
-        if (content.length > 500) console.log('... [truncated]');
+        this.logger.debug('[vectorlint] User content preview (first 500 chars)');
+        this.logger.debug(preview);
+        if (content.length > 500) this.logger.debug('... [truncated]');
       }
     }
 
@@ -73,7 +78,7 @@ export class VercelAIProvider implements LLMProvider {
       });
 
       if (this.config.debug && result.usage) {
-        console.log('[vectorlint] LLM response meta:', {
+        this.logger.debug('[vectorlint] LLM response meta', {
           usage: {
             input_tokens: result.usage.inputTokens,
             output_tokens: result.usage.outputTokens,
@@ -110,6 +115,65 @@ export class VercelAIProvider implements LLMProvider {
       const err = e instanceof Error ? e : new Error(String(e));
       throw new Error(`Vercel AI SDK call failed: ${err.message}`);
     }
+  }
+
+  runAgentToolLoop = async (params: AgentToolLoopParams): Promise<AgentToolLoopResult> => {
+    const maxParallel = params.maxParallelToolCalls ?? 1;
+    const limit = pLimit(maxParallel);
+
+    const mappedTools = Object.fromEntries(
+      Object.entries(params.tools).map(([name, definition]) => [
+        name,
+        tool({
+          description: definition.description,
+          inputSchema: definition.inputSchema as z.ZodType,
+          execute: (input: unknown) => limit(() => definition.execute(input)),
+        }),
+      ])
+    );
+
+    const result = await generateText({
+      model: this.config.model,
+      system: params.systemPrompt,
+      prompt: params.prompt,
+      ...(params.maxRetries !== undefined ? { maxRetries: params.maxRetries } : {}),
+      stopWhen: stepCountIs(params.maxSteps ?? 1000),
+      providerOptions: {
+        openai: {
+          parallelToolCalls: maxParallel > 1,
+        },
+      },
+      tools: mappedTools,
+    });
+
+    if (this.config.debug) {
+      for (const [i, step] of result.steps.entries()) {
+        const toolNames = step.toolCalls.map((c) => c.toolName).join(', ') || '(none)';
+        this.logger.debug(
+          `[agent] step ${i + 1}: finishReason=${step.finishReason} tools=[${toolNames}]`
+        );
+        if (step.text) {
+          this.logger.debug(
+            `[agent] step ${i + 1} text: ${step.text.slice(0, 500)}${step.text.length > 500 ? '...' : ''}`
+          );
+        }
+      }
+      this.logger.debug(`[agent] final finishReason=${result.finishReason} steps=${result.steps.length}`);
+      if (result.text) {
+        this.logger.debug(
+          `[agent] final text: ${result.text.slice(0, 500)}${result.text.length > 500 ? '...' : ''}`
+        );
+      }
+    }
+
+    return {
+      usage: result.usage
+        ? {
+          inputTokens: result.usage.inputTokens ?? 0,
+          outputTokens: result.usage.outputTokens ?? 0,
+        }
+        : undefined,
+    };
   }
 
   /**

@@ -123,6 +123,30 @@ VectorLint is bundled with a `VectorLint` preset containing rules for AI pattern
 
 👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
 
+## Agent Mode
+
+Agent mode is for reviews that need context from several files such as
+documentation drift and cross-file accuracy.
+
+Run VectorLint in autonomous agent mode:
+
+```bash
+vectorlint doc.md --mode agent
+```
+
+For machine-parseable output:
+
+```bash
+vectorlint doc.md --mode agent --output json
+```
+
+To suppress interactive progress in line output:
+
+```bash
+vectorlint doc.md --mode agent --print
+```
+
+
 ## Contributing
 
 We welcome your contributions! Whether it's adding new rules, fixing bugs, or improving documentation, please check out our [Contributing Guidelines](.github/CONTRIBUTING.md) to get started.

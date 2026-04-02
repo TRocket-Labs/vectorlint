@@ -1,4 +1,6 @@
+import { vi } from 'vitest';
 import { type FilePatternConfig } from '../src/boundaries/file-section-parser.js';
+import type { Logger } from '../src/logging/logger';
 
 /**
  * Helper to create FilePatternConfig objects compatible with exactOptionalPropertyTypes.
@@ -14,4 +16,18 @@ export function createFilePatternConfig(
         config.runRules = runRules;
     }
     return config;
+}
+
+export function createMockLogger(): Logger & {
+    debug: ReturnType<typeof vi.fn>;
+    info: ReturnType<typeof vi.fn>;
+    warn: ReturnType<typeof vi.fn>;
+    error: ReturnType<typeof vi.fn>;
+} {
+    return {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+    };
 }
