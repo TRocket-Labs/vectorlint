@@ -125,6 +125,9 @@ VectorLint is bundled with a `VectorLint` preset containing rules for AI pattern
 
 ## Agent Mode
 
+Agent mode is for reviews that need context from several files such as
+documentation drift and cross-file accuracy.
+
 Run VectorLint in autonomous agent mode:
 
 ```bash
@@ -143,7 +146,6 @@ To suppress interactive progress in line output:
 vectorlint doc.md --mode agent --print
 ```
 
-Agent mode performs an autonomous, read-only review of the files you provide and reports findings using the same output formats as standard mode.
 
 ## Contributing
 
