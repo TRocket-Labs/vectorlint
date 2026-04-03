@@ -4,6 +4,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createProvider } from '../providers/provider-factory';
+import { createCapabilityProviderBundle } from '../providers/capability-provider-bundle';
 import { PerplexitySearchProvider } from '../providers/perplexity-provider';
 import type { SearchProvider } from '../providers/search-provider';
 import { loadConfig } from '../boundaries/config-loader';
@@ -18,7 +19,7 @@ import { resolveTargets } from '../scan/file-resolver';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
-import { DEFAULT_REVIEW_MODE, OUTPUT_FORMATS, OutputFormat } from './types';
+import { AGENT_REVIEW_MODE, DEFAULT_REVIEW_MODE, OUTPUT_FORMATS, OutputFormat } from './types';
 import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { createWinstonLogger } from '../logging/winston-logger';
 
@@ -110,16 +111,18 @@ export function registerMainCommand(program: Command): void {
         level: cliOptions.verbose ? 'debug' : 'info',
       });
 
-      const provider = createProvider(
-        env,
-        {
-          debug: cliOptions.verbose,
-          showPrompt: cliOptions.showPrompt,
-          showPromptTrunc: cliOptions.showPromptTrunc,
-          logger: runtimeLogger,
-        },
-        new DefaultRequestBuilder(directive, userInstructions.content || undefined)
-      );
+      const providerOptions = {
+        debug: cliOptions.verbose,
+        showPrompt: cliOptions.showPrompt,
+        showPromptTrunc: cliOptions.showPromptTrunc,
+        logger: runtimeLogger,
+      };
+      const requestBuilder = new DefaultRequestBuilder(directive, userInstructions.content || undefined);
+      const capabilityProviderBundle = cliOptions.mode === AGENT_REVIEW_MODE
+        ? createCapabilityProviderBundle(env, providerOptions, requestBuilder)
+        : undefined;
+      const provider = capabilityProviderBundle?.defaultProvider
+        ?? createProvider(env, providerOptions, requestBuilder);
 
       if (cliOptions.verbose) {
         const directiveLen = directive ? directive.length : 0;
@@ -202,6 +205,7 @@ export function registerMainCommand(program: Command): void {
         prompts,
         rulesPath,
         provider,
+        ...(capabilityProviderBundle ? { capabilityProviderBundle } : {}),
         ...(searchProvider ? { searchProvider } : {}),
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,

@@ -167,6 +167,7 @@ export class VercelAIProvider implements LLMProvider {
     }
 
     return {
+      text: result.text,
       usage: result.usage
         ? {
           inputTokens: result.usage.inputTokens ?? 0,

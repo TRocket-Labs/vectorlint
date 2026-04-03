@@ -3,6 +3,7 @@ import { createProvider, ProviderType } from '../src/providers/provider-factory'
 import { VercelAIProvider } from '../src/providers/vercel-ai-provider';
 import { DefaultRequestBuilder } from '../src/providers/request-builder';
 import type { EnvConfig } from '../src/schemas/env-schemas';
+import { createCapabilityProviderBundle } from '../src/providers/capability-provider-bundle';
 import { MODEL_CAPABILITY_TIERS, resolveConfiguredModelForCapability } from '../src/providers/model-capability';
 
 // Mock the Vercel AI SDK provider creators
@@ -25,6 +26,11 @@ vi.mock('@ai-sdk/google', () => ({
 vi.mock('@ai-sdk/amazon-bedrock', () => ({
   createAmazonBedrock: vi.fn(() => vi.fn((model: string) => ({ _type: 'bedrock', model }))),
 }));
+
+function getProviderModelName(provider: unknown): string | undefined {
+  const candidate = provider as { config?: { model?: { model?: string } } };
+  return candidate.config?.model?.model;
+}
 
 describe('Provider Factory', () => {
   describe('Provider Instantiation', () => {
@@ -495,6 +501,61 @@ describe('Provider Factory', () => {
       expect(resolveConfiguredModelForCapability(azureEnv, 'low-capability')).toBe('default-deployment');
       expect(resolveConfiguredModelForCapability(azureEnv, 'mid-capability')).toBe('default-deployment');
       expect(resolveConfiguredModelForCapability(azureEnv, 'high-capability')).toBe('default-deployment');
+    });
+  });
+
+  describe('Capability Provider Bundle', () => {
+    it('resolves high, mid, and low capability providers to the configured models', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_LOW_CAPABILITY_MODEL: 'gpt-4o-mini',
+        OPENAI_MID_CAPABILITY_MODEL: 'gpt-4o',
+        OPENAI_HIGH_CAPABILITY_MODEL: 'gpt-4.1',
+      };
+
+      const bundle = createCapabilityProviderBundle(envConfig);
+
+      expect(getProviderModelName(bundle.defaultProvider)).toBe('gpt-4o');
+      expect(getProviderModelName(bundle.resolveCapabilityProvider('low-capability'))).toBe('gpt-4o-mini');
+      expect(getProviderModelName(bundle.resolveCapabilityProvider('mid-capability'))).toBe('gpt-4o');
+      expect(getProviderModelName(bundle.resolveCapabilityProvider('high-capability'))).toBe('gpt-4.1');
+      expect(bundle.resolveCapabilityProvider('mid-capability')).toBe(bundle.defaultProvider);
+      expect(getProviderModelName(bundle.orchestratorProvider)).toBe('gpt-4.1');
+      expect(getProviderModelName(bundle.lintProvider)).toBe('gpt-4o');
+      expect(bundle.lintProvider).toBe(bundle.defaultProvider);
+    });
+
+    it('applies upward-only fallback when a requested tier is not configured', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_MID_CAPABILITY_MODEL: 'gpt-4.1-mini',
+      };
+
+      const bundle = createCapabilityProviderBundle(envConfig);
+
+      expect(getProviderModelName(bundle.resolveCapabilityProvider('low-capability'))).toBe('gpt-4.1-mini');
+      expect(getProviderModelName(bundle.resolveCapabilityProvider('mid-capability'))).toBe('gpt-4.1-mini');
+      expect(getProviderModelName(bundle.resolveCapabilityProvider('high-capability'))).toBe('gpt-4o');
+    });
+
+    it('reuses the default provider model for agent mode when no capability tiers are configured', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+
+      const bundle = createCapabilityProviderBundle(envConfig);
+
+      expect(bundle.orchestratorProvider).toBe(bundle.defaultProvider);
+      expect(bundle.lintProvider).toBe(bundle.defaultProvider);
+      expect(bundle.resolveCapabilityProvider('low-capability')).toBe(bundle.defaultProvider);
+      expect(bundle.resolveCapabilityProvider('mid-capability')).toBe(bundle.defaultProvider);
+      expect(bundle.resolveCapabilityProvider('high-capability')).toBe(bundle.defaultProvider);
     });
   });
 });

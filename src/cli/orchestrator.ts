@@ -38,6 +38,7 @@ import {
   type FilterDecision,
 } from "../evaluators/violation-filter";
 import { writeDebugRunArtifact } from "../debug/run-artifact";
+import type { ModelCapabilityTier } from '../providers/model-capability';
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
   const provider = process.env.LLM_PROVIDER;
@@ -1175,6 +1176,8 @@ async function evaluateFilesInAgentMode(
   jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter
 ): Promise<EvaluationResult> {
   const workspaceRoot = inferAgentWorkspaceRoot(targets);
+  const resolveCapabilityProvider = options.capabilityProviderBundle?.resolveCapabilityProvider
+    ?? ((_requested: ModelCapabilityTier) => options.provider);
   const progressReporter = new AgentProgressReporter(
     shouldEmitAgentProgress({
       outputFormat,
@@ -1186,6 +1189,9 @@ async function evaluateFilesInAgentMode(
     targets,
     prompts: options.prompts,
     provider: options.provider,
+    orchestratorProvider: options.capabilityProviderBundle?.orchestratorProvider ?? resolveCapabilityProvider('high-capability'),
+    lintProvider: options.capabilityProviderBundle?.lintProvider ?? resolveCapabilityProvider('mid-capability'),
+    resolveCapabilityProvider,
     workspaceRoot,
     scanPaths: options.scanPaths,
     outputFormat,

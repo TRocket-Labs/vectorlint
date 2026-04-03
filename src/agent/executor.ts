@@ -7,6 +7,7 @@ import { Type, Severity } from '../evaluators/types';
 import { computeFilterDecision } from '../evaluators/violation-filter';
 import { locateQuotedText } from '../output/location';
 import type { AgentToolLoopResult, LLMProvider } from '../providers/llm-provider';
+import type { ModelCapabilityTier } from '../providers/model-capability';
 import type { TokenUsage } from '../providers/token-usage';
 import type { OutputFormat } from '../cli/types';
 import { createEvaluator } from '../evaluators';
@@ -51,7 +52,10 @@ export interface AgentFinding {
 export interface RunAgentExecutorParams {
   targets: string[];
   prompts: PromptFile[];
-  provider: LLMProvider;
+  provider?: LLMProvider;
+  orchestratorProvider?: LLMProvider;
+  lintProvider?: LLMProvider;
+  resolveCapabilityProvider?: (requested: ModelCapabilityTier) => LLMProvider;
   workspaceRoot: string;
   scanPaths: Array<{ pattern: string; runRules: string[]; overrides: Record<string, string> }>;
   outputFormat: OutputFormat;
@@ -467,6 +471,9 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     targets,
     prompts,
     provider,
+    orchestratorProvider,
+    lintProvider,
+    resolveCapabilityProvider,
     workspaceRoot,
     scanPaths,
     sessionHomeDir = os.homedir(),
@@ -476,6 +483,14 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     maxParallelToolCalls,
     userInstructions,
   } = params;
+  const defaultProvider = provider ?? orchestratorProvider ?? lintProvider;
+  if (!defaultProvider) {
+    throw new Error('runAgentExecutor requires at least one provider.');
+  }
+  const effectiveResolveCapabilityProvider = resolveCapabilityProvider
+    ?? ((_requested: ModelCapabilityTier) => defaultProvider);
+  const effectiveOrchestratorProvider = orchestratorProvider ?? effectiveResolveCapabilityProvider('high-capability');
+  const effectiveLintProvider = lintProvider ?? effectiveResolveCapabilityProvider('mid-capability');
 
   const promptBySource = new Map<string, PromptFile>();
   for (const prompt of prompts) {
@@ -588,7 +603,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
 
     const evaluator = createEvaluator(
       promptForCall.meta.evaluator || Type.BASE,
-      provider,
+      effectiveLintProvider,
       promptForCall
     );
     const result = await evaluator.evaluate(relFile, content);
@@ -793,7 +808,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   let errorMessage: string | undefined;
 
   try {
-    const result = await provider.runAgentToolLoop({
+    const result = await effectiveOrchestratorProvider.runAgentToolLoop({
       systemPrompt: buildAgentSystemPrompt({
         workspaceRoot,
         fileRuleMatches,

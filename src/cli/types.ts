@@ -1,5 +1,6 @@
 import type { PromptFile } from '../prompts/prompt-loader';
 import type { LLMProvider } from '../providers/llm-provider';
+import type { CapabilityProviderBundle } from '../providers/capability-provider-bundle';
 import type { SearchProvider } from '../providers/search-provider';
 import type { PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
 import type { FilePatternConfig } from '../boundaries/file-section-parser';
@@ -37,6 +38,7 @@ export interface EvaluationOptions {
     prompts: PromptFile[];
     rulesPath: string | undefined;
     provider: LLMProvider;
+    capabilityProviderBundle?: CapabilityProviderBundle;
     searchProvider?: SearchProvider;
     concurrency: number;
     verbose: boolean;

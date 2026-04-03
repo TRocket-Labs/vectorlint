@@ -22,6 +22,7 @@ export interface AgentToolLoopParams {
 }
 
 export interface AgentToolLoopResult {
+  text?: string;
   usage?: TokenUsage;
 }
 
