@@ -18,3 +18,8 @@
 - **Status**: completed
 - **What was done**: Added a capability-aware provider bundle that reuses the shared provider factory, extended the agent loop provider contract to return final text, and wired agent mode to use separate high-capability loop and mid-capability lint providers while preserving the single-provider fallback for existing callers.
 - **Files changed**: `src/agent/executor.ts`, `src/cli/commands.ts`, `src/cli/orchestrator.ts`, `src/cli/types.ts`, `src/providers/capability-provider-bundle.ts`, `src/providers/llm-provider.ts`, `src/providers/provider-factory.ts`, `src/providers/vercel-ai-provider.ts`, `tests/orchestrator-agent-output.test.ts`, `tests/provider-factory.test.ts`, `tests/providers/vercel-ai-provider-agent-loop.test.ts`
+
+### Task: Expand the agent tool contracts
+- **Status**: completed
+- **What was done**: Replaced the lint tool contract with an explicit `rules[]` payload, added the subordinate `agent` tool input schema with capability-tier selection, and registered the new tool descriptions so the runtime can build on stable contracts.
+- **Files changed**: `src/agent/tools-registry.ts`, `src/agent/types.ts`, `tests/agent/types-contract.test.ts`
