@@ -18,7 +18,7 @@ import type { TokenUsage } from '../providers/token-usage';
 import type { OutputFormat } from '../cli/types';
 import { createReviewSessionStore } from './review-session-store';
 import { buildAgentSystemPrompt } from './prompt-builder';
-import { AgentToolError } from '../errors';
+import { AgentToolError, ConfigError } from '../errors';
 import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { buildMatchedRuleUnits } from './rule-units';
 import {
@@ -534,7 +534,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   } = params;
   const defaultProvider = provider ?? orchestratorProvider ?? lintProvider;
   if (!defaultProvider) {
-    throw new Error('runAgentExecutor requires at least one provider.');
+    throw new ConfigError('runAgentExecutor requires at least one provider.');
   }
   const effectiveResolveCapabilityProvider = resolveCapabilityProvider
     ?? ((requested: ModelCapabilityTier) => {

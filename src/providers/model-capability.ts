@@ -1,4 +1,5 @@
 import { ProviderType } from './provider-factory';
+import { ConfigError } from '../errors';
 import type { EnvConfig } from '../schemas/env-schemas';
 
 export const MODEL_CAPABILITY_TIERS = ['high-capability', 'mid-capability', 'low-capability'] as const;
@@ -87,6 +88,8 @@ export function resolveConfiguredModelForCapability(
       );
 
     default:
-      throw new Error(`Unsupported provider type: ${(envConfig as { LLM_PROVIDER?: string }).LLM_PROVIDER}`);
+      throw new ConfigError(
+        `Unsupported provider type: ${(envConfig as { LLM_PROVIDER?: string }).LLM_PROVIDER}`
+      );
   }
 }

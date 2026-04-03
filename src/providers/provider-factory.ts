@@ -9,6 +9,7 @@ import { VercelAIProvider, type VercelAIConfig } from './vercel-ai-provider';
 import { RequestBuilder } from './request-builder';
 import type { EnvConfig } from '../schemas/env-schemas';
 import type { Logger } from '../logging/logger';
+import { ConfigError } from '../errors';
 
 export interface ProviderOptions {
   debug?: boolean;
@@ -38,7 +39,9 @@ function resolveDefaultModelIdentifier(envConfig: EnvConfig): string {
     case ProviderType.AmazonBedrock:
       return envConfig.BEDROCK_MODEL;
     default:
-      throw new Error(`Unsupported provider type: ${(envConfig as { LLM_PROVIDER: string }).LLM_PROVIDER}`);
+      throw new ConfigError(
+        `Unsupported provider type: ${(envConfig as { LLM_PROVIDER: string }).LLM_PROVIDER}`
+      );
   }
 }
 
@@ -107,7 +110,9 @@ function resolveProviderConfig(
     }
 
     default:
-      throw new Error(`Unsupported provider type: ${(envConfig as { LLM_PROVIDER: string }).LLM_PROVIDER}`);
+      throw new ConfigError(
+        `Unsupported provider type: ${(envConfig as { LLM_PROVIDER: string }).LLM_PROVIDER}`
+      );
   }
 }
 
