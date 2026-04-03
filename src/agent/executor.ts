@@ -663,6 +663,12 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
         normalizedRuleSource: normalizeRuleSource(rule.ruleSource),
       };
     });
+    const allowedRuleSources = Array.from(
+      new Set(resolvedRules.map((rule) => rule.normalizedRuleSource))
+    ).sort();
+    const promptByAllowedRuleSource = new Map(
+      resolvedRules.map((rule) => [rule.normalizedRuleSource, rule.prompt] as const)
+    );
 
     const bundledPrompt = buildBundledLintPrompt(
       resolvedRules.map((rule) => ({
@@ -681,9 +687,10 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
 
     let findingsRecorded = 0;
     for (const finding of result.data.findings) {
-      const prompt = resolvePromptBySource(finding.ruleSource, promptBySource);
+      const normalizedRuleSource = normalizeRuleSource(finding.ruleSource);
+      const prompt = promptByAllowedRuleSource.get(normalizedRuleSource);
       if (!prompt) {
-        throw buildUnknownRuleSourceError(finding.ruleSource, validSources);
+        throw buildUnknownRuleSourceError(finding.ruleSource, allowedRuleSources);
       }
 
       const wasRecorded = await appendInlineFinding({
@@ -692,7 +699,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
         content,
         relFile,
         prompt,
-        ruleSource: finding.ruleSource,
+        ruleSource: normalizedRuleSource,
         store,
       });
       if (wasRecorded) {
@@ -845,7 +852,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     const parsed = AGENT_TOOL_INPUT_SCHEMA.parse(input);
     const subAgentProvider = effectiveResolveCapabilityProvider(parsed.model ?? 'high-capability');
 
-    return runSubAgent({
+    const result = await runSubAgent({
       provider: subAgentProvider,
       task: parsed.task,
       workspaceRoot,
@@ -858,6 +865,8 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
         search_content: tools.search_content,
       },
     });
+    nestedToolUsage = mergeTokenUsage(nestedToolUsage, result.usage);
+    return result;
   }
 
   async function finalizeReviewToolHandler(input: unknown): Promise<unknown> {

@@ -251,6 +251,10 @@ describe('agent executor', () => {
     });
 
     expect(result.hadOperationalErrors).toBe(false);
+    expect(result.usage).toEqual({
+      inputTokens: 3,
+      outputTokens: 2,
+    });
   });
 
   it('uses the requested capability tier when delegating to a sub-agent', async () => {
@@ -490,6 +494,91 @@ describe('agent executor', () => {
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+  });
+
+  it('rejects bundled lint findings that reference a rule outside the requested rules', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const provider = makeProvider(async (params) => {
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      let errorMessage = '';
+      try {
+        await tools.lint.execute({
+          file: 'doc.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(AgentToolError);
+        errorMessage = error instanceof Error ? error.message : String(error);
+      }
+      expect(errorMessage).toContain('Unknown ruleSource');
+      expect(errorMessage).toContain('packs/default/consistency.md');
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+    provider.runPromptStructured = () =>
+      Promise.resolve({
+        data: {
+          reasoning: 'detected issue',
+          findings: [
+            {
+              ruleSource: 'packs/default/accuracy.md',
+              line: 1,
+              quoted_text: 'bad phrase',
+              context_before: '',
+              context_after: '',
+              description: 'Accuracy issue',
+              analysis: 'This claim is unsupported.',
+              message: 'Support the claim',
+              suggestion: 'Add evidence',
+              fix: 'supported phrase',
+              rule_quote: 'Support technical claims',
+              checks: {
+                rule_supports_claim: true,
+                evidence_exact: true,
+                context_supports_violation: true,
+                plausible_non_violation: false,
+                fix_is_drop_in: true,
+                fix_preserves_meaning: true,
+              },
+              check_notes: {
+                rule_supports_claim: 'clear',
+                evidence_exact: 'exact',
+                context_supports_violation: 'yes',
+                plausible_non_violation: 'none',
+                fix_is_drop_in: 'yes',
+                fix_preserves_meaning: 'yes',
+              },
+              confidence: 0.91,
+            },
+          ],
+        },
+      });
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [
+        makePrompt(),
+        makePromptVariant({
+          fullPath: 'packs/default/accuracy.md',
+          id: 'Accuracy',
+          name: 'Accuracy',
+          body: 'Support technical claims.',
+          severity: Severity.ERROR,
+        }),
+      ],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
