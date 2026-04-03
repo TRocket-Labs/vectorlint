@@ -2,8 +2,8 @@ import { readdir, readFile } from 'fs/promises';
 import * as os from 'os';
 import fg from 'fast-glob';
 import {
-  buildBundledCheckLLMSchema,
-  type BundledCheckLLMResult,
+  buildMergedCheckLLMSchema,
+  type MergedCheckLLMResult,
 } from '../prompts/schema';
 import type { PromptFile } from '../prompts/prompt-loader';
 import { Severity } from '../evaluators/types';
@@ -18,7 +18,7 @@ import type { TokenUsage } from '../providers/token-usage';
 import type { OutputFormat } from '../cli/types';
 import { createReviewSessionStore } from './review-session-store';
 import { buildAgentSystemPrompt } from './prompt-builder';
-import { AgentToolError, ConfigError } from '../errors';
+import { AgentToolError } from '../errors';
 import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { buildMatchedRuleUnits } from './rule-units';
 import {
@@ -61,9 +61,7 @@ export interface AgentFinding {
 export interface RunAgentExecutorParams {
   targets: string[];
   prompts: PromptFile[];
-  provider?: LLMProvider;
-  orchestratorProvider?: LLMProvider;
-  lintProvider?: LLMProvider;
+  provider: LLMProvider;
   resolveCapabilityProvider?: (requested: ModelCapabilityTier) => LLMProvider;
   workspaceRoot: string;
   scanPaths: Array<{ pattern: string; runRules: string[]; overrides: Record<string, string> }>;
@@ -160,7 +158,7 @@ function buildEffectiveRuleBody(
   return `${body}\n\nRequired context for this review:\n${context}`;
 }
 
-function buildBundledLintPrompt(
+function buildMergedLintPrompt(
   ruleCalls: Array<{
     ruleSource: string;
     prompt: PromptFile;
@@ -520,8 +518,6 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     targets,
     prompts,
     provider,
-    orchestratorProvider,
-    lintProvider,
     resolveCapabilityProvider,
     workspaceRoot,
     scanPaths,
@@ -532,17 +528,12 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     maxParallelToolCalls,
     userInstructions,
   } = params;
-  const defaultProvider = provider ?? orchestratorProvider ?? lintProvider;
-  if (!defaultProvider) {
-    throw new ConfigError('runAgentExecutor requires at least one provider.');
-  }
+  const defaultProvider = provider;
   const effectiveResolveCapabilityProvider = resolveCapabilityProvider
     ?? ((requested: ModelCapabilityTier) => {
       void requested;
       return defaultProvider;
     });
-  const effectiveOrchestratorProvider = orchestratorProvider ?? effectiveResolveCapabilityProvider('high-capability');
-  const effectiveLintProvider = lintProvider ?? effectiveResolveCapabilityProvider('mid-capability');
 
   const promptBySource = new Map<string, PromptFile>();
   for (const prompt of prompts) {
@@ -670,7 +661,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
       resolvedRules.map((rule) => [rule.normalizedRuleSource, rule.prompt] as const)
     );
 
-    const bundledPrompt = buildBundledLintPrompt(
+    const mergedPrompt = buildMergedLintPrompt(
       resolvedRules.map((rule) => ({
         ruleSource: rule.normalizedRuleSource,
         prompt: rule.prompt,
@@ -678,10 +669,13 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
         context: rule.context,
       }))
     );
-    const result = await effectiveLintProvider.runPromptStructured<BundledCheckLLMResult>(
+    const lintProvider = parsed.model
+      ? effectiveResolveCapabilityProvider(parsed.model)
+      : defaultProvider;
+    const result = await lintProvider.runPromptStructured<MergedCheckLLMResult>(
       content,
-      bundledPrompt,
-      buildBundledCheckLLMSchema()
+      mergedPrompt,
+      buildMergedCheckLLMSchema()
     );
     nestedToolUsage = mergeTokenUsage(nestedToolUsage, result.usage);
 
@@ -711,7 +705,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     return {
       ok: true,
       findingsRecorded,
-      schema: buildBundledCheckLLMSchema().name,
+      schema: buildMergedCheckLLMSchema().name,
     };
   }
 
@@ -850,7 +844,9 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
 
   async function agentToolHandler(input: unknown): Promise<unknown> {
     const parsed = AGENT_TOOL_INPUT_SCHEMA.parse(input);
-    const subAgentProvider = effectiveResolveCapabilityProvider(parsed.model ?? 'high-capability');
+    const subAgentProvider = parsed.model
+      ? effectiveResolveCapabilityProvider(parsed.model)
+      : defaultProvider;
 
     const result = await runSubAgent({
       provider: subAgentProvider,
@@ -909,7 +905,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   let errorMessage: string | undefined;
 
   try {
-    const result = await effectiveOrchestratorProvider.runAgentToolLoop({
+    const result = await defaultProvider.runAgentToolLoop({
       systemPrompt: buildAgentSystemPrompt({
         workspaceRoot,
         matchedRuleUnits,

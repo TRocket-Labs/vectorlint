@@ -5,7 +5,7 @@ import { evaluateFiles } from '../src/cli/orchestrator';
 import { AGENT_REVIEW_MODE, OutputFormat } from '../src/cli/types';
 import type { PromptFile } from '../src/prompts/prompt-loader';
 import type { LLMProvider } from '../src/providers/llm-provider';
-import type { CapabilityProviderBundle } from '../src/providers/capability-provider-bundle';
+import type { CapabilityProviderResolver } from '../src/providers/capability-provider-resolver';
 import { Severity } from '../src/evaluators/types';
 
 function makePrompt(params?: {
@@ -206,76 +206,63 @@ describe('agent orchestrator output', () => {
     });
   });
 
-  it('uses the high-capability provider for the top-level loop and the mid-capability provider for lint', async () => {
+  it('uses the default provider for the top-level loop and lint unless lint requests a cap', async () => {
     const repo = createTempRepo();
     const file = path.join(repo, 'doc.md');
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
-    let defaultLoopCalls = 0;
-    let highLoopCalls = 0;
-    let midLintCalls = 0;
+    let defaultAgentLoopCalls = 0;
+    let defaultLintCalls = 0;
+    let cappedLintCalls = 0;
 
     const defaultProvider: LLMProvider = {
       runPromptStructured() {
-        throw new Error('default provider should not handle bundled lint in agent mode');
-      },
-      runAgentToolLoop() {
-        defaultLoopCalls += 1;
-        return Promise.reject(
-          new Error('default provider should not handle top-level agent loop in agent mode')
-        );
-      },
-    } as unknown as LLMProvider;
-
-    const midProvider: LLMProvider = {
-      runPromptStructured() {
-        midLintCalls += 1;
+        defaultLintCalls += 1;
         return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
-      runAgentToolLoop() {
-        return Promise.reject(
-          new Error('mid-capability provider should not run the top-level agent loop')
-        );
-      },
-    } as unknown as LLMProvider;
-
-    const highProvider: LLMProvider = {
-      runPromptStructured() {
-        throw new Error('high-capability provider should not run bundled lint');
-      },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
-        highLoopCalls += 1;
+        defaultAgentLoopCalls += 1;
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
           rules: [{ ruleSource: 'packs/default/consistency.md' }],
+          model: 'mid-cap',
         });
         await tools.finalize_review.execute({});
         return { text: 'done', usage: { inputTokens: 5, outputTokens: 2 } };
       },
     } as unknown as LLMProvider;
 
-    const capabilityProviderBundle: CapabilityProviderBundle = {
+    const midProvider: LLMProvider = {
+      runPromptStructured() {
+        cappedLintCalls += 1;
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
+      },
+      runAgentToolLoop() {
+        return Promise.reject(
+          new Error('mid-cap provider should not run the top-level agent loop')
+        );
+      },
+    } as unknown as LLMProvider;
+
+    const capabilityProviderResolver: CapabilityProviderResolver = {
       defaultProvider,
       resolveCapabilityProvider(requested) {
         switch (requested) {
-          case 'high-capability':
-            return highProvider;
-          case 'mid-capability':
+          case 'mid-cap':
             return midProvider;
-          case 'low-capability':
+          case 'high-cap':
+          case 'low-cap':
             return defaultProvider;
         }
       },
-      orchestratorProvider: highProvider,
-      lintProvider: midProvider,
     };
 
     const result = await evaluateFiles([file], {
       prompts: [makePrompt()],
       rulesPath: undefined,
       provider: defaultProvider,
-      capabilityProviderBundle,
+      capabilityProviderResolver,
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Json,
@@ -285,9 +272,9 @@ describe('agent orchestrator output', () => {
     } as never);
 
     expect(result.hadOperationalErrors).toBe(false);
-    expect(highLoopCalls).toBe(1);
-    expect(midLintCalls).toBe(1);
-    expect(defaultLoopCalls).toBe(0);
+    expect(defaultAgentLoopCalls).toBe(1);
+    expect(defaultLintCalls).toBe(0);
+    expect(cappedLintCalls).toBe(1);
   });
 
   it('reuses the current provider model in agent mode when capability tiers collapse to the default provider', async () => {
@@ -315,20 +302,18 @@ describe('agent orchestrator output', () => {
       },
     } as unknown as LLMProvider;
 
-    const capabilityProviderBundle: CapabilityProviderBundle = {
+    const capabilityProviderResolver: CapabilityProviderResolver = {
       defaultProvider,
       resolveCapabilityProvider() {
         return defaultProvider;
       },
-      orchestratorProvider: defaultProvider,
-      lintProvider: defaultProvider,
     };
 
     const result = await evaluateFiles([file], {
       prompts: [makePrompt()],
       rulesPath: undefined,
       provider: defaultProvider,
-      capabilityProviderBundle,
+      capabilityProviderResolver,
       concurrency: 1,
       verbose: false,
       outputFormat: OutputFormat.Json,
@@ -340,6 +325,67 @@ describe('agent orchestrator output', () => {
     expect(result.hadOperationalErrors).toBe(false);
     expect(defaultLoopCalls).toBe(1);
     expect(defaultLintCalls).toBe(1);
+  });
+
+  it('uses the resolver default provider for agent mode when one is supplied', async () => {
+    const repo = createTempRepo();
+    const file = path.join(repo, 'doc.md');
+    writeFileSync(file, 'bad phrase\n', 'utf8');
+
+    let fallbackLoopCalls = 0;
+    let resolverDefaultLoopCalls = 0;
+
+    const fallbackProvider: LLMProvider = {
+      runPromptStructured() {
+        throw new Error('fallback provider should not be used when resolver default is present');
+      },
+      runAgentToolLoop() {
+        fallbackLoopCalls += 1;
+        return Promise.reject(
+          new Error('fallback provider should not run the top-level agent loop')
+        );
+      },
+    } as unknown as LLMProvider;
+
+    const resolverDefaultProvider: LLMProvider = {
+      runPromptStructured() {
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        resolverDefaultLoopCalls += 1;
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
+        });
+        await tools.finalize_review.execute({});
+        return { text: 'done', usage: { inputTokens: 5, outputTokens: 2 } };
+      },
+    } as unknown as LLMProvider;
+
+    const capabilityProviderResolver: CapabilityProviderResolver = {
+      defaultProvider: resolverDefaultProvider,
+      resolveCapabilityProvider() {
+        return resolverDefaultProvider;
+      },
+    };
+
+    const result = await evaluateFiles([file], {
+      prompts: [makePrompt()],
+      rulesPath: undefined,
+      provider: fallbackProvider,
+      capabilityProviderResolver,
+      concurrency: 1,
+      verbose: false,
+      outputFormat: OutputFormat.Json,
+      mode: AGENT_REVIEW_MODE as never,
+      printMode: true,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+    } as never);
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(resolverDefaultLoopCalls).toBe(1);
+    expect(fallbackLoopCalls).toBe(0);
   });
 
   it('keeps json output shape consistent with formatter-based structure', async () => {

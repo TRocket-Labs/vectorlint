@@ -4,7 +4,7 @@ import { VercelAIProvider } from '../src/providers/vercel-ai-provider';
 import { DefaultRequestBuilder } from '../src/providers/request-builder';
 import { ConfigError } from '../src/errors';
 import type { EnvConfig } from '../src/schemas/env-schemas';
-import { createCapabilityProviderBundle } from '../src/providers/capability-provider-bundle';
+import { createCapabilityProviderResolver } from '../src/providers/capability-provider-resolver';
 import { MODEL_CAPABILITY_TIERS, resolveConfiguredModelForCapability } from '../src/providers/model-capability';
 
 // Mock the Vercel AI SDK provider creators
@@ -404,7 +404,7 @@ describe('Provider Factory', () => {
 
   describe('Capability Tier Resolver', () => {
     it('exposes the expected tier order', () => {
-      expect(MODEL_CAPABILITY_TIERS).toEqual(['high-capability', 'mid-capability', 'low-capability']);
+      expect(MODEL_CAPABILITY_TIERS).toEqual(['high-cap', 'mid-cap', 'low-cap']);
     });
 
     it('resolves OpenAI capability tiers with upward-only fallback', () => {
@@ -417,9 +417,9 @@ describe('Provider Factory', () => {
         OPENAI_HIGH_CAPABILITY_MODEL: 'gpt-4.1',
       };
 
-      expect(resolveConfiguredModelForCapability(envConfig, 'low-capability')).toBe('gpt-4o-mini');
-      expect(resolveConfiguredModelForCapability(envConfig, 'mid-capability')).toBe('gpt-4o');
-      expect(resolveConfiguredModelForCapability(envConfig, 'high-capability')).toBe('gpt-4.1');
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-cap')).toBe('gpt-4o-mini');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-cap')).toBe('gpt-4o');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-cap')).toBe('gpt-4.1');
     });
 
     it('resolves Anthropic capability tiers with upward-only fallback', () => {
@@ -432,9 +432,9 @@ describe('Provider Factory', () => {
         ANTHROPIC_HIGH_CAPABILITY_MODEL: 'claude-opus-4-20250514',
       };
 
-      expect(resolveConfiguredModelForCapability(envConfig, 'low-capability')).toBe('claude-3-haiku-20240307');
-      expect(resolveConfiguredModelForCapability(envConfig, 'mid-capability')).toBe('claude-3-5-sonnet-20241022');
-      expect(resolveConfiguredModelForCapability(envConfig, 'high-capability')).toBe('claude-opus-4-20250514');
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-cap')).toBe('claude-3-haiku-20240307');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-cap')).toBe('claude-3-5-sonnet-20241022');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-cap')).toBe('claude-opus-4-20250514');
     });
 
     it('resolves Gemini capability tiers with upward-only fallback', () => {
@@ -447,9 +447,9 @@ describe('Provider Factory', () => {
         GEMINI_HIGH_CAPABILITY_MODEL: 'gemini-2.5-pro',
       };
 
-      expect(resolveConfiguredModelForCapability(envConfig, 'low-capability')).toBe('gemini-2.0-flash');
-      expect(resolveConfiguredModelForCapability(envConfig, 'mid-capability')).toBe('gemini-2.5-flash');
-      expect(resolveConfiguredModelForCapability(envConfig, 'high-capability')).toBe('gemini-2.5-pro');
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-cap')).toBe('gemini-2.0-flash');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-cap')).toBe('gemini-2.5-flash');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-cap')).toBe('gemini-2.5-pro');
     });
 
     it('resolves Bedrock capability tiers with upward-only fallback', () => {
@@ -462,9 +462,9 @@ describe('Provider Factory', () => {
         BEDROCK_HIGH_CAPABILITY_MODEL: 'anthropic.claude-3-5-sonnet-20240620-v1:0',
       };
 
-      expect(resolveConfiguredModelForCapability(envConfig, 'low-capability')).toBe('anthropic.claude-3-haiku-20240307-v1:0');
-      expect(resolveConfiguredModelForCapability(envConfig, 'mid-capability')).toBe('anthropic.claude-3-sonnet-20240229-v1:0');
-      expect(resolveConfiguredModelForCapability(envConfig, 'high-capability')).toBe('anthropic.claude-3-5-sonnet-20240620-v1:0');
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-cap')).toBe('anthropic.claude-3-haiku-20240307-v1:0');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-cap')).toBe('anthropic.claude-3-sonnet-20240229-v1:0');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-cap')).toBe('anthropic.claude-3-5-sonnet-20240620-v1:0');
     });
 
     it('resolves Azure deployment names with upward-only fallback', () => {
@@ -478,9 +478,9 @@ describe('Provider Factory', () => {
         AZURE_OPENAI_HIGH_CAPABILITY_DEPLOYMENT_NAME: 'high-deployment',
       };
 
-      expect(resolveConfiguredModelForCapability(envConfig, 'low-capability')).toBe('low-deployment');
-      expect(resolveConfiguredModelForCapability(envConfig, 'mid-capability')).toBe('mid-deployment');
-      expect(resolveConfiguredModelForCapability(envConfig, 'high-capability')).toBe('high-deployment');
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-cap')).toBe('low-deployment');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-cap')).toBe('mid-deployment');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-cap')).toBe('high-deployment');
     });
 
     it('falls back to the provider default when capability tiers are absent', () => {
@@ -496,12 +496,12 @@ describe('Provider Factory', () => {
         AZURE_OPENAI_DEPLOYMENT_NAME: 'default-deployment',
       };
 
-      expect(resolveConfiguredModelForCapability(openaiEnv, 'low-capability')).toBe('gpt-4o');
-      expect(resolveConfiguredModelForCapability(openaiEnv, 'mid-capability')).toBe('gpt-4o');
-      expect(resolveConfiguredModelForCapability(openaiEnv, 'high-capability')).toBe('gpt-4o');
-      expect(resolveConfiguredModelForCapability(azureEnv, 'low-capability')).toBe('default-deployment');
-      expect(resolveConfiguredModelForCapability(azureEnv, 'mid-capability')).toBe('default-deployment');
-      expect(resolveConfiguredModelForCapability(azureEnv, 'high-capability')).toBe('default-deployment');
+      expect(resolveConfiguredModelForCapability(openaiEnv, 'low-cap')).toBe('gpt-4o');
+      expect(resolveConfiguredModelForCapability(openaiEnv, 'mid-cap')).toBe('gpt-4o');
+      expect(resolveConfiguredModelForCapability(openaiEnv, 'high-cap')).toBe('gpt-4o');
+      expect(resolveConfiguredModelForCapability(azureEnv, 'low-cap')).toBe('default-deployment');
+      expect(resolveConfiguredModelForCapability(azureEnv, 'mid-cap')).toBe('default-deployment');
+      expect(resolveConfiguredModelForCapability(azureEnv, 'high-cap')).toBe('default-deployment');
     });
 
     it('throws when all configured identifiers are blank after trimming', () => {
@@ -514,13 +514,13 @@ describe('Provider Factory', () => {
         OPENAI_HIGH_CAPABILITY_MODEL: '\n',
       };
 
-      expect(() => resolveConfiguredModelForCapability(envConfig, 'low-capability')).toThrow(
-        new ConfigError('No configured model or deployment name found for requested capability tier: low-capability')
+      expect(() => resolveConfiguredModelForCapability(envConfig, 'low-cap')).toThrow(
+        new ConfigError('No configured model or deployment name found for requested capability tier: low-cap')
       );
     });
   });
 
-  describe('Capability Provider Bundle', () => {
+  describe('Capability Provider Resolver', () => {
     it('resolves high, mid, and low capability providers to the configured models', () => {
       const envConfig: EnvConfig = {
         LLM_PROVIDER: ProviderType.OpenAI,
@@ -531,16 +531,13 @@ describe('Provider Factory', () => {
         OPENAI_HIGH_CAPABILITY_MODEL: 'gpt-4.1',
       };
 
-      const bundle = createCapabilityProviderBundle(envConfig);
+      const resolver = createCapabilityProviderResolver(envConfig);
 
-      expect(getProviderModelName(bundle.defaultProvider)).toBe('gpt-4o');
-      expect(getProviderModelName(bundle.resolveCapabilityProvider('low-capability'))).toBe('gpt-4o-mini');
-      expect(getProviderModelName(bundle.resolveCapabilityProvider('mid-capability'))).toBe('gpt-4o');
-      expect(getProviderModelName(bundle.resolveCapabilityProvider('high-capability'))).toBe('gpt-4.1');
-      expect(bundle.resolveCapabilityProvider('mid-capability')).toBe(bundle.defaultProvider);
-      expect(getProviderModelName(bundle.orchestratorProvider)).toBe('gpt-4.1');
-      expect(getProviderModelName(bundle.lintProvider)).toBe('gpt-4o');
-      expect(bundle.lintProvider).toBe(bundle.defaultProvider);
+      expect(getProviderModelName(resolver.defaultProvider)).toBe('gpt-4o');
+      expect(getProviderModelName(resolver.resolveCapabilityProvider('low-cap'))).toBe('gpt-4o-mini');
+      expect(getProviderModelName(resolver.resolveCapabilityProvider('mid-cap'))).toBe('gpt-4o');
+      expect(getProviderModelName(resolver.resolveCapabilityProvider('high-cap'))).toBe('gpt-4.1');
+      expect(resolver.resolveCapabilityProvider('mid-cap')).toBe(resolver.defaultProvider);
     });
 
     it('applies upward-only fallback when a requested tier is not configured', () => {
@@ -551,27 +548,25 @@ describe('Provider Factory', () => {
         OPENAI_MID_CAPABILITY_MODEL: 'gpt-4.1-mini',
       };
 
-      const bundle = createCapabilityProviderBundle(envConfig);
+      const resolver = createCapabilityProviderResolver(envConfig);
 
-      expect(getProviderModelName(bundle.resolveCapabilityProvider('low-capability'))).toBe('gpt-4.1-mini');
-      expect(getProviderModelName(bundle.resolveCapabilityProvider('mid-capability'))).toBe('gpt-4.1-mini');
-      expect(getProviderModelName(bundle.resolveCapabilityProvider('high-capability'))).toBe('gpt-4o');
+      expect(getProviderModelName(resolver.resolveCapabilityProvider('low-cap'))).toBe('gpt-4.1-mini');
+      expect(getProviderModelName(resolver.resolveCapabilityProvider('mid-cap'))).toBe('gpt-4.1-mini');
+      expect(getProviderModelName(resolver.resolveCapabilityProvider('high-cap'))).toBe('gpt-4o');
     });
 
-    it('reuses the default provider model for agent mode when no capability tiers are configured', () => {
+    it('reuses the default provider model when no capability tiers are configured', () => {
       const envConfig: EnvConfig = {
         LLM_PROVIDER: ProviderType.OpenAI,
         OPENAI_API_KEY: 'sk-test-key',
         OPENAI_MODEL: 'gpt-4o',
       };
 
-      const bundle = createCapabilityProviderBundle(envConfig);
+      const resolver = createCapabilityProviderResolver(envConfig);
 
-      expect(bundle.orchestratorProvider).toBe(bundle.defaultProvider);
-      expect(bundle.lintProvider).toBe(bundle.defaultProvider);
-      expect(bundle.resolveCapabilityProvider('low-capability')).toBe(bundle.defaultProvider);
-      expect(bundle.resolveCapabilityProvider('mid-capability')).toBe(bundle.defaultProvider);
-      expect(bundle.resolveCapabilityProvider('high-capability')).toBe(bundle.defaultProvider);
+      expect(resolver.resolveCapabilityProvider('low-cap')).toBe(resolver.defaultProvider);
+      expect(resolver.resolveCapabilityProvider('mid-cap')).toBe(resolver.defaultProvider);
+      expect(resolver.resolveCapabilityProvider('high-cap')).toBe(resolver.defaultProvider);
     });
   });
 });

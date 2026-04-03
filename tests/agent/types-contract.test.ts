@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { SESSION_EVENT_TYPE } from '../../src/agent/types';
 
 describe('agent contracts', () => {
-  it('accepts lint inputs with explicit rules and agent task envelopes', async () => {
+  it('accepts lint inputs with explicit rules, model, and agent task envelopes', async () => {
     const contracts = await import('../../src/agent/types');
 
     const lintInput = contracts.LINT_TOOL_INPUT_SCHEMA.parse({
       file: 'docs/guide.md',
+      model: 'mid-cap',
       rules: [
         {
           ruleSource: 'packs/default/consistency.md',
@@ -17,14 +18,15 @@ describe('agent contracts', () => {
     });
     expect(lintInput.rules).toHaveLength(1);
     expect(lintInput.rules[0]?.ruleSource).toBe('packs/default/consistency.md');
+    expect(lintInput.model).toBe('mid-cap');
 
     const agentInput = contracts.AGENT_TOOL_INPUT_SCHEMA.parse({
       task: 'Summarize the open questions in this directory.',
       label: 'sub-agent pass',
-      model: 'high-capability',
+      model: 'high-cap',
     });
     expect(agentInput.task).toContain('Summarize');
-    expect(agentInput.model).toBe('high-capability');
+    expect(agentInput.model).toBe('high-cap');
 
     const topLevel = contracts.TOP_LEVEL_REPORT_INPUT_SCHEMA.parse({
       kind: 'top-level',

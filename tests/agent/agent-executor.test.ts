@@ -205,7 +205,10 @@ describe('agent executor', () => {
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
-        const delegated = await tools.agent.execute({ task: 'Summarize the document' });
+        const delegated = await tools.agent.execute({
+          task: 'Summarize the document',
+          model: 'high-cap',
+        });
         expect(delegated).toEqual({
           ok: true,
           result: 'sub-agent summary',
@@ -239,10 +242,8 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider: topLevelProvider,
-      orchestratorProvider: topLevelProvider,
-      lintProvider: topLevelProvider,
       resolveCapabilityProvider: (requested) =>
-        requested === 'high-capability' ? subAgentProvider : topLevelProvider,
+        requested === 'high-cap' ? subAgentProvider : topLevelProvider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
       outputFormat: OutputFormat.Json,
@@ -268,7 +269,7 @@ describe('agent executor', () => {
       const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
       const delegated = await tools.agent.execute({
         task: 'Summarize the document',
-        model: 'low-capability',
+        model: 'low-cap',
       });
       expect(delegated).toEqual({ ok: true, result: 'mid fallback summary' });
       await tools.finalize_review.execute({});
@@ -288,8 +289,6 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider: topLevelProvider,
-      orchestratorProvider: topLevelProvider,
-      lintProvider: topLevelProvider,
       resolveCapabilityProvider: (requested) => {
         requestedModels.push(requested);
         return midFallbackProvider;
@@ -302,7 +301,7 @@ describe('agent executor', () => {
     });
 
     expect(result.hadOperationalErrors).toBe(false);
-    expect(requestedModels).toContain('low-capability');
+    expect(requestedModels).toContain('low-cap');
   });
 
   it('returns a compact sub-agent error without failing the main review loop', async () => {
@@ -313,7 +312,10 @@ describe('agent executor', () => {
 
     const topLevelProvider = makeProvider(async (params) => {
       const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
-      const delegated = await tools.agent.execute({ task: 'Summarize the document' });
+      const delegated = await tools.agent.execute({
+        task: 'Summarize the document',
+        model: 'high-cap',
+      });
       expect(delegated).toEqual({ ok: false, error: 'sub-agent blew up' });
       await tools.finalize_review.execute({});
       return { usage: { inputTokens: 1, outputTokens: 1 } };
@@ -332,8 +334,6 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider: topLevelProvider,
-      orchestratorProvider: topLevelProvider,
-      lintProvider: topLevelProvider,
       resolveCapabilityProvider: () => failingSubAgentProvider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -345,7 +345,57 @@ describe('agent executor', () => {
     expect(result.hadOperationalErrors).toBe(false);
   });
 
-  it('bundles multiple lint rules into one structured request and preserves rule severity', async () => {
+  it('uses the default provider when the agent tool omits model', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    let requestedTierCount = 0;
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        throw new Error('not used');
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        const toolNames = Object.keys(tools).sort();
+        if (toolNames.includes('agent')) {
+          const delegated = await tools.agent.execute({ task: 'Summarize the document' });
+          expect(delegated).toEqual({ ok: true, result: 'default provider summary' });
+          await tools.finalize_review.execute({});
+          return { usage: { inputTokens: 1, outputTokens: 1 } };
+        }
+
+        expect(toolNames).toEqual([
+          'list_directory',
+          'read_file',
+          'search_content',
+          'search_files',
+        ]);
+        return { text: 'default provider summary' };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [makePrompt()],
+      provider,
+      resolveCapabilityProvider: () => {
+        requestedTierCount += 1;
+        throw new Error('resolveCapabilityProvider should not be used without model');
+      },
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(requestedTierCount).toBe(0);
+  });
+
+  it('merges multiple lint rules into one structured request and preserves rule severity', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
     const repo = createTempRepo();
@@ -505,7 +555,7 @@ describe('agent executor', () => {
     expect(result.hadOperationalErrors).toBe(false);
   });
 
-  it('rejects bundled lint findings that reference a rule outside the requested rules', async () => {
+  it('rejects merged lint findings that reference a rule outside the requested rules', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
     const repo = createTempRepo();
@@ -1100,7 +1150,7 @@ describe('agent executor', () => {
     expect(promptBodies[0]).toContain('Find inconsistent wording.');
   });
 
-  it('keeps reviewInstruction and context isolated per bundled lint member', async () => {
+  it('keeps reviewInstruction and context isolated per merged lint member', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
     const repo = createTempRepo();

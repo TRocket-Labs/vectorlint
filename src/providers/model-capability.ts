@@ -2,14 +2,22 @@ import { ProviderType } from './provider-factory';
 import { ConfigError } from '../errors';
 import type { EnvConfig } from '../schemas/env-schemas';
 
-export const MODEL_CAPABILITY_TIERS = ['high-capability', 'mid-capability', 'low-capability'] as const;
+export const HIGH_CAPABILITY_TIER = 'high-cap';
+export const MID_CAPABILITY_TIER = 'mid-cap';
+export const LOW_CAPABILITY_TIER = 'low-cap';
+
+export const MODEL_CAPABILITY_TIERS = [
+  HIGH_CAPABILITY_TIER,
+  MID_CAPABILITY_TIER,
+  LOW_CAPABILITY_TIER,
+] as const;
 
 export type ModelCapabilityTier = typeof MODEL_CAPABILITY_TIERS[number];
 
 const TIER_SEARCH_ORDER: Record<ModelCapabilityTier, readonly ModelCapabilityTier[]> = {
-  'low-capability': ['low-capability', 'mid-capability', 'high-capability'],
-  'mid-capability': ['mid-capability', 'high-capability'],
-  'high-capability': ['high-capability'],
+  [LOW_CAPABILITY_TIER]: [LOW_CAPABILITY_TIER, MID_CAPABILITY_TIER, HIGH_CAPABILITY_TIER],
+  [MID_CAPABILITY_TIER]: [MID_CAPABILITY_TIER, HIGH_CAPABILITY_TIER],
+  [HIGH_CAPABILITY_TIER]: [HIGH_CAPABILITY_TIER],
 };
 
 function resolveCapabilityValue(
@@ -44,9 +52,9 @@ export function resolveConfiguredModelForCapability(
       return resolveCapabilityValue(
         requested,
         {
-          'high-capability': envConfig.AZURE_OPENAI_HIGH_CAPABILITY_DEPLOYMENT_NAME,
-          'mid-capability': envConfig.AZURE_OPENAI_MID_CAPABILITY_DEPLOYMENT_NAME,
-          'low-capability': envConfig.AZURE_OPENAI_LOW_CAPABILITY_DEPLOYMENT_NAME,
+          [HIGH_CAPABILITY_TIER]: envConfig.AZURE_OPENAI_HIGH_CAPABILITY_DEPLOYMENT_NAME,
+          [MID_CAPABILITY_TIER]: envConfig.AZURE_OPENAI_MID_CAPABILITY_DEPLOYMENT_NAME,
+          [LOW_CAPABILITY_TIER]: envConfig.AZURE_OPENAI_LOW_CAPABILITY_DEPLOYMENT_NAME,
         },
         envConfig.AZURE_OPENAI_DEPLOYMENT_NAME
       );
@@ -55,9 +63,9 @@ export function resolveConfiguredModelForCapability(
       return resolveCapabilityValue(
         requested,
         {
-          'high-capability': envConfig.ANTHROPIC_HIGH_CAPABILITY_MODEL,
-          'mid-capability': envConfig.ANTHROPIC_MID_CAPABILITY_MODEL,
-          'low-capability': envConfig.ANTHROPIC_LOW_CAPABILITY_MODEL,
+          [HIGH_CAPABILITY_TIER]: envConfig.ANTHROPIC_HIGH_CAPABILITY_MODEL,
+          [MID_CAPABILITY_TIER]: envConfig.ANTHROPIC_MID_CAPABILITY_MODEL,
+          [LOW_CAPABILITY_TIER]: envConfig.ANTHROPIC_LOW_CAPABILITY_MODEL,
         },
         envConfig.ANTHROPIC_MODEL
       );
@@ -66,9 +74,9 @@ export function resolveConfiguredModelForCapability(
       return resolveCapabilityValue(
         requested,
         {
-          'high-capability': envConfig.OPENAI_HIGH_CAPABILITY_MODEL,
-          'mid-capability': envConfig.OPENAI_MID_CAPABILITY_MODEL,
-          'low-capability': envConfig.OPENAI_LOW_CAPABILITY_MODEL,
+          [HIGH_CAPABILITY_TIER]: envConfig.OPENAI_HIGH_CAPABILITY_MODEL,
+          [MID_CAPABILITY_TIER]: envConfig.OPENAI_MID_CAPABILITY_MODEL,
+          [LOW_CAPABILITY_TIER]: envConfig.OPENAI_LOW_CAPABILITY_MODEL,
         },
         envConfig.OPENAI_MODEL
       );
@@ -77,9 +85,9 @@ export function resolveConfiguredModelForCapability(
       return resolveCapabilityValue(
         requested,
         {
-          'high-capability': envConfig.GEMINI_HIGH_CAPABILITY_MODEL,
-          'mid-capability': envConfig.GEMINI_MID_CAPABILITY_MODEL,
-          'low-capability': envConfig.GEMINI_LOW_CAPABILITY_MODEL,
+          [HIGH_CAPABILITY_TIER]: envConfig.GEMINI_HIGH_CAPABILITY_MODEL,
+          [MID_CAPABILITY_TIER]: envConfig.GEMINI_MID_CAPABILITY_MODEL,
+          [LOW_CAPABILITY_TIER]: envConfig.GEMINI_LOW_CAPABILITY_MODEL,
         },
         envConfig.GEMINI_MODEL
       );
@@ -88,9 +96,9 @@ export function resolveConfiguredModelForCapability(
       return resolveCapabilityValue(
         requested,
         {
-          'high-capability': envConfig.BEDROCK_HIGH_CAPABILITY_MODEL,
-          'mid-capability': envConfig.BEDROCK_MID_CAPABILITY_MODEL,
-          'low-capability': envConfig.BEDROCK_LOW_CAPABILITY_MODEL,
+          [HIGH_CAPABILITY_TIER]: envConfig.BEDROCK_HIGH_CAPABILITY_MODEL,
+          [MID_CAPABILITY_TIER]: envConfig.BEDROCK_MID_CAPABILITY_MODEL,
+          [LOW_CAPABILITY_TIER]: envConfig.BEDROCK_LOW_CAPABILITY_MODEL,
         },
         envConfig.BEDROCK_MODEL
       );

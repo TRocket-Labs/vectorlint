@@ -18,12 +18,13 @@ export const RULE_CALL_SCHEMA = z.object({
   context: TRIMMED_NON_BLANK_STRING.optional(),
 });
 
+export const MODEL_CAPABILITY_TIER_SCHEMA = z.enum(MODEL_CAPABILITY_TIERS);
+
 export const LINT_TOOL_INPUT_SCHEMA = z.object({
   file: TRIMMED_NON_BLANK_STRING,
   rules: z.array(RULE_CALL_SCHEMA).min(1),
+  model: MODEL_CAPABILITY_TIER_SCHEMA.optional(),
 });
-
-export const MODEL_CAPABILITY_TIER_SCHEMA = z.enum(MODEL_CAPABILITY_TIERS);
 
 export const AGENT_TOOL_INPUT_SCHEMA = z.object({
   task: TRIMMED_NON_BLANK_STRING,

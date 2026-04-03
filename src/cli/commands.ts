@@ -4,7 +4,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createProvider } from '../providers/provider-factory';
-import { createCapabilityProviderBundle } from '../providers/capability-provider-bundle';
+import { createCapabilityProviderResolver } from '../providers/capability-provider-resolver';
 import { PerplexitySearchProvider } from '../providers/perplexity-provider';
 import type { SearchProvider } from '../providers/search-provider';
 import { loadConfig } from '../boundaries/config-loader';
@@ -118,10 +118,10 @@ export function registerMainCommand(program: Command): void {
         logger: runtimeLogger,
       };
       const requestBuilder = new DefaultRequestBuilder(directive, userInstructions.content || undefined);
-      const capabilityProviderBundle = cliOptions.mode === AGENT_REVIEW_MODE
-        ? createCapabilityProviderBundle(env, providerOptions, requestBuilder)
+      const capabilityProviderResolver = cliOptions.mode === AGENT_REVIEW_MODE
+        ? createCapabilityProviderResolver(env, providerOptions, requestBuilder)
         : undefined;
-      const provider = capabilityProviderBundle?.defaultProvider
+      const provider = capabilityProviderResolver?.defaultProvider
         ?? createProvider(env, providerOptions, requestBuilder);
 
       if (cliOptions.verbose) {
@@ -205,7 +205,7 @@ export function registerMainCommand(program: Command): void {
         prompts,
         rulesPath,
         provider,
-        ...(capabilityProviderBundle ? { capabilityProviderBundle } : {}),
+        ...(capabilityProviderResolver ? { capabilityProviderResolver } : {}),
         ...(searchProvider ? { searchProvider } : {}),
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,

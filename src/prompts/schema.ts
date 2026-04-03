@@ -19,6 +19,87 @@ export type GateCheckNotes = {
   fix_preserves_meaning: string;
 };
 
+const FINDING_BASE_PROPERTIES = {
+  line: { type: "number" },
+  quoted_text: { type: "string" },
+  context_before: { type: "string" },
+  context_after: { type: "string" },
+  description: { type: "string" },
+  analysis: {
+    type: "string",
+    description:
+      "A concise 1-2 sentence explanation of the specific issue.",
+  },
+  message: {
+    type: "string",
+    description:
+      "Under 15 words. State the issue directly to the user. No rule references.",
+  },
+  suggestion: {
+    type: "string",
+    description: "Suggest a fix in 15 words or less.",
+  },
+  fix: { type: "string" },
+  rule_quote: { type: "string" },
+  checks: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      rule_supports_claim: { type: "boolean" },
+      evidence_exact: { type: "boolean" },
+      context_supports_violation: { type: "boolean" },
+      plausible_non_violation: {
+        type: "boolean",
+        description:
+          "true if a reasonable reading of the context could explain the pattern as intentional or acceptable — even if you believe a violation exists. When in doubt, mark true.",
+      },
+      fix_is_drop_in: { type: "boolean" },
+      fix_preserves_meaning: { type: "boolean" },
+    },
+    required: [
+      "rule_supports_claim",
+      "evidence_exact",
+      "context_supports_violation",
+      "plausible_non_violation",
+      "fix_is_drop_in",
+      "fix_preserves_meaning",
+    ],
+  },
+  check_notes: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      rule_supports_claim: { type: "string" },
+      evidence_exact: { type: "string" },
+      context_supports_violation: { type: "string" },
+      plausible_non_violation: {
+        type: "string",
+        description:
+          "Describe a concrete scenario or context in which this same pattern would NOT be a violation. Do not simply restate that no non-violation exists — always articulate what conditions would make this acceptable.",
+      },
+      fix_is_drop_in: { type: "string" },
+      fix_preserves_meaning: { type: "string" },
+    },
+    required: [
+      "rule_supports_claim",
+      "evidence_exact",
+      "context_supports_violation",
+      "plausible_non_violation",
+      "fix_is_drop_in",
+      "fix_preserves_meaning",
+    ],
+  },
+  confidence: {
+    type: "number",
+    description:
+      "A score from 0.0 to 1.0 reflecting how certain you are this is a genuine violation. Findings where plausible_non_violation is true, context_supports_violation is weak, or the rule match is approximate should score below 0.7. Reserve scores above 0.9 for unambiguous violations with no credible alternative reading.",
+  },
+} as const;
+
+function buildFindingSchemaProperties() {
+  return FINDING_BASE_PROPERTIES;
+}
+
 export function buildJudgeLLMSchema() {
   return {
     name: "vectorlint_judge_result",
@@ -46,82 +127,7 @@ export function buildJudgeLLMSchema() {
                 items: {
                   type: "object",
                   additionalProperties: false,
-                  properties: {
-                    line: { type: "number" },
-                    quoted_text: { type: "string" },
-                    context_before: { type: "string" },
-                    context_after: { type: "string" },
-                    description: { type: "string" },
-                    analysis: {
-                      type: "string",
-                      description:
-                        "A concise 1-2 sentence explanation of the specific issue.",
-                    },
-                    message: {
-                      type: "string",
-                      description:
-                        "Under 15 words. State the issue directly to the user. No rule references.",
-                    },
-                    suggestion: {
-                      type: "string",
-                      description: "Suggest a fix in 15 words or less.",
-                    },
-                    fix: { type: "string" },
-                    rule_quote: { type: "string" },
-                    checks: {
-                      type: "object",
-                      additionalProperties: false,
-                      properties: {
-                        rule_supports_claim: { type: "boolean" },
-                        evidence_exact: { type: "boolean" },
-                        context_supports_violation: { type: "boolean" },
-                        plausible_non_violation: {
-                          type: "boolean",
-                          description:
-                            "true if a reasonable reading of the context could explain the pattern as intentional or acceptable — even if you believe a violation exists. When in doubt, mark true.",
-                        },
-                        fix_is_drop_in: { type: "boolean" },
-                        fix_preserves_meaning: { type: "boolean" },
-                      },
-                      required: [
-                        "rule_supports_claim",
-                        "evidence_exact",
-                        "context_supports_violation",
-                        "plausible_non_violation",
-                        "fix_is_drop_in",
-                        "fix_preserves_meaning",
-                      ],
-                    },
-                    check_notes: {
-                      type: "object",
-                      additionalProperties: false,
-                      properties: {
-                        rule_supports_claim: { type: "string" },
-                        evidence_exact: { type: "string" },
-                        context_supports_violation: { type: "string" },
-                        plausible_non_violation: {
-                          type: "string",
-                          description:
-                            "Describe a concrete scenario or context in which this same pattern would NOT be a violation. Do not simply restate that no non-violation exists — always articulate what conditions would make this acceptable.",
-                        },
-                        fix_is_drop_in: { type: "string" },
-                        fix_preserves_meaning: { type: "string" },
-                      },
-                      required: [
-                        "rule_supports_claim",
-                        "evidence_exact",
-                        "context_supports_violation",
-                        "plausible_non_violation",
-                        "fix_is_drop_in",
-                        "fix_preserves_meaning",
-                      ],
-                    },
-                    confidence: {
-                      type: "number",
-                      description:
-                        "A score from 0.0 to 1.0 reflecting how certain you are this is a genuine violation. Findings where plausible_non_violation is true, context_supports_violation is weak, or the rule match is approximate should score below 0.7. Reserve scores above 0.9 for unambiguous violations with no credible alternative reading.",
-                    },
-                  },
+                  properties: buildFindingSchemaProperties(),
                   required: [
                     "line",
                     "quoted_text",
@@ -163,82 +169,7 @@ export function buildCheckLLMSchema() {
           items: {
             type: "object",
             additionalProperties: false,
-            properties: {
-              line: { type: "number" },
-              quoted_text: { type: "string" },
-              context_before: { type: "string" },
-              context_after: { type: "string" },
-              description: { type: "string" },
-              analysis: {
-                type: "string",
-                description:
-                  "A concise 1-2 sentence explanation of the specific issue.",
-              },
-              message: {
-                type: "string",
-                description:
-                  "Under 15 words. State the issue directly to the user. No rule references.",
-              },
-              suggestion: {
-                type: "string",
-                description: "Suggest a fix in 15 words or less.",
-              },
-              fix: { type: "string" },
-              rule_quote: { type: "string" },
-              checks: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  rule_supports_claim: { type: "boolean" },
-                  evidence_exact: { type: "boolean" },
-                  context_supports_violation: { type: "boolean" },
-                  plausible_non_violation: {
-                    type: "boolean",
-                    description:
-                      "true if a reasonable reading of the context could explain the pattern as intentional or acceptable — even if you believe a violation exists. When in doubt, mark true.",
-                  },
-                  fix_is_drop_in: { type: "boolean" },
-                  fix_preserves_meaning: { type: "boolean" },
-                },
-                required: [
-                  "rule_supports_claim",
-                  "evidence_exact",
-                  "context_supports_violation",
-                  "plausible_non_violation",
-                  "fix_is_drop_in",
-                  "fix_preserves_meaning",
-                ],
-              },
-              check_notes: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  rule_supports_claim: { type: "string" },
-                  evidence_exact: { type: "string" },
-                  context_supports_violation: { type: "string" },
-                  plausible_non_violation: {
-                    type: "string",
-                    description:
-                      "Describe a concrete scenario or context in which this same pattern would NOT be a violation. Do not simply restate that no non-violation exists — always articulate what conditions would make this acceptable.",
-                  },
-                  fix_is_drop_in: { type: "string" },
-                  fix_preserves_meaning: { type: "string" },
-                },
-                required: [
-                  "rule_supports_claim",
-                  "evidence_exact",
-                  "context_supports_violation",
-                  "plausible_non_violation",
-                  "fix_is_drop_in",
-                  "fix_preserves_meaning",
-                ],
-              },
-              confidence: {
-                type: "number",
-                description:
-                  "A score from 0.0 to 1.0 reflecting how certain you are this is a genuine violation. Findings where plausible_non_violation is true, context_supports_violation is weak, or the rule match is approximate should score below 0.7. Reserve scores above 0.9 for unambiguous violations with no credible alternative reading.",
-              },
-            },
+            properties: buildFindingSchemaProperties(),
             required: [
               "line",
               "quoted_text",
@@ -262,9 +193,9 @@ export function buildCheckLLMSchema() {
   } as const;
 }
 
-export function buildBundledCheckLLMSchema() {
+export function buildMergedCheckLLMSchema() {
   return {
-    name: "vectorlint_bundled_check_result",
+    name: "vectorlint_merged_check_result",
     strict: true,
     schema: {
       type: "object",
@@ -278,80 +209,7 @@ export function buildBundledCheckLLMSchema() {
             additionalProperties: false,
             properties: {
               ruleSource: { type: "string" },
-              line: { type: "number" },
-              quoted_text: { type: "string" },
-              context_before: { type: "string" },
-              context_after: { type: "string" },
-              description: { type: "string" },
-              analysis: {
-                type: "string",
-                description:
-                  "A concise 1-2 sentence explanation of the specific issue.",
-              },
-              message: {
-                type: "string",
-                description:
-                  "Under 15 words. State the issue directly to the user. No rule references.",
-              },
-              suggestion: {
-                type: "string",
-                description: "Suggest a fix in 15 words or less.",
-              },
-              fix: { type: "string" },
-              rule_quote: { type: "string" },
-              checks: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  rule_supports_claim: { type: "boolean" },
-                  evidence_exact: { type: "boolean" },
-                  context_supports_violation: { type: "boolean" },
-                  plausible_non_violation: {
-                    type: "boolean",
-                    description:
-                      "true if a reasonable reading of the context could explain the pattern as intentional or acceptable — even if you believe a violation exists. When in doubt, mark true.",
-                  },
-                  fix_is_drop_in: { type: "boolean" },
-                  fix_preserves_meaning: { type: "boolean" },
-                },
-                required: [
-                  "rule_supports_claim",
-                  "evidence_exact",
-                  "context_supports_violation",
-                  "plausible_non_violation",
-                  "fix_is_drop_in",
-                  "fix_preserves_meaning",
-                ],
-              },
-              check_notes: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  rule_supports_claim: { type: "string" },
-                  evidence_exact: { type: "string" },
-                  context_supports_violation: { type: "string" },
-                  plausible_non_violation: {
-                    type: "string",
-                    description:
-                      "Describe a concrete scenario or context in which this same pattern would NOT be a violation. Do not simply restate that no non-violation exists — always articulate what conditions would make this acceptable.",
-                  },
-                  fix_is_drop_in: { type: "string" },
-                  fix_preserves_meaning: { type: "string" },
-                },
-                required: [
-                  "rule_supports_claim",
-                  "evidence_exact",
-                  "context_supports_violation",
-                  "plausible_non_violation",
-                  "fix_is_drop_in",
-                  "fix_preserves_meaning",
-                ],
-              },
-              confidence: {
-                type: "number",
-                description:
-                  "A score from 0.0 to 1.0 reflecting how certain you are this is a genuine violation. Findings where plausible_non_violation is true, context_supports_violation is weak, or the rule match is approximate should score below 0.7. Reserve scores above 0.9 for unambiguous violations with no credible alternative reading.",
-              },
+              ...buildFindingSchemaProperties(),
             },
             required: [
               "ruleSource",
@@ -420,7 +278,7 @@ export type CheckLLMResult = {
   }>;
 };
 
-export type BundledCheckLLMResult = {
+export type MergedCheckLLMResult = {
   reasoning: string;
   findings: Array<{
     ruleSource: string;
@@ -538,4 +396,3 @@ export function isCheckResult(
 ): result is RawCheckResult {
   return result.type === EvaluationType.CHECK;
 }
-

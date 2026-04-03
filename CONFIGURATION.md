@@ -98,15 +98,15 @@ Each provider can also define optional capability-tier overrides for agent mode.
 
 Capability fallback is upward-only inside the active provider:
 
-- `low-capability` falls back to `mid-capability`, then `high-capability`, then the provider default
-- `mid-capability` falls back to `high-capability`, then the provider default
-- `high-capability` falls back to the provider default
+- `low-cap` falls back to `mid-cap`, then `high-cap`, then the provider default
+- `mid-cap` falls back to `high-cap`, then the provider default
+- `high-cap` falls back to the provider default
 
 Agent mode uses those tiers with these defaults:
 
-- the top-level review loop resolves `high-capability`
-- bundled `lint` requests resolve `mid-capability`
-- delegated sub-agents default to `high-capability` when the `agent` tool omits `model`
+- the top-level review loop uses the default provider
+- `lint` uses the default provider unless a call passes `model`
+- delegated sub-agents use the default provider when the `agent` tool omits `model`
 
 ### Search Provider
 
@@ -142,9 +142,9 @@ When you run `vectorlint ... --mode agent`, the runtime precomputes matched rule
 The agent-mode tools behave like this:
 
 - `lint` accepts one file and an explicit `rules[]` array of source-backed rule calls
-- `reviewInstruction` replaces the bundled member rule body for that call
+- `reviewInstruction` replaces the merged member rule body for that call
 - `context` is appended under `Required context for this review:`
-- the runtime executes one bundled review request per `lint` tool call and preserves `ruleSource` attribution for every finding
+- the runtime executes one merged review request per `lint` tool call and preserves `ruleSource` attribution for every finding
 - the `agent` tool runs bounded read-only delegated work in isolated context and returns a compact sub-agent result
 
 The delegated sub-agent can only use read-only workspace tools. It cannot write files, call `lint`, recurse into another `agent` call, or finalize the main review session.

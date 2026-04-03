@@ -9,18 +9,16 @@ import {
 } from './provider-factory';
 import type { RequestBuilder } from './request-builder';
 
-export interface CapabilityProviderBundle {
+export interface CapabilityProviderResolver {
   defaultProvider: LLMProvider;
   resolveCapabilityProvider(requested: ModelCapabilityTier): LLMProvider;
-  orchestratorProvider: LLMProvider;
-  lintProvider: LLMProvider;
 }
 
-export function createCapabilityProviderBundle(
+export function createCapabilityProviderResolver(
   envConfig: EnvConfig,
   options: ProviderOptions = {},
   builder?: RequestBuilder
-): CapabilityProviderBundle {
+): CapabilityProviderResolver {
   const defaultModelIdentifier = getDefaultProviderModelIdentifier(envConfig);
   const providerCache = new Map<string, LLMProvider>();
 
@@ -43,7 +41,5 @@ export function createCapabilityProviderBundle(
   return {
     defaultProvider,
     resolveCapabilityProvider,
-    orchestratorProvider: resolveCapabilityProvider('high-capability'),
-    lintProvider: resolveCapabilityProvider('mid-capability'),
   };
 }

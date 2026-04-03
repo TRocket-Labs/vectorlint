@@ -26,7 +26,6 @@ export async function runSubAgent(params: {
       systemPrompt: [
         'You are a bounded sub-agent for workspace analysis.',
         'Use only the provided read-only workspace tools.',
-        'Do not perform linting, do not delegate to another agent, and do not write files.',
         'Return a compact final answer only.',
         trimmedLabel ? `Task label: ${trimmedLabel}` : undefined,
         `Workspace root: ${workspaceRoot}`,

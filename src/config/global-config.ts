@@ -15,9 +15,9 @@ const DEFAULT_GLOBAL_CONFIG_TEMPLATE = `# VectorLint Environment Configuration
 # Keys defined here are available as environment variables.
 # Capability-tier fallback is upward-only within the active provider:
 # low -> mid -> high -> provider default.
-# In agent mode, the top-level loop resolves high-capability,
-# bundled lint resolves mid-capability, and delegated sub-agents
-# default to high-capability unless the agent tool requests another tier.
+# In agent mode, the top-level loop uses the default provider,
+# lint uses the default provider unless a call passes model,
+# and delegated sub-agents do the same.
 
 [env]
 # ============================================

@@ -38,7 +38,7 @@ import {
   type FilterDecision,
 } from "../evaluators/violation-filter";
 import { writeDebugRunArtifact } from "../debug/run-artifact";
-import type { ModelCapabilityTier } from '../providers/model-capability';
+import { createAgentModeCapabilityAccess } from './agent-mode-capability';
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
   const provider = process.env.LLM_PROVIDER;
@@ -1176,14 +1176,7 @@ async function evaluateFilesInAgentMode(
   jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter
 ): Promise<EvaluationResult> {
   const workspaceRoot = inferAgentWorkspaceRoot(targets);
-  const capabilityProviderBundle = options.capabilityProviderBundle;
-  const resolveCapabilityProvider = capabilityProviderBundle
-    ? ((requested: ModelCapabilityTier) =>
-        capabilityProviderBundle.resolveCapabilityProvider(requested))
-    : ((requested: ModelCapabilityTier) => {
-        void requested;
-        return options.provider;
-      });
+  const { defaultProvider, resolveCapabilityProvider } = createAgentModeCapabilityAccess(options);
   const progressReporter = new AgentProgressReporter(
     shouldEmitAgentProgress({
       outputFormat,
@@ -1194,9 +1187,7 @@ async function evaluateFilesInAgentMode(
   const agentResult: AgentExecutorResult = await runAgentExecutor({
     targets,
     prompts: options.prompts,
-    provider: options.provider,
-    orchestratorProvider: options.capabilityProviderBundle?.orchestratorProvider ?? resolveCapabilityProvider('high-capability'),
-    lintProvider: options.capabilityProviderBundle?.lintProvider ?? resolveCapabilityProvider('mid-capability'),
+    provider: defaultProvider,
     resolveCapabilityProvider,
     workspaceRoot,
     scanPaths: options.scanPaths,
