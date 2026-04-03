@@ -1,16 +1,19 @@
 import { readdir, readFile } from 'fs/promises';
 import * as os from 'os';
 import fg from 'fast-glob';
-import { buildCheckLLMSchema, isJudgeResult, type PromptEvaluationResult } from '../prompts/schema';
+import {
+  buildBundledCheckLLMSchema,
+  isJudgeResult,
+  type BundledCheckLLMResult,
+} from '../prompts/schema';
 import type { PromptFile } from '../prompts/prompt-loader';
-import { Type, Severity } from '../evaluators/types';
+import { Severity } from '../evaluators/types';
 import { computeFilterDecision } from '../evaluators/violation-filter';
 import { locateQuotedText } from '../output/location';
 import type { AgentToolLoopResult, LLMProvider } from '../providers/llm-provider';
 import type { ModelCapabilityTier } from '../providers/model-capability';
 import type { TokenUsage } from '../providers/token-usage';
 import type { OutputFormat } from '../cli/types';
-import { createEvaluator } from '../evaluators';
 import { createReviewSessionStore } from './review-session-store';
 import { buildAgentSystemPrompt } from './prompt-builder';
 import { AgentToolError } from '../errors';
@@ -103,9 +106,9 @@ function buildUnknownRuleSourceError(ruleSource: string, validSources: string[])
   );
 }
 
-function fallbackMessage(result: PromptEvaluationResult): string {
-  if (!isJudgeResult(result) && result.reasoning) {
-    return result.reasoning;
+function fallbackMessage(reasoning?: string): string {
+  if (reasoning) {
+    return reasoning;
   }
   return 'Potential issue detected';
 }
@@ -137,15 +140,42 @@ function resolveTargetForTopLevel(
   return '.';
 }
 
-function withReviewInstructionOverride(prompt: PromptFile, reviewInstruction?: string): PromptFile {
-  const instruction = reviewInstruction?.trim();
-  if (!instruction) {
-    return prompt;
+function buildEffectiveRuleBody(
+  prompt: PromptFile,
+  params: { reviewInstruction?: string; context?: string }
+): string {
+  const reviewInstruction = params.reviewInstruction?.trim();
+  const context = params.context?.trim();
+  const body = reviewInstruction || prompt.body;
+
+  if (!context) {
+    return body;
   }
-  return {
-    ...prompt,
-    body: instruction,
-  };
+
+  return `${body}\n\nRequired context for this review:\n${context}`;
+}
+
+function buildBundledLintPrompt(
+  ruleCalls: Array<{
+    ruleSource: string;
+    prompt: PromptFile;
+    reviewInstruction?: string;
+    context?: string;
+  }>
+): string {
+  const sections = ruleCalls.flatMap((ruleCall, index) => [
+    `Rule ${index + 1}`,
+    `ruleSource: ${ruleCall.ruleSource}`,
+    buildEffectiveRuleBody(ruleCall.prompt, ruleCall),
+    '',
+  ]);
+
+  return [
+    'Review the file against all of the following source-backed rules.',
+    'Keep findings attributed to the exact ruleSource that each issue belongs to.',
+    '',
+    ...sections,
+  ].join('\n').trim();
 }
 
 function findingsFromEvents(events: SessionEvent[]): AgentFinding[] {
@@ -342,7 +372,12 @@ function resolveVisibleToolContext(params: {
       const resolvedPath = tryResolveRelativePath(workspaceRoot, parsed.data.file);
       const path = resolvedPath ?? parsed.data.file;
       const ruleText = parsed.data.rules
-        .map((rule) => rule.reviewInstruction?.trim() || resolvePromptBySource(rule.ruleSource, promptBySource)?.body || '')
+        .map((rule) => {
+          const resolvedPrompt = resolvePromptBySource(rule.ruleSource, promptBySource);
+          return resolvedPrompt
+            ? buildEffectiveRuleBody(resolvedPrompt, rule)
+            : (rule.reviewInstruction?.trim() || '');
+        })
         .join('\n');
       return {
         toolName: 'lint',
@@ -412,14 +447,14 @@ type FindingLikeViolation = {
 
 async function appendInlineFinding(params: {
   violation: FindingLikeViolation;
-  result: PromptEvaluationResult;
+  reasoning?: string;
   content: string;
   relFile: string;
   prompt: PromptFile;
   ruleSource: string;
   store: Awaited<ReturnType<typeof createReviewSessionStore>>;
 }): Promise<boolean> {
-  const { violation, result, content, relFile, prompt, ruleSource, store } = params;
+  const { violation, reasoning, content, relFile, prompt, ruleSource, store } = params;
   const filterDecision = computeFilterDecision(violation);
   if (!filterDecision.surface) {
     return false;
@@ -439,7 +474,7 @@ async function appendInlineFinding(params: {
   const line = location?.line ?? Math.max(1, Math.trunc(violation.line ?? 1));
   const column = location?.column ?? 1;
   const match = location?.match ?? violation.quoted_text ?? '';
-  const message = (violation.message || violation.description || fallbackMessage(result)).trim();
+  const message = (violation.message || violation.description || fallbackMessage(reasoning)).trim();
 
   const finding: AgentFinding = {
     file: relFile,
@@ -608,48 +643,60 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     const absoluteFile = resolveWithinRoot(workspaceRoot, parsed.file);
     const relFile = toRelativePathFromRoot(workspaceRoot, absoluteFile);
     const content = await readFile(absoluteFile, 'utf8');
-
-    let findingsRecorded = 0;
-
-    for (const rule of parsed.rules) {
+    const resolvedRules = parsed.rules.map((rule) => {
       const prompt = resolvePromptBySource(rule.ruleSource, promptBySource);
       if (!prompt) {
         throw buildUnknownRuleSourceError(rule.ruleSource, validSources);
       }
-      const promptForCall = withReviewInstructionOverride(prompt, rule.reviewInstruction);
 
-      const evaluator = createEvaluator(
-        promptForCall.meta.evaluator || Type.BASE,
-        effectiveLintProvider,
-        promptForCall
-      );
-      const result = await evaluator.evaluate(relFile, content);
-      nestedToolUsage = mergeTokenUsage(nestedToolUsage, result.usage);
+      return {
+        ...rule,
+        prompt,
+        normalizedRuleSource: normalizeRuleSource(rule.ruleSource),
+      };
+    });
 
-      const violations = isJudgeResult(result)
-        ? result.criteria.flatMap((criterion) => criterion.violations)
-        : result.violations;
-      for (const violation of violations) {
-        const wasRecorded = await appendInlineFinding({
-          violation,
-          result,
-          content,
-          relFile,
-          prompt,
-          ruleSource: rule.ruleSource,
-          store,
-        });
-        if (wasRecorded) {
-          findingsCount += 1;
-          findingsRecorded += 1;
-        }
+    const bundledPrompt = buildBundledLintPrompt(
+      resolvedRules.map((rule) => ({
+        ruleSource: rule.normalizedRuleSource,
+        prompt: rule.prompt,
+        reviewInstruction: rule.reviewInstruction,
+        context: rule.context,
+      }))
+    );
+    const result = await effectiveLintProvider.runPromptStructured<BundledCheckLLMResult>(
+      content,
+      bundledPrompt,
+      buildBundledCheckLLMSchema()
+    );
+    nestedToolUsage = mergeTokenUsage(nestedToolUsage, result.usage);
+
+    let findingsRecorded = 0;
+    for (const finding of result.data.findings) {
+      const prompt = resolvePromptBySource(finding.ruleSource, promptBySource);
+      if (!prompt) {
+        throw buildUnknownRuleSourceError(finding.ruleSource, validSources);
+      }
+
+      const wasRecorded = await appendInlineFinding({
+        violation: finding,
+        reasoning: result.data.reasoning,
+        content,
+        relFile,
+        prompt,
+        ruleSource: finding.ruleSource,
+        store,
+      });
+      if (wasRecorded) {
+        findingsCount += 1;
+        findingsRecorded += 1;
       }
     }
 
     return {
       ok: true,
       findingsRecorded,
-      schema: buildCheckLLMSchema().name,
+      schema: buildBundledCheckLLMSchema().name,
     };
   }
 

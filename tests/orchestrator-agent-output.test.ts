@@ -37,13 +37,13 @@ function makePrompt(params?: {
 function makeProvider(): LLMProvider {
   return {
     runPromptStructured() {
-      return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
     },
     runAgentToolLoop: async (params: Record<string, unknown>) => {
       const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
       await tools.lint.execute({
         file: 'doc.md',
-        ruleSource: 'packs/default/consistency.md',
+        rules: [{ ruleSource: 'packs/default/consistency.md' }],
       });
       await tools.report_finding.execute({
         kind: 'top-level',
@@ -60,7 +60,7 @@ function makeProvider(): LLMProvider {
 function makeTopLevelOnlyProvider(): LLMProvider {
   return {
     runPromptStructured() {
-      return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
     },
     runAgentToolLoop: async (params: Record<string, unknown>) => {
       const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
@@ -78,7 +78,7 @@ function makeTopLevelOnlyProvider(): LLMProvider {
 function makeCrossFileTopLevelProvider(): LLMProvider {
   return {
     runPromptStructured() {
-      return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
     },
     runAgentToolLoop: async (params: Record<string, unknown>) => {
       const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
@@ -97,13 +97,13 @@ function makeCrossFileTopLevelProvider(): LLMProvider {
 function makeNoFinalizeProvider(): LLMProvider {
   return {
     runPromptStructured() {
-      return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
     },
     runAgentToolLoop: async (params: Record<string, unknown>) => {
       const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
       await tools.lint.execute({
         file: 'doc.md',
-        ruleSource: 'packs/default/consistency.md',
+        rules: [{ ruleSource: 'packs/default/consistency.md' }],
       });
       await tools.report_finding.execute({
         kind: 'top-level',
@@ -173,7 +173,7 @@ describe('agent orchestrator output', () => {
     const provider: LLMProvider = {
       runPromptStructured() {
         return Promise.resolve({
-          data: { reasoning: 'ok', violations: [] },
+          data: { reasoning: 'ok', findings: [] },
           usage: { inputTokens: 7, outputTokens: 3 },
         });
       },
@@ -181,7 +181,7 @@ describe('agent orchestrator output', () => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 11, outputTokens: 5 } };
@@ -228,7 +228,7 @@ describe('agent orchestrator output', () => {
     const midProvider: LLMProvider = {
       runPromptStructured() {
         midLintCalls += 1;
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async () => {
         throw new Error('mid-capability provider should not run the top-level agent loop');
@@ -244,7 +244,7 @@ describe('agent orchestrator output', () => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         await tools.finalize_review.execute({});
         return { text: 'done', usage: { inputTokens: 5, outputTokens: 2 } };
@@ -297,14 +297,14 @@ describe('agent orchestrator output', () => {
     const defaultProvider: LLMProvider = {
       runPromptStructured() {
         defaultLintCalls += 1;
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         defaultLoopCalls += 1;
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         await tools.finalize_review.execute({});
         return { text: 'done', usage: { inputTokens: 5, outputTokens: 2 } };
@@ -456,14 +456,14 @@ describe('agent orchestrator output', () => {
 
     const provider: LLMProvider = {
       runPromptStructured() {
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
 
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         await tools.search_files.execute({ pattern: '**/*.md' });
         await tools.read_file.execute({ path: 'doc.md' });
@@ -512,13 +512,13 @@ describe('agent orchestrator output', () => {
 
     const provider: LLMProvider = {
       runPromptStructured() {
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 2, outputTokens: 1 } };
@@ -558,13 +558,13 @@ describe('agent orchestrator output', () => {
 
     const provider: LLMProvider = {
       runPromptStructured() {
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
-        await tools.lint.execute({ file: 'doc.md', ruleSource: 'packs/default/ai-pattern.md' });
-        await tools.lint.execute({ file: 'doc.md', ruleSource: 'packs/default/consistency.md' });
-        await tools.lint.execute({ file: 'doc.md', ruleSource: 'packs/default/wordiness.md' });
+        await tools.lint.execute({ file: 'doc.md', rules: [{ ruleSource: 'packs/default/ai-pattern.md' }] });
+        await tools.lint.execute({ file: 'doc.md', rules: [{ ruleSource: 'packs/default/consistency.md' }] });
+        await tools.lint.execute({ file: 'doc.md', rules: [{ ruleSource: 'packs/default/wordiness.md' }] });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 3, outputTokens: 2 } };
       },
@@ -603,12 +603,12 @@ describe('agent orchestrator output', () => {
 
     const provider: LLMProvider = {
       runPromptStructured() {
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
-        await tools.lint.execute({ file: 'doc.md', ruleSource: 'packs/default/ai-pattern.md' });
-        await tools.lint.execute({ file: 'doc.md', ruleSource: 'packs/default/consistency.md' });
+        await tools.lint.execute({ file: 'doc.md', rules: [{ ruleSource: 'packs/default/ai-pattern.md' }] });
+        await tools.lint.execute({ file: 'doc.md', rules: [{ ruleSource: 'packs/default/consistency.md' }] });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 2, outputTokens: 1 } };
       },
@@ -648,7 +648,7 @@ describe('agent orchestrator output', () => {
 
     const provider: LLMProvider = {
       runPromptStructured() {
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
@@ -691,7 +691,7 @@ describe('agent orchestrator output', () => {
 
     const provider: LLMProvider = {
       runPromptStructured() {
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
@@ -733,8 +733,9 @@ describe('agent orchestrator output', () => {
         return Promise.resolve({
           data: {
             reasoning: 'detected issue',
-            violations: [
+            findings: [
               {
+                ruleSource: 'packs/default/consistency.md',
                 line: 1,
                 quoted_text: 'bad phrase',
                 context_before: '',
@@ -771,7 +772,7 @@ describe('agent orchestrator output', () => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         return { usage: { inputTokens: 6, outputTokens: 3 } };
       },
@@ -883,14 +884,14 @@ describe('agent orchestrator output', () => {
 
     const provider: LLMProvider = {
       runPromptStructured() {
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.read_file.execute({ path: 'doc.md' });
-        await tools.lint.execute({ file: 'doc.md', ruleSource: 'packs/default/consistency.md' });
+        await tools.lint.execute({ file: 'doc.md', rules: [{ ruleSource: 'packs/default/consistency.md' }] });
         await tools.read_file.execute({ path: 'doc2.md' });
-        await tools.lint.execute({ file: 'doc2.md', ruleSource: 'packs/default/consistency.md' });
+        await tools.lint.execute({ file: 'doc2.md', rules: [{ ruleSource: 'packs/default/consistency.md' }] });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 4, outputTokens: 2 } };
       },
@@ -990,8 +991,9 @@ describe('agent orchestrator output', () => {
         return Promise.resolve({
           data: {
             reasoning: 'detected issue',
-            violations: [
+            findings: [
               {
+                ruleSource: 'packs/default/consistency.md',
                 line: 1,
                 quoted_text: 'one',
                 context_before: '',
@@ -1028,7 +1030,7 @@ describe('agent orchestrator output', () => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 3, outputTokens: 2 } };
@@ -1204,7 +1206,7 @@ describe('agent orchestrator output', () => {
     let capturedSystemPrompt = '';
     const provider: LLMProvider = {
       runPromptStructured() {
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const systemPrompt = params.systemPrompt;
@@ -1239,7 +1241,7 @@ describe('agent orchestrator output', () => {
 
     const provider: LLMProvider = {
       runPromptStructured() {
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop() {
         return Promise.reject(new Error('provider request failed'));
@@ -1270,7 +1272,7 @@ describe('agent orchestrator output', () => {
     let receivedParams: Record<string, unknown> | undefined;
     const provider: LLMProvider = {
       runPromptStructured() {
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         receivedParams = params;
@@ -1303,7 +1305,7 @@ describe('agent orchestrator output', () => {
     let receivedParams: Record<string, unknown> | undefined;
     const provider: LLMProvider = {
       runPromptStructured() {
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         receivedParams = params;

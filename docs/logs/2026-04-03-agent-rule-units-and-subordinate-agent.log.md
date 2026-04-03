@@ -28,3 +28,8 @@
 - **Status**: completed
 - **What was done**: Extracted shared token estimation, added deterministic matched-rule-unit grouping under a token budget, updated the system prompt to render matched rule units explicitly per file, and taught the executor to precompute those units before starting the agent loop.
 - **Files changed**: `src/agent/executor.ts`, `src/agent/prompt-builder.ts`, `src/agent/rule-units.ts`, `src/boundaries/user-instruction-loader.ts`, `src/utils/token-estimate.ts`, `tests/agent/agent-executor.test.ts`, `tests/agent/prompt-builder.test.ts`, `tests/agent/rule-units.test.ts`
+
+### Task: Teach lint to run one bundled review request
+- **Status**: completed
+- **What was done**: Added a bundled structured-output schema with per-finding `ruleSource` attribution, rewrote the lint tool to validate all member rules and execute one provider request per bundled lint call, and updated agent/orchestrator tests to exercise bundled rule routing, context isolation, and per-rule severity preservation.
+- **Files changed**: `src/agent/executor.ts`, `src/prompts/schema.ts`, `tests/agent/agent-executor.test.ts`, `tests/orchestrator-agent-output.test.ts`

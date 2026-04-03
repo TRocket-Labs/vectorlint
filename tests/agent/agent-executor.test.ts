@@ -30,6 +30,7 @@ function makePromptVariant(params: {
   id: string;
   name: string;
   body: string;
+  severity?: Severity;
 }): PromptFile {
   return {
     id: params.id.toLowerCase(),
@@ -41,7 +42,7 @@ function makePromptVariant(params: {
       id: params.id,
       name: params.name,
       type: 'check',
-      severity: Severity.WARNING,
+      severity: params.severity ?? Severity.WARNING,
     },
   };
 }
@@ -54,8 +55,9 @@ function makeProvider(
       return Promise.resolve({
         data: {
           reasoning: 'detected issue',
-          violations: [
+          findings: [
             {
+              ruleSource: 'packs/default/consistency.md',
               line: 1,
               quoted_text: 'bad phrase',
               context_before: '',
@@ -189,6 +191,128 @@ describe('agent executor', () => {
     });
 
     expect(result.hadOperationalErrors).toBe(false);
+  });
+
+  it('bundles multiple lint rules into one structured request and preserves rule severity', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    let structuredCalls = 0;
+    const provider: LLMProvider = {
+      runPromptStructured(_content, promptText: string) {
+        structuredCalls += 1;
+        expect(promptText).toContain('Rule 1');
+        expect(promptText).toContain('Rule 2');
+        return Promise.resolve({
+          data: {
+            reasoning: 'ok',
+            findings: [
+              {
+                ruleSource: 'packs/default/consistency.md',
+                line: 1,
+                quoted_text: 'bad phrase',
+                context_before: '',
+                context_after: '',
+                description: 'Consistency issue',
+                analysis: 'Inconsistent wording.',
+                message: 'Use consistent wording',
+                suggestion: 'Replace the phrase',
+                fix: 'better phrase',
+                rule_quote: 'Keep wording consistent',
+                checks: {
+                  rule_supports_claim: true,
+                  evidence_exact: true,
+                  context_supports_violation: true,
+                  plausible_non_violation: false,
+                  fix_is_drop_in: true,
+                  fix_preserves_meaning: true,
+                },
+                check_notes: {
+                  rule_supports_claim: 'clear',
+                  evidence_exact: 'exact',
+                  context_supports_violation: 'yes',
+                  plausible_non_violation: 'none',
+                  fix_is_drop_in: 'yes',
+                  fix_preserves_meaning: 'yes',
+                },
+                confidence: 0.95,
+              },
+              {
+                ruleSource: 'packs/default/accuracy.md',
+                line: 1,
+                quoted_text: 'bad phrase',
+                context_before: '',
+                context_after: '',
+                description: 'Accuracy issue',
+                analysis: 'This claim is unsupported.',
+                message: 'Support the claim',
+                suggestion: 'Add evidence',
+                fix: 'supported phrase',
+                rule_quote: 'Support technical claims',
+                checks: {
+                  rule_supports_claim: true,
+                  evidence_exact: true,
+                  context_supports_violation: true,
+                  plausible_non_violation: false,
+                  fix_is_drop_in: true,
+                  fix_preserves_meaning: true,
+                },
+                check_notes: {
+                  rule_supports_claim: 'clear',
+                  evidence_exact: 'exact',
+                  context_supports_violation: 'yes',
+                  plausible_non_violation: 'none',
+                  fix_is_drop_in: 'yes',
+                  fix_preserves_meaning: 'yes',
+                },
+                confidence: 0.91,
+              },
+            ],
+          },
+        });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          rules: [
+            { ruleSource: 'packs/default/consistency.md' },
+            { ruleSource: 'packs/default/accuracy.md' },
+          ],
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [
+        makePrompt(),
+        makePromptVariant({
+          fullPath: 'packs/default/accuracy.md',
+          id: 'Accuracy',
+          name: 'Accuracy',
+          body: 'Support technical claims.',
+          severity: Severity.ERROR,
+        }),
+      ],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(structuredCalls).toBe(1);
+    expect(result.findings.map((finding) => finding.severity)).toEqual([
+      Severity.WARNING,
+      Severity.ERROR,
+    ]);
   });
 
   it('returns explicit tool error for unknown ruleSource with valid-source hints', async () => {
@@ -327,7 +451,7 @@ describe('agent executor', () => {
         return Promise.resolve({
           data: {
             reasoning: 'detected issue',
-            violations: [],
+            findings: [],
           },
           usage: {
             inputTokens: 7,
@@ -659,7 +783,7 @@ describe('agent executor', () => {
     const provider: LLMProvider = {
       runPromptStructured(_content, promptText: string) {
         promptBodies.push(promptText);
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
@@ -690,9 +814,12 @@ describe('agent executor', () => {
 
     expect(result.hadOperationalErrors).toBe(false);
     expect(promptBodies.length).toBeGreaterThan(0);
-    expect(promptBodies[0]).toBe(
+    expect(promptBodies[0]).toContain('Rule 1');
+    expect(promptBodies[0]).toContain('ruleSource: packs/default/consistency.md');
+    expect(promptBodies[0]).toContain(
       'Review this file for wording consistency using the evidence you gathered.'
     );
+    expect(promptBodies[0]).not.toContain('Find inconsistent wording.');
   });
 
   it('keeps lint prompt body unchanged when reviewInstruction is not provided', async () => {
@@ -705,7 +832,7 @@ describe('agent executor', () => {
     const provider: LLMProvider = {
       runPromptStructured(_content, promptText: string) {
         promptBodies.push(promptText);
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
@@ -731,7 +858,68 @@ describe('agent executor', () => {
 
     expect(result.hadOperationalErrors).toBe(false);
     expect(promptBodies.length).toBeGreaterThan(0);
-    expect(promptBodies[0]).toBe('Find inconsistent wording.');
+    expect(promptBodies[0]).toContain('Rule 1');
+    expect(promptBodies[0]).toContain('ruleSource: packs/default/consistency.md');
+    expect(promptBodies[0]).toContain('Find inconsistent wording.');
+  });
+
+  it('keeps reviewInstruction and context isolated per bundled lint member', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const promptBodies: string[] = [];
+    const provider: LLMProvider = {
+      runPromptStructured(_content, promptText: string) {
+        promptBodies.push(promptText);
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          rules: [
+            {
+              ruleSource: 'packs/default/consistency.md',
+              reviewInstruction: 'Use the gathered evidence for consistency.',
+              context: 'Evidence from docs/glossary.md',
+            },
+            {
+              ruleSource: 'packs/default/links.md',
+            },
+          ],
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [
+        makePrompt(),
+        makePromptVariant({
+          fullPath: 'packs/default/links.md',
+          id: 'Links',
+          name: 'Links',
+          body: 'Check link targets.',
+        }),
+      ],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(promptBodies[0]).toContain('Rule 1');
+    expect(promptBodies[0]).toContain('Use the gathered evidence for consistency.');
+    expect(promptBodies[0]).toContain('Required context for this review:\nEvidence from docs/glossary.md');
+    expect(promptBodies[0]).toContain('Rule 2');
+    expect(promptBodies[0]).toContain('Check link targets.');
   });
 
   it('records judge-style violations as inline findings in agent mode', async () => {
@@ -755,43 +943,37 @@ describe('agent executor', () => {
       runPromptStructured() {
         return Promise.resolve({
           data: {
-            criteria: [
+            reasoning: 'The wording is unclear.',
+            findings: [
               {
-                name: 'Clarity',
-                score: 2,
-                summary: 'Needs work',
-                reasoning: 'The wording is unclear.',
-                violations: [
-                  {
-                    line: 1,
-                    quoted_text: 'bad phrase',
-                    context_before: '',
-                    context_after: '',
-                    description: 'Unclear wording',
-                    analysis: 'This phrase is vague.',
-                    message: 'Use clearer wording',
-                    suggestion: 'Replace the vague phrase',
-                    fix: 'better phrase',
-                    rule_quote: 'Prefer precise language',
-                    checks: {
-                      rule_supports_claim: true,
-                      evidence_exact: true,
-                      context_supports_violation: true,
-                      plausible_non_violation: false,
-                      fix_is_drop_in: true,
-                      fix_preserves_meaning: true,
-                    },
-                    check_notes: {
-                      rule_supports_claim: 'clear',
-                      evidence_exact: 'exact',
-                      context_supports_violation: 'yes',
-                      plausible_non_violation: 'none',
-                      fix_is_drop_in: 'yes',
-                      fix_preserves_meaning: 'yes',
-                    },
-                    confidence: 0.95,
-                  },
-                ],
+                ruleSource: 'packs/default/consistency.md',
+                line: 1,
+                quoted_text: 'bad phrase',
+                context_before: '',
+                context_after: '',
+                description: 'Unclear wording',
+                analysis: 'This phrase is vague.',
+                message: 'Use clearer wording',
+                suggestion: 'Replace the vague phrase',
+                fix: 'better phrase',
+                rule_quote: 'Prefer precise language',
+                checks: {
+                  rule_supports_claim: true,
+                  evidence_exact: true,
+                  context_supports_violation: true,
+                  plausible_non_violation: false,
+                  fix_is_drop_in: true,
+                  fix_preserves_meaning: true,
+                },
+                check_notes: {
+                  rule_supports_claim: 'clear',
+                  evidence_exact: 'exact',
+                  context_supports_violation: 'yes',
+                  plausible_non_violation: 'none',
+                  fix_is_drop_in: 'yes',
+                  fix_preserves_meaning: 'yes',
+                },
+                confidence: 0.95,
               },
             ],
           },
