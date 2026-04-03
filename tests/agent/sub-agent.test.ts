@@ -9,7 +9,7 @@ describe('sub-agent runtime', () => {
       runPromptStructured() {
         throw new Error('not used');
       },
-      runAgentToolLoop: async (params: Record<string, unknown>) => {
+      runAgentToolLoop(params: Record<string, unknown>) {
         const tools = Object.keys((params.tools ?? {}) as Record<string, unknown>).sort();
         expect(tools).toEqual([
           'list_directory',
@@ -17,7 +17,10 @@ describe('sub-agent runtime', () => {
           'search_content',
           'search_files',
         ]);
-        return { text: 'sub-agent summary', usage: { inputTokens: 2, outputTokens: 1 } };
+        return Promise.resolve({
+          text: 'sub-agent summary',
+          usage: { inputTokens: 2, outputTokens: 1 },
+        });
       },
     } as unknown as LLMProvider;
 
@@ -26,10 +29,18 @@ describe('sub-agent runtime', () => {
       task: 'Summarize the workspace',
       workspaceRoot: '/workspace',
       tools: {
-        read_file: { description: 'read', inputSchema: {}, execute: async () => ({}) },
-        search_files: { description: 'search files', inputSchema: {}, execute: async () => ({}) },
-        list_directory: { description: 'list', inputSchema: {}, execute: async () => ({}) },
-        search_content: { description: 'search content', inputSchema: {}, execute: async () => ({}) },
+        read_file: { description: 'read', inputSchema: {}, execute: () => Promise.resolve({}) },
+        search_files: {
+          description: 'search files',
+          inputSchema: {},
+          execute: () => Promise.resolve({}),
+        },
+        list_directory: { description: 'list', inputSchema: {}, execute: () => Promise.resolve({}) },
+        search_content: {
+          description: 'search content',
+          inputSchema: {},
+          execute: () => Promise.resolve({}),
+        },
       },
     });
 
@@ -47,8 +58,8 @@ describe('sub-agent runtime', () => {
       runPromptStructured() {
         throw new Error('not used');
       },
-      runAgentToolLoop: async () => {
-        throw new Error('sub-agent failed');
+      runAgentToolLoop() {
+        return Promise.reject(new Error('sub-agent failed'));
       },
     } as unknown as LLMProvider;
 
@@ -57,10 +68,18 @@ describe('sub-agent runtime', () => {
       task: 'Summarize the workspace',
       workspaceRoot: '/workspace',
       tools: {
-        read_file: { description: 'read', inputSchema: {}, execute: async () => ({}) },
-        search_files: { description: 'search files', inputSchema: {}, execute: async () => ({}) },
-        list_directory: { description: 'list', inputSchema: {}, execute: async () => ({}) },
-        search_content: { description: 'search content', inputSchema: {}, execute: async () => ({}) },
+        read_file: { description: 'read', inputSchema: {}, execute: () => Promise.resolve({}) },
+        search_files: {
+          description: 'search files',
+          inputSchema: {},
+          execute: () => Promise.resolve({}),
+        },
+        list_directory: { description: 'list', inputSchema: {}, execute: () => Promise.resolve({}) },
+        search_content: {
+          description: 'search content',
+          inputSchema: {},
+          execute: () => Promise.resolve({}),
+        },
       },
     });
 

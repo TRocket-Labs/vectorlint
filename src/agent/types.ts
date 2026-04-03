@@ -10,25 +10,25 @@ export const SESSION_EVENT_TYPE = {
   SessionFinalized: 'session_finalized',
 } as const;
 
-export const trimmedNonBlankString = z.string().trim().min(1);
+export const TRIMMED_NON_BLANK_STRING = z.string().trim().min(1);
 
 export const RULE_CALL_SCHEMA = z.object({
-  ruleSource: trimmedNonBlankString,
-  reviewInstruction: trimmedNonBlankString.optional(),
-  context: trimmedNonBlankString.optional(),
+  ruleSource: TRIMMED_NON_BLANK_STRING,
+  reviewInstruction: TRIMMED_NON_BLANK_STRING.optional(),
+  context: TRIMMED_NON_BLANK_STRING.optional(),
 });
 
 export const LINT_TOOL_INPUT_SCHEMA = z.object({
-  file: trimmedNonBlankString,
+  file: TRIMMED_NON_BLANK_STRING,
   rules: z.array(RULE_CALL_SCHEMA).min(1),
 });
 
-export const ModelCapabilityTierSchema = z.enum(MODEL_CAPABILITY_TIERS);
+export const MODEL_CAPABILITY_TIER_SCHEMA = z.enum(MODEL_CAPABILITY_TIERS);
 
 export const AGENT_TOOL_INPUT_SCHEMA = z.object({
-  task: trimmedNonBlankString,
-  label: trimmedNonBlankString.optional(),
-  model: ModelCapabilityTierSchema.optional(),
+  task: TRIMMED_NON_BLANK_STRING,
+  label: TRIMMED_NON_BLANK_STRING.optional(),
+  model: MODEL_CAPABILITY_TIER_SCHEMA.optional(),
 });
 
 export const TOP_LEVEL_REFERENCE_SCHEMA = z.object({

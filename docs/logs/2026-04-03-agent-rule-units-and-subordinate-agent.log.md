@@ -3,7 +3,7 @@
 - **Plan**: `docs/plans/2026-04-03-agent-rule-units-and-subordinate-agent.md`
 - **Issue**: not provided yet
 - **Started**: 2026-04-03
-- **Status**: in-progress
+- **Status**: completed
 
 ---
 
@@ -36,5 +36,10 @@
 
 ### Task: Add the restricted sub-agent tool
 - **Status**: completed
-- **What was done**: Added a focused sub-agent runtime helper that runs bounded read-only delegated work in isolated context, wired the `agent` tool to resolve the requested capability tier while exposing only read-only workspace tools, and updated the agent runtime tests to cover successful delegation, requested-tier routing, compact failure handling, and the repo-wide terminology shift from subordinate agent to sub-agent.
+- **What was done**: Added a focused sub-agent runtime helper that runs bounded read-only delegated work in isolated context, wired the `agent` tool to resolve the requested capability tier while exposing only read-only workspace tools, and updated the agent runtime tests to cover successful delegation, requested-tier routing, compact failure handling, and consistent sub-agent terminology across the branch.
 - **Files changed**: `src/agent/executor.ts`, `src/agent/sub-agent.ts`, `src/agent/tools-registry.ts`, `tests/agent/agent-executor.test.ts`, `tests/agent/sub-agent.test.ts`
+
+### Task: Update user-facing config and agent-mode documentation
+- **Status**: completed
+- **What was done**: Documented provider-scoped capability tiers, upward-only fallback behavior, matched rule units, bundled `lint` input, and the bounded read-only sub-agent tool in the user docs and config templates. Also cleaned up the remaining agent-mode TypeScript and test lint findings uncovered during the final verification pass.
+- **Files changed**: `.env.example`, `CONFIGURATION.md`, `README.md`, `src/agent/executor.ts`, `src/agent/types.ts`, `src/cli/orchestrator.ts`, `src/config/global-config.ts`, `tests/agent/agent-executor.test.ts`, `tests/agent/rule-units.test.ts`, `tests/agent/sub-agent.test.ts`, `tests/orchestrator-agent-output.test.ts`

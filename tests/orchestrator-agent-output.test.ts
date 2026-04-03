@@ -219,9 +219,11 @@ describe('agent orchestrator output', () => {
       runPromptStructured() {
         throw new Error('default provider should not handle bundled lint in agent mode');
       },
-      runAgentToolLoop: async () => {
+      runAgentToolLoop() {
         defaultLoopCalls += 1;
-        throw new Error('default provider should not handle top-level agent loop in agent mode');
+        return Promise.reject(
+          new Error('default provider should not handle top-level agent loop in agent mode')
+        );
       },
     } as unknown as LLMProvider;
 
@@ -230,8 +232,10 @@ describe('agent orchestrator output', () => {
         midLintCalls += 1;
         return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
-      runAgentToolLoop: async () => {
-        throw new Error('mid-capability provider should not run the top-level agent loop');
+      runAgentToolLoop() {
+        return Promise.reject(
+          new Error('mid-capability provider should not run the top-level agent loop')
+        );
       },
     } as unknown as LLMProvider;
 

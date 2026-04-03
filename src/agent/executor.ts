@@ -3,14 +3,16 @@ import * as os from 'os';
 import fg from 'fast-glob';
 import {
   buildBundledCheckLLMSchema,
-  isJudgeResult,
   type BundledCheckLLMResult,
 } from '../prompts/schema';
 import type { PromptFile } from '../prompts/prompt-loader';
 import { Severity } from '../evaluators/types';
 import { computeFilterDecision } from '../evaluators/violation-filter';
 import { locateQuotedText } from '../output/location';
-import type { AgentToolLoopResult, LLMProvider } from '../providers/llm-provider';
+import type {
+  AgentToolLoopResult,
+  LLMProvider,
+} from '../providers/llm-provider';
 import type { ModelCapabilityTier } from '../providers/model-capability';
 import type { TokenUsage } from '../providers/token-usage';
 import type { OutputFormat } from '../cli/types';
@@ -41,7 +43,7 @@ import { resolveGlobPatternWithinRoot, resolveWithinRoot, toRelativePathFromRoot
 import type { AgentProgressReporter, VisibleToolName, VisibleToolProgress } from './progress';
 import { buildRuleId, normalizeRuleSource } from './rule-id';
 import { runSubAgent } from './sub-agent';
-import type { AgentToolDefinition } from '../providers/llm-provider';
+
 export interface AgentFinding {
   file: string;
   line: number;
@@ -535,7 +537,10 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     throw new Error('runAgentExecutor requires at least one provider.');
   }
   const effectiveResolveCapabilityProvider = resolveCapabilityProvider
-    ?? ((_requested: ModelCapabilityTier) => defaultProvider);
+    ?? ((requested: ModelCapabilityTier) => {
+      void requested;
+      return defaultProvider;
+    });
   const effectiveOrchestratorProvider = orchestratorProvider ?? effectiveResolveCapabilityProvider('high-capability');
   const effectiveLintProvider = lintProvider ?? effectiveResolveCapabilityProvider('mid-capability');
 
@@ -836,11 +841,6 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     return { matches, ...(truncated ? { truncated: true } : {}) };
   }
 
-  let readOnlySubAgentTools: Record<
-    'read_file' | 'search_files' | 'list_directory' | 'search_content',
-    AgentToolDefinition
-  >;
-
   async function agentToolHandler(input: unknown): Promise<unknown> {
     const parsed = AGENT_TOOL_INPUT_SCHEMA.parse(input);
     const subAgentProvider = effectiveResolveCapabilityProvider(parsed.model ?? 'high-capability');
@@ -851,7 +851,12 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
       workspaceRoot,
       ...(parsed.label ? { label: parsed.label } : {}),
       ...(progressReporter ? { progressReporter } : {}),
-      tools: readOnlySubAgentTools,
+      tools: {
+        read_file: tools.read_file,
+        search_files: tools.search_files,
+        list_directory: tools.list_directory,
+        search_content: tools.search_content,
+      },
     });
   }
 
@@ -887,12 +892,6 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
       finalize_review: finalizeReviewToolHandler,
     },
   });
-  readOnlySubAgentTools = {
-    read_file: tools.read_file,
-    search_files: tools.search_files,
-    list_directory: tools.list_directory,
-    search_content: tools.search_content,
-  };
   const availableTools = listAvailableTools(tools);
 
   let usage: AgentToolLoopResult['usage'] | undefined;

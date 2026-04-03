@@ -13,6 +13,11 @@ export function getGlobalConfigPath(): string {
 const DEFAULT_GLOBAL_CONFIG_TEMPLATE = `# VectorLint Environment Configuration
 # This file contains API keys and provider settings.
 # Keys defined here are available as environment variables.
+# Capability-tier fallback is upward-only within the active provider:
+# low -> mid -> high -> provider default.
+# In agent mode, the top-level loop resolves high-capability,
+# bundled lint resolves mid-capability, and delegated sub-agents
+# default to high-capability unless the agent tool requests another tier.
 
 [env]
 # ============================================

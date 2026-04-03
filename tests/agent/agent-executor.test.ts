@@ -158,7 +158,7 @@ describe('agent executor', () => {
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const provider = makeProvider(async (params) => {
-      const systemPrompt = String(params.systemPrompt ?? '');
+      const systemPrompt = typeof params.systemPrompt === 'string' ? params.systemPrompt : '';
 
       expect(systemPrompt).toContain('Review files and Matched Rule Units:');
       expect(systemPrompt).toContain('- doc.md');
@@ -220,7 +220,7 @@ describe('agent executor', () => {
       runPromptStructured() {
         throw new Error('not used');
       },
-      runAgentToolLoop: async (params: Record<string, unknown>) => {
+      runAgentToolLoop(params: Record<string, unknown>) {
         const toolNames = Object.keys((params.tools ?? {}) as Record<string, unknown>).sort();
         expect(toolNames).toEqual([
           'list_directory',
@@ -228,7 +228,10 @@ describe('agent executor', () => {
           'search_content',
           'search_files',
         ]);
-        return { text: 'sub-agent summary', usage: { inputTokens: 2, outputTokens: 1 } };
+        return Promise.resolve({
+          text: 'sub-agent summary',
+          usage: { inputTokens: 2, outputTokens: 1 },
+        });
       },
     } as unknown as LLMProvider;
 
@@ -272,8 +275,8 @@ describe('agent executor', () => {
       runPromptStructured() {
         throw new Error('not used');
       },
-      runAgentToolLoop: async () => {
-        return { text: 'mid fallback summary' };
+      runAgentToolLoop() {
+        return Promise.resolve({ text: 'mid fallback summary' });
       },
     } as unknown as LLMProvider;
 
@@ -316,8 +319,8 @@ describe('agent executor', () => {
       runPromptStructured() {
         throw new Error('not used');
       },
-      runAgentToolLoop: async () => {
-        throw new Error('sub-agent blew up');
+      runAgentToolLoop() {
+        return Promise.reject(new Error('sub-agent blew up'));
       },
     } as unknown as LLMProvider;
 

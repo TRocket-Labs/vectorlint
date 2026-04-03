@@ -1176,8 +1176,14 @@ async function evaluateFilesInAgentMode(
   jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter
 ): Promise<EvaluationResult> {
   const workspaceRoot = inferAgentWorkspaceRoot(targets);
-  const resolveCapabilityProvider = options.capabilityProviderBundle?.resolveCapabilityProvider
-    ?? ((_requested: ModelCapabilityTier) => options.provider);
+  const capabilityProviderBundle = options.capabilityProviderBundle;
+  const resolveCapabilityProvider = capabilityProviderBundle
+    ? ((requested: ModelCapabilityTier) =>
+        capabilityProviderBundle.resolveCapabilityProvider(requested))
+    : ((requested: ModelCapabilityTier) => {
+        void requested;
+        return options.provider;
+      });
   const progressReporter = new AgentProgressReporter(
     shouldEmitAgentProgress({
       outputFormat,

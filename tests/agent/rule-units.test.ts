@@ -39,21 +39,20 @@ describe('matched rule units', () => {
     const second = buildMatchedRuleUnits(matches, promptBySource, 400);
 
     expect(first).toEqual(second);
-    expect(first).toEqual([
-      {
-        file: 'README.md',
-        rules: [
-          { ruleSource: 'packs/default/ai-pattern.md' },
-          { ruleSource: 'packs/default/consistency.md' },
-        ],
-        estimatedTokens: expect.any(Number),
-      },
-      {
-        file: 'docs/guide.md',
-        rules: [{ ruleSource: 'packs/default/links.md' }],
-        estimatedTokens: expect.any(Number),
-      },
-    ]);
+    expect(first).toHaveLength(2);
+    expect(first[0]).toMatchObject({
+      file: 'README.md',
+      rules: [
+        { ruleSource: 'packs/default/ai-pattern.md' },
+        { ruleSource: 'packs/default/consistency.md' },
+      ],
+    });
+    expect(first[1]).toMatchObject({
+      file: 'docs/guide.md',
+      rules: [{ ruleSource: 'packs/default/links.md' }],
+    });
+    expect(typeof first[0]?.estimatedTokens).toBe('number');
+    expect(typeof first[1]?.estimatedTokens).toBe('number');
   });
 
   it('splits matched rule units when the token budget boundary is hit', async () => {
@@ -75,20 +74,19 @@ describe('matched rule units', () => {
       120
     );
 
-    expect(units).toEqual([
-      {
-        file: 'README.md',
-        rules: [
-          { ruleSource: 'packs/default/ai-pattern.md' },
-          { ruleSource: 'packs/default/consistency.md' },
-        ],
-        estimatedTokens: expect.any(Number),
-      },
-      {
-        file: 'README.md',
-        rules: [{ ruleSource: 'packs/default/unsupported-claims.md' }],
-        estimatedTokens: expect.any(Number),
-      },
-    ]);
+    expect(units).toHaveLength(2);
+    expect(units[0]).toMatchObject({
+      file: 'README.md',
+      rules: [
+        { ruleSource: 'packs/default/ai-pattern.md' },
+        { ruleSource: 'packs/default/consistency.md' },
+      ],
+    });
+    expect(units[1]).toMatchObject({
+      file: 'README.md',
+      rules: [{ ruleSource: 'packs/default/unsupported-claims.md' }],
+    });
+    expect(typeof units[0]?.estimatedTokens).toBe('number');
+    expect(typeof units[1]?.estimatedTokens).toBe('number');
   });
 });

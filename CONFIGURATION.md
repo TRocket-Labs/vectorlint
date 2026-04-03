@@ -88,6 +88,26 @@ You can generate these files using the `vectorlint init` command.
 
 VectorLint supports multiple LLM providers. Set `LLM_PROVIDER` to your desired provider (e.g., `openai`, `anthropic`, `gemini`) and provide the corresponding API key.
 
+Each provider can also define optional capability-tier overrides for agent mode. Use the provider-specific field names for the active provider:
+
+- OpenAI: `OPENAI_HIGH_CAPABILITY_MODEL`, `OPENAI_MID_CAPABILITY_MODEL`, `OPENAI_LOW_CAPABILITY_MODEL`
+- Azure OpenAI: `AZURE_OPENAI_HIGH_CAPABILITY_DEPLOYMENT_NAME`, `AZURE_OPENAI_MID_CAPABILITY_DEPLOYMENT_NAME`, `AZURE_OPENAI_LOW_CAPABILITY_DEPLOYMENT_NAME`
+- Anthropic: `ANTHROPIC_HIGH_CAPABILITY_MODEL`, `ANTHROPIC_MID_CAPABILITY_MODEL`, `ANTHROPIC_LOW_CAPABILITY_MODEL`
+- Gemini: `GEMINI_HIGH_CAPABILITY_MODEL`, `GEMINI_MID_CAPABILITY_MODEL`, `GEMINI_LOW_CAPABILITY_MODEL`
+- Bedrock: `BEDROCK_HIGH_CAPABILITY_MODEL`, `BEDROCK_MID_CAPABILITY_MODEL`, `BEDROCK_LOW_CAPABILITY_MODEL`
+
+Capability fallback is upward-only inside the active provider:
+
+- `low-capability` falls back to `mid-capability`, then `high-capability`, then the provider default
+- `mid-capability` falls back to `high-capability`, then the provider default
+- `high-capability` falls back to the provider default
+
+Agent mode uses those tiers with these defaults:
+
+- the top-level review loop resolves `high-capability`
+- bundled `lint` requests resolve `mid-capability`
+- delegated sub-agents default to `high-capability` when the `agent` tool omits `model`
+
 ### Search Provider
 
 Some evaluators, such as **TechnicalAccuracy**, require access to current external knowledge to verify facts. VectorLint supports search providers to fetch this information.
@@ -112,6 +132,22 @@ CONFIDENCE_THRESHOLD=0.75
 - Default: `0.75`
 - Applies to surfaced violations in check and judge evaluations
 - Invalid values gracefully fall back to the default
+
+---
+
+## Agent-Mode Tooling
+
+When you run `vectorlint ... --mode agent`, the runtime precomputes matched rule units for each target file before the agent loop starts. That keeps the loop grounded in the exact file-to-rule pairs selected by your config.
+
+The agent-mode tools behave like this:
+
+- `lint` accepts one file and an explicit `rules[]` array of source-backed rule calls
+- `reviewInstruction` replaces the bundled member rule body for that call
+- `context` is appended under `Required context for this review:`
+- the runtime executes one bundled review request per `lint` tool call and preserves `ruleSource` attribution for every finding
+- the `agent` tool runs bounded read-only delegated work in isolated context and returns a compact sub-agent result
+
+The delegated sub-agent can only use read-only workspace tools. It cannot write files, call `lint`, recurse into another `agent` call, or finalize the main review session.
 
 ---
 
