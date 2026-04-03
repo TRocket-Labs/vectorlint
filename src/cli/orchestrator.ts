@@ -3,8 +3,8 @@ import { JsonFormatter } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
 import { ValeJsonFormatter } from '../output/vale-json-formatter';
 import { handleUnknownError } from '../errors/index';
-import { evaluateFilesInAgentMode } from './agent-mode-evaluator';
-import { evaluateFile } from './file-evaluator';
+import { evaluateFilesInAgentMode } from './agent-evaluation';
+import { evaluateFile } from './file-evaluation';
 import { AGENT_REVIEW_MODE, DEFAULT_REVIEW_MODE, OutputFormat } from './types';
 import type { EvaluationOptions, EvaluationResult } from './types';
 

@@ -18,7 +18,7 @@ import { calculateCheckScore } from '../scoring';
 import { JsonFormatter } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
 import { ValeJsonFormatter } from '../output/vale-json-formatter';
-import { reportIssue } from './issue-reporter';
+import { reportIssue } from './issue-output';
 
 function reportAgentFinding(params: {
   finding: AgentFinding;

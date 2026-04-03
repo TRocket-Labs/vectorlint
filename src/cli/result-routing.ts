@@ -20,7 +20,7 @@ import {
   getViolationFilterResults,
   locateAndReportViolations,
   reportIssue,
-} from './issue-reporter';
+} from './issue-output';
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
   const provider = process.env.LLM_PROVIDER;

@@ -18,7 +18,7 @@ import type {
   RunPromptEvaluationResult,
   RunPromptEvaluationResultSuccess,
 } from './types';
-import { routePromptResult } from './prompt-result-processor';
+import { routePromptResult } from './result-routing';
 import { OutputFormat } from './types';
 import { type TokenUsageStats } from '../providers/token-usage';
 
