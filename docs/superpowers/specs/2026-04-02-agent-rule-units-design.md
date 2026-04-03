@@ -278,7 +278,7 @@ This means the bundle is only an execution grouping for cost and prompt construc
 
 Add a tool named `agent` for bounded delegated sub-agent work initiated by the main review agent.
 
-The sub-agent `agent` tool is not limited to exploration. Its broader purpose is to let the main agent delegate a bounded read-only task into an isolated context window, receive the result, and continue without carrying all of the delegated context forward in the main conversation. This reduces context bloat, can lower token cost, and prevents delegated context from continuously accumulating after the sub-agent task completes.
+The sub-agent `agent` tool is not limited to exploration. Its broader purpose is to let the main agent delegate a bounded read-only task into an isolated context window, receive the result, and continue without carrying the delegated context forward in the main conversation. This reduces context bloat, can lower token cost, and prevents delegated context from continuously accumulating after the sub-agent task completes.
 
 Initial intended uses:
 

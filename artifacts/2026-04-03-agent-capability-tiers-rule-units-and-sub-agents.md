@@ -62,6 +62,6 @@ Quick manual verification:
 
 ## 7. Rollback
 
-1. Revert commits `a8efdc7` through `2b4166e`.
+1. Revert the commits introduced on `feat/sub-agents`.
 2. Remove any newly added capability-tier env values if they were applied in operator environments.
 3. Re-run the verification commands above to confirm the repository is back on the prior agent-mode behavior.

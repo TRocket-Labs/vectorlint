@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Add Provider-Scoped Capability-Tier Config
+## Task 1: Add Provider-Scoped Capability-Tier Config
 
 **Files:**
 - Create: `src/providers/model-capability.ts`
@@ -120,7 +120,7 @@ git add src/providers/model-capability.ts src/schemas/env-schemas.ts src/config/
 git commit -m "feat(agent): add provider-scoped capability model config"
 ```
 
-### Task 2: Add Capability-Aware Provider Wiring for Agent Mode
+## Task 2: Add Capability-Aware Provider Wiring for Agent Mode
 
 **Files:**
 - Create: `src/providers/capability-provider-bundle.ts`
@@ -207,7 +207,7 @@ git add src/providers/capability-provider-bundle.ts src/providers/provider-facto
 git commit -m "feat(agent): wire capability-aware providers"
 ```
 
-### Task 3: Expand the Agent Tool Contracts
+## Task 3: Expand the Agent Tool Contracts
 
 **Files:**
 - Modify: `src/agent/types.ts`
@@ -292,7 +292,7 @@ git add src/agent/types.ts src/agent/tools-registry.ts tests/agent/types-contrac
 git commit -m "feat(agent): expand lint and sub-agent tool contracts"
 ```
 
-### Task 4: Build Deterministic Matched Rule Units
+## Task 4: Build Deterministic Matched Rule Units
 
 **Files:**
 - Create: `src/utils/token-estimate.ts`
@@ -395,7 +395,7 @@ git add src/utils/token-estimate.ts src/agent/rule-units.ts src/boundaries/user-
 git commit -m "feat(agent): add deterministic matched rule units"
 ```
 
-### Task 5: Teach `lint` to Run One Bundled Review Request
+## Task 5: Teach `lint` to Run One Bundled Review Request
 
 **Files:**
 - Modify: `src/prompts/schema.ts`
@@ -505,7 +505,7 @@ git add src/prompts/schema.ts src/agent/executor.ts tests/agent/agent-executor.t
 git commit -m "feat(agent): bundle multi-rule lint reviews"
 ```
 
-### Task 6: Add the Restricted Sub-Agent `agent` Tool
+## Task 6: Add the Restricted Sub-Agent `agent` Tool
 
 **Files:**
 - Create: `src/agent/sub-agent.ts`
@@ -519,8 +519,8 @@ git commit -m "feat(agent): bundle multi-rule lint reviews"
 Add tests that assert:
 
 - the main agent can call `agent.execute({ task })`
-- the sub-agent runs synchronously and returns compact final text only
-- the sub-agent only receives `read_file`, `search_files`, `list_directory`, `search_content`
+- the sub-agent runs synchronously and returns compact final text
+- the sub-agent receives only `read_file`, `search_files`, `list_directory`, `search_content`
 - attempts to call `lint` or `agent` inside the sub-agent run fail
 - omitted `model` defaults to `high-capability`
 - explicit `model: 'low-capability'` resolves upward-only fallback when low is not configured
@@ -574,7 +574,7 @@ git add src/agent/sub-agent.ts src/agent/executor.ts src/agent/tools-registry.ts
 git commit -m "feat(agent): add restricted sub-agent tool"
 ```
 
-### Task 7: Update User-Facing Config and Agent-Mode Documentation
+## Task 7: Update User-Facing Config and Agent-Mode Documentation
 
 **Files:**
 - Modify: `README.md`
