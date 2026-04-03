@@ -19,12 +19,20 @@ function resolveCapabilityValue(
 ): string {
   for (const tier of TIER_SEARCH_ORDER[requested]) {
     const value = values[tier];
-    if (value) {
-      return value;
+    const normalizedValue = value?.trim();
+    if (normalizedValue) {
+      return normalizedValue;
     }
   }
 
-  return defaultValue;
+  const normalizedDefaultValue = defaultValue.trim();
+  if (normalizedDefaultValue) {
+    return normalizedDefaultValue;
+  }
+
+  throw new ConfigError(
+    `No configured model or deployment name found for requested capability tier: ${requested}`
+  );
 }
 
 export function resolveConfiguredModelForCapability(

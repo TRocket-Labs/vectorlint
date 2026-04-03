@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createProvider, ProviderType } from '../src/providers/provider-factory';
 import { VercelAIProvider } from '../src/providers/vercel-ai-provider';
 import { DefaultRequestBuilder } from '../src/providers/request-builder';
+import { ConfigError } from '../src/errors';
 import type { EnvConfig } from '../src/schemas/env-schemas';
 import { createCapabilityProviderBundle } from '../src/providers/capability-provider-bundle';
 import { MODEL_CAPABILITY_TIERS, resolveConfiguredModelForCapability } from '../src/providers/model-capability';
@@ -501,6 +502,21 @@ describe('Provider Factory', () => {
       expect(resolveConfiguredModelForCapability(azureEnv, 'low-capability')).toBe('default-deployment');
       expect(resolveConfiguredModelForCapability(azureEnv, 'mid-capability')).toBe('default-deployment');
       expect(resolveConfiguredModelForCapability(azureEnv, 'high-capability')).toBe('default-deployment');
+    });
+
+    it('throws when all configured identifiers are blank after trimming', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: '   ',
+        OPENAI_LOW_CAPABILITY_MODEL: '  ',
+        OPENAI_MID_CAPABILITY_MODEL: '\t',
+        OPENAI_HIGH_CAPABILITY_MODEL: '\n',
+      };
+
+      expect(() => resolveConfiguredModelForCapability(envConfig, 'low-capability')).toThrow(
+        new ConfigError('No configured model or deployment name found for requested capability tier: low-capability')
+      );
     });
   });
 
