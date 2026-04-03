@@ -35,7 +35,7 @@ export function createAgentTools(params: {
 
   return {
     agent: {
-      description: 'Delegate bounded read-only workspace analysis to a subordinate agent.',
+      description: 'Delegate bounded read-only workspace analysis to a sub-agent.',
       inputSchema: AGENT_TOOL_INPUT_SCHEMA,
       execute: (input) => runTool('agent', input, handlers.agent),
     },

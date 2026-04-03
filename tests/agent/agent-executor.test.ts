@@ -193,6 +193,151 @@ describe('agent executor', () => {
     expect(result.hadOperationalErrors).toBe(false);
   });
 
+  it('lets the main agent delegate bounded read-only work to a sub-agent', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const topLevelProvider: LLMProvider = {
+      runPromptStructured() {
+        throw new Error('not used');
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        const delegated = await tools.agent.execute({ task: 'Summarize the document' });
+        expect(delegated).toEqual({
+          ok: true,
+          result: 'sub-agent summary',
+          usage: { inputTokens: 2, outputTokens: 1 },
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    const subAgentProvider: LLMProvider = {
+      runPromptStructured() {
+        throw new Error('not used');
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const toolNames = Object.keys((params.tools ?? {}) as Record<string, unknown>).sort();
+        expect(toolNames).toEqual([
+          'list_directory',
+          'read_file',
+          'search_content',
+          'search_files',
+        ]);
+        return { text: 'sub-agent summary', usage: { inputTokens: 2, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [makePrompt()],
+      provider: topLevelProvider,
+      orchestratorProvider: topLevelProvider,
+      lintProvider: topLevelProvider,
+      resolveCapabilityProvider: (requested) =>
+        requested === 'high-capability' ? subAgentProvider : topLevelProvider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+  });
+
+  it('uses the requested capability tier when delegating to a sub-agent', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const requestedModels: string[] = [];
+    const topLevelProvider = makeProvider(async (params) => {
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      const delegated = await tools.agent.execute({
+        task: 'Summarize the document',
+        model: 'low-capability',
+      });
+      expect(delegated).toEqual({ ok: true, result: 'mid fallback summary' });
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+
+    const midFallbackProvider: LLMProvider = {
+      runPromptStructured() {
+        throw new Error('not used');
+      },
+      runAgentToolLoop: async () => {
+        return { text: 'mid fallback summary' };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [makePrompt()],
+      provider: topLevelProvider,
+      orchestratorProvider: topLevelProvider,
+      lintProvider: topLevelProvider,
+      resolveCapabilityProvider: (requested) => {
+        requestedModels.push(requested);
+        return midFallbackProvider;
+      },
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(requestedModels).toContain('low-capability');
+  });
+
+  it('returns a compact sub-agent error without failing the main review loop', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const topLevelProvider = makeProvider(async (params) => {
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      const delegated = await tools.agent.execute({ task: 'Summarize the document' });
+      expect(delegated).toEqual({ ok: false, error: 'sub-agent blew up' });
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+
+    const failingSubAgentProvider: LLMProvider = {
+      runPromptStructured() {
+        throw new Error('not used');
+      },
+      runAgentToolLoop: async () => {
+        throw new Error('sub-agent blew up');
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [makePrompt()],
+      provider: topLevelProvider,
+      orchestratorProvider: topLevelProvider,
+      lintProvider: topLevelProvider,
+      resolveCapabilityProvider: () => failingSubAgentProvider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+  });
+
   it('bundles multiple lint rules into one structured request and preserves rule severity', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 

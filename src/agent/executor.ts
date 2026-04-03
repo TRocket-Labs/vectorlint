@@ -26,6 +26,7 @@ import {
   type AgentToolName,
 } from './tools-registry';
 import {
+  AGENT_TOOL_INPUT_SCHEMA,
   LINT_TOOL_INPUT_SCHEMA,
   FINALIZE_REVIEW_INPUT_SCHEMA,
   LIST_DIRECTORY_INPUT_SCHEMA,
@@ -39,6 +40,8 @@ import {
 import { resolveGlobPatternWithinRoot, resolveWithinRoot, toRelativePathFromRoot } from './path-utils';
 import type { AgentProgressReporter, VisibleToolName, VisibleToolProgress } from './progress';
 import { buildRuleId, normalizeRuleSource } from './rule-id';
+import { runSubAgent } from './sub-agent';
+import type { AgentToolDefinition } from '../providers/llm-provider';
 export interface AgentFinding {
   file: string;
   line: number;
@@ -833,6 +836,25 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     return { matches, ...(truncated ? { truncated: true } : {}) };
   }
 
+  let readOnlySubAgentTools: Record<
+    'read_file' | 'search_files' | 'list_directory' | 'search_content',
+    AgentToolDefinition
+  >;
+
+  async function agentToolHandler(input: unknown): Promise<unknown> {
+    const parsed = AGENT_TOOL_INPUT_SCHEMA.parse(input);
+    const subAgentProvider = effectiveResolveCapabilityProvider(parsed.model ?? 'high-capability');
+
+    return runSubAgent({
+      provider: subAgentProvider,
+      task: parsed.task,
+      workspaceRoot,
+      ...(parsed.label ? { label: parsed.label } : {}),
+      ...(progressReporter ? { progressReporter } : {}),
+      tools: readOnlySubAgentTools,
+    });
+  }
+
   async function finalizeReviewToolHandler(input: unknown): Promise<unknown> {
     const parsed = FINALIZE_REVIEW_INPUT_SCHEMA.parse(input);
     if (finalized) {
@@ -855,6 +877,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   const tools = createAgentTools({
     runTool,
     handlers: {
+      agent: agentToolHandler,
       lint: lintToolHandler,
       report_finding: reportFindingToolHandler,
       read_file: readFileToolHandler,
@@ -864,6 +887,12 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
       finalize_review: finalizeReviewToolHandler,
     },
   });
+  readOnlySubAgentTools = {
+    read_file: tools.read_file,
+    search_files: tools.search_files,
+    list_directory: tools.list_directory,
+    search_content: tools.search_content,
+  };
   const availableTools = listAvailableTools(tools);
 
   let usage: AgentToolLoopResult['usage'] | undefined;
