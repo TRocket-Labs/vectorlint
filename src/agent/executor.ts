@@ -15,6 +15,7 @@ import { createReviewSessionStore } from './review-session-store';
 import { buildAgentSystemPrompt } from './prompt-builder';
 import { AgentToolError } from '../errors';
 import { ScanPathResolver } from '../boundaries/scan-path-resolver';
+import { buildMatchedRuleUnits } from './rule-units';
 import {
   createAgentTools,
   listAvailableTools,
@@ -80,6 +81,7 @@ export interface AgentExecutorResult {
 
 const MAX_SEARCH_FILE_RESULTS = 500;
 const MAX_CONTENT_MATCH_RESULTS = 200;
+const MATCHED_RULE_UNIT_TOKEN_BUDGET = 800;
 const VISIBLE_TOOL_NAMES = new Set<VisibleToolName>(['read_file', 'list_directory', 'lint']);
 
 function mergeTokenUsage(left?: TokenUsage, right?: TokenUsage): TokenUsage | undefined {
@@ -333,19 +335,26 @@ function resolveVisibleToolContext(params: {
       if (!parsed.success) {
         return undefined;
       }
-      const prompt = resolvePromptBySource(parsed.data.ruleSource, promptBySource);
+      const firstRule = parsed.data.rules[0];
+      const prompt = firstRule
+        ? resolvePromptBySource(firstRule.ruleSource, promptBySource)
+        : undefined;
       const resolvedPath = tryResolveRelativePath(workspaceRoot, parsed.data.file);
       const path = resolvedPath ?? parsed.data.file;
-      const ruleText = parsed.data.reviewInstruction?.trim() || prompt?.body || '';
+      const ruleText = parsed.data.rules
+        .map((rule) => rule.reviewInstruction?.trim() || resolvePromptBySource(rule.ruleSource, promptBySource)?.body || '')
+        .join('\n');
       return {
         toolName: 'lint',
         path,
-        ruleName: String(prompt?.meta.name || prompt?.meta.id || 'Rule'),
+        ruleName: parsed.data.rules.length > 1
+          ? `${String(prompt?.meta.name || prompt?.meta.id || 'Rule')} +${parsed.data.rules.length - 1} more`
+          : String(prompt?.meta.name || prompt?.meta.id || 'Rule'),
         ruleText,
         progressFile: resolvedPath && targetFiles.has(resolvedPath)
           ? resolvedPath
           : (currentProgressFile ?? defaultProgressFile),
-        signature: `lint:${path}:${normalizeRuleSource(parsed.data.ruleSource)}:${ruleText}`,
+        signature: `lint:${path}:${parsed.data.rules.map((rule) => normalizeRuleSource(rule.ruleSource)).join(',')}:${ruleText}`,
       };
     }
   }
@@ -504,6 +513,11 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     toRelativePathFromRoot(workspaceRoot, resolveWithinRoot(workspaceRoot, target))
   );
   const fileRuleMatches = buildFileRuleMatches(relativeTargets, prompts, scanPaths);
+  const matchedRuleUnits = buildMatchedRuleUnits(
+    fileRuleMatches,
+    promptBySource,
+    MATCHED_RULE_UNIT_TOKEN_BUDGET
+  );
   const defaultRuleName = String(prompts[0]?.meta.name || prompts[0]?.meta.id || 'Rule');
   const targetFiles = new Set(relativeTargets);
 
@@ -591,41 +605,44 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
 
   async function lintToolHandler(input: unknown): Promise<unknown> {
     const parsed = LINT_TOOL_INPUT_SCHEMA.parse(input);
-    const prompt = resolvePromptBySource(parsed.ruleSource, promptBySource);
-    if (!prompt) {
-      throw buildUnknownRuleSourceError(parsed.ruleSource, validSources);
-    }
-    const promptForCall = withReviewInstructionOverride(prompt, parsed.reviewInstruction);
-
     const absoluteFile = resolveWithinRoot(workspaceRoot, parsed.file);
     const relFile = toRelativePathFromRoot(workspaceRoot, absoluteFile);
     const content = await readFile(absoluteFile, 'utf8');
 
-    const evaluator = createEvaluator(
-      promptForCall.meta.evaluator || Type.BASE,
-      effectiveLintProvider,
-      promptForCall
-    );
-    const result = await evaluator.evaluate(relFile, content);
-    nestedToolUsage = mergeTokenUsage(nestedToolUsage, result.usage);
-
     let findingsRecorded = 0;
-    const violations = isJudgeResult(result)
-      ? result.criteria.flatMap((criterion) => criterion.violations)
-      : result.violations;
-    for (const violation of violations) {
-      const wasRecorded = await appendInlineFinding({
-        violation,
-        result,
-        content,
-        relFile,
-        prompt,
-        ruleSource: parsed.ruleSource,
-        store,
-      });
-      if (wasRecorded) {
-        findingsCount += 1;
-        findingsRecorded += 1;
+
+    for (const rule of parsed.rules) {
+      const prompt = resolvePromptBySource(rule.ruleSource, promptBySource);
+      if (!prompt) {
+        throw buildUnknownRuleSourceError(rule.ruleSource, validSources);
+      }
+      const promptForCall = withReviewInstructionOverride(prompt, rule.reviewInstruction);
+
+      const evaluator = createEvaluator(
+        promptForCall.meta.evaluator || Type.BASE,
+        effectiveLintProvider,
+        promptForCall
+      );
+      const result = await evaluator.evaluate(relFile, content);
+      nestedToolUsage = mergeTokenUsage(nestedToolUsage, result.usage);
+
+      const violations = isJudgeResult(result)
+        ? result.criteria.flatMap((criterion) => criterion.violations)
+        : result.violations;
+      for (const violation of violations) {
+        const wasRecorded = await appendInlineFinding({
+          violation,
+          result,
+          content,
+          relFile,
+          prompt,
+          ruleSource: rule.ruleSource,
+          store,
+        });
+        if (wasRecorded) {
+          findingsCount += 1;
+          findingsRecorded += 1;
+        }
       }
     }
 
@@ -811,7 +828,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     const result = await effectiveOrchestratorProvider.runAgentToolLoop({
       systemPrompt: buildAgentSystemPrompt({
         workspaceRoot,
-        fileRuleMatches,
+        matchedRuleUnits,
         availableTools,
         userInstructions,
       }),

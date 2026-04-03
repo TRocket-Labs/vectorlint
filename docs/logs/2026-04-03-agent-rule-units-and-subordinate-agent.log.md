@@ -23,3 +23,8 @@
 - **Status**: completed
 - **What was done**: Replaced the lint tool contract with an explicit `rules[]` payload, added the subordinate `agent` tool input schema with capability-tier selection, and registered the new tool descriptions so the runtime can build on stable contracts.
 - **Files changed**: `src/agent/tools-registry.ts`, `src/agent/types.ts`, `tests/agent/types-contract.test.ts`
+
+### Task: Build deterministic matched rule units
+- **Status**: completed
+- **What was done**: Extracted shared token estimation, added deterministic matched-rule-unit grouping under a token budget, updated the system prompt to render matched rule units explicitly per file, and taught the executor to precompute those units before starting the agent loop.
+- **Files changed**: `src/agent/executor.ts`, `src/agent/prompt-builder.ts`, `src/agent/rule-units.ts`, `src/boundaries/user-instruction-loader.ts`, `src/utils/token-estimate.ts`, `tests/agent/agent-executor.test.ts`, `tests/agent/prompt-builder.test.ts`, `tests/agent/rule-units.test.ts`

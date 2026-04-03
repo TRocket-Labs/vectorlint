@@ -1,6 +1,8 @@
+import type { MatchedRuleUnit } from './rule-units';
+
 export interface BuildAgentSystemPromptParams {
   workspaceRoot: string;
-  fileRuleMatches: Array<{ file: string; ruleSource: string }>;
+  matchedRuleUnits: MatchedRuleUnit[];
   availableTools: Array<{ name: string; description: string }>;
   userInstructions?: string;
 }
@@ -12,45 +14,50 @@ function formatBulletedList(values: string[]): string {
   return values.map((value) => `- ${value}`).join('\n');
 }
 
-function formatFileRuleMatches(
-  matches: Array<{ file: string; ruleSource: string }>
+function formatMatchedRuleUnits(
+  matchedRuleUnits: MatchedRuleUnit[]
 ): string {
-  if (matches.length === 0) {
+  if (matchedRuleUnits.length === 0) {
     return '- (none)';
   }
 
-  const rulesByFile = new Map<string, string[]>();
-  for (const { file, ruleSource } of matches) {
-    const rules = rulesByFile.get(file) ?? [];
-    rules.push(ruleSource);
-    rulesByFile.set(file, rules);
+  const unitsByFile = new Map<string, MatchedRuleUnit[]>();
+  for (const matchedRuleUnit of matchedRuleUnits) {
+    const units = unitsByFile.get(matchedRuleUnit.file) ?? [];
+    units.push(matchedRuleUnit);
+    unitsByFile.set(matchedRuleUnit.file, units);
   }
 
-  return Array.from(rulesByFile.entries())
-    .map(([file, rules]) => `- ${file}\n${rules.map((rule) => `  - ${rule}`).join('\n')}`)
+  return Array.from(unitsByFile.entries())
+    .map(([file, units]) => {
+      const renderedUnits = units
+        .map((unit) => `  - Matched Rule Unit:\n${unit.rules.map((rule) => `    - ${rule.ruleSource}`).join('\n')}`)
+        .join('\n');
+      return `- ${file}\n${renderedUnits}`;
+    })
     .join('\n');
 }
 
 export function buildAgentSystemPrompt(params: BuildAgentSystemPromptParams): string {
   const date = new Date().toISOString().slice(0, 10);
   const userInstructions = params.userInstructions?.trim();
-  const fileRuleMatches = formatFileRuleMatches(params.fileRuleMatches);
+  const matchedRuleUnits = formatMatchedRuleUnits(params.matchedRuleUnits);
 
   return `You are a senior technical writer. You review documentation files against source-backed rules to identify quality issues, inconsistencies, and violations.
 
 Your goal is to produce a thorough, complete review of every file against every matched rule.
 
 Workflow:
-1. You are given matched file-rule pairs. Work through each file one at a time — complete every matched rule for a file before moving to the next.
-2. For each file-rule pair, review the file against the rule.
-3. After reviewing the file, read the rule. If the rule contains top-level review instructions — such as checking for documentation drift, verifying that certain files exist, or any other workspace-level check — carry them out and report any findings.
+1. You are given matched rule units. Work through each file one at a time — complete every matched rule unit for a file before moving to the next.
+2. For each matched rule unit, review the file against every rule in that unit.
+3. After reviewing the file, read each rule in the current unit. If a rule contains top-level review instructions — such as checking for documentation drift, verifying that certain files exist, or any other workspace-level check — carry them out and report any findings.
 4. When every file has been reviewed against all of its matched rules, you MUST call the finalize_review tool.
 
 Available tools:
 ${formatBulletedList(params.availableTools.map((toolDef) => `${toolDef.name}: ${toolDef.description}`))}
 
-Review files and matched rules:
-${fileRuleMatches}${userInstructions ? `\n\nUser Instructions (from VECTORLINT.md):\n${userInstructions}` : ''}
+Review files and Matched Rule Units:
+${matchedRuleUnits}${userInstructions ? `\n\nUser Instructions (from VECTORLINT.md):\n${userInstructions}` : ''}
 
 Current date: ${date}
 Workspace root: ${params.workspaceRoot}`;

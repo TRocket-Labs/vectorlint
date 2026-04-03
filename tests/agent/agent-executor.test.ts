@@ -25,6 +25,27 @@ function makePrompt(): PromptFile {
   };
 }
 
+function makePromptVariant(params: {
+  fullPath: string;
+  id: string;
+  name: string;
+  body: string;
+}): PromptFile {
+  return {
+    id: params.id.toLowerCase(),
+    filename: path.basename(params.fullPath),
+    fullPath: params.fullPath,
+    pack: 'Default',
+    body: params.body,
+    meta: {
+      id: params.id,
+      name: params.name,
+      type: 'check',
+      severity: Severity.WARNING,
+    },
+  };
+}
+
 function makeProvider(
   script: (params: Record<string, unknown>) => Promise<{ usage?: { inputTokens: number; outputTokens: number } }>
 ): LLMProvider {
@@ -86,7 +107,7 @@ describe('agent executor', () => {
     }
   });
 
-  it('exposes only non-mutating analysis tools plus finalize_review', async () => {
+  it('exposes only read-only analysis tools plus finalize_review', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
     const repo = createTempRepo();
@@ -96,6 +117,7 @@ describe('agent executor', () => {
       const tools = (params.tools ?? {}) as Record<string, unknown>;
       const names = Object.keys(tools).sort();
       expect(names).toEqual([
+        'agent',
         'finalize_review',
         'lint',
         'list_directory',
@@ -127,6 +149,48 @@ describe('agent executor', () => {
     ]);
   });
 
+  it('builds the agent loop prompt from matched rule units', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const provider = makeProvider(async (params) => {
+      const systemPrompt = String(params.systemPrompt ?? '');
+
+      expect(systemPrompt).toContain('Review files and Matched Rule Units:');
+      expect(systemPrompt).toContain('- doc.md');
+      expect(systemPrompt).toContain('  - Matched Rule Unit:');
+      expect(systemPrompt).toContain('    - packs/default/consistency.md');
+      expect(systemPrompt).toContain('    - packs/default/links.md');
+
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [
+        makePrompt(),
+        makePromptVariant({
+          fullPath: 'packs/default/links.md',
+          id: 'Links',
+          name: 'Links',
+          body: 'Find broken links.',
+        }),
+      ],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+  });
+
   it('returns explicit tool error for unknown ruleSource with valid-source hints', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
@@ -139,7 +203,7 @@ describe('agent executor', () => {
       try {
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/does-not-exist.md',
+          rules: [{ ruleSource: 'packs/default/does-not-exist.md' }],
         });
       } catch (error) {
         expect(error).toBeInstanceOf(AgentToolError);
@@ -207,7 +271,7 @@ describe('agent executor', () => {
       const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
       await tools.lint.execute({
         file: 'doc.md',
-        ruleSource: 'packs/default/consistency.md',
+        rules: [{ ruleSource: 'packs/default/consistency.md' }],
       });
       await tools.report_finding.execute({
         kind: 'top-level',
@@ -275,7 +339,7 @@ describe('agent executor', () => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 11, outputTokens: 5 } };
@@ -339,7 +403,7 @@ describe('agent executor', () => {
 
       await tools.lint.execute({
         file: 'doc.md',
-        ruleSource: 'packs/default/consistency.md',
+        rules: [{ ruleSource: 'packs/default/consistency.md' }],
       });
       await tools.report_finding.execute({
         kind: 'top-level',
@@ -484,7 +548,7 @@ describe('agent executor', () => {
       try {
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/does-not-exist.md',
+          rules: [{ ruleSource: 'packs/default/does-not-exist.md' }],
         });
       } catch (error) {
         toolError = error instanceof Error ? error.message : String(error);
@@ -492,7 +556,7 @@ describe('agent executor', () => {
 
       await tools.lint.execute({
         file: 'doc.md',
-        ruleSource: 'packs/default/consistency.md',
+        rules: [{ ruleSource: 'packs/default/consistency.md' }],
       });
       await tools.finalize_review.execute({ summary: 'done' });
 
@@ -564,7 +628,7 @@ describe('agent executor', () => {
       const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
       await tools.lint.execute({
         file: 'doc.md',
-        ruleSource: 'packs/default/consistency.md',
+        rules: [{ ruleSource: 'packs/default/consistency.md' }],
       });
       return { usage: { inputTokens: 1, outputTokens: 1 } };
     });
@@ -601,8 +665,12 @@ describe('agent executor', () => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
-          reviewInstruction: 'Review this file for wording consistency using the evidence you gathered.',
+          rules: [
+            {
+              ruleSource: 'packs/default/consistency.md',
+              reviewInstruction: 'Review this file for wording consistency using the evidence you gathered.',
+            },
+          ],
         });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 1, outputTokens: 1 } };
@@ -643,7 +711,7 @@ describe('agent executor', () => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 1, outputTokens: 1 } };
@@ -733,7 +801,7 @@ describe('agent executor', () => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 1, outputTokens: 1 } };
