@@ -3,6 +3,7 @@ import { createProvider, ProviderType } from '../src/providers/provider-factory'
 import { VercelAIProvider } from '../src/providers/vercel-ai-provider';
 import { DefaultRequestBuilder } from '../src/providers/request-builder';
 import type { EnvConfig } from '../src/schemas/env-schemas';
+import { MODEL_CAPABILITY_TIERS, resolveConfiguredModelForCapability } from '../src/providers/model-capability';
 
 // Mock the Vercel AI SDK provider creators
 vi.mock('@ai-sdk/openai', () => ({
@@ -391,6 +392,109 @@ describe('Provider Factory', () => {
       };
 
       expect(() => createProvider(envConfig)).not.toThrow();
+    });
+  });
+
+  describe('Capability Tier Resolver', () => {
+    it('exposes the expected tier order', () => {
+      expect(MODEL_CAPABILITY_TIERS).toEqual(['high-capability', 'mid-capability', 'low-capability']);
+    });
+
+    it('resolves OpenAI capability tiers with upward-only fallback', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_LOW_CAPABILITY_MODEL: 'gpt-4o-mini',
+        OPENAI_MID_CAPABILITY_MODEL: 'gpt-4o',
+        OPENAI_HIGH_CAPABILITY_MODEL: 'gpt-4.1',
+      };
+
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-capability')).toBe('gpt-4o-mini');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-capability')).toBe('gpt-4o');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-capability')).toBe('gpt-4.1');
+    });
+
+    it('resolves Anthropic capability tiers with upward-only fallback', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.Anthropic,
+        ANTHROPIC_API_KEY: 'sk-ant-test-key',
+        ANTHROPIC_MODEL: 'claude-3-sonnet-20240229',
+        ANTHROPIC_LOW_CAPABILITY_MODEL: 'claude-3-haiku-20240307',
+        ANTHROPIC_MID_CAPABILITY_MODEL: 'claude-3-5-sonnet-20241022',
+        ANTHROPIC_HIGH_CAPABILITY_MODEL: 'claude-opus-4-20250514',
+      };
+
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-capability')).toBe('claude-3-haiku-20240307');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-capability')).toBe('claude-3-5-sonnet-20241022');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-capability')).toBe('claude-opus-4-20250514');
+    });
+
+    it('resolves Gemini capability tiers with upward-only fallback', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.Gemini,
+        GEMINI_API_KEY: 'gemini-key',
+        GEMINI_MODEL: 'gemini-2.5-flash',
+        GEMINI_LOW_CAPABILITY_MODEL: 'gemini-2.0-flash',
+        GEMINI_MID_CAPABILITY_MODEL: 'gemini-2.5-flash',
+        GEMINI_HIGH_CAPABILITY_MODEL: 'gemini-2.5-pro',
+      };
+
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-capability')).toBe('gemini-2.0-flash');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-capability')).toBe('gemini-2.5-flash');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-capability')).toBe('gemini-2.5-pro');
+    });
+
+    it('resolves Bedrock capability tiers with upward-only fallback', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.AmazonBedrock,
+        AWS_REGION: 'us-east-1',
+        BEDROCK_MODEL: 'global.anthropic.claude-sonnet-4-5-20250929-v1:0',
+        BEDROCK_LOW_CAPABILITY_MODEL: 'anthropic.claude-3-haiku-20240307-v1:0',
+        BEDROCK_MID_CAPABILITY_MODEL: 'anthropic.claude-3-sonnet-20240229-v1:0',
+        BEDROCK_HIGH_CAPABILITY_MODEL: 'anthropic.claude-3-5-sonnet-20240620-v1:0',
+      };
+
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-capability')).toBe('anthropic.claude-3-haiku-20240307-v1:0');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-capability')).toBe('anthropic.claude-3-sonnet-20240229-v1:0');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-capability')).toBe('anthropic.claude-3-5-sonnet-20240620-v1:0');
+    });
+
+    it('resolves Azure deployment names with upward-only fallback', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.AzureOpenAI,
+        AZURE_OPENAI_API_KEY: 'test-key',
+        AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
+        AZURE_OPENAI_DEPLOYMENT_NAME: 'default-deployment',
+        AZURE_OPENAI_LOW_CAPABILITY_DEPLOYMENT_NAME: 'low-deployment',
+        AZURE_OPENAI_MID_CAPABILITY_DEPLOYMENT_NAME: 'mid-deployment',
+        AZURE_OPENAI_HIGH_CAPABILITY_DEPLOYMENT_NAME: 'high-deployment',
+      };
+
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-capability')).toBe('low-deployment');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-capability')).toBe('mid-deployment');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-capability')).toBe('high-deployment');
+    });
+
+    it('falls back to the provider default when capability tiers are absent', () => {
+      const openaiEnv: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+      const azureEnv: EnvConfig = {
+        LLM_PROVIDER: ProviderType.AzureOpenAI,
+        AZURE_OPENAI_API_KEY: 'test-key',
+        AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
+        AZURE_OPENAI_DEPLOYMENT_NAME: 'default-deployment',
+      };
+
+      expect(resolveConfiguredModelForCapability(openaiEnv, 'low-capability')).toBe('gpt-4o');
+      expect(resolveConfiguredModelForCapability(openaiEnv, 'mid-capability')).toBe('gpt-4o');
+      expect(resolveConfiguredModelForCapability(openaiEnv, 'high-capability')).toBe('gpt-4o');
+      expect(resolveConfiguredModelForCapability(azureEnv, 'low-capability')).toBe('default-deployment');
+      expect(resolveConfiguredModelForCapability(azureEnv, 'mid-capability')).toBe('default-deployment');
+      expect(resolveConfiguredModelForCapability(azureEnv, 'high-capability')).toBe('default-deployment');
     });
   });
 });
