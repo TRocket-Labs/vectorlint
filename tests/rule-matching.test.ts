@@ -216,13 +216,13 @@ describe('rule matching', () => {
     vi.spyOn(evaluators, 'createEvaluator').mockImplementation(
       (_type: string, _provider: unknown, prompt: PromptFile) =>
         ({
-          evaluate: vi.fn(async () => {
+          evaluate: vi.fn(() => {
             standardMatchedPromptSources.push(prompt.fullPath);
-            return {
+            return Promise.resolve({
               type: EvaluationType.CHECK,
               violations: [],
               word_count: 10,
-            };
+            });
           }),
         }) as never
     );
