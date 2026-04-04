@@ -1,6 +1,7 @@
 import micromatch from 'micromatch';
 import type { FilePatternConfig } from './file-section-parser';
 import type { FileResolution } from './types';
+import { NoConfigurationFoundError } from '../errors';
 
 /**
  * Calculates a specificity score for a glob pattern.
@@ -26,7 +27,7 @@ export class ScanPathResolver {
 
         if (matches.length === 0) {
             // No configuration matches this file
-            throw new Error(`No configuration found for this path: ${filePath}`);
+            throw new NoConfigurationFoundError(filePath);
         }
 
         // 2. Sort matches by specificity (Ascending)

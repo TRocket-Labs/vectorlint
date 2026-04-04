@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import type { PromptFile } from '../prompts/prompt-loader';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
-import { handleUnknownError, MissingDependencyError } from '../errors/index';
+import { handleUnknownError, MissingDependencyError, NoConfigurationFoundError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { Severity, Type } from '../evaluators/types';
 import {
@@ -145,11 +145,26 @@ export async function evaluateFile(
   }
 
   // Determine applicable prompts for this file
-  const toRun: PromptFile[] = resolveMatchedPromptsForFile({
-    filePath: relFile,
-    prompts,
-    scanPaths,
-  }).prompts;
+  let toRun: PromptFile[];
+  try {
+    toRun = resolveMatchedPromptsForFile({
+      filePath: relFile,
+      prompts,
+      scanPaths,
+    }).prompts;
+  } catch (e: unknown) {
+    if (e instanceof NoConfigurationFoundError) {
+      return {
+        errors: 0,
+        warnings: 0,
+        requestFailures: 0,
+        hadOperationalErrors: false,
+        hadSeverityErrors: false,
+        tokenUsage: { totalInputTokens: 0, totalOutputTokens: 0 },
+      };
+    }
+    throw e;
+  }
 
   // If VECTORLINT.md content was loaded, append a synthetic prompt so it is
   // evaluated alongside any matched rule prompts.

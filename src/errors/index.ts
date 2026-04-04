@@ -38,6 +38,14 @@ export class AgentToolError extends VectorlintError {
   }
 }
 
+// No configuration found error for when no rule config matches a file path
+export class NoConfigurationFoundError extends VectorlintError {
+  constructor(public readonly filePath: string) {
+    super(`No configuration found for this path: ${filePath}`, 'NO_CONFIGURATION_FOUND');
+    this.name = 'NoConfigurationFoundError';
+  }
+}
+
 // Missing dependency error for when required dependencies are not available
 export class MissingDependencyError extends VectorlintError {
   constructor(

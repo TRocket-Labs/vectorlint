@@ -12,7 +12,7 @@ import type { TokenUsage } from '../providers/token-usage';
 import type { OutputFormat } from '../cli/types';
 import { createReviewSessionStore } from './review-session-store';
 import { buildAgentSystemPrompt } from './prompt-builder';
-import { AgentToolError } from '../errors';
+import { AgentToolError, NoConfigurationFoundError } from '../errors';
 import { buildMatchedRuleUnits } from './rule-units';
 import {
   createAgentTools,
@@ -90,7 +90,6 @@ interface FileRuleMatchBuildResult {
   unmatchedFiles: string[];
 }
 
-const NO_CONFIGURATION_FOUND_PREFIX = 'No configuration found for this path:';
 
 function mergeTokenUsage(left?: TokenUsage, right?: TokenUsage): TokenUsage | undefined {
   if (!left && !right) {
@@ -117,10 +116,6 @@ function resolvePromptBySource(
 ): PromptFile | undefined {
   const normalized = normalizeRuleSource(ruleSource);
   return promptBySource.get(normalized);
-}
-
-function isNoConfigurationFoundError(error: unknown): boolean {
-  return error instanceof Error && error.message.startsWith(NO_CONFIGURATION_FOUND_PREFIX);
 }
 
 function withProgressFile<T extends Omit<VisibleToolContext, 'progressFile'> & { progressFile?: string }>(
@@ -150,7 +145,7 @@ function buildFileRuleMatches(
         scanPaths,
       }));
     } catch (error) {
-      if (isNoConfigurationFoundError(error)) {
+      if (error instanceof NoConfigurationFoundError) {
         unmatchedFiles.push(relFile);
         continue;
       }
