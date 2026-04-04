@@ -61,7 +61,7 @@ class ValeJsonIssueSink implements IssueSink {
 }
 
 class StructuredIssueSink implements IssueSink {
-  constructor(private readonly formatter: JsonFormatter | RdJsonFormatter) {}
+  constructor(protected readonly formatter: JsonFormatter | RdJsonFormatter) {}
 
   reportIssue(issue: SinkIssue): void {
     const matchLen = issue.match ? issue.match.length : 0;
@@ -82,12 +82,12 @@ class StructuredIssueSink implements IssueSink {
 }
 
 class JsonIssueSink extends StructuredIssueSink {
-  constructor(private readonly jsonFormatter: JsonFormatter) {
-    super(jsonFormatter);
+  constructor(formatter: JsonFormatter) {
+    super(formatter);
   }
 
   addEvaluationScore(file: string, score: EvaluationScore): void {
-    this.jsonFormatter.addEvaluationScore(file, score);
+    (this.formatter as JsonFormatter).addEvaluationScore(file, score);
   }
 }
 

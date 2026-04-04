@@ -2,14 +2,12 @@ import type { PromptFile } from '../prompts/prompt-loader';
 import type { LLMProvider } from '../providers/llm-provider';
 import type { CapabilityProviderResolver } from '../providers/capability-provider-resolver';
 import type { SearchProvider } from '../providers/search-provider';
-import type { PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
 import type { FilePatternConfig } from '../boundaries/file-section-parser';
 import type { EvaluationSummary } from '../output/reporter';
 import { ValeJsonFormatter } from '../output/vale-json-formatter';
-import { JsonFormatter, type ScoreComponent } from '../output/json-formatter';
+import { JsonFormatter } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
-import type { PromptEvaluationResult, JudgeResult } from '../prompts/schema';
-import { Severity } from '../evaluators/types';
+import type { PromptEvaluationResult } from '../prompts/schema';
 import type { TokenUsageStats, PricingConfig } from '../providers/token-usage';
 
 export enum OutputFormat {
@@ -78,43 +76,6 @@ export interface EvaluationContext {
     jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
     verbose?: boolean;
     debugJson?: boolean;
-}
-
-export interface ProcessViolationsParams extends EvaluationContext {
-    violations: Array<{
-        line?: number;
-        quoted_text?: string;
-        context_before?: string;
-        context_after?: string;
-        message?: string;
-        analysis?: string;
-        suggestion?: string;
-        fix?: string;
-    }>;
-    severity: Severity;
-    ruleName: string;
-    scoreText: string;
-}
-
-export interface ProcessCriterionParams extends EvaluationContext {
-    exp: PromptCriterionSpec;
-    result: JudgeResult;
-    packName: string;
-    promptId: string;
-    promptFilename: string;
-    meta: PromptMeta;
-}
-
-export interface ProcessCriterionResult extends ErrorTrackingResult {
-    userScore: number;
-    maxScore: number;
-    scoreEntry: { id: string; scoreText: string; score?: number };
-    scoreComponent?: ScoreComponent;
-}
-
-export interface ValidationParams {
-    meta: PromptMeta;
-    result: JudgeResult;
 }
 
 export interface ProcessPromptResultParams extends EvaluationContext {
