@@ -1,18 +1,32 @@
-import type {
-  ProcessViolationsParams,
-  ReportIssueParams,
-} from './types';
+import type { ReportIssueParams } from './types';
 import {
   computeFilterDecision,
   type FilterDecision,
 } from '../evaluators/violation-filter';
 import { handleUnknownError } from '../errors/index';
-import { printIssueRow } from '../output/reporter';
-import { JsonFormatter, type Issue } from '../output/json-formatter';
 import { locateQuotedText } from '../output/location';
-import { RdJsonFormatter } from '../output/rdjson-formatter';
-import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
-import { OutputFormat } from './types';
+import type { Severity } from '../evaluators/types';
+import { createIssueSink, type IssueSink, type SinkIssue } from './result-routing/issue-sink';
+
+interface LocateAndReportViolationsParams {
+  violations: Array<{
+    line?: number;
+    quoted_text?: string;
+    context_before?: string;
+    context_after?: string;
+    message?: string;
+    analysis?: string;
+    suggestion?: string;
+    fix?: string;
+  }>;
+  content: string;
+  relFile: string;
+  severity: Severity;
+  ruleName: string;
+  scoreText: string;
+  sink: IssueSink;
+  verbose?: boolean;
+}
 
 /*
  * Constructs a hierarchical rule name following the pattern:
@@ -35,66 +49,8 @@ export function buildRuleName(
  * Reports an issue in either line or JSON format.
  */
 export function reportIssue(params: ReportIssueParams): void {
-  const {
-    file,
-    line,
-    column,
-    severity,
-    summary,
-    ruleName,
-    outputFormat,
-    jsonFormatter,
-    analysis,
-    suggestion,
-    fix,
-    scoreText,
-    match,
-  } = params;
-
-  if (outputFormat === OutputFormat.Line) {
-    const locStr = `${line}:${column}`;
-    printIssueRow(
-      locStr,
-      severity,
-      summary,
-      ruleName,
-      suggestion ? { suggestion } : {}
-    );
-  } else if (outputFormat === OutputFormat.ValeJson) {
-    const issue: JsonIssue = {
-      file,
-      line,
-      column,
-      severity,
-      message: summary,
-      rule: ruleName,
-      match: match || '',
-      matchLength: match ? match.length : 0,
-      ...(suggestion !== undefined ? { suggestion } : {}),
-      ...(fix !== undefined ? { fix } : {}),
-      ...(scoreText !== undefined ? { score: scoreText } : {}),
-    };
-    (jsonFormatter as ValeJsonFormatter).addIssue(issue);
-  } else if (
-    outputFormat === OutputFormat.Json ||
-    outputFormat === OutputFormat.RdJson
-  ) {
-    const matchLen = match ? match.length : 0;
-    const endColumn = column + matchLen;
-    const issue: Issue = {
-      line,
-      column,
-      span: [column, endColumn],
-      severity,
-      message: summary,
-      rule: ruleName,
-      match: match || '',
-      ...(analysis ? { analysis } : {}),
-      ...(suggestion ? { suggestion } : {}),
-      ...(fix ? { fix } : {}),
-    };
-    (jsonFormatter as JsonFormatter | RdJsonFormatter).addIssue(file, issue);
-  }
+  const sink = createIssueSink(params.outputFormat, params.jsonFormatter);
+  sink.reportIssue(toSinkIssue(params));
 }
 
 /*
@@ -103,7 +59,7 @@ export function reportIssue(params: ReportIssueParams): void {
  * and continues processing. Returns hadOperationalErrors=true if any violations
  * couldn't be located, signaling text matching issues vs. content quality issues.
  */
-export function locateAndReportViolations(params: ProcessViolationsParams): {
+export function locateAndReportViolations(params: LocateAndReportViolationsParams): {
   hadOperationalErrors: boolean;
 } {
   const {
@@ -113,8 +69,7 @@ export function locateAndReportViolations(params: ProcessViolationsParams): {
     severity,
     ruleName,
     scoreText,
-    outputFormat,
-    jsonFormatter,
+    sink,
     verbose,
   } = params;
 
@@ -190,15 +145,13 @@ export function locateAndReportViolations(params: ProcessViolationsParams): {
     matchedText,
     rowSummary,
   } of verifiedViolations) {
-    reportIssue({
+    sink.reportIssue({
       file: relFile,
       line,
       column,
       severity,
       summary: rowSummary,
       ruleName,
-      outputFormat,
-      jsonFormatter,
       ...(v.analysis !== undefined && { analysis: v.analysis }),
       ...(v.suggestion !== undefined && { suggestion: v.suggestion }),
       ...(v.fix !== undefined && { fix: v.fix }),
@@ -208,6 +161,36 @@ export function locateAndReportViolations(params: ProcessViolationsParams): {
   }
 
   return { hadOperationalErrors };
+}
+
+function toSinkIssue(params: ReportIssueParams): SinkIssue {
+  const {
+    file,
+    line,
+    column,
+    severity,
+    summary,
+    ruleName,
+    analysis,
+    suggestion,
+    fix,
+    scoreText,
+    match,
+  } = params;
+
+  return {
+    file,
+    line,
+    column,
+    severity,
+    summary,
+    ruleName,
+    ...(analysis !== undefined ? { analysis } : {}),
+    ...(suggestion !== undefined ? { suggestion } : {}),
+    ...(fix !== undefined ? { fix } : {}),
+    ...(scoreText !== undefined ? { scoreText } : {}),
+    ...(match !== undefined ? { match } : {}),
+  };
 }
 
 export function getViolationFilterResults<
