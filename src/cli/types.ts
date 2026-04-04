@@ -49,6 +49,7 @@ export interface EvaluationOptions {
     printMode?: boolean;
     agentMaxRetries?: number;
     pricing?: PricingConfig;
+    systemDirective?: string;
     userInstructionContent?: string;
 }
 
@@ -77,22 +78,6 @@ export interface EvaluationContext {
     jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
     verbose?: boolean;
     debugJson?: boolean;
-}
-
-export interface ReportIssueParams {
-    file: string;
-    line: number;
-    column: number;
-    severity: Severity;
-    summary: string;
-    ruleName: string;
-    outputFormat: OutputFormat;
-    jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
-    analysis?: string;
-    suggestion?: string;
-    fix?: string;
-    scoreText?: string;
-    match?: string;
 }
 
 export interface ProcessViolationsParams extends EvaluationContext {
@@ -143,6 +128,8 @@ export interface RunPromptEvaluationParams {
     content: string;
     provider: LLMProvider;
     searchProvider?: SearchProvider;
+    systemDirective?: string;
+    userInstructions?: string;
 }
 
 export interface RunPromptEvaluationResultSuccess {

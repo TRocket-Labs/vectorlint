@@ -18,24 +18,21 @@ import { calculateCheckScore } from '../scoring';
 import { JsonFormatter } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
 import { ValeJsonFormatter } from '../output/vale-json-formatter';
-import { reportIssue } from './issue-output';
+import { createIssueSink, type IssueSink } from './result-routing/issue-sink';
 
 function reportAgentFinding(params: {
   finding: AgentFinding;
-  outputFormat: OutputFormat;
-  jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
+  sink: IssueSink;
 }): void {
-  const { finding, outputFormat, jsonFormatter } = params;
+  const { finding, sink } = params;
 
-  reportIssue({
+  sink.reportIssue({
     file: finding.file,
     line: finding.line,
     column: finding.column,
     severity: finding.severity,
     summary: finding.message,
     ruleName: finding.ruleId,
-    outputFormat,
-    jsonFormatter,
     ...(finding.analysis ? { analysis: finding.analysis } : {}),
     ...(finding.suggestion ? { suggestion: finding.suggestion } : {}),
     ...(finding.fix ? { fix: finding.fix } : {}),
@@ -198,9 +195,13 @@ export async function evaluateFilesInAgentMode(
     progressReporter,
     maxParallelToolCalls: 3,
     maxRetries: options.agentMaxRetries ?? 10,
-    userInstructions: options.userInstructionContent,
+    ...(options.systemDirective ? { systemDirective: options.systemDirective } : {}),
+    ...(options.userInstructionContent !== undefined
+      ? { userInstructions: options.userInstructionContent }
+      : {}),
   });
 
+  const sink = createIssueSink(outputFormat, jsonFormatter);
   let totalErrors = 0;
   let totalWarnings = 0;
   const printedFileHeaders = new Set<string>();
@@ -209,7 +210,7 @@ export async function evaluateFilesInAgentMode(
       printFileHeader(finding.file);
       printedFileHeaders.add(finding.file);
     }
-    reportAgentFinding({ finding, outputFormat, jsonFormatter });
+    reportAgentFinding({ finding, sink });
     if (finding.severity === Severity.ERROR) {
       totalErrors += 1;
     } else {

@@ -1,4 +1,3 @@
-import type { ReportIssueParams } from './types';
 import {
   computeFilterDecision,
   type FilterDecision,
@@ -6,7 +5,7 @@ import {
 import { handleUnknownError } from '../errors/index';
 import { locateQuotedText } from '../output/location';
 import type { Severity } from '../evaluators/types';
-import { createIssueSink, type IssueSink, type SinkIssue } from './result-routing/issue-sink';
+import { type IssueSink } from './result-routing/issue-sink';
 
 interface LocateAndReportViolationsParams {
   violations: Array<{
@@ -43,14 +42,6 @@ export function buildRuleName(
     parts.push(criterionId);
   }
   return parts.join('.');
-}
-
-/*
- * Reports an issue in either line or JSON format.
- */
-export function reportIssue(params: ReportIssueParams): void {
-  const sink = createIssueSink(params.outputFormat, params.jsonFormatter);
-  sink.reportIssue(toSinkIssue(params));
 }
 
 /*
@@ -161,36 +152,6 @@ export function locateAndReportViolations(params: LocateAndReportViolationsParam
   }
 
   return { hadOperationalErrors };
-}
-
-function toSinkIssue(params: ReportIssueParams): SinkIssue {
-  const {
-    file,
-    line,
-    column,
-    severity,
-    summary,
-    ruleName,
-    analysis,
-    suggestion,
-    fix,
-    scoreText,
-    match,
-  } = params;
-
-  return {
-    file,
-    line,
-    column,
-    severity,
-    summary,
-    ruleName,
-    ...(analysis !== undefined ? { analysis } : {}),
-    ...(suggestion !== undefined ? { suggestion } : {}),
-    ...(fix !== undefined ? { fix } : {}),
-    ...(scoreText !== undefined ? { scoreText } : {}),
-    ...(match !== undefined ? { match } : {}),
-  };
 }
 
 export function getViolationFilterResults<
