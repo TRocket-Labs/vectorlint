@@ -8,6 +8,7 @@ import { Severity } from '../../src/evaluators/types';
 import { OutputFormat } from '../../src/cli/types';
 import { SESSION_EVENT_TYPE } from '../../src/agent/types';
 import { AgentToolError } from '../../src/errors';
+import { HIGH_CAPABILITY_TIER } from '../../src/providers/model-capability';
 
 function makePrompt(): PromptFile {
   return {
@@ -392,7 +393,7 @@ describe('agent executor', () => {
     });
 
     expect(result.hadOperationalErrors).toBe(false);
-    expect(resolvedTier).toBe('high-cap');
+    expect(resolvedTier).toBe(HIGH_CAPABILITY_TIER);
   });
 
   it('merges multiple lint rules into one structured request and preserves rule severity', async () => {
