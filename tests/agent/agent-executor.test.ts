@@ -403,10 +403,10 @@ describe('agent executor', () => {
 
     let structuredCalls = 0;
     const provider: LLMProvider = {
-      runPromptStructured(_content, promptText: string) {
+      runPromptStructured(systemPrompt: string) {
         structuredCalls += 1;
-        expect(promptText).toContain('Rule 1');
-        expect(promptText).toContain('Rule 2');
+        expect(systemPrompt).toContain('Rule 1');
+        expect(systemPrompt).toContain('Rule 2');
         return Promise.resolve({
           data: {
             reasoning: 'ok',
@@ -803,6 +803,39 @@ describe('agent executor', () => {
     ]);
   });
 
+  it('skips unmatched scanPaths targets without hard-failing the agent run', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const provider = makeProvider(async (params) => {
+      const systemPrompt = typeof params.systemPrompt === 'string' ? params.systemPrompt : '';
+      expect(systemPrompt).toContain('Review files and Matched Rule Units:');
+
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      prompts: [makePrompt()],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: 'blog/**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.fileRuleMatches).toEqual([]);
+    expect(result.requestFailures).toBe(0);
+    expect(result.hadOperationalErrors).toBe(true);
+    expect(result.errorMessage).toContain('doc.md');
+    expect(result.errorMessage).toContain('No scanPaths configuration matched');
+  });
+
   it('records the required session event stream and preserves lifecycle ordering', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
@@ -1068,8 +1101,8 @@ describe('agent executor', () => {
 
     const promptBodies: string[] = [];
     const provider: LLMProvider = {
-      runPromptStructured(_content, promptText: string) {
-        promptBodies.push(promptText);
+      runPromptStructured(systemPrompt: string) {
+        promptBodies.push(systemPrompt);
         return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
@@ -1117,8 +1150,8 @@ describe('agent executor', () => {
 
     const promptBodies: string[] = [];
     const provider: LLMProvider = {
-      runPromptStructured(_content, promptText: string) {
-        promptBodies.push(promptText);
+      runPromptStructured(systemPrompt: string) {
+        promptBodies.push(systemPrompt);
         return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
@@ -1158,8 +1191,8 @@ describe('agent executor', () => {
 
     const promptBodies: string[] = [];
     const provider: LLMProvider = {
-      runPromptStructured(_content, promptText: string) {
-        promptBodies.push(promptText);
+      runPromptStructured(systemPrompt: string) {
+        promptBodies.push(systemPrompt);
         return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
