@@ -1,7 +1,6 @@
 import { readFileSync } from 'fs';
 import * as path from 'path';
 import type { PromptFile } from '../prompts/prompt-loader';
-import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
@@ -21,6 +20,7 @@ import type {
 import { routePromptResult } from './result-routing';
 import { OutputFormat } from './types';
 import { type TokenUsageStats } from '../providers/token-usage';
+import { resolveMatchedPromptsForFile } from '../rules/matched-prompts';
 
 /*
  * Generic concurrency runner that executes workers in parallel up to a specified limit.
@@ -58,7 +58,15 @@ async function runWithConcurrency<T, R>(
 async function runPromptEvaluation(
   params: RunPromptEvaluationParams
 ): Promise<RunPromptEvaluationResult> {
-  const { promptFile, relFile, content, provider, searchProvider } = params;
+  const {
+    promptFile,
+    relFile,
+    content,
+    provider,
+    searchProvider,
+    systemDirective,
+    userInstructions,
+  } = params;
 
   try {
     const meta = promptFile.meta;
@@ -83,7 +91,12 @@ async function runPromptEvaluation(
       evaluatorType,
       provider,
       promptFile,
-      searchProvider
+      searchProvider,
+      undefined,
+      {
+        ...(systemDirective ? { systemDirective } : {}),
+        ...(userInstructions ? { userInstructions } : {}),
+      }
     );
     const result = await evaluator.evaluate(relFile, content);
 
@@ -132,43 +145,14 @@ export async function evaluateFile(
   }
 
   // Determine applicable prompts for this file
-  const toRun: PromptFile[] = [];
+  const toRun: PromptFile[] = resolveMatchedPromptsForFile({
+    filePath: relFile,
+    prompts,
+    scanPaths,
+  }).prompts;
 
-  if (scanPaths && scanPaths.length > 0) {
-    const resolver = new ScanPathResolver();
-    // Extract available packs from loaded prompts
-    const availablePacks = Array.from(
-      new Set(prompts.map((p) => p.pack).filter((p): p is string => !!p))
-    );
-
-    const resolution = resolver.resolveConfiguration(
-      relFile,
-      scanPaths,
-      availablePacks
-    );
-
-    // Filter prompts by active packs - only runs if explicitly in RunRules
-    const activePrompts = prompts.filter((p) => {
-      // Prompts with empty pack (style guide only) always run
-      if (p.pack === '') return true;
-      if (!p.pack || !resolution.packs.includes(p.pack)) return false;
-      if (!p.meta?.id) return true;
-      const disableKey = `${p.pack}.${p.meta.id}`;
-      const overrideValue = resolution.overrides[disableKey];
-      return (
-        typeof overrideValue !== 'string' ||
-        overrideValue.toLowerCase() !== 'disabled'
-      );
-    });
-
-    toRun.push(...activePrompts);
-  } else {
-    // Fallback: When no scanPaths configured, run all prompts.
-    toRun.push(...prompts);
-  }
-
-  // If no rules matched but VECTORLINT.md exists, run an evaluation using it.
-  // The LLM will use the VECTORLINT.md content from the system prompt.
+  // If VECTORLINT.md content was loaded, append a synthetic prompt so it is
+  // evaluated alongside any matched rule prompts.
   if (options.userInstructionContent) {
     toRun.push({
       id: USER_INSTRUCTION_FILENAME,
@@ -194,6 +178,8 @@ export async function evaluateFile(
         content,
         provider,
         ...(searchProvider !== undefined && { searchProvider }),
+        ...(options.systemDirective ? { systemDirective: options.systemDirective } : {}),
+        ...(options.userInstructionContent ? { userInstructions: options.userInstructionContent } : {}),
       });
     }
   );
