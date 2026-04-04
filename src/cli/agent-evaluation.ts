@@ -96,11 +96,6 @@ async function buildAgentRuleScores(
     const matchedFiles = filesByRuleSource.get(normalizeRuleSource(prompt.fullPath)) ?? new Set<string>();
 
     if (matchedFiles.size === 0) {
-      results.push({
-        ruleId,
-        score: 10,
-        scoreText: '10.0/10',
-      });
       continue;
     }
 

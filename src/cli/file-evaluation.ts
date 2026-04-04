@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import type { PromptFile } from '../prompts/prompt-loader';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
-import { handleUnknownError, MissingDependencyError, NoConfigurationFoundError } from '../errors/index';
+import { ConfigError, handleUnknownError, MissingDependencyError, NoConfigurationFoundError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { Severity, Type } from '../evaluators/types';
 import {
@@ -17,6 +17,7 @@ import type {
   RunPromptEvaluationResult,
   RunPromptEvaluationResultSuccess,
 } from './types';
+import { buildRuleName } from './issue-output';
 import { routePromptResult } from './result-routing';
 import { OutputFormat } from './types';
 import { type TokenUsageStats } from '../providers/token-usage';
@@ -82,7 +83,7 @@ async function runPromptEvaluation(
         !Array.isArray(meta.criteria) ||
         meta.criteria.length === 0
       ) {
-        throw new Error(
+        throw new ConfigError(
           `Prompt ${promptFile.filename} has no criteria in frontmatter`
         );
       }
@@ -247,7 +248,7 @@ export async function evaluateFile(
     hadSeverityErrors = hadSeverityErrors || promptResult.hadSeverityErrors;
 
     if (promptResult.scoreEntries && promptResult.scoreEntries.length > 0) {
-      const ruleName = (p.meta.id || p.filename).toString();
+      const ruleName = buildRuleName(p.pack, (p.meta.id || p.filename).toString(), undefined);
       allScores.set(ruleName, promptResult.scoreEntries);
     }
   }

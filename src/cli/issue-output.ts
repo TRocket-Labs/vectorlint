@@ -37,7 +37,7 @@ export function buildRuleName(
   ruleId: string,
   criterionId: string | undefined
 ): string {
-  const parts = [packName, ruleId];
+  const parts = [packName, ruleId].filter(Boolean);
   if (criterionId) {
     parts.push(criterionId);
   }

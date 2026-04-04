@@ -61,7 +61,9 @@ export function routeCheckResult(
   for (const [criterionName, violations] of violationsByCriterion) {
     let criterionId: string | undefined;
     if (criterionName && meta.criteria) {
-      const criterion = meta.criteria.find((entry) => entry.name === criterionName);
+      const criterion = meta.criteria.find(
+        (entry) => entry.name.toLowerCase() === criterionName.toLowerCase()
+      );
       criterionId = criterion?.id;
     }
 

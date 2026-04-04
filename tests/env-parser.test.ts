@@ -231,7 +231,10 @@ describe('Environment Parser', () => {
       expect(() => parseEnvironment(invalidEnv)).toThrow(/Invalid environment variable values.*OPENAI_API_KEY.*String must contain at least 1 character/);
     });
 
-    it('parses provider-scoped capability-tier model fields for Gemini and Bedrock', () => {
+  });
+
+  describe('Gemini and Amazon Bedrock Configuration', () => {
+    it('parses provider-scoped capability-tier model fields', () => {
       const geminiEnv = {
         LLM_PROVIDER: 'gemini',
         GEMINI_API_KEY: 'gemini-key',

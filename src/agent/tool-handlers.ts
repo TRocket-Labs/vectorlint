@@ -9,7 +9,7 @@ import type {
   AgentToolDefinition,
   LLMProvider,
 } from '../providers/llm-provider';
-import type { ModelCapabilityTier } from '../providers/model-capability';
+import { HIGH_CAPABILITY_TIER, type ModelCapabilityTier } from '../providers/model-capability';
 import type { TokenUsage } from '../providers/token-usage';
 import { AgentToolError } from '../errors';
 import { runSubAgent } from './sub-agent';
@@ -320,9 +320,7 @@ export function createToolHandlers(params: CreateToolHandlersParams): AgentToolH
 
   async function agentToolHandler(input: unknown): Promise<unknown> {
     const parsed = AGENT_TOOL_INPUT_SCHEMA.parse(input);
-    const subAgentProvider = parsed.model
-      ? resolveCapabilityProvider(parsed.model)
-      : defaultProvider;
+    const subAgentProvider = resolveCapabilityProvider(parsed.model ?? HIGH_CAPABILITY_TIER);
     const tools = getTools();
     if (!tools) {
       throw new AgentToolError('Agent tools not initialized.', 'TOOLS_NOT_INITIALIZED');

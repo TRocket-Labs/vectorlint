@@ -351,7 +351,7 @@ describe('agent executor', () => {
     const repo = createTempRepo();
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
-    let requestedTierCount = 0;
+    let resolvedTier: string | undefined;
     const provider: LLMProvider = {
       runPromptStructured() {
         throw new Error('not used');
@@ -380,9 +380,9 @@ describe('agent executor', () => {
       targets: [path.join(repo, 'doc.md')],
       prompts: [makePrompt()],
       provider,
-      resolveCapabilityProvider: () => {
-        requestedTierCount += 1;
-        throw new Error('resolveCapabilityProvider should not be used without model');
+      resolveCapabilityProvider: (requested) => {
+        resolvedTier = requested;
+        return provider;
       },
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -392,7 +392,7 @@ describe('agent executor', () => {
     });
 
     expect(result.hadOperationalErrors).toBe(false);
-    expect(requestedTierCount).toBe(0);
+    expect(resolvedTier).toBe('high-cap');
   });
 
   it('merges multiple lint rules into one structured request and preserves rule severity', async () => {
