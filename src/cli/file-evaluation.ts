@@ -140,10 +140,6 @@ export async function evaluateFile(
   const content = readFileSync(file, 'utf-8');
   const relFile = path.relative(process.cwd(), file) || file;
 
-  if (outputFormat === OutputFormat.Line) {
-    printFileHeader(relFile);
-  }
-
   // Determine applicable prompts for this file
   let toRun: PromptFile[];
   try {
@@ -164,6 +160,10 @@ export async function evaluateFile(
       };
     }
     throw e;
+  }
+
+  if (outputFormat === OutputFormat.Line) {
+    printFileHeader(relFile);
   }
 
   // If VECTORLINT.md content was loaded, append a synthetic prompt so it is
