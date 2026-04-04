@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { handleUnknownError } from '../errors/index';
 import { printFileHeader, printValidationRow } from '../output/reporter';
+import { resolvePresetsDir } from './preset-resolution';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const __filename = fileURLToPath(import.meta.url);
@@ -65,7 +66,7 @@ export function registerValidateCommand(program: Command): void {
       const prompts: PromptFile[] = [];
       const warnings: string[] = [];
       try {
-        const presetsDir = path.resolve(__dirname, '../presets');
+        const presetsDir = resolvePresetsDir(__dirname);
         const presetLoader = new PresetLoader(presetsDir);
         const loader = new RulePackLoader(presetLoader);
 

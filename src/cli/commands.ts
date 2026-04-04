@@ -1,8 +1,5 @@
 import type { Command } from 'commander';
 import { existsSync } from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { createProvider } from '../providers/provider-factory';
 import { createCapabilityProviderResolver } from '../providers/capability-provider-resolver';
 import { PerplexitySearchProvider } from '../providers/perplexity-provider';
@@ -13,7 +10,6 @@ import { loadRuleFile, type PromptFile } from '../prompts/prompt-loader';
 import { RulePackLoader } from '../boundaries/rule-pack-loader';
 import { PresetLoader } from '../config/preset-loader';
 import { printGlobalSummary, printTokenUsage } from '../output/reporter';
-import { DefaultRequestBuilder } from '../providers/request-builder';
 import { loadDirective } from '../prompts/directive-loader';
 import { resolveTargets } from '../scan/file-resolver';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
@@ -22,30 +18,14 @@ import { evaluateFiles } from './orchestrator';
 import { AGENT_REVIEW_MODE, DEFAULT_REVIEW_MODE, OUTPUT_FORMATS, OutputFormat } from './types';
 import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { createWinstonLogger } from '../logging/winston-logger';
+import { resolvePresetsDir } from './preset-resolution';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const __filename = fileURLToPath(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const __dirname = dirname(__filename);
-
-/**
- * Resolves the presets directory for both dev and built modes.
- * - Built mode: __dirname is `dist/`, so `../presets` resolves to project root `presets/`
- * - Dev mode: __dirname is `src/cli/`, so `../../presets` resolves to project root `presets/`
- */
-function resolvePresetsDir(dir: string): string {
-  const buildPath = path.resolve(dir, '../presets');
-  if (existsSync(path.join(buildPath, 'meta.json'))) {
-    return buildPath;
-  }
-  // Dev mode fallback: src/cli/ → ../../presets
-  const devPath = path.resolve(dir, '../../presets');
-  if (existsSync(path.join(devPath, 'meta.json'))) {
-    return devPath;
-  }
-
-  throw new Error(`Could not locate presets directory containing meta.json. Looked in ${buildPath} and ${devPath}`);
-}
 
 async function runOrExit<T>(
   context: string,
@@ -117,12 +97,11 @@ export function registerMainCommand(program: Command): void {
         showPromptTrunc: cliOptions.showPromptTrunc,
         logger: runtimeLogger,
       };
-      const requestBuilder = new DefaultRequestBuilder(directive, userInstructions.content || undefined);
       const capabilityProviderResolver = cliOptions.mode === AGENT_REVIEW_MODE
-        ? createCapabilityProviderResolver(env, providerOptions, requestBuilder)
+        ? createCapabilityProviderResolver(env, providerOptions)
         : undefined;
       const provider = capabilityProviderResolver?.defaultProvider
-        ?? createProvider(env, providerOptions, requestBuilder);
+        ?? createProvider(env, providerOptions);
 
       if (cliOptions.verbose) {
         const directiveLen = directive ? directive.length : 0;
@@ -218,6 +197,7 @@ export function registerMainCommand(program: Command): void {
           inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,
           outputPricePerMillion: env.OUTPUT_PRICE_PER_MILLION,
         },
+        ...(directive ? { systemDirective: directive } : {}),
         ...(userInstructions.content ? { userInstructionContent: userInstructions.content } : {}),
       });
 
