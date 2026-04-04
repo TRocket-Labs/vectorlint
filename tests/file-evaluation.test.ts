@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
@@ -27,6 +27,8 @@ describe('evaluateFile', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
+  afterEach(() => vi.restoreAllMocks());
+
   it('returns zeroed metrics when the file matches no scanPaths entry', async () => {
     const file = createTempFile('Hello world\n');
 
@@ -53,5 +55,7 @@ describe('evaluateFile', () => {
     expect(result.requestFailures).toBe(0);
     expect(result.hadOperationalErrors).toBe(false);
     expect(result.hadSeverityErrors).toBe(false);
+    expect(result.tokenUsage.totalInputTokens).toBe(0);
+    expect(result.tokenUsage.totalOutputTokens).toBe(0);
   });
 });
