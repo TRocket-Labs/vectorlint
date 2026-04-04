@@ -6,7 +6,6 @@ import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import type { LanguageModel } from 'ai';
 import { LLMProvider } from './llm-provider';
 import { VercelAIProvider, type VercelAIConfig } from './vercel-ai-provider';
-import { RequestBuilder } from './request-builder';
 import type { EnvConfig } from '../schemas/env-schemas';
 import type { Logger } from '../logging/logger';
 import { ConfigError } from '../errors';
@@ -119,8 +118,7 @@ function resolveProviderConfig(
 export function createProviderForModel(
   envConfig: EnvConfig,
   modelIdentifier: string,
-  options: ProviderOptions = {},
-  builder?: RequestBuilder
+  options: ProviderOptions = {}
 ): LLMProvider {
   const providerConfig = resolveProviderConfig(envConfig, modelIdentifier);
 
@@ -132,7 +130,7 @@ export function createProviderForModel(
     ...(options.logger ? { logger: options.logger } : {}),
   };
 
-  return new VercelAIProvider(config, builder);
+  return new VercelAIProvider(config);
 }
 
 export function getDefaultProviderModelIdentifier(envConfig: EnvConfig): string {
@@ -143,18 +141,15 @@ export function getDefaultProviderModelIdentifier(envConfig: EnvConfig): string 
  * Creates the appropriate LLM provider based on environment configuration
  * @param envConfig - Validated environment configuration
  * @param options - Debug and display options
- * @param builder - Optional request builder (for dependency injection)
  * @returns Configured LLM provider instance
  */
 export function createProvider(
   envConfig: EnvConfig,
-  options: ProviderOptions = {},
-  builder?: RequestBuilder
+  options: ProviderOptions = {}
 ): LLMProvider {
   return createProviderForModel(
     envConfig,
     resolveDefaultModelIdentifier(envConfig),
-    options,
-    builder
+    options
   );
 }

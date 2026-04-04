@@ -3,7 +3,6 @@ import type { LanguageModel } from 'ai';
 import { z } from 'zod';
 import pLimit from 'p-limit';
 import { AgentToolLoopParams, AgentToolLoopResult, LLMProvider, LLMResult } from './llm-provider';
-import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import { createNoopLogger, type Logger } from '../logging/logger';
 
 export interface VercelAIConfig {
@@ -18,27 +17,22 @@ export interface VercelAIConfig {
 
 export class VercelAIProvider implements LLMProvider {
   private config: VercelAIConfig;
-  private builder: RequestBuilder;
   private logger: Logger;
 
-  constructor(config: VercelAIConfig, builder?: RequestBuilder) {
+  constructor(config: VercelAIConfig) {
     this.config = {
       ...config,
       temperature: config.temperature ?? 0.2,
       ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
     };
-    this.builder = builder ?? new DefaultRequestBuilder();
     this.logger = config.logger ?? createNoopLogger();
   };
 
   async runPromptStructured<T = unknown>(
-    content: string,
-    promptText: string,
-    schema: { name: string; schema: Record<string, unknown> },
-    context?: import('./request-builder').EvalContext
+    systemPrompt: string,
+    userMessage: string,
+    schema: { name: string; schema: Record<string, unknown> }
   ): Promise<LLMResult<T>> {
-    const systemPrompt = this.builder.buildPromptBodyForStructured(promptText, context);
-
     // Convert JSON Schema to Zod for Vercel AI SDK
     const zodSchema = this.jsonSchemaToZod(schema);
 
@@ -53,15 +47,15 @@ export class VercelAIProvider implements LLMProvider {
         this.logger.debug('[vectorlint] System prompt (full)');
         this.logger.debug(systemPrompt);
         this.logger.debug('[vectorlint] User content (full)');
-        this.logger.debug(content);
+        this.logger.debug(userMessage);
       } else if (this.config.showPromptTrunc) {
         this.logger.debug('[vectorlint] System prompt (first 500 chars)');
         this.logger.debug(systemPrompt.slice(0, 500));
         if (systemPrompt.length > 500) this.logger.debug('... [truncated]');
-        const preview = content.slice(0, 500);
+        const preview = userMessage.slice(0, 500);
         this.logger.debug('[vectorlint] User content preview (first 500 chars)');
         this.logger.debug(preview);
-        if (content.length > 500) this.logger.debug('... [truncated]');
+        if (userMessage.length > 500) this.logger.debug('... [truncated]');
       }
     }
 
@@ -69,7 +63,7 @@ export class VercelAIProvider implements LLMProvider {
       const result = await generateText({
         model: this.config.model,
         system: systemPrompt,
-        prompt: `Input:\n\n${content}`,
+        prompt: `Input:\n\n${userMessage}`,
         ...(this.config.temperature !== undefined && { temperature: this.config.temperature }),
         ...(this.config.maxTokens !== undefined && { maxTokens: this.config.maxTokens }),
         output: Output.object({

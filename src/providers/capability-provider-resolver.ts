@@ -7,7 +7,6 @@ import {
   getDefaultProviderModelIdentifier,
   type ProviderOptions,
 } from './provider-factory';
-import type { RequestBuilder } from './request-builder';
 
 export interface CapabilityProviderResolver {
   defaultProvider: LLMProvider;
@@ -16,8 +15,7 @@ export interface CapabilityProviderResolver {
 
 export function createCapabilityProviderResolver(
   envConfig: EnvConfig,
-  options: ProviderOptions = {},
-  builder?: RequestBuilder
+  options: ProviderOptions = {}
 ): CapabilityProviderResolver {
   const defaultModelIdentifier = getDefaultProviderModelIdentifier(envConfig);
   const providerCache = new Map<string, LLMProvider>();
@@ -28,7 +26,7 @@ export function createCapabilityProviderResolver(
       return cachedProvider;
     }
 
-    const provider = createProviderForModel(envConfig, modelIdentifier, options, builder);
+    const provider = createProviderForModel(envConfig, modelIdentifier, options);
     providerCache.set(modelIdentifier, provider);
     return provider;
   };

@@ -9,6 +9,11 @@ import type { PromptFile } from '../schemas/prompt-schemas';
  */
 import type { Severity } from './types';
 
+export interface StructuredPromptContext {
+  systemDirective?: string;
+  userInstructions?: string;
+}
+
 /*
  * Factory function signature for creating evaluators.
  * Evaluators can optionally depend on search providers for fact verification.
@@ -17,7 +22,8 @@ export type EvaluatorFactory = (
   llmProvider: LLMProvider,
   prompt: PromptFile,
   searchProvider?: SearchProvider,
-  defaultSeverity?: Severity
+  defaultSeverity?: Severity,
+  structuredPromptContext?: StructuredPromptContext
 ) => Evaluator;
 
 /*
@@ -39,7 +45,8 @@ class EvaluatorRegistry {
     llmProvider: LLMProvider,
     prompt: PromptFile,
     searchProvider?: SearchProvider,
-    defaultSeverity?: Severity
+    defaultSeverity?: Severity,
+    structuredPromptContext?: StructuredPromptContext
   ): Evaluator {
     const factory = this.registry.get(type);
 
@@ -50,7 +57,7 @@ class EvaluatorRegistry {
       );
     }
 
-    return factory(llmProvider, prompt, searchProvider, defaultSeverity);
+    return factory(llmProvider, prompt, searchProvider, defaultSeverity, structuredPromptContext);
   }
 
   getRegisteredTypes(): string[] {
@@ -71,9 +78,10 @@ export function createEvaluator(
   llmProvider: LLMProvider,
   prompt: PromptFile,
   searchProvider?: SearchProvider,
-  defaultSeverity?: Severity
+  defaultSeverity?: Severity,
+  structuredPromptContext?: StructuredPromptContext
 ): Evaluator {
-  return REGISTRY.create(type, llmProvider, prompt, searchProvider, defaultSeverity);
+  return REGISTRY.create(type, llmProvider, prompt, searchProvider, defaultSeverity, structuredPromptContext);
 }
 
 export function getRegisteredEvaluatorTypes(): string[] {

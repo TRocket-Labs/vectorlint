@@ -38,7 +38,6 @@ vi.mock('ai', () => {
 
 // Import SUT after mocks are set up
 import { VercelAIProvider, type VercelAIConfig } from '../src/providers/vercel-ai-provider';
-import { DefaultRequestBuilder, type RequestBuilder } from '../src/providers/request-builder';
 import type { LanguageModel } from 'ai';
 import { createMockLogger } from './utils';
 
@@ -75,20 +74,11 @@ describe('VercelAIProvider', () => {
         schema: { properties: { result: { type: 'string' } }, type: 'object' },
       };
 
-      await provider.runPromptStructured('content', 'prompt', schema);
+      await provider.runPromptStructured('prompt', 'content', schema);
 
       expect(MOCK_GENERATE_TEXT).toHaveBeenCalledWith(
         expect.objectContaining({ temperature: 0.2 })
       );
-    });
-
-    it('accepts custom request builder', () => {
-      const config: VercelAIConfig = {
-        model: MOCK_MODEL,
-      };
-      const customBuilder = new DefaultRequestBuilder('custom directive');
-
-      expect(() => new VercelAIProvider(config, customBuilder)).not.toThrow();
     });
 
     it('accepts all configuration options', () => {
@@ -141,8 +131,8 @@ describe('VercelAIProvider', () => {
       };
 
       const result = await provider.runPromptStructured(
-        'Test content',
         'Test prompt',
+        'Test content',
         schema
       );
 
@@ -181,7 +171,7 @@ describe('VercelAIProvider', () => {
         },
       };
 
-      await provider.runPromptStructured('Test content', 'Test prompt', schema);
+      await provider.runPromptStructured('Test prompt', 'Test content', schema);
 
       expect(MOCK_GENERATE_TEXT).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -210,7 +200,7 @@ describe('VercelAIProvider', () => {
         schema: { properties: { result: { type: 'string' } }, type: 'object' },
       };
 
-      await provider.runPromptStructured('Test content', 'Test prompt', schema);
+      await provider.runPromptStructured('Test prompt', 'Test content', schema);
 
       expect(MOCK_GENERATE_TEXT).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -238,7 +228,7 @@ describe('VercelAIProvider', () => {
       };
 
       await expect(
-        provider.runPromptStructured('Test content', 'Test prompt', schema)
+        provider.runPromptStructured('Test prompt', 'Test content', schema)
       ).rejects.toThrow('LLM failed to generate valid structured output');
     });
 
@@ -256,7 +246,7 @@ describe('VercelAIProvider', () => {
       };
 
       await expect(
-        provider.runPromptStructured('Test content', 'Test prompt', schema)
+        provider.runPromptStructured('Test prompt', 'Test content', schema)
       ).rejects.toThrow('Vercel AI SDK call failed: Unknown error');
     });
   });
@@ -293,7 +283,7 @@ describe('VercelAIProvider', () => {
         schema: { properties: { result: { type: 'string' } }, type: 'object' },
       };
 
-      await provider.runPromptStructured('Test content', 'Test prompt', schema);
+      await provider.runPromptStructured('Test prompt', 'Test content', schema);
 
       expect(logger.debug).toHaveBeenCalledWith(
         '[vectorlint] Sending request via Vercel AI SDK',
@@ -328,42 +318,9 @@ describe('VercelAIProvider', () => {
         schema: { properties: { result: { type: 'string' } }, type: 'object' },
       };
 
-      await provider.runPromptStructured('Test content', 'Test prompt', schema);
+      await provider.runPromptStructured('Test prompt', 'Test content', schema);
 
       expect(logger.debug).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('Request Building', () => {
-    it('uses request builder to build system prompt', async () => {
-      const config: VercelAIConfig = {
-        model: MOCK_MODEL,
-      };
-
-      const mockResult = { output: { result: 'success' } };
-      MOCK_GENERATE_TEXT.mockResolvedValue(mockResult);
-
-      const buildPromptBodyForStructuredFn = vi.fn().mockReturnValue('Built system prompt');
-      const mockBuilder: RequestBuilder = {
-        buildPromptBodyForStructured: buildPromptBodyForStructuredFn,
-      };
-
-      const provider = new VercelAIProvider(config, mockBuilder);
-      const schema = {
-        name: 'test_schema',
-        schema: { properties: { result: { type: 'string' } }, type: 'object' },
-      };
-
-      await provider.runPromptStructured('Test content', 'Test prompt', schema);
-
-      expect(buildPromptBodyForStructuredFn).toHaveBeenCalledWith('Test prompt', undefined);
-
-      expect(MOCK_GENERATE_TEXT).toHaveBeenCalledWith(
-        expect.objectContaining({
-          system: 'Built system prompt',
-          prompt: 'Input:\n\nTest content',
-        })
-      );
     });
   });
 
@@ -388,7 +345,7 @@ describe('VercelAIProvider', () => {
         },
       };
 
-      const result = await provider.runPromptStructured('Test content', 'Test prompt', schema);
+      const result = await provider.runPromptStructured('Test prompt', 'Test content', schema);
       expect(result.data).toEqual({ name: 'test' });
     });
 
@@ -412,7 +369,7 @@ describe('VercelAIProvider', () => {
         },
       };
 
-      const result = await provider.runPromptStructured('Test content', 'Test prompt', schema);
+      const result = await provider.runPromptStructured('Test prompt', 'Test content', schema);
       expect(result.data).toEqual({ score: 42 });
     });
 
@@ -437,7 +394,7 @@ describe('VercelAIProvider', () => {
         },
       };
 
-      const result = await provider.runPromptStructured('Test content', 'Test prompt', schema);
+      const result = await provider.runPromptStructured('Test prompt', 'Test content', schema);
       expect(result.data).toEqual({ requiredField: 'value' });
     });
 
@@ -461,7 +418,7 @@ describe('VercelAIProvider', () => {
         },
       };
 
-      const result = await provider.runPromptStructured('Test content', 'Test prompt', schema);
+      const result = await provider.runPromptStructured('Test prompt', 'Test content', schema);
       expect(result.data).toEqual({ value: 'hello' });
     });
 
@@ -485,7 +442,7 @@ describe('VercelAIProvider', () => {
         },
       };
 
-      const result = await provider.runPromptStructured('Test content', 'Test prompt', schema);
+      const result = await provider.runPromptStructured('Test prompt', 'Test content', schema);
       expect(result.data).toEqual({ name: null });
     });
   });

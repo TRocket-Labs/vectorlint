@@ -1,6 +1,4 @@
-import path from "path";
 import type { LLMProvider } from "../providers/llm-provider";
-import type { EvalContext } from "../providers/request-builder";
 import type { PromptFile } from "../schemas/prompt-schemas";
 import type { TokenUsage } from "../providers/token-usage";
 import {
@@ -26,6 +24,8 @@ import {
   averageJudgeScores,
 } from "../scoring";
 import { prependLineNumbers } from "../output/line-numbering";
+import { composeSystemPrompt } from "../prompts/system-prompt";
+import type { StructuredPromptContext } from "./evaluator-registry";
 
 const CHUNKING_THRESHOLD = 600; // Word count threshold for enabling chunking
 const MAX_CHUNK_SIZE = 500; // Maximum words per chunk
@@ -45,18 +45,19 @@ export class BaseEvaluator implements Evaluator {
   constructor(
     protected llmProvider: LLMProvider,
     protected prompt: PromptFile,
-    protected defaultSeverity?: Severity
+    protected defaultSeverity?: Severity,
+    protected structuredPromptContext?: StructuredPromptContext
   ) { }
 
   async evaluate(file: string, content: string): Promise<PromptEvaluationResult> {
     const type = this.getEvaluationType();
-    const ext = path.extname(file);
-    const context: EvalContext = ext ? { fileType: ext } : {};
+    // Keep signature compatibility for evaluators that depend on file path.
+    void file;
 
     if (type === EvaluationType.JUDGE) {
-      return this.runJudgeEvaluation(content, context);
+      return this.runJudgeEvaluation(content);
     } else {
-      return this.runCheckEvaluation(content, context);
+      return this.runCheckEvaluation(content);
     }
   }
 
@@ -118,10 +119,10 @@ export class BaseEvaluator implements Evaluator {
    * 4. Average scores across chunks (weighted by chunk size).
    */
   protected async runJudgeEvaluation(
-    content: string,
-    context?: EvalContext
+    content: string
   ): Promise<JudgeResult> {
     const schema = buildJudgeLLMSchema();
+    const systemPrompt = this.buildSystemPrompt(this.prompt.body);
 
     // Prepend line numbers for deterministic line reporting
     const numberedContent = prependLineNumbers(content);
@@ -132,10 +133,9 @@ export class BaseEvaluator implements Evaluator {
     if (chunks.length === 1) {
       const { data: llmResult, usage } =
         await this.llmProvider.runPromptStructured<JudgeLLMResult>(
+          systemPrompt,
           numberedContent,
-          this.prompt.body,
-          schema,
-          context
+          schema
         );
 
       const result = calculateJudgeScore(llmResult.criteria, {
@@ -157,10 +157,9 @@ export class BaseEvaluator implements Evaluator {
     for (const chunk of chunks) {
       const { data: llmResult, usage } =
         await this.llmProvider.runPromptStructured<JudgeLLMResult>(
+          systemPrompt,
           chunk.content,
-          this.prompt.body,
-          schema,
-          context
+          schema
         );
 
       usages.push(usage);
@@ -194,10 +193,10 @@ export class BaseEvaluator implements Evaluator {
    * 5. Calculate score once from total violations.
    */
   protected async runCheckEvaluation(
-    content: string,
-    context?: EvalContext
+    content: string
   ): Promise<RawCheckResult> {
     const schema = buildCheckLLMSchema();
+    const systemPrompt = this.buildSystemPrompt(this.prompt.body);
 
     // Prepend line numbers for deterministic line reporting
     const numberedContent = prependLineNumbers(content);
@@ -213,10 +212,9 @@ export class BaseEvaluator implements Evaluator {
     for (const chunk of chunks) {
       const { data: llmResult, usage } =
         await this.llmProvider.runPromptStructured<CheckLLMResult>(
+          systemPrompt,
           chunk.content,
-          this.prompt.body,
-          schema,
-          context
+          schema
         );
       allChunkViolations.push(llmResult.violations);
       rawChunkOutputs.push(llmResult);
@@ -239,13 +237,25 @@ export class BaseEvaluator implements Evaluator {
       ...(aggregatedUsage && { usage: aggregatedUsage }),
     };
   }
+
+  protected buildSystemPrompt(instructions: string): string {
+    return composeSystemPrompt({
+      instructions,
+      ...(this.structuredPromptContext?.systemDirective
+        ? { directive: this.structuredPromptContext.systemDirective }
+        : {}),
+      ...(this.structuredPromptContext?.userInstructions
+        ? { userInstructions: this.structuredPromptContext.userInstructions }
+        : {}),
+    });
+  }
 }
 
 // Register as default evaluator for base type
 // Note: EvaluatorFactory signature is (llmProvider, prompt, searchProvider?, defaultSeverity?)
 registerEvaluator(
   Type.BASE,
-  (llmProvider, prompt, _searchProvider, defaultSeverity) => {
-    return new BaseEvaluator(llmProvider, prompt, defaultSeverity);
+  (llmProvider, prompt, _searchProvider, defaultSeverity, structuredPromptContext) => {
+    return new BaseEvaluator(llmProvider, prompt, defaultSeverity, structuredPromptContext);
   }
 );

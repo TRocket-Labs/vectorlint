@@ -5,6 +5,7 @@ import type { SearchProvider } from "../providers/search-provider";
 import type { PromptFile } from "../schemas/prompt-schemas";
 import type { PromptEvaluationResult, RawCheckResult } from "../prompts/schema";
 import type { TokenUsage } from "../providers/token-usage";
+import type { StructuredPromptContext } from "./evaluator-registry";
 import { renderTemplate } from "../prompts/template-renderer";
 import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
@@ -51,9 +52,10 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     llmProvider: LLMProvider,
     prompt: PromptFile,
     private searchProvider: SearchProvider,
-    defaultSeverity?: Severity
+    defaultSeverity?: Severity,
+    structuredPromptContext?: StructuredPromptContext
   ) {
-    super(llmProvider, prompt, defaultSeverity);
+    super(llmProvider, prompt, defaultSeverity, structuredPromptContext);
   }
 
   async evaluate(_file: string, content: string): Promise<PromptEvaluationResult> {
@@ -97,7 +99,8 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     const evaluator = new BaseEvaluator(
       this.llmProvider,
       enrichedPrompt,
-      this.defaultSeverity
+      this.defaultSeverity,
+      this.structuredPromptContext
     );
     const result = await evaluator.evaluate(_file, content);
 
@@ -139,8 +142,8 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
 
       const { data: claimData, usage } =
         await this.llmProvider.runPromptStructured<unknown>(
+          this.buildSystemPrompt(claimExtractionPrompt),
           content,
-          claimExtractionPrompt,
           claimSchema
         );
 
@@ -238,7 +241,7 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
 // Self-register on module load using registerEvaluator directly
 registerEvaluator(
   Type.TECHNICAL_ACCURACY,
-  (llmProvider, prompt, searchProvider, defaultSeverity) => {
+  (llmProvider, prompt, searchProvider, defaultSeverity, structuredPromptContext) => {
     if (!searchProvider) {
       throw new MissingDependencyError(
         "technical-accuracy evaluator requires a search provider",
@@ -250,7 +253,8 @@ registerEvaluator(
       llmProvider,
       prompt,
       searchProvider,
-      defaultSeverity
+      defaultSeverity,
+      structuredPromptContext
     );
   }
 );

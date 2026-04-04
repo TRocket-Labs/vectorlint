@@ -163,7 +163,7 @@ describe("Scoring Types", () => {
 
       // Mock prompt-loader for this test only
       vi.doMock("../src/evaluators/prompt-loader", () => ({
-        getPrompt: vi.fn().mockReturnValue({ body: "Extract claims" }),
+        getPrompt: vi.fn().mockReturnValue("Extract claims"),
       }));
 
       const { TechnicalAccuracyEvaluator } = await import(

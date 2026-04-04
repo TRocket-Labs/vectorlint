@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createProvider, ProviderType } from '../src/providers/provider-factory';
 import { VercelAIProvider } from '../src/providers/vercel-ai-provider';
-import { DefaultRequestBuilder } from '../src/providers/request-builder';
 import { ConfigError } from '../src/errors';
 import type { EnvConfig } from '../src/schemas/env-schemas';
 import { createCapabilityProviderResolver } from '../src/providers/capability-provider-resolver';
@@ -323,20 +322,6 @@ describe('Provider Factory', () => {
       expect(() => createProvider(openaiConfig, allOptions)).not.toThrow();
       expect(() => createProvider(geminiConfig, allOptions)).not.toThrow();
       expect(() => createProvider(bedrockConfig, allOptions)).not.toThrow();
-    });
-  });
-
-  describe('Custom Request Builder', () => {
-    it('passes custom request builder to provider', () => {
-      const envConfig: EnvConfig = {
-        LLM_PROVIDER: ProviderType.OpenAI,
-        OPENAI_API_KEY: 'sk-test-key',
-        OPENAI_MODEL: 'gpt-4o',
-      };
-
-      const customBuilder = new DefaultRequestBuilder('Custom directive');
-      const provider = createProvider(envConfig, {}, customBuilder);
-      expect(provider).toBeInstanceOf(VercelAIProvider);
     });
   });
 
