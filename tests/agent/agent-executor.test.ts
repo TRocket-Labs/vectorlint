@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { RuleFile } from '../../src/rules/rule-loader';
 import type { LLMProvider } from '../../src/providers/llm-provider';
 import { Severity } from '../../src/evaluators/types';
@@ -98,6 +98,10 @@ function makeProvider(
 }
 
 describe('agent executor', () => {
+  beforeAll(() => {
+    process.env.LLM_PROVIDER = 'anthropic';
+  });
+
   const tempDirs: string[] = [];
 
   function createTempRepo(): string {

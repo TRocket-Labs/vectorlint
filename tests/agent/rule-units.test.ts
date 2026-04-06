@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { RuleFile } from '../../src/rules/rule-loader';
+import type { TokenCounter } from '../../src/tokenizer';
+
+// Stable mock counter using the character heuristic so budget values in these
+// tests remain independent of real tokenizer output.
+const heuristicCounter: TokenCounter = {
+  count: (text: string) => Math.ceil((text?.length ?? 0) / 4),
+};
 
 function makePrompt(ruleSource: string, body: string): RuleFile {
   const filename = ruleSource.split('/').pop() ?? 'rule.md';
@@ -35,8 +42,8 @@ describe('matched rule units', () => {
       { file: 'docs/guide.md', ruleSource: 'packs/default/links.md' },
     ];
 
-    const first = buildMatchedRuleUnits(matches, ruleBySource, 400);
-    const second = buildMatchedRuleUnits(matches, ruleBySource, 400);
+    const first = buildMatchedRuleUnits(matches, ruleBySource, 400, heuristicCounter);
+    const second = buildMatchedRuleUnits(matches, ruleBySource, 400, heuristicCounter);
 
     expect(first).toEqual(second);
     expect(first).toHaveLength(2);
@@ -71,7 +78,8 @@ describe('matched rule units', () => {
         { file: 'README.md', ruleSource: 'packs/default/unsupported-claims.md' },
       ],
       ruleBySource,
-      120
+      120,
+      heuristicCounter
     );
 
     expect(units).toHaveLength(2);

@@ -61,6 +61,7 @@
     "@ai-sdk/openai": "^3.0.33",
     "@ai-sdk/perplexity": "^1.0.0",
     "ai": "^6.0.99",
+    "ai-tokenizer": "^1.0.6",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
     "fast-glob": "^3.3.2",

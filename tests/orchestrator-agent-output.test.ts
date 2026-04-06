@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import * as path from 'path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { evaluateFiles } from '../src/cli/orchestrator';
 import { AGENT_REVIEW_MODE, OutputFormat } from '../src/cli/types';
 import type { RuleFile } from '../src/rules/rule-loader';
@@ -120,6 +120,10 @@ function makeNoFinalizeProvider(): LLMProvider {
 describe('agent orchestrator output', () => {
   const originalIsTTY = Object.getOwnPropertyDescriptor(process.stderr, 'isTTY');
   const tempRepos: string[] = [];
+
+  beforeAll(() => {
+    process.env.LLM_PROVIDER = 'anthropic';
+  });
 
   function createTempRepo(): string {
     const repo = mkdtempSync(path.join(process.cwd(), 'tmp-agent-orch-'));

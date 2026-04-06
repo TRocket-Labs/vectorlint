@@ -14,6 +14,7 @@ import { createReviewSessionStore } from './review-session-store';
 import { buildAgentSystemPrompt } from './prompt-builder';
 import { AgentToolError, NoConfigurationFoundError } from '../errors';
 import { buildMatchedRuleUnits } from './rule-units';
+import { resolveTokenizer } from '../tokenizer';
 import {
   createAgentTools,
   listAvailableTools,
@@ -375,10 +376,12 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     toRelativePathFromRoot(workspaceRoot, resolveWithinRoot(workspaceRoot, target))
   );
   const { matches: fileRuleMatches, unmatchedFiles } = buildFileRuleMatches(relativeTargets, rules, scanPaths);
+  const tokenizer = resolveTokenizer();
   const matchedRuleUnits = buildMatchedRuleUnits(
     fileRuleMatches,
     ruleBySource,
-    MATCHED_RULE_UNIT_TOKEN_BUDGET
+    MATCHED_RULE_UNIT_TOKEN_BUDGET,
+    tokenizer
   );
   const defaultRuleName = String(rules[0]?.meta.name || rules[0]?.meta.id || 'Rule');
   const targetFiles = new Set(relativeTargets);
