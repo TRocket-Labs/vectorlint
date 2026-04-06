@@ -1,6 +1,6 @@
 ---
 title: "Introduction"
-description: "VectorLint is an LLM-based prose linter that enforces your style guide in one prompt."
+description: "VectorLint is a large language model (LLM)-based prose linter that enforces your style guide in one prompt."
 ---
 
 ## What is VectorLint?
@@ -38,18 +38,18 @@ This gives documentation teams something they haven't had before: a **shared, me
 
 VectorLint uses two scoring methods depending on the rule type:
 
-**Density-based scoring** is used for rules that count discrete violations (like a grammar checker). Scores are calculated based on error density — errors per 100 words — so quality assessment is fair across documents of any length.
+**Density-based scoring** is used for rules that count discrete violations (like a grammar checker). VectorLint calculates scores based on error density — errors per 100 words — so results are comparable across documents of any length.
 
 **Rubric-based scoring** is used for rules that measure quality on a spectrum (like tone or completeness). The LLM scores each criterion on a 1–4 scale, which VectorLint normalizes to a 1–10 scale for consistent reporting.
 
 ## How false positives are reduced
 
-VectorLint uses a two-stage evaluation pipeline to keep output precise:
+VectorLint filters raw LLM candidates through a series of gate checks before surfacing violations to help keep its output precise:
 
 1. **Candidate generation** — the LLM returns all potential violations, each with required gate-check fields: rule support, exact evidence, context support, plausible non-violation, and fix quality.
 2. **Deterministic filtering** — VectorLint applies a strict filter and only surfaces violations that pass all required gates.
 
-VectorLint's output is intentionally stricter than raw model candidates — only findings that pass all gates are reported. You can tune how aggressively the pipeline filters findings to match your content workflow. See [Tuning evaluation precision](/false-positive-tuning).
+VectorLint's output is intentionally stricter than raw model candidates; it reports only findings that pass all gates. You can tune how aggressively the pipeline filters findings to match your content workflow. See [Tuning evaluation precision](/false-positive-tuning).
 
 ## Next steps
 
