@@ -1,4 +1,4 @@
-import type { PromptFile } from '../prompts/prompt-loader';
+import type { RuleFile } from '../rules/rule-loader';
 import { normalizeRuleSource } from './rule-id';
 import { estimateTokens } from '../utils/token-estimate';
 
@@ -18,18 +18,18 @@ const MATCHED_RULE_UNIT_RULE_OVERHEAD_TOKENS = 16;
 export function estimateMatchedRuleUnitTokens(
   file: string,
   rules: MatchedRuleUnitRule[],
-  promptBySource: Map<string, PromptFile>
+  ruleBySource: Map<string, RuleFile>
 ): number {
   return rules.reduce((total, rule) => {
     const normalizedSource = normalizeRuleSource(rule.ruleSource);
-    const prompt = promptBySource.get(normalizedSource);
-    return total + MATCHED_RULE_UNIT_RULE_OVERHEAD_TOKENS + estimateTokens(prompt?.body ?? '');
+    const ruleFile = ruleBySource.get(normalizedSource);
+    return total + MATCHED_RULE_UNIT_RULE_OVERHEAD_TOKENS + estimateTokens(ruleFile?.content ?? '');
   }, MATCHED_RULE_UNIT_FILE_OVERHEAD_TOKENS + estimateTokens(file));
 }
 
 export function buildMatchedRuleUnits(
   fileRuleMatches: Array<{ file: string; ruleSource: string }>,
-  promptBySource: Map<string, PromptFile>,
+  ruleBySource: Map<string, RuleFile>,
   tokenBudget: number
 ): MatchedRuleUnit[] {
   const matchesByFile = new Map<string, MatchedRuleUnitRule[]>();
@@ -48,13 +48,13 @@ export function buildMatchedRuleUnits(
 
     for (const rule of rules) {
       const nextRules = [...currentRules, rule];
-      const nextEstimatedTokens = estimateMatchedRuleUnitTokens(file, nextRules, promptBySource);
+      const nextEstimatedTokens = estimateMatchedRuleUnitTokens(file, nextRules, ruleBySource);
 
       if (currentRules.length > 0 && nextEstimatedTokens > normalizedBudget) {
         units.push({
           file,
           rules: currentRules,
-          estimatedTokens: estimateMatchedRuleUnitTokens(file, currentRules, promptBySource),
+          estimatedTokens: estimateMatchedRuleUnitTokens(file, currentRules, ruleBySource),
         });
         currentRules = [rule];
         continue;
@@ -67,7 +67,7 @@ export function buildMatchedRuleUnits(
       units.push({
         file,
         rules: currentRules,
-        estimatedTokens: estimateMatchedRuleUnitTokens(file, currentRules, promptBySource),
+        estimatedTokens: estimateMatchedRuleUnitTokens(file, currentRules, ruleBySource),
       });
     }
   }

@@ -1,4 +1,4 @@
-import type { PromptCriterionSpec, PromptFile, PromptMeta } from '../../prompts/prompt-loader';
+import type { RuleCriterionSpec, RuleFile, RuleMeta } from '../../rules/rule-loader';
 import type { JudgeResult } from '../../prompts/schema';
 import { isJudgeResult } from '../../prompts/schema';
 import { checkTarget } from '../../prompts/target';
@@ -10,13 +10,13 @@ import { writeJudgeRoutingDebugArtifact } from './debug-artifact';
 import type { IssueSink } from './issue-sink';
 
 interface ExtractCriterionParams {
-  exp: PromptCriterionSpec;
+  exp: RuleCriterionSpec;
   result: JudgeResult;
   content: string;
   relFile: string;
   packName: string;
   promptId: string;
-  meta: PromptMeta;
+  meta: RuleMeta;
   sink: IssueSink;
   verbose?: boolean;
 }
@@ -29,7 +29,7 @@ interface ExtractCriterionResult extends ErrorTrackingResult {
 }
 
 export interface RouteJudgeResultParams {
-  promptFile: PromptFile;
+  promptFile: RuleFile;
   result: JudgeResult;
   content: string;
   relFile: string;
@@ -38,7 +38,7 @@ export interface RouteJudgeResultParams {
   debugJson?: boolean;
 }
 
-function validateCriteriaCompleteness(meta: PromptMeta, result: JudgeResult): boolean {
+function validateCriteriaCompleteness(meta: RuleMeta, result: JudgeResult): boolean {
   let hadErrors = false;
 
   const expectedNames = new Set<string>(
@@ -81,7 +81,7 @@ function validateCriteriaCompleteness(meta: PromptMeta, result: JudgeResult): bo
   return hadErrors;
 }
 
-function validateScores(meta: PromptMeta, result: JudgeResult): boolean {
+function validateScores(meta: RuleMeta, result: JudgeResult): boolean {
   let hadErrors = false;
 
   for (const exp of meta.criteria || []) {

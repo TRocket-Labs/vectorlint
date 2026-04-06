@@ -2,7 +2,7 @@ import { BaseEvaluator } from "./base-evaluator";
 import { registerEvaluator } from "./evaluator-registry";
 import type { LLMProvider } from "../providers/llm-provider";
 import type { SearchProvider } from "../providers/search-provider";
-import type { PromptFile } from "../schemas/prompt-schemas";
+import type { RuleFile } from "../schemas/rule-schemas";
 import type { PromptEvaluationResult, RawCheckResult } from "../prompts/schema";
 import type { TokenUsage } from "../providers/token-usage";
 import type { StructuredPromptContext } from "./evaluator-registry";
@@ -50,12 +50,12 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
 
   constructor(
     llmProvider: LLMProvider,
-    prompt: PromptFile,
+    rule: RuleFile,
     private searchProvider: SearchProvider,
     defaultSeverity?: Severity,
     structuredPromptContext?: StructuredPromptContext
   ) {
-    super(llmProvider, prompt, defaultSeverity, structuredPromptContext);
+    super(llmProvider, rule, defaultSeverity, structuredPromptContext);
   }
 
   async evaluate(_file: string, content: string): Promise<PromptEvaluationResult> {
@@ -88,17 +88,17 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     // Step 4: Render the prompt with template variables
     const renderedPrompt = renderTemplate(this.getPromptBody(), templateVars);
 
-    // Step 5: Create enriched prompt with rendered body
-    // We do NOT override the type here; we respect the prompt's configuration
-    const enrichedPrompt: PromptFile = {
-      ...this.prompt,
-      body: renderedPrompt,
+    // Step 5: Create enriched rule with rendered content
+    // We do NOT override the type here; we respect the rule's configuration
+    const enrichedRule: RuleFile = {
+      ...this.rule,
+      content: renderedPrompt,
     };
 
-    // Step 6: Use parent's evaluation logic with enriched prompt
+    // Step 6: Use parent's evaluation logic with enriched rule
     const evaluator = new BaseEvaluator(
       this.llmProvider,
-      enrichedPrompt,
+      enrichedRule,
       this.defaultSeverity,
       this.structuredPromptContext
     );
@@ -231,17 +231,17 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
    * Throws an error if the prompt body is missing.
    */
   private getPromptBody(): string {
-    if (!this.prompt.body) {
+    if (!this.rule.content) {
       throw new Error("Prompt body is empty or undefined");
     }
-    return this.prompt.body;
+    return this.rule.content;
   }
 }
 
 // Self-register on module load using registerEvaluator directly
 registerEvaluator(
   Type.TECHNICAL_ACCURACY,
-  (llmProvider, prompt, searchProvider, defaultSeverity, structuredPromptContext) => {
+  (llmProvider, rule, searchProvider, defaultSeverity, structuredPromptContext) => {
     if (!searchProvider) {
       throw new MissingDependencyError(
         "technical-accuracy evaluator requires a search provider",
@@ -251,7 +251,7 @@ registerEvaluator(
     }
     return new TechnicalAccuracyEvaluator(
       llmProvider,
-      prompt,
+      rule,
       searchProvider,
       defaultSeverity,
       structuredPromptContext

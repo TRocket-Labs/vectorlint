@@ -1,7 +1,7 @@
 import type { Evaluator } from './evaluator';
 import type { LLMProvider } from '../providers/llm-provider';
 import type { SearchProvider } from '../providers/search-provider';
-import type { PromptFile } from '../schemas/prompt-schemas';
+import type { RuleFile } from '../schemas/rule-schemas';
 
 /*
  * Factory function signature for creating evaluators.
@@ -20,7 +20,7 @@ export interface StructuredPromptContext {
  */
 export type EvaluatorFactory = (
   llmProvider: LLMProvider,
-  prompt: PromptFile,
+  rule: RuleFile,
   searchProvider?: SearchProvider,
   defaultSeverity?: Severity,
   structuredPromptContext?: StructuredPromptContext
@@ -43,7 +43,7 @@ class EvaluatorRegistry {
   create(
     type: string,
     llmProvider: LLMProvider,
-    prompt: PromptFile,
+    rule: RuleFile,
     searchProvider?: SearchProvider,
     defaultSeverity?: Severity,
     structuredPromptContext?: StructuredPromptContext
@@ -57,7 +57,7 @@ class EvaluatorRegistry {
       );
     }
 
-    return factory(llmProvider, prompt, searchProvider, defaultSeverity, structuredPromptContext);
+    return factory(llmProvider, rule, searchProvider, defaultSeverity, structuredPromptContext);
   }
 
   getRegisteredTypes(): string[] {
@@ -76,12 +76,12 @@ export function registerEvaluator(type: string, factory: EvaluatorFactory): void
 export function createEvaluator(
   type: string,
   llmProvider: LLMProvider,
-  prompt: PromptFile,
+  rule: RuleFile,
   searchProvider?: SearchProvider,
   defaultSeverity?: Severity,
   structuredPromptContext?: StructuredPromptContext
 ): Evaluator {
-  return REGISTRY.create(type, llmProvider, prompt, searchProvider, defaultSeverity, structuredPromptContext);
+  return REGISTRY.create(type, llmProvider, rule, searchProvider, defaultSeverity, structuredPromptContext);
 }
 
 export function getRegisteredEvaluatorTypes(): string[] {

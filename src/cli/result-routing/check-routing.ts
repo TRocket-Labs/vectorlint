@@ -1,4 +1,4 @@
-import type { PromptFile } from '../../prompts/prompt-loader';
+import type { RuleFile } from '../../rules/rule-loader';
 import type { RawCheckResult } from '../../prompts/schema';
 import { Severity } from '../../evaluators/types';
 import { calculateCheckScore } from '../../scoring';
@@ -12,7 +12,7 @@ import { writeCheckRoutingDebugArtifact } from './debug-artifact';
 import type { IssueSink } from './issue-sink';
 
 export interface RouteCheckResultParams {
-  promptFile: PromptFile;
+  promptFile: RuleFile;
   result: RawCheckResult;
   content: string;
   relFile: string;

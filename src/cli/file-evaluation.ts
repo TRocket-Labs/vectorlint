@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import * as path from 'path';
-import type { PromptFile } from '../prompts/prompt-loader';
+import type { RuleFile } from '../rules/rule-loader';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { ConfigError, handleUnknownError, MissingDependencyError, NoConfigurationFoundError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
@@ -21,7 +21,7 @@ import { buildRuleName } from './issue-output';
 import { routePromptResult } from './result-routing';
 import { OutputFormat } from './types';
 import { type TokenUsageStats } from '../providers/token-usage';
-import { resolveMatchedPromptsForFile } from '../rules/matched-prompts';
+import { resolveMatchedRulesForFile } from '../rules/matched-rules';
 
 /*
  * Generic concurrency runner that executes workers in parallel up to a specified limit.
@@ -118,7 +118,7 @@ export async function evaluateFile(
 ): Promise<EvaluateFileResult> {
   const { file, options, jsonFormatter } = params;
   const {
-    prompts,
+    rules,
     provider,
     searchProvider,
     concurrency,
@@ -141,14 +141,14 @@ export async function evaluateFile(
   const content = readFileSync(file, 'utf-8');
   const relFile = path.relative(process.cwd(), file) || file;
 
-  // Determine applicable prompts for this file
-  let toRun: PromptFile[];
+  // Determine applicable rules for this file
+  let toRun: RuleFile[];
   try {
-    toRun = resolveMatchedPromptsForFile({
+    toRun = resolveMatchedRulesForFile({
       filePath: relFile,
-      prompts,
+      rules,
       scanPaths,
-    }).prompts;
+    }).rules;
   } catch (e: unknown) {
     if (e instanceof NoConfigurationFoundError) {
       return {
@@ -175,7 +175,7 @@ export async function evaluateFile(
       filename: USER_INSTRUCTION_FILENAME,
       fullPath: USER_INSTRUCTION_FILENAME,
       pack: '',
-      body: '',
+      content: '',
       meta: {
         id: USER_INSTRUCTION_FILENAME,
         name: USER_INSTRUCTION_FILENAME,

@@ -1,4 +1,4 @@
-import type { PromptFile } from '../prompts/prompt-loader';
+import type { RuleFile } from '../rules/rule-loader';
 import type { LLMProvider } from '../providers/llm-provider';
 import type { CapabilityProviderResolver } from '../providers/capability-provider-resolver';
 import type { SearchProvider } from '../providers/search-provider';
@@ -26,14 +26,14 @@ export const OUTPUT_FORMATS = [
 
 export const DEFAULT_OUTPUT_FORMAT = OUTPUT_FORMATS[0];
 
-export const REVIEW_MODES = ['standard', 'agent'] as const;
+export const REVIEW_MODES = ['lint', 'agent'] as const;
 export const DEFAULT_REVIEW_MODE = REVIEW_MODES[0];
 export const AGENT_REVIEW_MODE = REVIEW_MODES[1];
 
 export type ReviewMode = (typeof REVIEW_MODES)[number];
 
 export interface EvaluationOptions {
-    prompts: PromptFile[];
+    rules: RuleFile[];
     rulesPath: string | undefined;
     provider: LLMProvider;
     capabilityProviderResolver?: CapabilityProviderResolver;
@@ -79,12 +79,12 @@ export interface EvaluationContext {
 }
 
 export interface ProcessPromptResultParams extends EvaluationContext {
-    promptFile: PromptFile;
+    promptFile: RuleFile;
     result: PromptEvaluationResult;
 }
 
 export interface RunPromptEvaluationParams {
-    promptFile: PromptFile;
+    promptFile: RuleFile;
     relFile: string;
     content: string;
     provider: LLMProvider;

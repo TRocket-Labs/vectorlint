@@ -1,49 +1,49 @@
 import type { FilePatternConfig } from '../boundaries/file-section-parser';
 import { ScanPathResolver } from '../boundaries/scan-path-resolver';
-import type { PromptFile } from '../prompts/prompt-loader';
+import type { RuleFile } from '../schemas/rule-schemas';
 
-export interface MatchedPromptResolution {
-  prompts: PromptFile[];
+export interface MatchedRuleResolution {
+  rules: RuleFile[];
   packs: string[];
   overrides: Record<string, unknown>;
 }
 
-function getAvailablePacks(prompts: PromptFile[]): string[] {
+function getAvailablePacks(rules: RuleFile[]): string[] {
   return Array.from(
-    new Set(prompts.map((prompt) => prompt.pack).filter((pack): pack is string => pack.length > 0))
+    new Set(rules.map((rule) => rule.pack).filter((pack): pack is string => pack.length > 0))
   );
 }
 
-function isPromptEnabled(
-  prompt: PromptFile,
+function isRuleEnabled(
+  rule: RuleFile,
   resolution: { packs: string[]; overrides: Record<string, unknown> }
 ): boolean {
-  if (prompt.pack === '') {
+  if (rule.pack === '') {
     return true;
   }
-  if (!resolution.packs.includes(prompt.pack)) {
+  if (!resolution.packs.includes(rule.pack)) {
     return false;
   }
-  if (!prompt.meta?.id) {
+  if (!rule.meta?.id) {
     return true;
   }
 
-  const disableKey = `${prompt.pack}.${prompt.meta.id}`;
+  const disableKey = `${rule.pack}.${rule.meta.id}`;
   const overrideValue = resolution.overrides[disableKey];
   return typeof overrideValue !== 'string' || overrideValue.toLowerCase() !== 'disabled';
 }
 
-export function resolveMatchedPromptsForFile(params: {
+export function resolveMatchedRulesForFile(params: {
   filePath: string;
-  prompts: PromptFile[];
+  rules: RuleFile[];
   scanPaths: FilePatternConfig[];
-}): MatchedPromptResolution {
-  const { filePath, prompts, scanPaths } = params;
-  const availablePacks = getAvailablePacks(prompts);
+}): MatchedRuleResolution {
+  const { filePath, rules, scanPaths } = params;
+  const availablePacks = getAvailablePacks(rules);
 
   if (scanPaths.length === 0) {
     return {
-      prompts: [...prompts],
+      rules: [...rules],
       packs: availablePacks,
       overrides: {},
     };
@@ -53,7 +53,7 @@ export function resolveMatchedPromptsForFile(params: {
   const resolution = resolver.resolveConfiguration(filePath, scanPaths, availablePacks);
 
   return {
-    prompts: prompts.filter((prompt) => isPromptEnabled(prompt, resolution)),
+    rules: rules.filter((rule) => isRuleEnabled(rule, resolution)),
     packs: resolution.packs,
     overrides: resolution.overrides,
   };

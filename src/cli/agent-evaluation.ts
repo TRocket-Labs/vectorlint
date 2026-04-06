@@ -13,7 +13,7 @@ import { printEvaluationSummaries, printFileHeader, type EvaluationSummary } fro
 import { OutputFormat } from './types';
 import { createAgentModeCapabilityAccess } from './agent-mode-capability';
 import { buildRuleId, normalizeRuleSource } from '../agent/rule-id';
-import type { PromptFile } from '../prompts/prompt-loader';
+import type { RuleFile } from '../rules/rule-loader';
 import { calculateCheckScore } from '../scoring';
 import { JsonFormatter } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
@@ -70,7 +70,7 @@ async function getAgentFileWordCount(
 
 async function buildAgentRuleScores(
   findings: AgentFinding[],
-  prompts: PromptFile[],
+  rules: RuleFile[],
   fileRuleMatches: Array<{ file: string; ruleSource: string }>,
   workspaceRoot: string
 ): Promise<AgentRuleScore[]> {
@@ -90,10 +90,10 @@ async function buildAgentRuleScores(
   }
 
   const results: AgentRuleScore[] = [];
-  for (const prompt of prompts) {
-    const ruleId = buildRuleId(prompt);
+  for (const rule of rules) {
+    const ruleId = buildRuleId(rule);
     const ruleFindings = findingsByRule.get(ruleId) ?? [];
-    const matchedFiles = filesByRuleSource.get(normalizeRuleSource(prompt.fullPath)) ?? new Set<string>();
+    const matchedFiles = filesByRuleSource.get(normalizeRuleSource(rule.fullPath)) ?? new Set<string>();
 
     if (matchedFiles.size === 0) {
       continue;
@@ -114,8 +114,8 @@ async function buildAgentRuleScores(
       syntheticViolations,
       Math.max(1, totalWords),
       {
-        strictness: prompt.meta.strictness,
-        promptSeverity: prompt.meta.severity,
+        strictness: rule.meta.strictness,
+        promptSeverity: rule.meta.severity,
       }
     );
 
@@ -179,7 +179,7 @@ export async function evaluateFilesInAgentMode(
 
   const agentResult: AgentExecutorResult = await runAgentExecutor({
     targets,
-    prompts: options.prompts,
+    rules: options.rules,
     provider: defaultProvider,
     resolveCapabilityProvider,
     workspaceRoot,
@@ -216,7 +216,7 @@ export async function evaluateFilesInAgentMode(
   if (outputFormat === OutputFormat.Line) {
     const ruleScores = await buildAgentRuleScores(
       agentResult.findings,
-      options.prompts,
+      options.rules,
       agentResult.fileRuleMatches,
       workspaceRoot
     );

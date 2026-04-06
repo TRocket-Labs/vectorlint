@@ -1,6 +1,6 @@
 import * as os from 'os';
 import type { FilePatternConfig } from '../boundaries/file-section-parser';
-import type { PromptFile } from '../prompts/prompt-loader';
+import type { RuleFile } from '../rules/rule-loader';
 import { Severity } from '../evaluators/types';
 import type {
   AgentToolDefinition,
@@ -32,8 +32,8 @@ import type { AgentProgressReporter, VisibleToolName, VisibleToolProgress } from
 import { normalizeRuleSource } from './rule-id';
 import { createToolHandlers } from './tool-handlers';
 import { findingsFromEvents } from './findings';
-import { buildEffectiveRuleBody } from './lint-prompt';
-import { resolveMatchedPromptsForFile } from '../rules/matched-prompts';
+import { resolveRuleContent } from './lint-prompt';
+import { resolveMatchedRulesForFile } from '../rules/matched-rules';
 
 export interface AgentFinding {
   file: string;
@@ -51,7 +51,7 @@ export interface AgentFinding {
 
 export interface RunAgentExecutorParams {
   targets: string[];
-  prompts: PromptFile[];
+  rules: RuleFile[];
   provider: LLMProvider;
   resolveCapabilityProvider?: (requested: ModelCapabilityTier) => LLMProvider;
   workspaceRoot: string;
@@ -110,12 +110,12 @@ function buildUnknownRuleSourceError(ruleSource: string, validSources: string[])
   );
 }
 
-function resolvePromptBySource(
+function resolveRuleBySource(
   ruleSource: string,
-  promptBySource: Map<string, PromptFile>
-): PromptFile | undefined {
+  ruleBySource: Map<string, RuleFile>
+): RuleFile | undefined {
   const normalized = normalizeRuleSource(ruleSource);
-  return promptBySource.get(normalized);
+  return ruleBySource.get(normalized);
 }
 
 function withProgressFile<T extends Omit<VisibleToolContext, 'progressFile'> & { progressFile?: string }>(
@@ -130,18 +130,18 @@ function withProgressFile<T extends Omit<VisibleToolContext, 'progressFile'> & {
 // Build the concrete matched file-to-rule pairs that the agent should review for this run.
 function buildFileRuleMatches(
   relativeTargets: string[],
-  prompts: PromptFile[],
+  rules: RuleFile[],
   scanPaths: FilePatternConfig[]
 ): FileRuleMatchBuildResult {
   const matches: Array<{ file: string; ruleSource: string }> = [];
   const unmatchedFiles: string[] = [];
 
   for (const relFile of relativeTargets) {
-    let matchedPrompts: PromptFile[];
+    let matchedRules: RuleFile[];
     try {
-      ({ prompts: matchedPrompts } = resolveMatchedPromptsForFile({
+      ({ rules: matchedRules } = resolveMatchedRulesForFile({
         filePath: relFile,
-        prompts,
+        rules,
         scanPaths,
       }));
     } catch (error) {
@@ -152,8 +152,8 @@ function buildFileRuleMatches(
       throw error;
     }
 
-    for (const prompt of matchedPrompts) {
-      matches.push({ file: relFile, ruleSource: normalizeRuleSource(prompt.fullPath) });
+    for (const rule of matchedRules) {
+      matches.push({ file: relFile, ruleSource: normalizeRuleSource(rule.fullPath) });
     }
   }
 
@@ -222,7 +222,7 @@ function resolveVisibleToolContext(params: {
   toolName: AgentToolName;
   input: unknown;
   workspaceRoot: string;
-  promptBySource: Map<string, PromptFile>;
+  ruleBySource: Map<string, RuleFile>;
   targetFiles: Set<string>;
   currentProgressFile?: string;
   defaultProgressFile?: string;
@@ -231,7 +231,7 @@ function resolveVisibleToolContext(params: {
     toolName,
     input,
     workspaceRoot,
-    promptBySource,
+    ruleBySource,
     targetFiles,
     currentProgressFile,
     defaultProgressFile,
@@ -276,20 +276,20 @@ function resolveVisibleToolContext(params: {
         return undefined;
       }
       const firstRule = parsed.data.rules[0];
-      const prompt = firstRule
-        ? resolvePromptBySource(firstRule.ruleSource, promptBySource)
+      const ruleFile = firstRule
+        ? resolveRuleBySource(firstRule.ruleSource, ruleBySource)
         : undefined;
       const resolvedPath = tryResolveRelativePath(workspaceRoot, parsed.data.file);
       const path = resolvedPath ?? parsed.data.file;
       const ruleText = parsed.data.rules
         .map((rule) => {
-          const resolvedPrompt = resolvePromptBySource(rule.ruleSource, promptBySource);
+          const resolvedRule = resolveRuleBySource(rule.ruleSource, ruleBySource);
           const ruleParams = {
             ...(rule.reviewInstruction !== undefined ? { reviewInstruction: rule.reviewInstruction } : {}),
             ...(rule.context !== undefined ? { context: rule.context } : {}),
           };
-          return resolvedPrompt
-            ? buildEffectiveRuleBody(resolvedPrompt, ruleParams)
+          return resolvedRule
+            ? resolveRuleContent(resolvedRule, ruleParams)
             : (rule.reviewInstruction?.trim() || '');
         })
         .join('\n');
@@ -297,8 +297,8 @@ function resolveVisibleToolContext(params: {
         toolName: 'lint',
         path,
         ruleName: parsed.data.rules.length > 1
-          ? `${String(prompt?.meta.name || prompt?.meta.id || 'Rule')} +${parsed.data.rules.length - 1} more`
-          : String(prompt?.meta.name || prompt?.meta.id || 'Rule'),
+          ? `${String(ruleFile?.meta.name || ruleFile?.meta.id || 'Rule')} +${parsed.data.rules.length - 1} more`
+          : String(ruleFile?.meta.name || ruleFile?.meta.id || 'Rule'),
         ruleText,
         signature: `lint:${path}:${parsed.data.rules.map((rule) => normalizeRuleSource(rule.ruleSource)).join(',')}:${ruleText}`,
       }, resolvedPath && targetFiles.has(resolvedPath)
@@ -343,7 +343,7 @@ function buildVisibleToolSuccessState(
 export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<AgentExecutorResult> {
   const {
     targets,
-    prompts,
+    rules,
     provider,
     resolveCapabilityProvider,
     workspaceRoot,
@@ -363,24 +363,24 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
       return defaultProvider;
     });
 
-  const promptBySource = new Map<string, PromptFile>();
-  for (const prompt of prompts) {
-    promptBySource.set(normalizeRuleSource(prompt.fullPath), prompt);
+  const ruleBySource = new Map<string, RuleFile>();
+  for (const rule of rules) {
+    ruleBySource.set(normalizeRuleSource(rule.fullPath), rule);
   }
-  const validSources = Array.from(promptBySource.keys()).sort();
+  const validSources = Array.from(ruleBySource.keys()).sort();
 
   const store = await createReviewSessionStore({ homeDir: sessionHomeDir });
   let findingsCount = 0;
   const relativeTargets = targets.map((target) =>
     toRelativePathFromRoot(workspaceRoot, resolveWithinRoot(workspaceRoot, target))
   );
-  const { matches: fileRuleMatches, unmatchedFiles } = buildFileRuleMatches(relativeTargets, prompts, scanPaths);
+  const { matches: fileRuleMatches, unmatchedFiles } = buildFileRuleMatches(relativeTargets, rules, scanPaths);
   const matchedRuleUnits = buildMatchedRuleUnits(
     fileRuleMatches,
-    promptBySource,
+    ruleBySource,
     MATCHED_RULE_UNIT_TOKEN_BUDGET
   );
-  const defaultRuleName = String(prompts[0]?.meta.name || prompts[0]?.meta.id || 'Rule');
+  const defaultRuleName = String(rules[0]?.meta.name || rules[0]?.meta.id || 'Rule');
   const targetFiles = new Set(relativeTargets);
 
   await store.append({
@@ -405,7 +405,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
       toolName,
       input,
       workspaceRoot,
-      promptBySource,
+      ruleBySource,
       targetFiles,
       ...(currentProgressFile !== undefined ? { currentProgressFile } : {}),
       ...(relativeTargets[0] !== undefined ? { defaultProgressFile: relativeTargets[0] } : {}),
@@ -470,7 +470,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
   const handlers = createToolHandlers({
     workspaceRoot,
     targets,
-    promptBySource,
+    ruleBySource,
     validSources,
     ...(systemDirective ? { systemDirective } : {}),
     ...(userInstructions ? { userInstructions } : {}),

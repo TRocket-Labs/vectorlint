@@ -1,8 +1,8 @@
-import type { PromptFile } from '../prompts/prompt-loader';
+import type { RuleFile } from '../rules/rule-loader';
 
 export type LintRuleCall = {
   ruleSource: string;
-  prompt: PromptFile;
+  rule: RuleFile;
   reviewInstruction?: string;
   context?: string;
 };
@@ -12,13 +12,13 @@ export const MERGED_LINT_REVIEW_INSTRUCTIONS = [
   'Keep findings attributed to the exact ruleSource that each issue belongs to.',
 ] as const;
 
-export function buildEffectiveRuleBody(
-  prompt: PromptFile,
+export function resolveRuleContent(
+  rule: RuleFile,
   params: { reviewInstruction?: string; context?: string }
 ): string {
   const reviewInstruction = params.reviewInstruction?.trim();
   const context = params.context?.trim();
-  const body = reviewInstruction || prompt.body;
+  const body = reviewInstruction || rule.content;
 
   if (!context) {
     return body;
@@ -27,11 +27,11 @@ export function buildEffectiveRuleBody(
   return `${body}\n\nRequired context for this review:\n${context}`;
 }
 
-export function buildMergedLintPrompt(ruleCalls: LintRuleCall[]): string {
+export function mergeRulesForLint(ruleCalls: LintRuleCall[]): string {
   const sections = ruleCalls.flatMap((ruleCall, index) => [
     `Rule ${index + 1}`,
     `ruleSource: ${ruleCall.ruleSource}`,
-    buildEffectiveRuleBody(ruleCall.prompt, ruleCall),
+    resolveRuleContent(ruleCall.rule, ruleCall),
     '',
   ]);
 

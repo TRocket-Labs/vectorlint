@@ -3,9 +3,9 @@ import { SESSION_EVENT_TYPE, type SessionEvent } from './types';
 import { Severity } from '../evaluators/types';
 import { computeFilterDecision } from '../evaluators/violation-filter';
 import { locateQuotedText } from '../output/location';
-import type { PromptFile } from '../prompts/prompt-loader';
+import type { RuleFile } from '../rules/rule-loader';
 
-export type FindingLikeViolation = {
+export type RawViolation = {
   line?: number;
   quoted_text?: string;
   context_before?: string;
@@ -51,7 +51,7 @@ type InlineFindingEventPayload = {
   match?: string;
 };
 
-type ReviewSessionStoreLike = {
+type ReviewSessionStore = {
   append(entry: {
     eventType: typeof SESSION_EVENT_TYPE.FindingRecordedInline;
     payload: InlineFindingEventPayload;
@@ -65,18 +65,18 @@ export function fallbackMessage(reasoning?: string): string {
   return 'Potential issue detected';
 }
 
-export function severityFromPrompt(prompt: PromptFile): Severity {
-  return prompt.meta.severity === Severity.ERROR ? Severity.ERROR : Severity.WARNING;
+export function severityFromRule(rule: RuleFile): Severity {
+  return rule.meta.severity === Severity.ERROR ? Severity.ERROR : Severity.WARNING;
 }
 
 export async function appendInlineFinding(params: {
-  violation: FindingLikeViolation;
+  violation: RawViolation;
   reasoning?: string;
   content: string;
   relFile: string;
-  prompt: PromptFile;
+  prompt: RuleFile;
   ruleSource: string;
-  store: ReviewSessionStoreLike;
+  store: ReviewSessionStore;
 }): Promise<boolean> {
   const { violation, reasoning, content, relFile, prompt, ruleSource, store } = params;
   const filterDecision = computeFilterDecision(violation);
@@ -104,7 +104,7 @@ export async function appendInlineFinding(params: {
     file: relFile,
     line,
     column,
-    severity: severityFromPrompt(prompt),
+    severity: severityFromRule(prompt),
     message,
     ruleId: buildRuleId(prompt),
     ruleSource: normalizeRuleSource(ruleSource),

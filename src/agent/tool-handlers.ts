@@ -4,7 +4,7 @@ import {
   buildMergedCheckLLMSchema,
   type MergedCheckLLMResult,
 } from '../prompts/schema';
-import type { PromptFile } from '../prompts/prompt-loader';
+import type { RuleFile } from '../rules/rule-loader';
 import type {
   AgentToolDefinition,
   LLMProvider,
@@ -31,9 +31,9 @@ import {
   toRelativePathFromRoot,
 } from './path-utils';
 import type { AgentProgressReporter } from './progress';
-import { appendInlineFinding, severityFromPrompt } from './findings';
+import { appendInlineFinding, severityFromRule } from './findings';
 import {
-  buildMergedLintPrompt,
+  mergeRulesForLint,
   type LintRuleCall,
   MERGED_LINT_REVIEW_INSTRUCTIONS,
 } from './lint-prompt';
@@ -43,19 +43,19 @@ import { composeSystemPrompt } from '../prompts/system-prompt';
 const MAX_SEARCH_FILE_RESULTS = 500;
 const MAX_CONTENT_MATCH_RESULTS = 200;
 
-type ReviewSessionStoreLike = {
+type ReviewSessionStore = {
   append(entry: {
     eventType: string;
     payload: Record<string, unknown>;
   }): Promise<void>;
 };
 
-function resolvePromptBySource(
+function resolveRuleBySource(
   ruleSource: string,
-  promptBySource: Map<string, PromptFile>
-): PromptFile | undefined {
+  ruleBySource: Map<string, RuleFile>
+): RuleFile | undefined {
   const normalized = normalizeRuleSource(ruleSource);
-  return promptBySource.get(normalized);
+  return ruleBySource.get(normalized);
 }
 
 function resolveTargetForTopLevel(
@@ -76,13 +76,13 @@ function resolveTargetForTopLevel(
 export interface CreateToolHandlersParams {
   workspaceRoot: string;
   targets: string[];
-  promptBySource: Map<string, PromptFile>;
+  ruleBySource: Map<string, RuleFile>;
   validSources: string[];
   systemDirective?: string;
   userInstructions?: string;
   defaultProvider: LLMProvider;
   resolveCapabilityProvider: (requested: ModelCapabilityTier) => LLMProvider;
-  store: ReviewSessionStoreLike;
+  store: ReviewSessionStore;
   progressReporter?: AgentProgressReporter;
   getTools: () => Record<AgentToolName, AgentToolDefinition> | undefined;
   buildUnknownRuleSourceError: (ruleSource: string, validSources: string[]) => Error;
@@ -97,7 +97,7 @@ export function createToolHandlers(params: CreateToolHandlersParams): AgentToolH
   const {
     workspaceRoot,
     targets,
-    promptBySource,
+    ruleBySource,
     validSources,
     systemDirective,
     userInstructions,
@@ -120,32 +120,32 @@ export function createToolHandlers(params: CreateToolHandlersParams): AgentToolH
     const relFile = toRelativePathFromRoot(workspaceRoot, absoluteFile);
     const content = await readFile(absoluteFile, 'utf8');
     const resolvedRules = parsed.rules.map((rule) => {
-      const prompt = resolvePromptBySource(rule.ruleSource, promptBySource);
-      if (!prompt) {
+      const ruleFile = resolveRuleBySource(rule.ruleSource, ruleBySource);
+      if (!ruleFile) {
         throw buildUnknownRuleSourceError(rule.ruleSource, validSources);
       }
 
       return {
         ...rule,
-        prompt,
+        ruleFile,
         normalizedRuleSource: normalizeRuleSource(rule.ruleSource),
       };
     });
     const allowedRuleSources = Array.from(
       new Set(resolvedRules.map((rule) => rule.normalizedRuleSource))
     ).sort();
-    const promptByAllowedRuleSource = new Map(
-      resolvedRules.map((rule) => [rule.normalizedRuleSource, rule.prompt] as const)
+    const ruleByAllowedRuleSource = new Map(
+      resolvedRules.map((rule) => [rule.normalizedRuleSource, rule.ruleFile] as const)
     );
 
     const mergedRuleCalls: LintRuleCall[] = resolvedRules.map((rule) => ({
       ruleSource: rule.normalizedRuleSource,
-      prompt: rule.prompt,
+      rule: rule.ruleFile,
       reviewInstruction: rule.reviewInstruction,
       context: rule.context,
     }));
 
-    const mergedPrompt = buildMergedLintPrompt(mergedRuleCalls);
+    const mergedPrompt = mergeRulesForLint(mergedRuleCalls);
     const lintPrompt = [
       ...MERGED_LINT_REVIEW_INSTRUCTIONS,
       '',
@@ -169,7 +169,7 @@ export function createToolHandlers(params: CreateToolHandlersParams): AgentToolH
     let findingsRecorded = 0;
     for (const finding of result.data.findings) {
       const normalizedRuleSource = normalizeRuleSource(finding.ruleSource);
-      const prompt = promptByAllowedRuleSource.get(normalizedRuleSource);
+      const prompt = ruleByAllowedRuleSource.get(normalizedRuleSource);
       if (!prompt) {
         throw buildUnknownRuleSourceError(finding.ruleSource, allowedRuleSources);
       }
@@ -198,7 +198,7 @@ export function createToolHandlers(params: CreateToolHandlersParams): AgentToolH
 
   async function reportFindingToolHandler(input: unknown): Promise<unknown> {
     const parsed = TOP_LEVEL_REPORT_INPUT_SCHEMA.parse(input);
-    const prompt = resolvePromptBySource(parsed.ruleSource, promptBySource);
+    const prompt = resolveRuleBySource(parsed.ruleSource, ruleBySource);
     if (!prompt) {
       throw buildUnknownRuleSourceError(parsed.ruleSource, validSources);
     }
@@ -218,7 +218,7 @@ export function createToolHandlers(params: CreateToolHandlersParams): AgentToolH
           file: relFile,
           line: Math.max(1, Math.trunc(reference.startLine)),
           column: 1,
-          severity: severityFromPrompt(prompt),
+          severity: severityFromRule(prompt),
           ruleId: buildRuleId(prompt),
           ruleSource: normalizeRuleSource(parsed.ruleSource),
           message: parsed.message,

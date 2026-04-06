@@ -1,5 +1,5 @@
 import type { LLMProvider } from "../providers/llm-provider";
-import type { PromptFile } from "../schemas/prompt-schemas";
+import type { RuleFile } from "../schemas/rule-schemas";
 import type { TokenUsage } from "../providers/token-usage";
 import {
   buildJudgeLLMSchema,
@@ -44,7 +44,7 @@ const MAX_CHUNK_SIZE = 500; // Maximum words per chunk
 export class BaseEvaluator implements Evaluator {
   constructor(
     protected llmProvider: LLMProvider,
-    protected prompt: PromptFile,
+    protected rule: RuleFile,
     protected defaultSeverity?: Severity,
     protected structuredPromptContext?: StructuredPromptContext
   ) { }
@@ -69,7 +69,7 @@ export class BaseEvaluator implements Evaluator {
     | typeof EvaluationType.JUDGE
     | typeof EvaluationType.CHECK {
     // After Zod transform, type will be 'judge' or 'check' (or undefined)
-    return this.prompt.meta.type === "judge"
+    return this.rule.meta.type === "judge"
       ? EvaluationType.JUDGE
       : EvaluationType.CHECK;
   }
@@ -77,7 +77,7 @@ export class BaseEvaluator implements Evaluator {
   protected chunkContent(content: string): Chunk[] {
     const wordCount = countWords(content) || 1;
 
-    const chunkingEnabled = this.prompt.meta.evaluateAs !== "document";
+    const chunkingEnabled = this.rule.meta.evaluateAs !== "document";
 
     if (!chunkingEnabled || wordCount <= CHUNKING_THRESHOLD) {
       // Chunking disabled or content is small enough - return as single chunk
@@ -122,7 +122,7 @@ export class BaseEvaluator implements Evaluator {
     content: string
   ): Promise<JudgeResult> {
     const schema = buildJudgeLLMSchema();
-    const systemPrompt = this.buildSystemPrompt(this.prompt.body);
+    const systemPrompt = this.buildSystemPrompt(this.rule.content);
 
     // Prepend line numbers for deterministic line reporting
     const numberedContent = prependLineNumbers(content);
@@ -139,7 +139,7 @@ export class BaseEvaluator implements Evaluator {
         );
 
       const result = calculateJudgeScore(llmResult.criteria, {
-        promptCriteria: this.prompt.meta.criteria,
+        promptCriteria: this.rule.meta.criteria,
       });
 
       return {
@@ -166,7 +166,7 @@ export class BaseEvaluator implements Evaluator {
       rawChunkOutputs.push(llmResult);
 
       const result = calculateJudgeScore(llmResult.criteria, {
-        promptCriteria: this.prompt.meta.criteria,
+        promptCriteria: this.rule.meta.criteria,
       });
 
       chunkResults.push(result);
@@ -196,7 +196,7 @@ export class BaseEvaluator implements Evaluator {
     content: string
   ): Promise<RawCheckResult> {
     const schema = buildCheckLLMSchema();
-    const systemPrompt = this.buildSystemPrompt(this.prompt.body);
+    const systemPrompt = this.buildSystemPrompt(this.rule.content);
 
     // Prepend line numbers for deterministic line reporting
     const numberedContent = prependLineNumbers(content);
@@ -252,10 +252,10 @@ export class BaseEvaluator implements Evaluator {
 }
 
 // Register as default evaluator for base type
-// Note: EvaluatorFactory signature is (llmProvider, prompt, searchProvider?, defaultSeverity?)
+// Note: EvaluatorFactory signature is (llmProvider, rule, searchProvider?, defaultSeverity?)
 registerEvaluator(
   Type.BASE,
-  (llmProvider, prompt, _searchProvider, defaultSeverity, structuredPromptContext) => {
-    return new BaseEvaluator(llmProvider, prompt, defaultSeverity, structuredPromptContext);
+  (llmProvider, rule, _searchProvider, defaultSeverity, structuredPromptContext) => {
+    return new BaseEvaluator(llmProvider, rule, defaultSeverity, structuredPromptContext);
   }
 );

@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { computeFilterDecision, type FilterDecision } from '../../evaluators/violation-filter';
 import type { JudgeResult, RawCheckResult } from '../../prompts/schema';
-import type { PromptFile } from '../../prompts/prompt-loader';
+import type { RuleFile } from '../../rules/rule-loader';
 import { writeDebugRunArtifact } from '../../debug/run-artifact';
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
@@ -49,7 +49,7 @@ function writeArtifact(
 }
 
 export function writeCheckRoutingDebugArtifact(params: {
-  promptFile: PromptFile;
+  promptFile: RuleFile;
   result: RawCheckResult;
   relFile: string;
   decisions: FilterDecision[];
@@ -74,7 +74,7 @@ export function writeCheckRoutingDebugArtifact(params: {
 }
 
 export function writeJudgeRoutingDebugArtifact(params: {
-  promptFile: PromptFile;
+  promptFile: RuleFile;
   result: JudgeResult;
   relFile: string;
 }): void {

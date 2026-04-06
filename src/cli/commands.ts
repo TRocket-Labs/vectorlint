@@ -6,7 +6,7 @@ import { PerplexitySearchProvider } from '../providers/perplexity-provider';
 import type { SearchProvider } from '../providers/search-provider';
 import { loadConfig } from '../boundaries/config-loader';
 import { loadUserInstructions } from '../boundaries/user-instruction-loader';
-import { loadRuleFile, type PromptFile } from '../prompts/prompt-loader';
+import { loadRuleFile, type RuleFile } from '../rules/rule-loader';
 import { RulePackLoader } from '../boundaries/rule-pack-loader';
 import { PresetLoader } from '../config/preset-loader';
 import { printGlobalSummary, printTokenUsage } from '../output/reporter';
@@ -58,7 +58,7 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
     .option('--output <format>', `Output format: ${OUTPUT_FORMATS.join(', ')}`, OUTPUT_FORMATS[0])
-    .option('--mode <mode>', 'Execution mode: standard (default) or agent', DEFAULT_REVIEW_MODE)
+    .option('--mode <mode>', 'Execution mode: lint (default) or agent', DEFAULT_REVIEW_MODE)
     .option('-p, --print', 'Suppress interactive progress output in agent mode')
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
@@ -118,7 +118,7 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
-      const prompts: PromptFile[] = [];
+      const rules: RuleFile[] = [];
       try {
         const presetsDir = resolvePresetsDir(__dirname);
         const presetLoader = new PresetLoader(presetsDir);
@@ -140,14 +140,14 @@ export function registerMainCommand(program: Command): void {
             if (result.warning) {
               if (cliOptions.verbose) console.warn(`[vectorlint] ${result.warning}`);
             }
-            if (result.prompt) {
-              prompts.push(result.prompt);
+            if (result.rule) {
+              rules.push(result.rule);
             }
           }
         }
       } catch (e: unknown) {
-        const err = handleUnknownError(e, 'Loading prompts');
-        console.error(`Error: failed to load prompts: ${err.message}`);
+        const err = handleUnknownError(e, 'Loading rules');
+        console.error(`Error: failed to load rules: ${err.message}`);
         process.exit(1);
       }
 
@@ -181,7 +181,7 @@ export function registerMainCommand(program: Command): void {
 
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
-        prompts,
+        rules,
         rulesPath,
         provider,
         ...(capabilityProviderResolver ? { capabilityProviderResolver } : {}),
