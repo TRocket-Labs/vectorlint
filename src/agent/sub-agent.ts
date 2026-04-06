@@ -1,6 +1,7 @@
 import type { AgentProgressReporter } from './progress';
 import type { AgentToolDefinition, LLMProvider } from '../providers/llm-provider';
 import type { TokenUsage } from '../providers/token-usage';
+import { buildSubAgentSystemPrompt } from './prompt-builder';
 
 type ReadOnlySubAgentTools = Record<
   'read_file' | 'search_files' | 'list_directory' | 'search_content',
@@ -19,17 +20,10 @@ export async function runSubAgent(params: {
   | { ok: false; error: string; usage?: TokenUsage }
 > {
   const { provider, task, workspaceRoot, label, tools } = params;
-  const trimmedLabel = label?.trim();
 
   try {
     const result = await provider.runAgentToolLoop({
-      systemPrompt: [
-        'You are a bounded sub-agent for workspace analysis.',
-        'Use only the provided read-only workspace tools.',
-        'Return a compact final answer only.',
-        trimmedLabel ? `Task label: ${trimmedLabel}` : undefined,
-        `Workspace root: ${workspaceRoot}`,
-      ].filter(Boolean).join('\n'),
+      systemPrompt: buildSubAgentSystemPrompt({ workspaceRoot, label }),
       prompt: task,
       tools,
     });

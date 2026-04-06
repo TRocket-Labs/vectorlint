@@ -32,13 +32,10 @@ import {
 } from './path-utils';
 import type { AgentProgressReporter } from './progress';
 import { appendInlineFinding, severityFromRule } from './findings';
-import {
-  mergeRulesForLint,
-  type LintRuleCall,
-  MERGED_LINT_REVIEW_INSTRUCTIONS,
-} from './lint-prompt';
+import { type LintRuleCall } from './lint-prompt';
 import type { AgentToolHandlers, AgentToolName } from './tools-registry';
 import { composeSystemPrompt } from '../prompts/system-prompt';
+import { buildLintSystemPrompt } from './prompt-builder';
 
 const MAX_SEARCH_FILE_RESULTS = 500;
 const MAX_CONTENT_MATCH_RESULTS = 200;
@@ -145,14 +142,8 @@ export function createToolHandlers(params: CreateToolHandlersParams): AgentToolH
       context: rule.context,
     }));
 
-    const mergedPrompt = mergeRulesForLint(mergedRuleCalls);
-    const lintPrompt = [
-      ...MERGED_LINT_REVIEW_INSTRUCTIONS,
-      '',
-      mergedPrompt,
-    ].join('\n').trim();
     const systemPrompt = composeSystemPrompt({
-      instructions: lintPrompt,
+      instructions: buildLintSystemPrompt(mergedRuleCalls),
       ...(systemDirective ? { directive: systemDirective } : {}),
       ...(userInstructions ? { userInstructions } : {}),
     });

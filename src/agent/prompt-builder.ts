@@ -1,4 +1,5 @@
 import type { MatchedRuleUnit } from './rule-units';
+import { mergeRulesForLint, type LintRuleCall } from './lint-prompt';
 
 export interface BuildAgentSystemPromptParams {
   workspaceRoot: string;
@@ -36,6 +37,29 @@ function formatMatchedRuleUnits(
       return `- ${file}\n${renderedUnits}`;
     })
     .join('\n');
+}
+
+export function buildLintSystemPrompt(ruleCalls: LintRuleCall[]): string {
+  return [
+    'Review the file against all of the following source-backed rules.',
+    'Keep findings attributed to the exact ruleSource that each issue belongs to.',
+    '',
+    mergeRulesForLint(ruleCalls),
+  ].join('\n').trim();
+}
+
+export function buildSubAgentSystemPrompt(params: {
+  workspaceRoot: string;
+  label?: string;
+}): string {
+  const trimmedLabel = params.label?.trim();
+  return [
+    'You are a bounded sub-agent for workspace analysis.',
+    'Use only the provided read-only workspace tools.',
+    'Return a compact final answer only.',
+    trimmedLabel ? `Task label: ${trimmedLabel}` : undefined,
+    `Workspace root: ${params.workspaceRoot}`,
+  ].filter(Boolean).join('\n');
 }
 
 export function buildAgentSystemPrompt(params: BuildAgentSystemPromptParams): string {

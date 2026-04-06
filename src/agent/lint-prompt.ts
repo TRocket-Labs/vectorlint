@@ -7,11 +7,6 @@ export type LintRuleCall = {
   context?: string;
 };
 
-export const MERGED_LINT_REVIEW_INSTRUCTIONS = [
-  'Review the file against all of the following source-backed rules.',
-  'Keep findings attributed to the exact ruleSource that each issue belongs to.',
-] as const;
-
 export function resolveRuleContent(
   rule: RuleFile,
   params: { reviewInstruction?: string; context?: string }
