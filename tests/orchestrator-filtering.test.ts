@@ -6,7 +6,7 @@ import { evaluateFiles } from "../src/cli/orchestrator";
 import { OutputFormat, type EvaluationOptions } from "../src/cli/types";
 import { EvaluationType, Severity } from "../src/evaluators/types";
 import type { Result } from "../src/output/json-formatter";
-import type { PromptFile } from "../src/prompts/prompt-loader";
+import type { RuleFile } from "../src/rules/rule-loader";
 import type { ValeOutput } from "../src/schemas/vale-responses";
 import type { JudgeResult, RawCheckResult } from "../src/prompts/schema";
 
@@ -23,20 +23,20 @@ vi.mock("../src/evaluators/index", () => ({
   })),
 }));
 
-function createPrompt(meta: PromptFile["meta"]): PromptFile {
+function createPrompt(meta: RuleFile["meta"]): RuleFile {
   return {
     id: meta.id,
     filename: `${meta.id}.md`,
     fullPath: path.join(process.cwd(), "prompts", `${meta.id}.md`),
     meta,
-    body: "Prompt body",
+    content: "Prompt body",
     pack: "TestPack",
   };
 }
 
-function createBaseOptions(prompts: PromptFile[]): EvaluationOptions {
+function createBaseOptions(rules: RuleFile[]): EvaluationOptions {
   return {
-    prompts,
+    rules,
     rulesPath: undefined,
     provider: {} as never,
     concurrency: 1,

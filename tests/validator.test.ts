@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { loadRules, type PromptFile } from '../src/prompts/prompt-loader.js';
-import { validateAll, validatePrompt } from '../src/prompts/prompt-validator.js';
+import { loadRules, type RuleFile } from '../src/rules/rule-loader.js';
+import { validateAll, validateRule } from '../src/rules/rule-validator.js';
 
 function writePrompt(dir: string, name: string, yaml: string, body = 'Body') {
   const full = path.join(dir, name);
@@ -28,8 +28,8 @@ describe('PromptValidator', () => {
       '    weight: 2',
     ].join('\n');
     writePrompt(promptsDir, 'ok.md', yaml);
-    const { prompts } = loadRules(promptsDir);
-    const res = validateAll(prompts);
+    const { rules } = loadRules(promptsDir);
+    const res = validateAll(rules);
     expect(res.errors.length).toBe(0);
   });
 
@@ -50,18 +50,18 @@ describe('PromptValidator', () => {
       '    weight: 2',
     ].join('\n');
     writePrompt(promptsDir, 'bad.md', yaml);
-    const { prompts } = loadRules(promptsDir);
-    const res = validateAll(prompts);
+    const { rules } = loadRules(promptsDir);
+    const res = validateAll(rules);
     expect(res.errors.some(e => /Invalid regex flags/i.test(e.message))).toBe(true);
     expect(res.errors.some(e => /Invalid global target\.regex/i.test(e.message))).toBe(true);
   });
 
   it('errors on invalid weights (manual prompt)', () => {
-    const p: PromptFile = {
+    const p: RuleFile = {
       id: 'x',
       filename: 'x.md',
       fullPath: '/path/to/x.md',
-      body: '',
+      content: '',
       meta: {
         id: 'x',
         name: 'X',
@@ -71,7 +71,7 @@ describe('PromptValidator', () => {
         ],
       },
     };
-    const res = validatePrompt(p);
+    const res = validateRule(p);
     const weightErrors = res.filter(e => /Invalid weight/i.test(e.message));
     expect(weightErrors.length).toBeGreaterThanOrEqual(2);
   });

@@ -38,7 +38,7 @@ describe('evaluateFile', () => {
     const result = await evaluateFile({
       file,
       options: {
-        prompts: [],
+        rules: [],
         rulesPath: undefined,
         provider: {} as never,
         concurrency: 1,

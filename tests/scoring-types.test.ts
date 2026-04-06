@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { BaseEvaluator } from "../src/evaluators/base-evaluator";
 import { EvaluationType } from "../src/evaluators/types";
 import type { LLMProvider, LLMResult } from "../src/providers/llm-provider";
-import type { PromptFile } from "../src/schemas/prompt-schemas";
+import type { RuleFile } from "../src/schemas/rule-schemas";
 import type {
   JudgeLLMResult,
   CheckLLMResult,
@@ -15,11 +15,11 @@ describe("Scoring Types", () => {
   } as unknown as LLMProvider;
 
   describe("Judge Evaluation", () => {
-    const judgePrompt: PromptFile = {
+    const judgePrompt: RuleFile = {
       id: "test-judge",
       filename: "test.md",
       fullPath: "/test.md",
-      body: "Evaluate this.",
+      content: "Evaluate this.",
       pack: "test",
       meta: {
         id: "test-judge",
@@ -78,11 +78,11 @@ describe("Scoring Types", () => {
   });
 
   describe("Check Evaluation", () => {
-    const checkPrompt: PromptFile = {
+    const checkPrompt: RuleFile = {
       id: "test-check",
       filename: "test.md",
       fullPath: "/test.md",
-      body: "Count things.",
+      content: "Count things.",
       pack: "test",
       meta: {
         id: "test-check",
@@ -174,11 +174,11 @@ describe("Scoring Types", () => {
         search: vi.fn().mockResolvedValue({ results: [] }),
       };
 
-      const prompt: PromptFile = {
+      const prompt: RuleFile = {
         id: "tech-acc",
         filename: "tech.md",
         fullPath: "/tech.md",
-        body: "Check accuracy",
+        content: "Check accuracy",
         pack: "test",
         meta: { id: "tech-acc", name: "Tech Acc", type: "check" },
       };

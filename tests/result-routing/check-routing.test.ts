@@ -4,16 +4,16 @@ import { createIssueSink } from '../../src/cli/result-routing/issue-sink';
 import { OutputFormat } from '../../src/cli/types';
 import { Severity } from '../../src/evaluators/types';
 import { JsonFormatter } from '../../src/output/json-formatter';
-import type { PromptFile } from '../../src/prompts/prompt-loader';
+import type { RuleFile } from '../../src/rules/rule-loader';
 import type { RawCheckResult } from '../../src/prompts/schema';
 
-function makePromptFile(): PromptFile {
+function makeRuleFile(): RuleFile {
   return {
     id: 'consistency',
     filename: 'consistency.md',
     fullPath: '/tmp/consistency.md',
     pack: 'Default',
-    body: 'body',
+    content: 'body',
     meta: {
       id: 'Consistency',
       name: 'Consistency',
@@ -59,7 +59,7 @@ describe('routeCheckResult', () => {
     const sink = createIssueSink(OutputFormat.Json, formatter);
 
     const result = routeCheckResult({
-      promptFile: makePromptFile(),
+      promptFile: makeRuleFile(),
       result: makeCheckResult(),
       content: 'bad phrase',
       relFile: 'doc.md',

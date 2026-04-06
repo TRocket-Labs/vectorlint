@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { PromptFile } from '../../src/prompts/prompt-loader';
+import type { RuleFile } from '../../src/rules/rule-loader';
 
-function makePrompt(ruleSource: string, body: string): PromptFile {
+function makePrompt(ruleSource: string, body: string): RuleFile {
   const filename = ruleSource.split('/').pop() ?? 'rule.md';
   const basename = filename.replace(/\.md$/i, '');
   return {
@@ -9,7 +9,7 @@ function makePrompt(ruleSource: string, body: string): PromptFile {
     filename,
     fullPath: ruleSource,
     pack: 'Default',
-    body,
+    content: body,
     meta: {
       id: basename,
       name: basename,
@@ -23,7 +23,7 @@ describe('matched rule units', () => {
   it('groups matched rules deterministically for the same inputs and budget', async () => {
     const { buildMatchedRuleUnits } = await import('../../src/agent/rule-units');
 
-    const promptBySource = new Map<string, PromptFile>([
+    const ruleBySource = new Map<string, RuleFile>([
       ['packs/default/ai-pattern.md', makePrompt('packs/default/ai-pattern.md', 'A'.repeat(40))],
       ['packs/default/consistency.md', makePrompt('packs/default/consistency.md', 'B'.repeat(40))],
       ['packs/default/links.md', makePrompt('packs/default/links.md', 'C'.repeat(20))],
@@ -35,8 +35,8 @@ describe('matched rule units', () => {
       { file: 'docs/guide.md', ruleSource: 'packs/default/links.md' },
     ];
 
-    const first = buildMatchedRuleUnits(matches, promptBySource, 400);
-    const second = buildMatchedRuleUnits(matches, promptBySource, 400);
+    const first = buildMatchedRuleUnits(matches, ruleBySource, 400);
+    const second = buildMatchedRuleUnits(matches, ruleBySource, 400);
 
     expect(first).toEqual(second);
     expect(first).toHaveLength(2);
@@ -58,7 +58,7 @@ describe('matched rule units', () => {
   it('splits matched rule units when the token budget boundary is hit', async () => {
     const { buildMatchedRuleUnits } = await import('../../src/agent/rule-units');
 
-    const promptBySource = new Map<string, PromptFile>([
+    const ruleBySource = new Map<string, RuleFile>([
       ['packs/default/ai-pattern.md', makePrompt('packs/default/ai-pattern.md', 'A'.repeat(120))],
       ['packs/default/consistency.md', makePrompt('packs/default/consistency.md', 'B'.repeat(120))],
       ['packs/default/unsupported-claims.md', makePrompt('packs/default/unsupported-claims.md', 'C'.repeat(120))],
@@ -70,7 +70,7 @@ describe('matched rule units', () => {
         { file: 'README.md', ruleSource: 'packs/default/consistency.md' },
         { file: 'README.md', ruleSource: 'packs/default/unsupported-claims.md' },
       ],
-      promptBySource,
+      ruleBySource,
       120
     );
 

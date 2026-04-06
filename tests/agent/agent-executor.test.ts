@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { PromptFile } from '../../src/prompts/prompt-loader';
+import type { RuleFile } from '../../src/rules/rule-loader';
 import type { LLMProvider } from '../../src/providers/llm-provider';
 import { Severity } from '../../src/evaluators/types';
 import { OutputFormat } from '../../src/cli/types';
@@ -10,13 +10,13 @@ import { SESSION_EVENT_TYPE } from '../../src/agent/types';
 import { AgentToolError } from '../../src/errors';
 import { HIGH_CAPABILITY_TIER } from '../../src/providers/model-capability';
 
-function makePrompt(): PromptFile {
+function makePrompt(): RuleFile {
   return {
     id: 'consistency',
     filename: 'consistency.md',
     fullPath: 'packs/default/consistency.md',
     pack: 'Default',
-    body: 'Find inconsistent wording.',
+    content: 'Find inconsistent wording.',
     meta: {
       id: 'Consistency',
       name: 'Consistency',
@@ -32,13 +32,13 @@ function makePromptVariant(params: {
   name: string;
   body: string;
   severity?: Severity;
-}): PromptFile {
+}): RuleFile {
   return {
     id: params.id.toLowerCase(),
     filename: path.basename(params.fullPath),
     fullPath: params.fullPath,
     pack: 'Default',
-    body: params.body,
+    content: params.body,
     meta: {
       id: params.id,
       name: params.name,
@@ -137,7 +137,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -174,7 +174,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [
+      rules: [
         makePrompt(),
         makePromptVariant({
           fullPath: 'packs/default/links.md',
@@ -241,7 +241,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider: topLevelProvider,
       resolveCapabilityProvider: (requested) =>
         requested === 'high-cap' ? subAgentProvider : topLevelProvider,
@@ -288,7 +288,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider: topLevelProvider,
       resolveCapabilityProvider: (requested) => {
         requestedModels.push(requested);
@@ -333,7 +333,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider: topLevelProvider,
       resolveCapabilityProvider: () => failingSubAgentProvider,
       workspaceRoot: repo,
@@ -379,7 +379,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       resolveCapabilityProvider: (requested) => {
         resolvedTier = requested;
@@ -492,7 +492,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [
+      rules: [
         makePrompt(),
         makePromptVariant({
           fullPath: 'packs/default/accuracy.md',
@@ -544,7 +544,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -620,7 +620,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [
+      rules: [
         makePrompt(),
         makePromptVariant({
           fullPath: 'packs/default/accuracy.md',
@@ -659,7 +659,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -697,7 +697,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -760,7 +760,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -789,7 +789,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [],
@@ -821,7 +821,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: 'blog/**/*.md', runRules: ['Default'], overrides: {} }],
@@ -862,7 +862,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -902,7 +902,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -963,7 +963,7 @@ describe('agent executor', () => {
 
       const result = await runAgentExecutor({
         targets: [path.join(repo, 'doc.md')],
-        prompts: [makePrompt()],
+        rules: [makePrompt()],
         provider,
         workspaceRoot: repo,
         scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -1010,7 +1010,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -1051,7 +1051,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -1080,7 +1080,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -1124,7 +1124,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -1168,7 +1168,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -1218,7 +1218,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [
+      rules: [
         makePrompt(),
         makePromptVariant({
           fullPath: 'packs/default/links.md',
@@ -1250,9 +1250,9 @@ describe('agent executor', () => {
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const basePrompt = makePrompt();
-    const judgePrompt: PromptFile = {
+    const judgePrompt: RuleFile = {
       ...basePrompt,
-      body: 'Judge the document for clarity.',
+      content: 'Judge the document for clarity.',
       meta: {
         ...basePrompt.meta,
         type: 'judge',
@@ -1313,7 +1313,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [judgePrompt],
+      rules: [judgePrompt],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -1349,7 +1349,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -1386,7 +1386,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],

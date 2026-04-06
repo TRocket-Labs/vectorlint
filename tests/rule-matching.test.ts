@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAgentExecutor } from '../src/agent/executor';
 import { OutputFormat, type EvaluationOptions } from '../src/cli/types';
 import { EvaluationType, Severity } from '../src/evaluators/types';
-import type { PromptFile } from '../src/prompts/prompt-loader';
+import type { RuleFile } from '../src/rules/rule-loader';
 import type { LLMProvider } from '../src/providers/llm-provider';
-import { resolveMatchedPromptsForFile } from '../src/rules/matched-prompts';
+import { resolveMatchedRulesForFile } from '../src/rules/matched-rules';
 import type { FilePatternConfig } from '../src/boundaries/file-section-parser';
 
 function makePrompt(params: {
@@ -14,13 +14,13 @@ function makePrompt(params: {
   id: string;
   name: string;
   pack?: string;
-}): PromptFile {
+}): RuleFile {
   return {
     id: params.id.toLowerCase(),
     filename: path.basename(params.fullPath),
     fullPath: params.fullPath,
     pack: params.pack ?? 'Default',
-    body: `${params.name} body`,
+    content: `${params.name} body`,
     meta: {
       id: params.id,
       name: params.name,
@@ -30,9 +30,9 @@ function makePrompt(params: {
   };
 }
 
-function makeStandardOptions(prompts: PromptFile[], scanPaths: EvaluationOptions['scanPaths']): EvaluationOptions {
+function makeStandardOptions(rules: RuleFile[], scanPaths: EvaluationOptions['scanPaths']): EvaluationOptions {
   return {
-    prompts,
+    rules,
     rulesPath: undefined,
     provider: {} as never,
     concurrency: 1,
@@ -101,13 +101,13 @@ describe('rule matching', () => {
       }),
     ];
 
-    const resolution = resolveMatchedPromptsForFile({
+    const resolution = resolveMatchedRulesForFile({
       filePath: 'docs/guide.md',
-      prompts,
+      rules: prompts,
       scanPaths: [],
     });
 
-    expect(resolution.prompts).toEqual(prompts);
+    expect(resolution.rules).toEqual(prompts);
     expect(resolution.packs).toEqual(['Default']);
     expect(resolution.overrides).toEqual({});
   });
@@ -138,9 +138,9 @@ describe('rule matching', () => {
       }),
     ];
 
-    const resolution = resolveMatchedPromptsForFile({
+    const resolution = resolveMatchedRulesForFile({
       filePath: 'docs/guide.md',
-      prompts,
+      rules: prompts,
       scanPaths: [
         {
           pattern: '**/*.md',
@@ -152,7 +152,7 @@ describe('rule matching', () => {
       ],
     });
 
-    expect(resolution.prompts.map((prompt) => prompt.fullPath)).toEqual([
+    expect(resolution.rules.map((rule) => rule.fullPath)).toEqual([
       'packs/default/consistency.md',
       'VECTORLINT.md',
     ]);
@@ -162,7 +162,7 @@ describe('rule matching', () => {
     });
   });
 
-  it('keeps standard and agent flows in sync for matched prompts', async () => {
+  it('keeps lint and agent flows in sync for matched rules', async () => {
     const { evaluateFiles } = await import('../src/cli/orchestrator');
     const evaluators = await import('../src/evaluators/index');
 
@@ -214,10 +214,10 @@ describe('rule matching', () => {
     ];
 
     vi.spyOn(evaluators, 'createEvaluator').mockImplementation(
-      (_type: string, _provider: unknown, prompt: PromptFile) =>
+      (_type: string, _provider: unknown, rule: RuleFile) =>
         ({
           evaluate: vi.fn(() => {
-            standardMatchedPromptSources.push(prompt.fullPath);
+            standardMatchedPromptSources.push(rule.fullPath);
             return Promise.resolve({
               type: EvaluationType.CHECK,
               violations: [],
@@ -231,7 +231,7 @@ describe('rule matching', () => {
 
     const agentResult = await runAgentExecutor({
       targets: [file],
-      prompts,
+      rules: prompts,
       provider: makeAgentProvider(),
       workspaceRoot: process.cwd(),
       scanPaths,
@@ -260,9 +260,9 @@ describe('rule matching', () => {
     ];
 
     expect(() =>
-      resolveMatchedPromptsForFile({
+      resolveMatchedRulesForFile({
         filePath: 'docs/guide.md',
-        prompts,
+        rules: prompts,
         scanPaths: [
           {
             pattern: 'blog/**/*.md',

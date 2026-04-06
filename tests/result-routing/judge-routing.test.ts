@@ -4,16 +4,16 @@ import { createIssueSink, type IssueSink, type SinkIssue } from '../../src/cli/r
 import { OutputFormat } from '../../src/cli/types';
 import { Severity } from '../../src/evaluators/types';
 import { JsonFormatter } from '../../src/output/json-formatter';
-import type { PromptFile } from '../../src/prompts/prompt-loader';
+import type { RuleFile } from '../../src/rules/rule-loader';
 import type { JudgeResult } from '../../src/prompts/schema';
 
-function makePromptFile(overrides?: Partial<PromptFile['meta']>): PromptFile {
+function makeRuleFile(overrides?: Partial<RuleFile['meta']>): RuleFile {
   return {
     id: 'review',
     filename: 'review.md',
     fullPath: '/tmp/review.md',
     pack: 'Default',
-    body: 'body',
+    content: 'body',
     meta: {
       id: 'Review',
       name: 'Review',
@@ -80,7 +80,7 @@ describe('routeJudgeResult', () => {
     const sink = createIssueSink(OutputFormat.Json, formatter);
 
     const result = routeJudgeResult({
-      promptFile: makePromptFile(),
+      promptFile: makeRuleFile(),
       result: makeJudgeResult(),
       content: 'bad phrase',
       relFile: 'doc.md',
@@ -124,7 +124,7 @@ describe('routeJudgeResult', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const result = routeJudgeResult({
-      promptFile: makePromptFile({
+      promptFile: makeRuleFile({
         criteria: [
           {
             id: 'Clarity',

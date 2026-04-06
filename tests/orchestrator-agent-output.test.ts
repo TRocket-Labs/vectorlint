@@ -3,7 +3,7 @@ import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { evaluateFiles } from '../src/cli/orchestrator';
 import { AGENT_REVIEW_MODE, OutputFormat } from '../src/cli/types';
-import type { PromptFile } from '../src/prompts/prompt-loader';
+import type { RuleFile } from '../src/rules/rule-loader';
 import type { LLMProvider } from '../src/providers/llm-provider';
 import type { CapabilityProviderResolver } from '../src/providers/capability-provider-resolver';
 import { Severity } from '../src/evaluators/types';
@@ -13,18 +13,18 @@ function makePrompt(params?: {
   name?: string;
   source?: string;
   body?: string;
-}): PromptFile {
+}): RuleFile {
   const id = params?.id ?? 'consistency';
   const name = params?.name ?? 'Consistency';
   const source = params?.source ?? 'packs/default/consistency.md';
-  const body = params?.body ?? 'Find inconsistent wording';
+  const content = params?.body ?? 'Find inconsistent wording';
 
   return {
     id,
     filename: `${id}.md`,
     fullPath: source,
     pack: 'Default',
-    body,
+    content,
     meta: {
       id: name,
       name,
@@ -149,7 +149,7 @@ describe('agent orchestrator output', () => {
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     const result = await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeProvider(),
       concurrency: 1,
@@ -189,7 +189,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     const result = await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider,
       concurrency: 1,
@@ -259,7 +259,7 @@ describe('agent orchestrator output', () => {
     };
 
     const result = await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: defaultProvider,
       capabilityProviderResolver,
@@ -310,7 +310,7 @@ describe('agent orchestrator output', () => {
     };
 
     const result = await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: defaultProvider,
       capabilityProviderResolver,
@@ -371,7 +371,7 @@ describe('agent orchestrator output', () => {
     };
 
     const result = await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: fallbackProvider,
       capabilityProviderResolver,
@@ -394,7 +394,7 @@ describe('agent orchestrator output', () => {
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeProvider(),
       concurrency: 1,
@@ -421,13 +421,13 @@ describe('agent orchestrator output', () => {
     expect(payload.metadata?.timestamp).toBeTruthy();
   });
 
-  it('keeps top-level json keys consistent between standard and agent modes', async () => {
+  it('keeps top-level json keys consistent between lint and agent modes', async () => {
     const repo = createTempRepo();
     const file = path.join(repo, 'doc.md');
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeProvider(),
       concurrency: 1,
@@ -443,7 +443,7 @@ describe('agent orchestrator output', () => {
     vi.mocked(console.log).mockClear();
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeProvider(),
       concurrency: 1,
@@ -475,7 +475,7 @@ describe('agent orchestrator output', () => {
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeProvider(),
       concurrency: 1,
@@ -526,7 +526,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider,
       concurrency: 1,
@@ -576,7 +576,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider,
       concurrency: 1,
@@ -621,7 +621,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     await evaluateFiles([file], {
-      prompts: [
+      rules: [
         makePrompt({ id: 'ai-pattern', name: 'AI Pattern', source: 'packs/default/ai-pattern.md' }),
         makePrompt({ id: 'consistency', name: 'Consistency', source: 'packs/default/consistency.md' }),
         makePrompt({ id: 'wordiness', name: 'Wordiness', source: 'packs/default/wordiness.md' }),
@@ -665,7 +665,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     await evaluateFiles([file], {
-      prompts: [
+      rules: [
         makePrompt({ id: 'ai-pattern', name: 'AI Pattern', source: 'packs/default/ai-pattern.md' }),
         makePrompt({ id: 'consistency', name: 'Consistency', source: 'packs/default/consistency.md' }),
       ],
@@ -711,7 +711,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider,
       concurrency: 1,
@@ -752,7 +752,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider,
       concurrency: 1,
@@ -829,7 +829,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     const result = await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider,
       concurrency: 1,
@@ -869,7 +869,7 @@ describe('agent orchestrator output', () => {
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeProvider(),
       concurrency: 1,
@@ -895,7 +895,7 @@ describe('agent orchestrator output', () => {
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeProvider(),
       concurrency: 1,
@@ -948,7 +948,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     await evaluateFiles([fileOne, fileTwo], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider,
       concurrency: 1,
@@ -977,7 +977,7 @@ describe('agent orchestrator output', () => {
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeTopLevelOnlyProvider(),
       concurrency: 1,
@@ -1007,7 +1007,7 @@ describe('agent orchestrator output', () => {
     writeFileSync(otherFile, 'other content\n', 'utf8');
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeCrossFileTopLevelProvider(),
       concurrency: 1,
@@ -1088,7 +1088,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     await evaluateFiles([firstFile, secondFile], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider,
       concurrency: 1,
@@ -1115,7 +1115,7 @@ describe('agent orchestrator output', () => {
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeProvider(),
       concurrency: 1,
@@ -1140,7 +1140,7 @@ describe('agent orchestrator output', () => {
     vi.mocked(console.log).mockClear();
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeProvider(),
       concurrency: 1,
@@ -1180,7 +1180,7 @@ describe('agent orchestrator output', () => {
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeProvider(),
       concurrency: 1,
@@ -1209,7 +1209,7 @@ describe('agent orchestrator output', () => {
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeProvider(),
       concurrency: 1,
@@ -1232,7 +1232,7 @@ describe('agent orchestrator output', () => {
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     const result = await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider: makeNoFinalizeProvider(),
       concurrency: 1,
@@ -1268,7 +1268,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider,
       concurrency: 1,
@@ -1299,7 +1299,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     const result = await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider,
       concurrency: 1,
@@ -1333,7 +1333,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider,
       concurrency: 1,
@@ -1366,7 +1366,7 @@ describe('agent orchestrator output', () => {
     } as unknown as LLMProvider;
 
     await evaluateFiles([file], {
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       rulesPath: undefined,
       provider,
       concurrency: 1,
