@@ -1,6 +1,6 @@
 import type { RuleFile } from '../rules/rule-loader';
 import { normalizeRuleSource } from './rule-id';
-import { estimateTokens } from '../utils/token-estimate';
+import { estimateTokens } from './utils';
 
 export interface MatchedRuleUnitRule {
   ruleSource: string;

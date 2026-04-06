@@ -1,15 +1,15 @@
 import { existsSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { USER_INSTRUCTION_FILENAME, USER_INSTRUCTION_TOKEN_WARNING_THRESHOLD } from '../config/constants';
-import { estimateTokens } from '../utils/token-estimate';
-
 export interface UserInstructionResult {
     content: string | null;
     tokenEstimate: number;
     path: string | null;
 }
 
-export { estimateTokens } from '../utils/token-estimate';
+function estimateTokens(text: string): number {
+  return Math.ceil((text?.length ?? 0) / 4);
+}
 
 /**
  * Loads the VECTORLINT.md user instructions from the specified directory.

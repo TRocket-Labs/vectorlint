@@ -26,6 +26,8 @@ function makePrompt(): RuleFile {
   };
 }
 
+// Test factory: builds a RuleFile with a specific fullPath and content,
+// normalizing the id to lowercase and defaulting pack/type/severity.
 function makePromptVariant(params: {
   fullPath: string;
   id: string;

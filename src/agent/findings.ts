@@ -37,19 +37,7 @@ export type AgentFindingRecord = {
   match?: string;
 };
 
-type InlineFindingEventPayload = {
-  file: string;
-  line: number;
-  column: number;
-  severity: Severity;
-  ruleId: string;
-  ruleSource: string;
-  message: string;
-  analysis?: string;
-  suggestion?: string;
-  fix?: string;
-  match?: string;
-};
+type InlineFindingEventPayload = AgentFindingRecord;
 
 type ReviewSessionStore = {
   append(entry: {

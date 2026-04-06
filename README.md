@@ -146,28 +146,7 @@ To suppress interactive progress in line output:
 vectorlint doc.md --mode agent --print
 ```
 
-Agent mode precomputes matched rule units per file before the loop starts. Each `lint` call can merge the rules in one matched rule unit into a single review request.
-
-The runtime uses provider-scoped capability tiers:
-
-- the top-level agent loop uses the default provider
-- `lint` uses the default provider unless a call passes `model`
-- delegated sub-agents use the default provider unless the `agent` tool passes `model`
-
-Capability fallback is upward-only within the active provider:
-
-- `low-cap` falls back to `mid-cap`, then `high-cap`, then the provider default
-- `mid-cap` falls back to `high-cap`, then the provider default
-- `high-cap` falls back to the provider default
-
-Inside agent mode:
-
-- `lint` takes one file plus explicit `rules[]`
-- a rule's `reviewInstruction` replaces that rule body's default text for the merged call
-- a rule's `context` is appended under `Required context for this review:`
-- the `agent` tool runs bounded read-only delegated work in isolated context and returns a compact sub-agent result
-
-Provider-specific capability-tier fields can be configured in your global config or project `.env`. Azure uses deployment names instead of raw model IDs. See [Configuration Guide](./CONFIGURATION.md) for the full matrix.
+Agent mode uses your configured LLM provider. Provider-specific model selection and capability tier fields can be configured in your global config or project `.env`. See [Configuration Guide](./CONFIGURATION.md) for the full reference.
 
 
 ## Contributing
