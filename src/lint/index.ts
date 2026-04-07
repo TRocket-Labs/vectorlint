@@ -1,7 +1,6 @@
 import type { RuleFile } from "../rules/rule-loader";
 import type { LLMProvider } from "../providers/llm-provider";
 import type { TokenUsage } from "../providers/token-usage";
-import { Severity } from "../schemas/rule-schemas";
 import { ReviewType } from "./types";
 import {
   mergeViolations,
@@ -34,8 +33,6 @@ export { computeFilterDecision };
 const CHUNKING_THRESHOLD = 600;
 const MAX_CHUNK_SIZE = 500;
 
-export type { Severity };
-
 // ─── runLint ────────────────────────────────────────────────────────────────
 
 export type RunLintParams = {
@@ -43,7 +40,6 @@ export type RunLintParams = {
   rule: RuleFile;
   provider: LLMProvider;
   options?: {
-    defaultSeverity?: Severity;
     systemDirective?: string;
     userInstructions?: string;
   };
@@ -277,29 +273,7 @@ export type RunLintMergedParams = {
 };
 
 export type MergedLintResult = {
-  findings: Array<{
-    ruleSource: string;
-    line?: number;
-    quoted_text?: string;
-    context_before?: string;
-    context_after?: string;
-    description?: string;
-    analysis?: string;
-    message?: string;
-    suggestion?: string;
-    fix?: string;
-    confidence?: number;
-    checks?: {
-      plausible_non_violation?: boolean;
-      context_supports_violation?: boolean;
-      rule_supports_claim?: boolean;
-      evidence_exact?: boolean;
-      fix_is_drop_in?: boolean;
-      fix_preserves_meaning?: boolean;
-    };
-    check_notes?: Record<string, string>;
-    rule_quote?: string;
-  }>;
+  findings: MergedCheckLLMResult["findings"];
   reasoning?: string;
   usage?: TokenUsage;
 };
