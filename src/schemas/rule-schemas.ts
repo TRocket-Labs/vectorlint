@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { Severity } from "../evaluators/types";
+
+// Severity enum moved from evaluators/types
+export enum Severity {
+  ERROR = 'error',
+  WARNING = 'warning',
+}
 
 // Target specification schema for regex matching
 export const TARGET_SPEC_SCHEMA = z
@@ -22,10 +27,6 @@ export const RULE_CRITERION_SCHEMA = z.object({
 
 // Rule metadata schema for YAML frontmatter
 /*
- * Evaluator type selection:
- * - 'base': unified evaluator (auto-detects scored vs basic mode from criteria)
- * - 'technical-accuracy': specialized evaluator with claim extraction + search
- *
  * Evaluation type:
  * - 'judge': 1-4 scores per criterion, normalized to 1-10
  * - 'check': density-based scoring (errors per 100 words)
@@ -40,7 +41,6 @@ export const RULE_CRITERION_SCHEMA = z.object({
  */
 export const RULE_META_SCHEMA = z.object({
   specVersion: z.union([z.string(), z.number()]).optional(),
-  evaluator: z.enum(["base", "technical-accuracy"]).optional(),
   type: z
     .enum(["judge", "check", "subjective", "semi-objective"])
     .transform((val) => {
