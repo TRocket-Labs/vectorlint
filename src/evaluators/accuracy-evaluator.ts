@@ -9,7 +9,7 @@ import type { StructuredPromptContext } from "./evaluator-registry";
 import { renderTemplate } from "../prompts/template-renderer";
 import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
-import { Type, EvaluationType, type Severity } from "./types";
+import { Type, type Severity } from "./types";
 import { ReviewType } from "../lint/types";
 import { MissingDependencyError } from "../errors/index";
 import { countWords } from "../chunking";
