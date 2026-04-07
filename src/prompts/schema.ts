@@ -1,4 +1,5 @@
-import { EvaluationType, Severity } from "../evaluators/types";
+import { Severity } from "../evaluators/types";
+import { ReviewType } from "../lint/types";
 import type { TokenUsage } from "../providers/token-usage";
 
 export type GateChecks = {
@@ -299,7 +300,7 @@ export type MergedCheckLLMResult = {
 };
 
 export type JudgeResult = {
-  type: typeof EvaluationType.JUDGE;
+  type: typeof ReviewType.JUDGE;
   final_score: number; // 1-10
   criteria: Array<{
     name: string;
@@ -346,7 +347,7 @@ export type CheckItem = {
 };
 
 export type CheckResult = {
-  type: typeof EvaluationType.CHECK;
+  type: typeof ReviewType.CHECK;
   final_score: number; // 1-10
   percentage: number;
   violation_count: number;
@@ -375,7 +376,7 @@ export type CheckResult = {
 };
 
 export type RawCheckResult = {
-  type: typeof EvaluationType.CHECK;
+  type: typeof ReviewType.CHECK;
   violations: CheckResult["violations"];
   word_count: number;
   reasoning?: string;
@@ -388,11 +389,11 @@ export type PromptEvaluationResult = JudgeResult | RawCheckResult;
 export function isJudgeResult(
   result: PromptEvaluationResult
 ): result is JudgeResult {
-  return result.type === EvaluationType.JUDGE;
+  return result.type === ReviewType.JUDGE;
 }
 
 export function isCheckResult(
   result: PromptEvaluationResult
 ): result is RawCheckResult {
-  return result.type === EvaluationType.CHECK;
+  return result.type === ReviewType.CHECK;
 }

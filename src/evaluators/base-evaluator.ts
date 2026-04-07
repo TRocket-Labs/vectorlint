@@ -13,6 +13,7 @@ import {
 import { registerEvaluator } from "./evaluator-registry";
 import type { Evaluator } from "./evaluator";
 import { Type, Severity, EvaluationType } from "./types";
+import { ReviewType } from "../lint/types";
 import {
   mergeViolations,
   RecursiveChunker,
@@ -229,7 +230,7 @@ export class BaseEvaluator implements Evaluator {
     const reasoning = chunkReasonings.join(" ").trim() || undefined;
 
     return {
-      type: EvaluationType.CHECK,
+      type: ReviewType.CHECK,
       violations: mergedViolations,
       word_count: totalWordCount,
       ...(reasoning && { reasoning }),

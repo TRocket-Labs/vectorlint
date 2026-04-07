@@ -4,7 +4,8 @@ import type {
   CheckItem,
   JudgeLLMResult,
 } from "../prompts/schema";
-import { EvaluationType, Severity } from "../evaluators/types";
+import { Severity } from "../evaluators/types";
+import { ReviewType } from "../lint/types";
 
 export interface CheckScoringOptions {
   // Strictness factor. Higher = more penalty per violation.
@@ -76,7 +77,7 @@ export function calculateCheckScore(
       : "No issues found";
 
   return {
-    type: EvaluationType.CHECK,
+    type: ReviewType.CHECK,
     final_score: Number(finalScore.toFixed(1)),
     percentage: Number(rawScore.toFixed(1)),
     violation_count: mappedViolations.length,
@@ -125,7 +126,7 @@ export function calculateJudgeScore(
   const finalScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 1;
 
   return {
-    type: EvaluationType.JUDGE,
+    type: ReviewType.JUDGE,
     final_score: Number(finalScore.toFixed(1)),
     criteria: criteriaWithCalculations,
   };
@@ -138,7 +139,7 @@ export function averageJudgeScores(
 ): JudgeResult {
   if (results.length === 0) {
     return {
-      type: EvaluationType.JUDGE,
+      type: ReviewType.JUDGE,
       final_score: 0,
       criteria: [],
     };
@@ -252,7 +253,7 @@ export function averageJudgeScores(
   const finalScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
 
   return {
-    type: EvaluationType.JUDGE,
+    type: ReviewType.JUDGE,
     final_score: Number(finalScore.toFixed(1)),
     criteria: aggregatedCriteria,
   };
