@@ -1,9 +1,5 @@
 import { readdir, readFile } from 'fs/promises';
 import fg from 'fast-glob';
-import {
-  buildMergedCheckLLMSchema,
-  type MergedCheckLLMResult,
-} from '../prompts/schema';
 import type { RuleFile } from '../rules/rule-loader';
 import type {
   AgentToolDefinition,
@@ -32,10 +28,8 @@ import {
 } from './path-utils';
 import type { AgentProgressReporter } from './progress';
 import { appendInlineFinding, severityFromRule } from './findings';
-import { type LintRuleCall } from './lint-prompt';
 import type { AgentToolHandlers, AgentToolName } from './tools-registry';
-import { composeSystemPrompt } from '../prompts/system-prompt';
-import { buildLintSystemPrompt } from './prompt-builder';
+import { runLintMerged, type LintRuleCall } from '../lint';
 
 const MAX_SEARCH_FILE_RESULTS = 500;
 const MAX_CONTENT_MATCH_RESULTS = 200;
@@ -142,23 +136,22 @@ export function createToolHandlers(params: CreateToolHandlersParams): AgentToolH
       context: rule.context,
     }));
 
-    const systemPrompt = composeSystemPrompt({
-      instructions: buildLintSystemPrompt(mergedRuleCalls),
-      ...(systemDirective ? { directive: systemDirective } : {}),
-      ...(userInstructions ? { userInstructions } : {}),
-    });
     const lintProvider = parsed.model
       ? resolveCapabilityProvider(parsed.model)
       : defaultProvider;
-    const result = await lintProvider.runPromptStructured<MergedCheckLLMResult>(
-      systemPrompt,
+    const lintResult = await runLintMerged({
       content,
-      buildMergedCheckLLMSchema()
-    );
-    onNestedUsage(result.usage);
+      ruleCalls: mergedRuleCalls,
+      provider: lintProvider,
+      options: {
+        ...(systemDirective ? { systemDirective } : {}),
+        ...(userInstructions ? { userInstructions } : {}),
+      },
+    });
+    onNestedUsage(lintResult.usage);
 
     let findingsRecorded = 0;
-    for (const finding of result.data.findings) {
+    for (const finding of lintResult.findings) {
       const normalizedRuleSource = normalizeRuleSource(finding.ruleSource);
       const prompt = ruleByAllowedRuleSource.get(normalizedRuleSource);
       if (!prompt) {
@@ -167,7 +160,7 @@ export function createToolHandlers(params: CreateToolHandlersParams): AgentToolH
 
       const wasRecorded = await appendInlineFinding({
         violation: finding,
-        reasoning: result.data.reasoning,
+        reasoning: lintResult.reasoning,
         content,
         relFile,
         prompt,
@@ -183,7 +176,7 @@ export function createToolHandlers(params: CreateToolHandlersParams): AgentToolH
     return {
       ok: true,
       findingsRecorded,
-      schema: buildMergedCheckLLMSchema().name,
+      schema: 'vectorlint_merged_check_result',
     };
   }
 

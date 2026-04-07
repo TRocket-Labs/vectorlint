@@ -2,9 +2,9 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import type { RuleFile } from '../rules/rule-loader';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
-import { ConfigError, handleUnknownError, MissingDependencyError, NoConfigurationFoundError } from '../errors/index';
-import { createEvaluator } from '../evaluators/index';
-import { Severity, Type } from '../evaluators/types';
+import { handleUnknownError, MissingDependencyError, NoConfigurationFoundError } from '../errors/index';
+import { runLint } from '../lint';
+import { Severity } from '../schemas/rule-schemas';
 import {
   printEvaluationSummaries,
   printFileHeader,
@@ -61,48 +61,23 @@ async function runPromptEvaluation(
 ): Promise<RunPromptEvaluationResult> {
   const {
     promptFile,
-    relFile,
     content,
     provider,
-    searchProvider,
     systemDirective,
     userInstructions,
   } = params;
 
   try {
-    const meta = promptFile.meta;
-
-    const evaluatorType = String(meta.evaluator || Type.BASE);
-    const baseEvaluatorType = String(Type.BASE);
-
-    // Specialized evaluators (e.g., technical-accuracy) require criteria
-    // BaseEvaluator handles both modes: scored (with criteria) and basic (without)
-    if (evaluatorType !== baseEvaluatorType) {
-      if (
-        !meta ||
-        !Array.isArray(meta.criteria) ||
-        meta.criteria.length === 0
-      ) {
-        throw new ConfigError(
-          `Prompt ${promptFile.filename} has no criteria in frontmatter`
-        );
-      }
-    }
-    const evaluator = createEvaluator(
-      evaluatorType,
+    const result = await runLint({
+      content,
+      rule: promptFile,
       provider,
-      promptFile,
-      searchProvider,
-      undefined,
-      {
+      options: {
         ...(systemDirective ? { systemDirective } : {}),
         ...(userInstructions ? { userInstructions } : {}),
-      }
-    );
-    const result = await evaluator.evaluate(relFile, content);
-
+      },
+    });
     const resultObj: RunPromptEvaluationResultSuccess = { ok: true, result };
-
     return resultObj;
   } catch (e: unknown) {
     const err = handleUnknownError(e, `Running prompt ${promptFile.filename}`);
