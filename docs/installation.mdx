@@ -1,11 +1,15 @@
 ---
-title: "Installation"
-description: "Install VectorLint globally or run it with npx. Covers Node.js requirements and verifying your installation."
+title: Installation
+description: Install VectorLint globally or run it with npx. Covers Node.js requirements and verifying your installation.
 ---
 
 ## Before you begin
 
 VectorLint requires Node.js 18 or later. Node.js 22 LTS is recommended. If you need to install or update Node.js, use [nvm](https://github.com/nvm-sh/nvm) (recommended) or download directly from [nodejs.org](https://nodejs.org).
+
+<Warning>
+Installing VectorLint makes the CLI available, but the tool requires a configured LLM provider to evaluate content. If you run `vectorlint` against a file before completing provider configuration, you get no output and no error. After installing, complete [Configuring LLM providers](/llm-providers) before running your first check.
+</Warning>
 
 ---
 
@@ -37,24 +41,18 @@ Run VectorLint without installing it:
 npx vectorlint path/to/doc.md
 ```
 
-npx downloads and runs the latest version of VectorLint on demand. No installation or version management required. Use this option for one-off checks or to try VectorLint before committing to a global install.
+With this option, you don't need to install or manage versions, since `npx` downloads and runs the latest version of VectorLint on demand. Use this option for one-off checks or to try VectorLint before committing to a global install.
 
-<Tip>
-  If you use npx regularly, pin a specific version to avoid unexpected behavior when VectorLint releases updates: `npx vectorlint@2.5.0 path/to/doc.md`
-</Tip>
+If you use npx regularly, pin a specific version to avoid unexpected behavior when VectorLint releases updates:
+
+```bash
+npx vectorlint@2.5.0 path/to/doc.md
+```
 
 ---
 
 ## Next steps
 
-<CardGroup cols={3}>
-  <Card title="Quickstart" icon="bolt" href="/quickstart">
-    Run your first content check using zero-config mode.
-  </Card>
-  <Card title="Configuration" icon="sliders" href="/configuration">
-    Set up rule packs, file patterns, and provider settings.
-  </Card>
-  <Card title="LLM providers" icon="key" href="/llm-providers">
-    Configure your API keys for OpenAI, Anthropic, Gemini, or Azure.
-  </Card>
-</CardGroup>
+- [Quickstart](/quickstart) — configure your LLM provider and run your first check end to end
+- [Configuring LLM providers](/llm-providers) — set up your API key for OpenAI, Anthropic, Gemini, Azure OpenAI, or Amazon Bedrock
+- [Using VECTORLINT.md](/initial-style-check) — start evaluating content without writing any rule pack files

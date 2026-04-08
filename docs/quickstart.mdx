@@ -1,48 +1,43 @@
 ---
-title: "Quickstart"
-description: "Run your first VectorLint content check in minutes using zero-config mode."
+title: Quickstart
+description: Install VectorLint, configure your LLM provider, and run your first content check.
 ---
+
+Set up VectorLint and run your first content evaluation in under ten minutes. You install VectorLint, add your style instructions, connect an LLM (Large Language Model) provider, and see real output on a file you own.
 
 ## Before you begin
 
-VectorLint requires Node.js. Use an LTS release for best compatibility.
+VectorLint requires Node.js 18 or later. Node.js 22 LTS is recommended. If you need to install or update Node.js, use [nvm](https://github.com/nvm-sh/nvm) or download directly from [nodejs.org](https://nodejs.org).
 
-You will also need an API key for a supported LLM provider — OpenAI, Anthropic, Gemini, or Azure. VectorLint sends your content to the provider you configure for evaluation.
+You will also need an API key for a supported LLM provider. VectorLint sends your content to the provider you configure for evaluation. Supported providers include: OpenAI, Anthropic, Google Gemini, Azure OpenAI, Amazon Bedrock.
+
+<Warning>
+VectorLint requires a configured LLM provider to produce output. Installing the package alone is not enough — if you skip provider configuration, running `vectorlint` against a file will return no results and no error. Complete Step 2 before running a check.
+</Warning>
 
 ---
 
-## Step 1: Initialize your project
+## Step 1: Install VectorLint
 
-Run the quick-init command in your project root:
+Install VectorLint globally from npm:
 
 ```bash
-npx vectorlint init --quick
+npm install -g vectorlint
 ```
 
-This creates a `VECTORLINT.md` file in your project root. VectorLint automatically generates a "Style Guide Compliance" rule from its contents and uses it for all evaluations.
+Verify the installation:
 
-Open `VECTORLINT.md` and paste in your style guide — or add a few plain-language instructions to start:
-
-```md
-- Use active voice.
-- Avoid jargon and unexplained acronyms.
-- Write in second person (you, your).
-- Keep sentences under 25 words where possible.
+```bash
+vectorlint --help
 ```
 
-<Tip>
-  You don't need a comprehensive style guide to get useful output. A few clear instructions are enough to run a meaningful first check.
-</Tip>
+You can also run VectorLint without installing it using `npx vectorlint`. See [Installation](/installation) for details on both options.
 
 ---
 
 ## Step 2: Configure your LLM provider
 
-<Warning>
-  You must complete this step before running a check. VectorLint will not produce output without a configured provider and valid API key.
-</Warning>
-
-Open `~/.vectorlint/config.toml` and set your provider and API key.
+Open `~/.vectorlint/config.toml` and add your provider and API key. This file is your global provider configuration and applies to all projects on your machine.
 
 For OpenAI:
 
@@ -60,36 +55,60 @@ LLM_PROVIDER = "anthropic"
 ANTHROPIC_API_KEY = "sk-ant-..."
 ```
 
-<Tip>
-  You can also set these values in a `.env` file in your project root. Project-level values take precedence over `config.toml`.
-</Tip>
+You can also set provider values in a `.env` file in your project root. Project-level values take precedence over `config.toml`. For all supported providers and configuration options, see [Configuring LLM providers](/llm-providers).
 
 ---
 
-## Step 3: Run a check
+## Step 3: Create your VECTORLINT.md
+
+After you initialize VectorLint in your repository, the application generates a VECTORLINT.md file in your project root. After you copy your style standards as plain-language instructions into the file, VectorLint builds a "Style Guide Compliance" rule and applies it to your VectorLint evaluations.
+
+Run the quick-init command to create the file:
+
+```bash
+npx vectorlint init --quick
+```
+
+Then open `VECTORLINT.md` and add your standards. A few clear instructions are enough to get meaningful output:
+
+```markdown
+## Voice and tone
+
+- Write in second person. Address the reader as "you."
+- Use active voice. Avoid passive constructions.
+- Be direct. Remove filler phrases like "it is important to note that."
+
+## Terminology
+
+- Use "sign in" not "log in."
+- Use "select" not "click" for UI actions.
+- Avoid "easy," "simple," and "just" — these are subjective and dismissive.
+
+## Sentence structure
+
+- Keep sentences under 25 words.
+- One idea per sentence.
+- Spell out acronyms on first use.
+```
+
+You don't need a comprehensive style guide to start. Add rules incrementally as you learn what your rules catch and what they miss.
+
+---
+
+## Step 4: Run a check
 
 Point VectorLint at any Markdown file in your project:
 
 ```bash
-npx vectorlint path/to/doc.md
+vectorlint path/to/doc.md
 ```
 
-VectorLint evaluates the file against your `VECTORLINT.md` instructions and returns findings in your terminal.
-
-{/* TBD: Add representative terminal output here once confirmed — scored (1–10) or violations list */}
+VectorLint reads your `VECTORLINT.md`, evaluates the file against it, and prints findings in your terminal. If the file is clean, VectorLint produces no output and exits with status `0`. If the file has violations, VectorLint prints each finding with its location and a suggested fix.
 
 ---
 
 ## Next steps
 
-<CardGroup cols={3}>
-  <Card title="How VectorLint works" icon="gear" href="/how-it-works">
-    Understand the evaluation pipeline — rules, PAT filtering, and scoring.
-  </Card>
-  <Card title="Installation" icon="download" href="/installation">
-    Install VectorLint globally or review Node.js version requirements.
-  </Card>
-  <Card title="Configuration" icon="sliders" href="/configuration">
-    Set up rule packs, file patterns, and provider settings for a full project.
-  </Card>
-</CardGroup>
+- [Using VECTORLINT.md](/initial-style-check) — iterate on your style instructions and understand what makes an effective rule
+- [Configuring LLM providers](/llm-providers) — full provider reference including Azure OpenAI, Google Gemini, and Amazon Bedrock
+- [Configuring a project](/project-config) — set up rule packs and file pattern mapping for a full project workflow

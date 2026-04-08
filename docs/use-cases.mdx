@@ -1,47 +1,69 @@
 ---
 title: Use cases
-description: See how teams use VectorLint to enforce content standards across documentation, marketing, and developer content.
+description: Common ways teams use VectorLint to enforce content standards across documentation, marketing, and developer content.
 ---
 
-VectorLint is a general-purpose content evaluation tool. Any team that publishes written content at scale — and needs consistent, measurable quality — can use it. These are the most common use cases.
+VectorLint fits anywhere a team publishes written content at scale and needs consistent, measurable quality. These are the most common starting points; each one describes a problem, the path through the tool, and what you get at the end:
 
 ## Enforce a style guide automatically
 
-Most organizations have a style guide that exists as a PDF or a wiki page. VectorLint converts those written standards into an automated check that runs on every file, every time.
+**The problem:** Your style guide lives in a PDF or a wiki page. Writers read it once during onboarding and then drift. Manual review catches some issues but doesn't scale across dozens of files or multiple contributors.
 
-You define your standards once — either in `VECTORLINT.md` as plain-language instructions, or as targeted rule pack files — and VectorLint enforces them consistently across your entire content library. No more manual review for comma usage, passive voice, or banned terminology.
+**The path:** Write your standards as plain-language instructions in `VECTORLINT.md`. VectorLint converts them into a "Style Guide Compliance" rule and runs it against every file, every time — no regex, no word lists, no manual review for comma usage or passive voice.
 
-**Who uses this:** technical writing teams, content operations teams, developer advocacy teams
+If your team has a detailed guide, see [Defining your style rules](/style-guide) for an extraction prompt that converts it into a `VECTORLINT.md`-optimized file. For more targeted enforcement, write rule pack files that score specific criteria on a weighted rubric.
+
+**Who does this:** Technical writing teams, content operations teams, developer advocacy teams.
+
+---
 
 ## Catch AI-generated writing patterns
 
-As LLM-assisted writing becomes standard, content quality risks shifting toward a recognizable pattern: hollow openings, overused buzzwords, formulaic transitions, excessive hedging. VectorLint's built-in AI Pattern Detector rule flags these patterns before they reach readers.
+**The problem:** Large language model (LLM)-assisted writing is now standard, but it produces recognizable patterns, such as hollow openings, overused buzzwords ("leverage," "unlock," "elevate"), formulaic transitions, and excessive hedging. These patterns erode reader trust before anyone notices what's happening.
 
-Teams can tune the rule to match their voice — stricter for customer-facing content, more lenient for internal drafts.
+**The path:** VectorLint's built-in AI Pattern Detector rule flags these patterns before they reach readers. Add it to your rule pack for customer-facing content and tune the strictness level to match your team's voice — stricter for published docs, more lenient for internal drafts.
 
-**Who uses this:** developer relations, marketing, documentation teams publishing AI-assisted content
+For content-specific tuning, see [Customizing style rules](/customize-style-rules).
+
+**Who does this:** Developer relations, marketing, documentation teams publishing AI-assisted content.
+
+---
 
 ## Verify technical accuracy
 
-The `technical-accuracy` evaluator uses a search provider to check factual claims in your content against current external sources. This catches outdated version numbers, deprecated API references, and incorrect command syntax — the category of errors that's hardest to catch in manual review.
+**The problem:** Outdated version numbers, deprecated API references, and incorrect command syntax are difficult category of errors to catch in manual review, because catching them requires domain expertise your reviewers may not have.
 
-**Who uses this:** developer documentation teams, API reference authors, teams maintaining large technical content libraries
+**The path:** The `technical-accuracy` evaluator uses a search provider to check factual claims in your content against current external sources. Point it at your API reference pages or CLI documentation and it surfaces stale information before it ships.
+
+See [Defining your style rules](/style-guide) for how to configure a `technical-accuracy` rule.
+
+**Who does this:** Developer documentation teams, API reference authors, teams maintaining large technical content libraries.
+
+---
 
 ## Gate content quality in CI
 
-VectorLint runs from the command line and exits with a non-zero status code on violations, making it a natural fit for CI pipelines. Teams add it as a pre-merge check so content that fails quality thresholds never reaches production.
+**The problem:** Teams can skip manual quality checks because the pipeline doesn't enforce it.
 
-```bash
+**The path:** VectorLint exits with a non-zero status code on violations, making it a natural CI gate. Add it as a pre-merge step so content that falls below your quality threshold never reaches production.
+
+```yaml
 # Example GitHub Actions step
 - name: Lint documentation
   run: vectorlint content/docs/**/*.md
 ```
 
-**Who uses this:** engineering teams treating docs as code, platform teams managing documentation infrastructure
+For a complete CI setup including threshold configuration and failure modes, see [CI integration](/ci-integration).
 
-## Set different standards for different content types
+**Who does this:** Engineering teams treating docs as code, platform teams managing documentation infrastructure.
 
-Not all content deserves the same scrutiny. VectorLint's cascading configuration lets you apply strict rules to customer-facing documentation, standard rules to blog posts, and no rules to drafts — all in a single `.vectorlint.ini`.
+---
+
+## Apply different standards to different content types
+
+**The problem:** A draft blog post and a customer-facing API reference don't deserve the same scrutiny. Applying strict rules to everything creates noise; applying no rules to anything creates inconsistency.
+
+**The path:** VectorLint's cascading configuration lets you map different rule packs and strictness levels to different file patterns in a single `.vectorlint.ini`. Strict rules on published docs, standard rules on blog posts, nothing on drafts.
 
 ```ini
 [content/docs/**/*.md]
@@ -56,10 +78,14 @@ GrammarChecker.strictness=5
 RunRules=
 ```
 
-**Who uses this:** content teams with multiple publication channels and different quality expectations per channel
+See [Configuring a project](/project-config) for the full configuration reference.
+
+**Who does this:** Content teams with multiple publication channels and different quality expectations per channel.
+
+---
 
 ## Next steps
 
-- [Quickstart](/quickstart) — run your first evaluation in minutes
-- [How it works](/how-it-works) — understand the evaluation pipeline
-- [Defining your style rules](/style-guide) — create rules for your specific standards
+- [Quickstart](/quickstart) — run your first evaluation in under ten minutes
+- [How it works](/how-it-works) — understand the evaluation pipeline, PAT filtering, and scoring
+- [Defining your style rules](/style-guide) — create VECTORLINT.md and write custom rules
