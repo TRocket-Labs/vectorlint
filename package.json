@@ -1,6 +1,6 @@
 {
   "name": "vectorlint",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "An LLM-based prose linter that lets you enforce your style guide in one prompt",
   "type": "module",
   "main": "dist/index.js",
