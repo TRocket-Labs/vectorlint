@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { BaseEvaluator } from "../src/evaluators/base-evaluator";
+import { runLint } from "../src/lint";
 import { ReviewType } from "../src/lint/types";
 import type { LLMProvider, LLMResult } from "../src/providers/llm-provider";
 import type { RuleFile } from "../src/schemas/rule-schemas";
@@ -7,7 +7,6 @@ import type {
   JudgeLLMResult,
   CheckLLMResult,
 } from "../src/prompts/schema";
-import type { SearchProvider } from "../src/providers/search-provider";
 
 describe("Scoring Types", () => {
   const mockLlmProvider = {
@@ -33,8 +32,6 @@ describe("Scoring Types", () => {
     };
 
     it("should calculate weighted average correctly", async () => {
-      const evaluator = new BaseEvaluator(mockLlmProvider, judgePrompt);
-
       // Mock LLM returning raw scores (0-4) wrapped in LLMResult
       const mockLlmResponse: LLMResult<JudgeLLMResult> = {
         data: {
@@ -61,7 +58,7 @@ describe("Scoring Types", () => {
       const mockFn = vi.mocked(mockLlmProvider.runPromptStructured);
       mockFn.mockResolvedValueOnce(mockLlmResponse);
 
-      const result = await evaluator.evaluate("file.md", "content");
+      const result = await runLint({ content: "content", rule: judgePrompt, provider: mockLlmProvider });
 
       if (result.type !== ReviewType.JUDGE)
         throw new Error("Wrong result type");
@@ -92,8 +89,6 @@ describe("Scoring Types", () => {
     };
 
     it("should calculate score correctly based on violation count", async () => {
-      const evaluator = new BaseEvaluator(mockLlmProvider, checkPrompt);
-
       // Mock LLM returning violations only wrapped in LLMResult
       const mockLlmResponse: LLMResult<CheckLLMResult> = {
         data: {
@@ -123,7 +118,7 @@ describe("Scoring Types", () => {
       mockFn.mockResolvedValueOnce(mockLlmResponse);
 
       const content = new Array(100).fill("word").join(" ");
-      const result = await evaluator.evaluate("file.md", content);
+      const result = await runLint({ content, rule: checkPrompt, provider: mockLlmProvider });
 
       if (result.type !== ReviewType.CHECK)
         throw new Error("Wrong result type");
@@ -134,8 +129,6 @@ describe("Scoring Types", () => {
     });
 
     it("should handle empty violations list (perfect score)", async () => {
-      const evaluator = new BaseEvaluator(mockLlmProvider, checkPrompt);
-
       const mockLlmResponse: LLMResult<CheckLLMResult> = {
         data: {
           violations: [],
@@ -146,58 +139,11 @@ describe("Scoring Types", () => {
       const mockFn = vi.mocked(mockLlmProvider.runPromptStructured);
       mockFn.mockResolvedValueOnce(mockLlmResponse);
 
-      const result = await evaluator.evaluate("file.md", "content");
+      const result = await runLint({ content: "content", rule: checkPrompt, provider: mockLlmProvider });
 
       if (result.type !== ReviewType.CHECK)
         throw new Error("Wrong result type");
 
-      expect(result.violations).toHaveLength(0);
-      expect(result.word_count).toBeGreaterThan(0);
-    });
-  });
-
-  describe("Technical Accuracy Evaluator", () => {
-    it("should return perfect score when no claims are found", async () => {
-      // Reset modules to ensure clean state for test-scoped mocking
-      vi.resetModules();
-
-      // Mock prompt-loader for this test only
-      vi.doMock("../src/evaluators/prompt-loader", () => ({
-        getPrompt: vi.fn().mockReturnValue("Extract claims"),
-      }));
-
-      const { TechnicalAccuracyEvaluator } = await import(
-        "../src/evaluators/accuracy-evaluator"
-      );
-
-      const mockSearchProvider: SearchProvider = {
-        search: vi.fn().mockResolvedValue({ results: [] }),
-      };
-
-      const prompt: RuleFile = {
-        id: "tech-acc",
-        filename: "tech.md",
-        fullPath: "/tech.md",
-        content: "Check accuracy",
-        pack: "test",
-        meta: { id: "tech-acc", name: "Tech Acc", type: "check" },
-      };
-
-      const evaluator = new TechnicalAccuracyEvaluator(
-        mockLlmProvider,
-        prompt,
-        mockSearchProvider
-      );
-
-      // Mock claim extraction to return empty list wrapped in LLMResult
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      const mockFn = vi.mocked(mockLlmProvider.runPromptStructured);
-      mockFn.mockResolvedValueOnce({ data: { claims: [] } });
-
-      const result = await evaluator.evaluate("file.md", "content");
-
-      if (result.type !== ReviewType.CHECK)
-        throw new Error("Wrong result type");
       expect(result.violations).toHaveLength(0);
       expect(result.word_count).toBeGreaterThan(0);
     });

@@ -169,7 +169,7 @@ describe('rule matching', () => {
 
   it('keeps lint and agent flows in sync for matched rules', async () => {
     const { evaluateFiles } = await import('../src/cli/orchestrator');
-    const evaluators = await import('../src/evaluators/index');
+    const lint = await import('../src/lint');
 
     const repo = createTempRepo();
     const file = path.join(repo, 'docs', 'release', 'guide.md');
@@ -218,18 +218,15 @@ describe('rule matching', () => {
       },
     ];
 
-    vi.spyOn(evaluators, 'createEvaluator').mockImplementation(
-      (_type: string, _provider: unknown, rule: RuleFile) =>
-        ({
-          evaluate: vi.fn(() => {
-            standardMatchedPromptSources.push(rule.fullPath);
-            return Promise.resolve({
-              type: ReviewType.CHECK,
-              violations: [],
-              word_count: 10,
-            });
-          }),
-        }) as never
+    vi.spyOn(lint, 'runLint').mockImplementation(
+      ({ rule }: { rule: RuleFile }) => {
+        standardMatchedPromptSources.push(rule.fullPath);
+        return Promise.resolve({
+          type: ReviewType.CHECK,
+          violations: [],
+          word_count: 10,
+        });
+      }
     );
 
     await evaluateFiles([file], makeStandardOptions(prompts, scanPaths));

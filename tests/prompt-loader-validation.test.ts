@@ -25,7 +25,6 @@ describe('Prompt Loader Validation', () => {
     describe('Base Evaluator', () => {
         it('should load base prompt with criteria (optional weight)', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 name: Test Evaluator
 criteria:
@@ -37,13 +36,11 @@ Check content.`);
             const { rules, warnings } = loadRules(tmpDir);
             expect(warnings).toHaveLength(0);
             expect(rules).toHaveLength(1);
-            expect(rules[0].meta.evaluator).toBe('base');
             expect(rules[0].meta.criteria).toHaveLength(1);
         });
 
         it('should load base prompt without criteria', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 name: Test Evaluator
 ---
@@ -56,7 +53,6 @@ Check content.`);
 
         it('should load base prompt with weight in criteria', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 name: Test Evaluator
 criteria:
@@ -74,7 +70,6 @@ Check content.`);
 
         it('should reject base prompt missing id', () => {
             createPrompt('test.md', `---
-evaluator: base
 name: Test Evaluator
 ---
 Check content.`);
@@ -87,7 +82,6 @@ Check content.`);
 
         it('should reject base prompt missing name', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 ---
 Check content.`);
@@ -100,7 +94,6 @@ Check content.`);
 
         it('should reject base prompt with criterion missing id', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 name: Test Evaluator
 criteria:
@@ -116,7 +109,6 @@ Check content.`);
 
         it('should reject base prompt with criterion missing name', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 name: Test Evaluator
 criteria:

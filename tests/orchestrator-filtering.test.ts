@@ -18,10 +18,8 @@ const { EVALUATE_MOCK } = vi.hoisted(() => ({
 type CheckViolation = RawCheckResult["violations"][number];
 type JudgeViolation = JudgeResult["criteria"][number]["violations"][number];
 
-vi.mock("../src/evaluators/index", () => ({
-  createEvaluator: vi.fn(() => ({
-    evaluate: EVALUATE_MOCK,
-  })),
+vi.mock("../src/lint", () => ({
+  runLint: EVALUATE_MOCK,
 }));
 
 function createPrompt(meta: RuleFile["meta"]): RuleFile {

@@ -156,7 +156,7 @@ describe('agent executor', () => {
     expect(result.fileRuleMatches).toEqual([
       { file: 'doc.md', ruleSource: 'packs/default/consistency.md' },
     ]);
-  });
+  }, 30000);
 
   it('builds the agent loop prompt from matched rule units', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');

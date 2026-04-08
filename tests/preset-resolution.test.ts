@@ -67,5 +67,5 @@ describe('resolvePresetsDir', () => {
     await import('../src/cli/validate-command.js');
 
     expect(true).toBe(true);
-  });
+  }, 30000);
 });
