@@ -4,7 +4,7 @@ import * as path from 'path';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { RuleFile } from '../../src/rules/rule-loader';
 import type { LLMProvider } from '../../src/providers/llm-provider';
-import { Severity } from '../../src/evaluators/types';
+import { Severity } from '../../src/schemas/rule-schemas';
 import { OutputFormat } from '../../src/cli/types';
 import { SESSION_EVENT_TYPE } from '../../src/agent/types';
 import { AgentToolError } from '../../src/errors';

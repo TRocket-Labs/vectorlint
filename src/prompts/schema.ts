@@ -1,4 +1,4 @@
-import { Severity } from "../evaluators/types";
+import { Severity } from "../schemas/rule-schemas";
 import { ReviewType } from "../lint/types";
 import type { TokenUsage } from "../providers/token-usage";
 

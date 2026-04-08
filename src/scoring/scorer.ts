@@ -4,7 +4,7 @@ import type {
   CheckItem,
   JudgeLLMResult,
 } from "../prompts/schema";
-import { Severity } from "../evaluators/types";
+import { Severity } from "../schemas/rule-schemas";
 import { ReviewType } from "../lint/types";
 
 export interface CheckScoringOptions {

@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
 import path from 'path';
-import { Severity } from '../evaluators/types';
+import { Severity } from '../schemas/rule-schemas';
 import { TokenUsageStats } from '../providers/token-usage';
 
 export interface EvaluationSummary {

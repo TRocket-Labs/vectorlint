@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { routeCheckResult } from '../../src/cli/result-routing/check-routing';
 import { createIssueSink } from '../../src/cli/result-routing/issue-sink';
 import { OutputFormat } from '../../src/cli/types';
-import { Severity } from '../../src/evaluators/types';
+import { Severity } from '../../src/schemas/rule-schemas';
 import { JsonFormatter } from '../../src/output/json-formatter';
 import type { RuleFile } from '../../src/rules/rule-loader';
 import type { RawCheckResult } from '../../src/prompts/schema';

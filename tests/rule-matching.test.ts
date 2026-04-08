@@ -3,7 +3,8 @@ import path from 'path';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAgentExecutor } from '../src/agent/executor';
 import { OutputFormat, type EvaluationOptions } from '../src/cli/types';
-import { EvaluationType, Severity } from '../src/evaluators/types';
+import { ReviewType } from '../src/lint/types';
+import { Severity } from '../src/schemas/rule-schemas';
 import type { RuleFile } from '../src/rules/rule-loader';
 import type { LLMProvider } from '../src/providers/llm-provider';
 import { resolveMatchedRulesForFile } from '../src/rules/matched-rules';
@@ -223,7 +224,7 @@ describe('rule matching', () => {
           evaluate: vi.fn(() => {
             standardMatchedPromptSources.push(rule.fullPath);
             return Promise.resolve({
-              type: EvaluationType.CHECK,
+              type: ReviewType.CHECK,
               violations: [],
               word_count: 10,
             });

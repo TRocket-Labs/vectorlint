@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { computeFilterDecision, type FilterDecision } from '../../evaluators/violation-filter';
+import { computeFilterDecision, type FilterDecision } from '../../lint/violation-filter';
 import type { JudgeResult, RawCheckResult } from '../../prompts/schema';
 import type { RuleFile } from '../../rules/rule-loader';
 import { writeDebugRunArtifact } from '../../debug/run-artifact';

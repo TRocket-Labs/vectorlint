@@ -1,10 +1,10 @@
 import {
   computeFilterDecision,
   type FilterDecision,
-} from '../evaluators/violation-filter';
+} from '../lint/violation-filter';
 import { handleUnknownError } from '../errors/index';
 import { locateQuotedText } from '../output/location';
-import type { Severity } from '../evaluators/types';
+import type { Severity } from '../schemas/rule-schemas';
 import { type IssueSink } from './result-routing/issue-sink';
 
 interface LocateAndReportViolationsParams {

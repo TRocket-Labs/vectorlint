@@ -8,7 +8,7 @@ import type {
 import { countWords } from '../chunking/utils';
 import { runAgentExecutor, type AgentExecutorResult, type AgentFinding } from '../agent/executor';
 import { AgentProgressReporter, shouldEmitAgentProgress } from '../agent/progress';
-import { Severity } from '../evaluators/types';
+import { Severity } from '../schemas/rule-schemas';
 import { printEvaluationSummaries, printFileHeader, type EvaluationSummary } from '../output/reporter';
 import { OutputFormat } from './types';
 import { createAgentModeCapabilityAccess } from './agent-mode-capability';

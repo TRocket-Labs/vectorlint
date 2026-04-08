@@ -1,7 +1,7 @@
 import * as os from 'os';
 import type { FilePatternConfig } from '../boundaries/file-section-parser';
 import type { RuleFile } from '../rules/rule-loader';
-import { Severity } from '../evaluators/types';
+import { Severity } from '../schemas/rule-schemas';
 import type {
   AgentToolDefinition,
   AgentToolLoopResult,

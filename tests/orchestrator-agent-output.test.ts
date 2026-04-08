@@ -6,7 +6,7 @@ import { AGENT_REVIEW_MODE, OutputFormat } from '../src/cli/types';
 import type { RuleFile } from '../src/rules/rule-loader';
 import type { LLMProvider } from '../src/providers/llm-provider';
 import type { CapabilityProviderResolver } from '../src/providers/capability-provider-resolver';
-import { Severity } from '../src/evaluators/types';
+import { Severity } from '../src/schemas/rule-schemas';
 
 function makePrompt(params?: {
   id?: string;

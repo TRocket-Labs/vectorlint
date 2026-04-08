@@ -1,6 +1,6 @@
 import stripAnsi from 'strip-ansi';
 import { describe, expect, it, vi } from 'vitest';
-import { Severity } from '../../src/evaluators/types';
+import { Severity } from '../../src/schemas/rule-schemas';
 import { JsonFormatter } from '../../src/output/json-formatter';
 import { RdJsonFormatter } from '../../src/output/rdjson-formatter';
 import { ValeJsonFormatter } from '../../src/output/vale-json-formatter';

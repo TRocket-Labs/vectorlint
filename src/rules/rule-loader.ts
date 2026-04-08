@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
 import YAML from 'yaml';
 import { RULE_META_SCHEMA, type RuleFile, type RuleMeta } from '../schemas/rule-schemas';
-import { Severity } from '../evaluators/types';
+import { Severity } from '../schemas/rule-schemas';
 
 // Re-export types for consumers
 export type { RuleFile, RuleMeta, RuleCriterionSpec } from '../schemas/rule-schemas';

@@ -1,5 +1,5 @@
 import { RuleFile, RuleMeta, RuleCriterionSpec } from '../schemas/rule-schemas';
-import { Severity } from '../evaluators/types';
+import { Severity } from '../schemas/rule-schemas';
 
 export type ValidationLevel = Severity;
 export interface Validation {

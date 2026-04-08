@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { computeFilterDecision } from "../src/evaluators/violation-filter";
+import { computeFilterDecision } from "../src/lint/violation-filter";
 
 const ORIGINAL_THRESHOLD = process.env.CONFIDENCE_THRESHOLD;
 

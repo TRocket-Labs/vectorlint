@@ -1,7 +1,7 @@
 import { buildRuleId, normalizeRuleSource } from './rule-id';
 import { SESSION_EVENT_TYPE, type SessionEvent } from './types';
-import { Severity } from '../evaluators/types';
-import { computeFilterDecision } from '../evaluators/violation-filter';
+import { Severity } from '../schemas/rule-schemas';
+import { computeFilterDecision } from '../lint/violation-filter';
 import { locateQuotedText } from '../output/location';
 import type { RuleFile } from '../rules/rule-loader';
 

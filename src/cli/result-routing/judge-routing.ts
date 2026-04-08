@@ -2,7 +2,7 @@ import type { RuleCriterionSpec, RuleFile, RuleMeta } from '../../rules/rule-loa
 import type { JudgeResult } from '../../prompts/schema';
 import { isJudgeResult } from '../../prompts/schema';
 import { checkTarget } from '../../prompts/target';
-import { Severity } from '../../evaluators/types';
+import { Severity } from '../../schemas/rule-schemas';
 import type { ScoreComponent } from '../../output/json-formatter';
 import { buildRuleName, getViolationFilterResults, locateAndReportViolations } from '../issue-output';
 import type { ErrorTrackingResult } from '../types';

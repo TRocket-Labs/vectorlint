@@ -4,7 +4,8 @@ import { tmpdir } from "os";
 import path from "path";
 import { evaluateFiles } from "../src/cli/orchestrator";
 import { OutputFormat, type EvaluationOptions } from "../src/cli/types";
-import { EvaluationType, Severity } from "../src/evaluators/types";
+import { ReviewType } from "../src/lint/types";
+import { Severity } from "../src/schemas/rule-schemas";
 import type { Result } from "../src/output/json-formatter";
 import type { RuleFile } from "../src/rules/rule-loader";
 import type { ValeOutput } from "../src/schemas/vale-responses";
@@ -119,7 +120,7 @@ function makeCheckResult(params: {
   wordCount?: number;
 }): RawCheckResult {
   return {
-    type: EvaluationType.CHECK,
+    type: ReviewType.CHECK,
     violations: params.violations,
     word_count: params.wordCount ?? 100,
   };
@@ -127,7 +128,7 @@ function makeCheckResult(params: {
 
 function makeJudgeResult(violations: JudgeViolation[]): JudgeResult {
   return {
-    type: EvaluationType.JUDGE,
+    type: ReviewType.JUDGE,
     final_score: 5,
     criteria: [
       {

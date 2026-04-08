@@ -1,4 +1,4 @@
-import type { Severity } from '../../evaluators/types';
+import type { Severity } from '../../schemas/rule-schemas';
 import { JsonFormatter, type EvaluationScore, type Issue } from '../../output/json-formatter';
 import { RdJsonFormatter } from '../../output/rdjson-formatter';
 import { printIssueRow } from '../../output/reporter';

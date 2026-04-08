@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { routeJudgeResult } from '../../src/cli/result-routing/judge-routing';
 import { createIssueSink, type IssueSink, type SinkIssue } from '../../src/cli/result-routing/issue-sink';
 import { OutputFormat } from '../../src/cli/types';
-import { Severity } from '../../src/evaluators/types';
+import { Severity } from '../../src/schemas/rule-schemas';
 import { JsonFormatter } from '../../src/output/json-formatter';
 import type { RuleFile } from '../../src/rules/rule-loader';
 import type { JudgeResult } from '../../src/prompts/schema';

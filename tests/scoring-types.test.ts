@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { BaseEvaluator } from "../src/evaluators/base-evaluator";
-import { EvaluationType } from "../src/evaluators/types";
+import { ReviewType } from "../src/lint/types";
 import type { LLMProvider, LLMResult } from "../src/providers/llm-provider";
 import type { RuleFile } from "../src/schemas/rule-schemas";
 import type {
@@ -63,7 +63,7 @@ describe("Scoring Types", () => {
 
       const result = await evaluator.evaluate("file.md", "content");
 
-      if (result.type !== EvaluationType.JUDGE)
+      if (result.type !== ReviewType.JUDGE)
         throw new Error("Wrong result type");
 
       // Calculation:
@@ -125,7 +125,7 @@ describe("Scoring Types", () => {
       const content = new Array(100).fill("word").join(" ");
       const result = await evaluator.evaluate("file.md", content);
 
-      if (result.type !== EvaluationType.CHECK)
+      if (result.type !== ReviewType.CHECK)
         throw new Error("Wrong result type");
 
       // Evaluator now returns raw violations and word count — scoring deferred to orchestrator
@@ -148,7 +148,7 @@ describe("Scoring Types", () => {
 
       const result = await evaluator.evaluate("file.md", "content");
 
-      if (result.type !== EvaluationType.CHECK)
+      if (result.type !== ReviewType.CHECK)
         throw new Error("Wrong result type");
 
       expect(result.violations).toHaveLength(0);
@@ -196,7 +196,7 @@ describe("Scoring Types", () => {
 
       const result = await evaluator.evaluate("file.md", "content");
 
-      if (result.type !== EvaluationType.CHECK)
+      if (result.type !== ReviewType.CHECK)
         throw new Error("Wrong result type");
       expect(result.violations).toHaveLength(0);
       expect(result.word_count).toBeGreaterThan(0);
