@@ -33,7 +33,7 @@ import type { AgentProgressReporter, VisibleToolName, VisibleToolProgress } from
 import { normalizeRuleSource } from './rule-id';
 import { createToolHandlers } from './tool-handlers';
 import { findingsFromEvents } from './findings';
-import { resolveRuleContent } from './lint-prompt';
+import { resolveRuleContent } from '../lint';
 import { resolveMatchedRulesForFile } from '../rules/matched-rules';
 
 export interface AgentFinding {
