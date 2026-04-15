@@ -28,7 +28,7 @@ function formatProviderValidationError(zodError: z.ZodError, env: unknown): stri
   );
 
   if (discriminatorIssue) {
-    return `LLM_PROVIDER is required and must be either 'azure-openai', 'anthropic', or 'openai'. Received: ${providerType ?? 'undefined'}`;
+    return `LLM_PROVIDER is required and must be one of 'azure-openai', 'anthropic', 'openai', 'gemini', or 'amazon-bedrock'. Received: ${providerType ?? 'undefined'}`;
   }
 
   // Check for missing required fields based on provider type
@@ -56,6 +56,17 @@ function formatProviderValidationError(zodError: z.ZodError, env: unknown): stri
       if (openaiFields.length > 0) {
         return `Missing required OpenAI environment variables: ${openaiFields.join(', ')}. When using LLM_PROVIDER=openai, ensure OPENAI_API_KEY is set.`;
       }
+    }
+  }
+
+  if (envObj.OBSERVABILITY_BACKEND === 'langfuse') {
+    const langfuseFields = issues
+      .filter((issue) => issue.path.length > 0 && String(issue.path[0]).startsWith('LANGFUSE_'))
+      .map((issue) => issue.path.join('.'));
+    const missingLangfuseFields = [...new Set(langfuseFields)];
+
+    if (missingLangfuseFields.length > 0) {
+      return `Missing required Langfuse observability environment variables: ${missingLangfuseFields.join(', ')}. When using OBSERVABILITY_BACKEND=langfuse, ensure LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, and LANGFUSE_BASE_URL are set.`;
     }
   }
 
