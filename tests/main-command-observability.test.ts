@@ -136,6 +136,16 @@ describe('Main command observability lifecycle', () => {
   });
 
   it('initializes observability before creating the provider and shuts it down before exit', async () => {
+    MOCK_PARSE_CLI_OPTIONS.mockResolvedValue({
+      verbose: true,
+      showPrompt: false,
+      showPromptTrunc: false,
+      debugJson: false,
+      output: 'line',
+      mode: 'standard',
+      print: false,
+      config: undefined,
+    });
     const observability = {
       init: vi.fn().mockResolvedValue(undefined),
       decorateCall: vi.fn(() => ({})),
@@ -165,6 +175,13 @@ describe('Main command observability lifecycle', () => {
   });
 
   it('falls back to noop observability when initialization fails', async () => {
+    const envWithObservability = {
+      ...env,
+      OBSERVABILITY_BACKEND: 'langfuse',
+      LANGFUSE_PUBLIC_KEY: 'pk-test',
+      LANGFUSE_SECRET_KEY: 'sk-test',
+    };
+    MOCK_PARSE_ENVIRONMENT.mockReturnValue(envWithObservability);
     const failingObservability = {
       init: vi.fn().mockRejectedValue(new Error('boom')),
       decorateCall: vi.fn(() => ({})),
@@ -178,6 +195,7 @@ describe('Main command observability lifecycle', () => {
 
     await expect(program.parseAsync(['node', 'test', 'README.md'])).rejects.toThrow('process.exit:0');
 
+    expect(MOCK_CREATE_WINSTON_LOGGER).toHaveBeenCalledWith({ level: 'info' });
     expect(runtimeLogger.warn).toHaveBeenCalledWith(
       '[vectorlint] Observability initialization failed; continuing without telemetry',
       expect.objectContaining({
@@ -187,5 +205,62 @@ describe('Main command observability lifecycle', () => {
 
     const providerOptions = MOCK_CREATE_PROVIDER.mock.calls.at(-1)?.[1] as { observability?: unknown };
     expect(providerOptions.observability).toBeInstanceOf(NoopObservability);
+  });
+
+  it('uses a noop logger when neither verbose logging nor observability is enabled', async () => {
+    MOCK_PARSE_ENVIRONMENT.mockReturnValue(env);
+
+    const { registerMainCommand } = await import('../src/cli/commands');
+    const program = new Command();
+    registerMainCommand(program);
+
+    await expect(program.parseAsync(['node', 'test', 'README.md'])).rejects.toThrow('process.exit:0');
+
+    expect(MOCK_CREATE_WINSTON_LOGGER).not.toHaveBeenCalled();
+    const providerOptions = MOCK_CREATE_PROVIDER.mock.calls.at(-1)?.[1] as {
+      debug?: boolean;
+      showPrompt?: boolean;
+      showPromptTrunc?: boolean;
+      logger?: {
+        debug: () => void;
+        info: () => void;
+        warn: () => void;
+        error: () => void;
+      };
+    };
+
+    expect(providerOptions.debug).toBe(false);
+    expect(providerOptions.showPrompt).toBe(false);
+    expect(providerOptions.showPromptTrunc).toBe(false);
+    expect(providerOptions.logger).toBeDefined();
+    expect(typeof providerOptions.logger?.debug).toBe('function');
+    expect(typeof providerOptions.logger?.info).toBe('function');
+    expect(typeof providerOptions.logger?.warn).toBe('function');
+    expect(typeof providerOptions.logger?.error).toBe('function');
+  });
+
+  it('creates the runtime logger when observability is enabled without verbose logging', async () => {
+    const envWithObservability = {
+      ...env,
+      OBSERVABILITY_BACKEND: 'langfuse',
+      LANGFUSE_PUBLIC_KEY: 'pk-test',
+      LANGFUSE_SECRET_KEY: 'sk-test',
+    };
+    MOCK_PARSE_ENVIRONMENT.mockReturnValue(envWithObservability);
+
+    const { registerMainCommand } = await import('../src/cli/commands');
+    const program = new Command();
+    registerMainCommand(program);
+
+    await expect(program.parseAsync(['node', 'test', 'README.md'])).rejects.toThrow('process.exit:0');
+
+    expect(MOCK_CREATE_WINSTON_LOGGER).toHaveBeenCalledWith({ level: 'info' });
+    expect(MOCK_CREATE_PROVIDER).toHaveBeenCalledWith(
+      envWithObservability,
+      expect.objectContaining({
+        logger: runtimeLogger,
+      }),
+      expect.anything()
+    );
   });
 });

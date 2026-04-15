@@ -115,6 +115,8 @@ describe('VercelAIProvider agent loop', () => {
 
     const provider = new VercelAIProvider({
       model: { provider: 'openai', modelId: 'gpt-4o-mini' } as unknown as LanguageModel,
+      providerName: 'openai',
+      modelName: 'gpt-4o-mini',
       observability,
     });
 
@@ -158,6 +160,8 @@ describe('VercelAIProvider agent loop', () => {
 
     const provider = new VercelAIProvider({
       model: { provider: 'openai', modelId: 'gpt-4o-mini' } as unknown as LanguageModel,
+      providerName: 'openai',
+      modelName: 'gpt-4o-mini',
       logger,
       observability,
     });

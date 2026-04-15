@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ENV_SCHEMA, type EnvConfig } from '../schemas/env-schemas';
+import { ENV_SCHEMA, OBSERVABILITY_BACKENDS, type EnvConfig } from '../schemas/env-schemas';
 import { ValidationError, handleUnknownError } from '../errors/index';
 import { ProviderType } from '../providers/provider-factory';
 
@@ -61,9 +61,13 @@ function formatProviderValidationError(zodError: z.ZodError, env: unknown): stri
     }
   }
 
-  if (envObj.OBSERVABILITY_BACKEND === 'langfuse') {
+  if (envObj.OBSERVABILITY_BACKEND === OBSERVABILITY_BACKENDS[0]) {
     const langfuseFields = issues
-      .filter((issue) => issue.path.length > 0 && String(issue.path[0]).startsWith('LANGFUSE_'))
+      .filter((issue) =>
+        issue.code === 'custom' &&
+        issue.path.length > 0 &&
+        ['LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY'].includes(String(issue.path[0]))
+      )
       .map((issue) => issue.path.join('.'));
     const missingLangfuseFields = [...new Set(langfuseFields)];
 

@@ -352,6 +352,21 @@ describe('Provider Factory', () => {
 
       expect(provider.config?.observability).toBe(observability);
     });
+
+    it('passes explicit provider and model names to VercelAIProvider config', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+
+      const provider = createProvider(envConfig) as unknown as {
+        config?: { providerName?: string; modelName?: string };
+      };
+
+      expect(provider.config?.providerName).toBe(ProviderType.OpenAI);
+      expect(provider.config?.modelName).toBe('gpt-4o');
+    });
   });
 
   describe('Provider-Specific Configuration', () => {

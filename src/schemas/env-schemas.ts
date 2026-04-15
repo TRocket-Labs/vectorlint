@@ -23,6 +23,9 @@ export const BEDROCK_DEFAULT_CONFIG = {
   model: 'global.anthropic.claude-sonnet-4-5-20250929-v1:0',
 };
 
+export const OBSERVABILITY_BACKENDS = ['langfuse'] as const;
+export type ObservabilityBackend = (typeof OBSERVABILITY_BACKENDS)[number];
+
 // Azure OpenAI configuration schema
 const AZURE_OPENAI_CONFIG_SCHEMA = z.object({
   AZURE_OPENAI_API_KEY: z.string().min(1),
@@ -64,7 +67,7 @@ const BEDROCK_CONFIG_SCHEMA = z.object({
 });
 
 const OBSERVABILITY_ENV_SCHEMA = z.object({
-  OBSERVABILITY_BACKEND: z.enum(['langfuse']).optional(),
+  OBSERVABILITY_BACKEND: z.enum(OBSERVABILITY_BACKENDS).optional(),
   LANGFUSE_PUBLIC_KEY: z.string().min(1).optional(),
   LANGFUSE_SECRET_KEY: z.string().min(1).optional(),
   LANGFUSE_BASE_URL: z.string().url().optional(),
@@ -95,7 +98,7 @@ export const ENV_SCHEMA = z.discriminatedUnion('LLM_PROVIDER', [
     }
   }
 
-  if (data.OBSERVABILITY_BACKEND === 'langfuse') {
+  if (data.OBSERVABILITY_BACKEND === OBSERVABILITY_BACKENDS[0]) {
     if (!data.LANGFUSE_PUBLIC_KEY) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

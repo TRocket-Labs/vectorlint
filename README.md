@@ -143,6 +143,7 @@ LANGFUSE_BASE_URL = "https://cloud.langfuse.com"
 Notes:
 - Observability is non-blocking. If Langfuse setup fails, VectorLint continues without telemetry.
 - Prompts and outputs are recorded when Langfuse observability is enabled.
+- Do not send secrets, credentials, or PII unless your policy explicitly allows observability tooling to access that data.
 
 ## Agent Mode
 

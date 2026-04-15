@@ -21,6 +21,7 @@ import { evaluateFiles } from './orchestrator';
 import { DEFAULT_REVIEW_MODE, OUTPUT_FORMATS, OutputFormat } from './types';
 import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { createWinstonLogger } from '../logging/winston-logger';
+import { createNoopLogger } from '../logging/logger';
 import type { AIObservability } from '../observability/ai-observability';
 import { createObservability } from '../observability/factory';
 import { NoopObservability } from '../observability/noop-observability';
@@ -110,9 +111,11 @@ export function registerMainCommand(program: Command): void {
         console.log(`[vectorlint] Loaded user instructions from ${USER_INSTRUCTION_FILENAME} (${userInstructions.tokenEstimate} estimated tokens)`);
       }
 
-      const runtimeLogger = createWinstonLogger({
-        level: cliOptions.verbose ? 'debug' : 'info',
-      });
+      const runtimeLogger = shouldUseRuntimeLogger(cliOptions.verbose, env)
+        ? createWinstonLogger({
+          level: cliOptions.verbose ? 'debug' : 'info',
+        })
+        : createNoopLogger();
 
       // Load config and prompts
       const config = await runOrExit('Loading configuration', () => loadConfig(process.cwd(), cliOptions.config));
@@ -267,4 +270,8 @@ async function initializeObservability(env: ReturnType<typeof parseEnvironment>,
     });
     return new NoopObservability();
   }
+}
+
+function shouldUseRuntimeLogger(verbose: boolean, env: ReturnType<typeof parseEnvironment>): boolean {
+  return verbose || env.OBSERVABILITY_BACKEND === 'langfuse';
 }

@@ -10,6 +10,8 @@ import { handleUnknownError } from '../errors';
 
 export interface VercelAIConfig {
   model: LanguageModel;
+  providerName?: string;
+  modelName?: string;
   temperature?: number;
   maxTokens?: number;
   debug?: boolean;
@@ -73,8 +75,8 @@ export class VercelAIProvider implements LLMProvider {
     try {
       const observabilityOptions = this.getObservabilityOptions({
         operation: 'structured-eval',
-        provider: this.resolveProviderName(),
-        model: this.resolveModelName(),
+        provider: this.config.providerName ?? 'unknown',
+        model: this.config.modelName ?? 'unknown',
         evaluator: this.extractContextValue(context, 'evaluatorName', 'evaluator'),
         rule: this.extractContextValue(context, 'ruleName', 'rule'),
       });
@@ -153,8 +155,8 @@ export class VercelAIProvider implements LLMProvider {
       ...(params.maxRetries !== undefined ? { maxRetries: params.maxRetries } : {}),
       ...this.getObservabilityOptions({
         operation: 'agent-tool-loop',
-        provider: this.resolveProviderName(),
-        model: this.resolveModelName(),
+        provider: this.config.providerName ?? 'unknown',
+        model: this.config.modelName ?? 'unknown',
       }),
       stopWhen: stepCountIs(params.maxSteps ?? 1000),
       providerOptions: {
@@ -210,26 +212,6 @@ export class VercelAIProvider implements LLMProvider {
       });
       return {};
     }
-  }
-
-  private resolveProviderName(): string {
-    const model = this.config.model as unknown as Record<string, unknown>;
-    const provider = model.provider;
-    if (typeof provider === 'string' && provider.length > 0) {
-      return provider;
-    }
-    return 'unknown';
-  }
-
-  private resolveModelName(): string {
-    const model = this.config.model as unknown as Record<string, unknown>;
-    for (const key of ['modelId', 'model', 'id']) {
-      const value = model[key];
-      if (typeof value === 'string' && value.length > 0) {
-        return value;
-      }
-    }
-    return 'unknown';
   }
 
   private extractContextValue(

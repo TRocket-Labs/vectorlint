@@ -235,6 +235,8 @@ describe('VercelAIProvider', () => {
 
       const provider = new VercelAIProvider({
         model: MOCK_MODEL,
+        providerName: 'openai',
+        modelName: 'gpt-4o',
         observability,
       });
 
@@ -275,6 +277,8 @@ describe('VercelAIProvider', () => {
 
       const provider = new VercelAIProvider({
         model: MOCK_MODEL,
+        providerName: 'openai',
+        modelName: 'gpt-4o',
         logger,
         observability,
       });
