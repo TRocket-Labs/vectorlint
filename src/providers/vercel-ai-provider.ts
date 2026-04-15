@@ -6,6 +6,7 @@ import { AgentToolLoopParams, AgentToolLoopResult, LLMProvider, LLMResult } from
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import { createNoopLogger, type Logger } from '../logging/logger';
 import type { AIExecutionContext, AIObservability } from '../observability/ai-observability';
+import { handleUnknownError } from '../errors';
 
 export interface VercelAIConfig {
   model: LanguageModel;
@@ -202,7 +203,7 @@ export class VercelAIProvider implements LLMProvider {
     try {
       return this.observability.decorateCall(context);
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
+      const err = handleUnknownError(error, 'Decorating AI call for observability');
       this.logger.warn('[vectorlint] Failed to decorate AI call for observability; continuing without telemetry options', {
         error: err.message,
         operation: context.operation,

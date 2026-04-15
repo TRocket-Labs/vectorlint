@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ENV_SCHEMA, type EnvConfig } from '../schemas/env-schemas';
 import { ValidationError, handleUnknownError } from '../errors/index';
+import { ProviderType } from '../providers/provider-factory';
 
 export function parseEnvironment(env: unknown = process.env): EnvConfig {
   try {
@@ -28,7 +29,8 @@ function formatProviderValidationError(zodError: z.ZodError, env: unknown): stri
   );
 
   if (discriminatorIssue) {
-    return `LLM_PROVIDER is required and must be one of 'azure-openai', 'anthropic', 'openai', 'gemini', or 'amazon-bedrock'. Received: ${providerType ?? 'undefined'}`;
+    const allowedProviders = Object.values(ProviderType).map(value => `'${value}'`).join(', ');
+    return `LLM_PROVIDER is required and must be one of ${allowedProviders}. Received: ${providerType ?? 'undefined'}`;
   }
 
   // Check for missing required fields based on provider type

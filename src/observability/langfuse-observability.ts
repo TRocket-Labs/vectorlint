@@ -2,6 +2,7 @@ import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { createNoopLogger, type Logger } from '../logging/logger';
 import type { AIExecutionContext, AIObservability } from './ai-observability';
+import { handleUnknownError } from '../errors';
 
 export interface LangfuseObservabilityConfig {
   publicKey: string;
@@ -80,7 +81,7 @@ export class LangfuseObservability implements AIObservability {
     try {
       await sdk.shutdown();
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
+      const err = handleUnknownError(error, 'Shutting down Langfuse observability SDK');
       this.logger.warn('[vectorlint] Failed to shutdown Langfuse observability SDK', {
         error: err.message,
       });

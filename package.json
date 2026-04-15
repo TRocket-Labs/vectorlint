@@ -69,7 +69,6 @@
     "commander": "^12.0.0",
     "fast-glob": "^3.3.2",
     "fuzzball": "^2.2.3",
-    "langfuse": "^3.38.20",
     "micromatch": "^4.0.5",
     "ora": "^8.2.0",
     "p-limit": "^7.3.0",

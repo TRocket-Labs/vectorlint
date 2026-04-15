@@ -208,7 +208,7 @@ describe('Environment Parser', () => {
       };
 
       expect(() => parseEnvironment(env)).toThrow(ValidationError);
-      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER is required and must be one of 'azure-openai', 'anthropic', 'openai', 'gemini', or 'amazon-bedrock'/);
+      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER is required and must be one of 'azure-openai', 'anthropic', 'openai', 'gemini', 'amazon-bedrock'/);
     });
 
     it('provides specific error message for missing Azure OpenAI variables', () => {
