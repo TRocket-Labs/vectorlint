@@ -46,4 +46,15 @@ describe('createObservability', () => {
 
     expect(() => createObservability(env)).toThrow(/Langfuse observability requires/);
   });
+
+  it('allows langfuse backend without explicit base URL', () => {
+    const env: EnvConfig = {
+      ...baseEnv,
+      OBSERVABILITY_BACKEND: 'langfuse',
+      LANGFUSE_PUBLIC_KEY: 'pk-lf-test',
+      LANGFUSE_SECRET_KEY: 'sk-lf-test',
+    };
+
+    expect(createObservability(env)).toBeInstanceOf(LangfuseObservability);
+  });
 });

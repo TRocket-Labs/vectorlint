@@ -9,14 +9,14 @@ export function createObservability(env: EnvConfig, logger?: Logger): AIObservab
     return new NoopObservability();
   }
 
-  if (!env.LANGFUSE_PUBLIC_KEY || !env.LANGFUSE_SECRET_KEY || !env.LANGFUSE_BASE_URL) {
-    throw new Error('Langfuse observability requires LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, and LANGFUSE_BASE_URL');
+  if (!env.LANGFUSE_PUBLIC_KEY || !env.LANGFUSE_SECRET_KEY) {
+    throw new Error('Langfuse observability requires LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY');
   }
 
   return new LangfuseObservability({
     publicKey: env.LANGFUSE_PUBLIC_KEY,
     secretKey: env.LANGFUSE_SECRET_KEY,
-    baseUrl: env.LANGFUSE_BASE_URL,
+    ...(env.LANGFUSE_BASE_URL ? { baseUrl: env.LANGFUSE_BASE_URL } : {}),
     logger,
   });
 }

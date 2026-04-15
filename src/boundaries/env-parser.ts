@@ -66,7 +66,7 @@ function formatProviderValidationError(zodError: z.ZodError, env: unknown): stri
     const missingLangfuseFields = [...new Set(langfuseFields)];
 
     if (missingLangfuseFields.length > 0) {
-      return `Missing required Langfuse observability environment variables: ${missingLangfuseFields.join(', ')}. When using OBSERVABILITY_BACKEND=langfuse, ensure LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, and LANGFUSE_BASE_URL are set.`;
+      return `Missing required Langfuse observability environment variables: ${missingLangfuseFields.join(', ')}. When using OBSERVABILITY_BACKEND=langfuse, ensure LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are set.`;
     }
   }
 

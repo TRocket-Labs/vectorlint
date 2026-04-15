@@ -331,7 +331,7 @@ describe('Environment Parser', () => {
       };
 
       expect(() => parseEnvironment(env)).toThrow(ValidationError);
-      expect(() => parseEnvironment(env)).toThrow(/Missing required Langfuse observability environment variables.*LANGFUSE_PUBLIC_KEY.*LANGFUSE_SECRET_KEY.*LANGFUSE_BASE_URL/);
+      expect(() => parseEnvironment(env)).toThrow(/Missing required Langfuse observability environment variables.*LANGFUSE_PUBLIC_KEY.*LANGFUSE_SECRET_KEY/);
     });
   });
 });

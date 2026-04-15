@@ -111,14 +111,6 @@ export const ENV_SCHEMA = z.discriminatedUnion('LLM_PROVIDER', [
         message: 'LANGFUSE_SECRET_KEY is required when OBSERVABILITY_BACKEND=langfuse',
       });
     }
-
-    if (!data.LANGFUSE_BASE_URL) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['LANGFUSE_BASE_URL'],
-        message: 'LANGFUSE_BASE_URL is required when OBSERVABILITY_BACKEND=langfuse',
-      });
-    }
   }
 });
 

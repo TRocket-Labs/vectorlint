@@ -51,7 +51,7 @@
     "url": "https://github.com/TRocket-Labs/vectorlint/issues"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.6.0"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^4.0.64",
@@ -60,12 +60,16 @@
     "@ai-sdk/google": "^3.0.31",
     "@ai-sdk/openai": "^3.0.33",
     "@ai-sdk/perplexity": "^1.0.0",
+    "@langfuse/otel": "^5.1.0",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/sdk-node": "^0.214.0",
     "@types/micromatch": "^4.0.9",
     "ai": "^6.0.99",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
     "fast-glob": "^3.3.2",
     "fuzzball": "^2.2.3",
+    "langfuse": "^3.38.20",
     "micromatch": "^4.0.5",
     "ora": "^8.2.0",
     "p-limit": "^7.3.0",
