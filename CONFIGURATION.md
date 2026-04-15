@@ -99,6 +99,24 @@ SEARCH_PROVIDER=perplexity
 PERPLEXITY_API_KEY=pplx-...
 ```
 
+### Observability
+
+VectorLint can optionally emit AI execution telemetry to Langfuse. The first implementation is scoped to the Vercel AI SDK calls made through `VercelAIProvider`.
+
+**Example configuration for Langfuse:**
+
+```bash
+OBSERVABILITY_BACKEND=langfuse
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+# Optional for self-hosted Langfuse. Defaults to cloud.langfuse.com.
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+```
+
+- Observability is best-effort and non-blocking.
+- If initialization or shutdown fails, VectorLint logs a warning and continues.
+- Prompts and outputs are recorded when Langfuse observability is enabled.
+
 ### False-Positive Filtering (PAT)
 
 VectorLint uses PAT (Pay A Tax) style gate checks to reduce false positives. The model may return many raw candidates, but only candidates that pass deterministic gate checks are surfaced in CLI output.
