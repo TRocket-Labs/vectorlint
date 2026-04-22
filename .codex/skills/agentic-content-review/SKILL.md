@@ -21,6 +21,14 @@ Use this skill to review prose and other content files against active markdown r
 - `same-anchor groups` means findings that share source file, rule path, Evidence quote, Rule quote, and Line. Treat them as semantic-review warnings only, never as duplicate decisions.
 - Density scoring is strict by default, based on finding count divided by word count, clamped to a `0-10` range. Recompute the final score after main-agent edits.
 
+## Reviewer Sub-Agent Setup
+
+If your toolset supports sub-agent definitions, check whether a sub-agent definition named `content-reviewer` exists in your workspace's sub-agent directory. If it does not exist, announce that you are creating it and create it using the content of `references/reviewer-directive.md` as its directive. Do not spin up a sub-agent at this step — only create the definition.
+
+If your toolset does not support sub-agent definitions, announce it and proceed using your toolset's inline sub-agent capability with `references/reviewer-directive.md` as the prompt.
+
+---
+
 ## Workflow
 
 1. Resolve active rules from workspace `.vlint/rules/*/rule-index.yml` files, or from bundled defaults at `.codex/skills/agentic-content-review/rules/default/rule-index.yml` when no workspace indexes exist or the caller explicitly asks for defaults.
@@ -58,5 +66,5 @@ npx tsx .codex/skills/agentic-content-review/scripts/list-active-rules.ts <works
 Parse and score review markdown:
 
 ```bash
-npx tsx .codex/skills/agentic-content-review/scripts/parse-review-and-score.ts <review.md>
+npx tsx .codex/skills/agentic-content-review/scripts/parse-review-and-score.ts <review.md> --write-log
 ```
