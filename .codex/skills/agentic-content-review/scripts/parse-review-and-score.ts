@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
@@ -32,6 +32,30 @@ type Output = {
   findings: Finding[];
   warnings: Warning[];
   errors: string[];
+};
+
+type SessionFinding = {
+  ruleName: string;
+  rulePath: string;
+  sourceFile: string;
+  line: number;
+  evidenceQuote: string;
+  ruleQuote: string;
+  flagReasoning: string;
+  issue: string;
+  plausibleNonViolation: string;
+  contextSupportsViolation: boolean;
+  suggestion: string;
+  confidence: number;
+};
+
+export type SessionLog = {
+  sessionId: string;
+  sourceFile: string;
+  wordCount: number;
+  findingCount: number;
+  score: number;
+  findings: SessionFinding[];
 };
 
 const REQUIRED_FIELDS = [
@@ -88,6 +112,87 @@ function parseBoolean(value: string): boolean | undefined {
   if (normalized === "true") return true;
   if (normalized === "false") return false;
   return undefined;
+}
+
+export function resolveRuleName(rulePath: string): string {
+  const ruleDir = path.dirname(rulePath);
+  const indexPath = path.join(ruleDir, "rule-index.yml");
+  const baseName = path.basename(rulePath, path.extname(rulePath));
+
+  if (!existsSync(indexPath)) return baseName;
+
+  let content: string;
+  try {
+    content = readFileSync(indexPath, "utf8");
+  } catch {
+    return baseName;
+  }
+
+  const ruleBaseName = path.basename(rulePath);
+  const lines = content.split(/\r?\n/);
+  let currentRulePath: string | undefined;
+  let currentRuleName: string | undefined;
+
+  for (const rawLine of lines) {
+    const withoutComment = rawLine.replace(/\s+#.*$/, "").trim();
+    if (withoutComment.startsWith("- ")) {
+      currentRulePath = undefined;
+      currentRuleName = undefined;
+    }
+    const nameMatch = withoutComment.match(/^name:\s*(.+)$/);
+    if (nameMatch) currentRuleName = nameMatch[1]!.replace(/^['"]|['"]$/g, "").trim();
+    const pathMatch = withoutComment.match(/^path:\s*(.+)$/);
+    if (pathMatch) currentRulePath = pathMatch[1]!.replace(/^['"]|['"]$/g, "").trim();
+
+    if (currentRulePath === ruleBaseName && currentRuleName) {
+      return currentRuleName;
+    }
+  }
+
+  return baseName;
+}
+
+export function buildSessionLog(
+  findings: Finding[],
+  wordCount: number,
+  findingCount: number,
+  score: number,
+  timestamp: string
+): SessionLog {
+  const sourceFile = findings[0]?.sourceFile ?? "";
+  return {
+    sessionId: timestamp,
+    sourceFile,
+    wordCount,
+    findingCount,
+    score,
+    findings: findings.map((f) => ({
+      ruleName: resolveRuleName(f.rulePath),
+      rulePath: f.rulePath,
+      sourceFile: f.sourceFile,
+      line: f.line,
+      evidenceQuote: f.evidenceQuote,
+      ruleQuote: f.ruleQuote,
+      flagReasoning: f.flagReasoning,
+      issue: f.issue,
+      plausibleNonViolation: f.plausibleNonViolation,
+      contextSupportsViolation: f.contextSupportsViolation,
+      suggestion: f.suggestion,
+      confidence: f.confidence,
+    })),
+  };
+}
+
+export function writeSessionLog(log: SessionLog, sessionsDir: string): void {
+  mkdirSync(sessionsDir, { recursive: true });
+  const timestampPart = log.sessionId.replace(/:/g, "-");
+  const sourcePart = path.basename(log.sourceFile, path.extname(log.sourceFile)) || "unknown";
+  const fileName = `${timestampPart}-${sourcePart}.json`;
+  writeFileSync(path.join(sessionsDir, fileName), JSON.stringify(log, null, 2));
+}
+
+function parseWriteLogFlag(args: string[]): boolean {
+  return args.includes("--write-log");
 }
 
 function isNoFindings(markdown: string): boolean {
@@ -428,6 +533,14 @@ function main(): void {
     warnings,
     errors,
   };
+
+  const writeLog = parseWriteLogFlag(process.argv.slice(2));
+  if (writeLog) {
+    const sessionsDir = path.join(process.cwd(), ".vlint", "sessions");
+    const timestamp = new Date().toISOString();
+    const sessionLog = buildSessionLog(findings, wordCount, findingCount, output.score, timestamp);
+    writeSessionLog(sessionLog, sessionsDir);
+  }
 
   console.log(JSON.stringify(output, null, 2));
   process.exitCode = output.valid ? 0 : 1;
