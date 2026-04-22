@@ -129,27 +129,31 @@ export function resolveRuleName(rulePath: string): string {
   }
 
   const ruleBaseName = path.basename(rulePath);
-  const lines = content.split(/\r?\n/);
-  let currentRulePath: string | undefined;
-  let currentRuleName: string | undefined;
+  const entries: Array<{ name?: string; path?: string }> = [];
+  let current: { name?: string; path?: string } | undefined;
 
-  for (const rawLine of lines) {
+  for (const rawLine of content.split(/\r?\n/)) {
     const withoutComment = rawLine.replace(/\s+#.*$/, "").trim();
     if (withoutComment.startsWith("- ")) {
-      currentRulePath = undefined;
-      currentRuleName = undefined;
+      current = {};
+      entries.push(current);
+      const rest = withoutComment.slice(2).trim();
+      const nameMatch = rest.match(/^name:\s*(.+)$/);
+      if (nameMatch) current.name = nameMatch[1]!.replace(/^['"]|['"]$/g, "").trim();
+      const pathMatch = rest.match(/^path:\s*(.+)$/);
+      if (pathMatch) current.path = pathMatch[1]!.replace(/^['"]|['"]$/g, "").trim();
+      continue;
     }
-    const nameMatch = withoutComment.match(/^name:\s*(.+)$/);
-    if (nameMatch) currentRuleName = nameMatch[1]!.replace(/^['"]|['"]$/g, "").trim();
-    const pathMatch = withoutComment.match(/^path:\s*(.+)$/);
-    if (pathMatch) currentRulePath = pathMatch[1]!.replace(/^['"]|['"]$/g, "").trim();
-
-    if (currentRulePath === ruleBaseName && currentRuleName) {
-      return currentRuleName;
+    if (current) {
+      const nameMatch = withoutComment.match(/^name:\s*(.+)$/);
+      if (nameMatch) current.name = nameMatch[1]!.replace(/^['"]|['"]$/g, "").trim();
+      const pathMatch = withoutComment.match(/^path:\s*(.+)$/);
+      if (pathMatch) current.path = pathMatch[1]!.replace(/^['"]|['"]$/g, "").trim();
     }
   }
 
-  return baseName;
+  const match = entries.find((e) => e.path === ruleBaseName);
+  return match?.name ?? baseName;
 }
 
 export function buildSessionLog(
@@ -486,6 +490,7 @@ function main(): void {
   const reviewPath = process.argv[2];
   const errors: string[] = [];
   const warnings: Warning[] = [];
+  const writeLog = parseWriteLogFlag(process.argv.slice(2));
 
   if (!reviewPath) {
     errors.push("Usage: parse-review-and-score.ts <review.md>");
@@ -510,7 +515,6 @@ function main(): void {
 
   const markdown = readFileSync(resolvedReviewPath, "utf8");
   if (isNoFindings(markdown)) {
-    const writeLog = parseWriteLogFlag(process.argv.slice(2));
     if (writeLog) {
       const sessionsDir = path.join(process.cwd(), ".vlint", "sessions");
       const timestamp = new Date().toISOString();
@@ -541,7 +545,6 @@ function main(): void {
     errors,
   };
 
-  const writeLog = parseWriteLogFlag(process.argv.slice(2));
   if (writeLog) {
     const sessionsDir = path.join(process.cwd(), ".vlint", "sessions");
     const timestamp = new Date().toISOString();

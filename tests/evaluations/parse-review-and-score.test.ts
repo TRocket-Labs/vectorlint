@@ -55,6 +55,18 @@ describe("resolveRuleName", () => {
     const rulePath = path.join(ruleDir, "wordiness.md");
     expect(resolveRuleName(rulePath)).toBe("wordiness");
   });
+
+  it("returns name when path appears before name in index entry", () => {
+    const ruleDir = path.join(tmpDir, "rules");
+    mkdirSync(ruleDir);
+    writeFileSync(path.join(ruleDir, "passive-voice.md"), "# Passive Voice rule");
+    writeFileSync(
+      path.join(ruleDir, "rule-index.yml"),
+      `pack: default\nactive: true\nrules:\n  - id: passive-voice\n    path: passive-voice.md\n    name: Passive Voice\n    active: true\n`
+    );
+    const rulePath = path.join(ruleDir, "passive-voice.md");
+    expect(resolveRuleName(rulePath)).toBe("Passive Voice");
+  });
 });
 
 describe("buildSessionLog", () => {
