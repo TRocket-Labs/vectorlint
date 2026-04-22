@@ -1,0 +1,7 @@
+interface:
+  display_name: "Agentic Content Review"
+  short_description: "Per-rule agent review with scoring"
+  default_prompt: "Use $agentic-content-review to review this content with active .vlint rules and return a scored report."
+
+policy:
+  allow_implicit_invocation: true

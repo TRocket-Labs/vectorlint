@@ -1,0 +1,18 @@
+pack: default
+active: true
+rules:
+  - id: directness
+    name: Directness
+    path: directness.md
+    active: true
+    description: Flag filler phrases, hedging, and indirect phrasing that weakens clarity.
+  - id: unsupported-claims
+    name: Unsupported Claims
+    path: unsupported-claims.md
+    active: true
+    description: Flag claims that need evidence, qualification, or source support.
+  - id: ai-patterns
+    name: AI Patterns
+    path: ai-patterns.md
+    active: true
+    description: Flag generic AI-like phrasing and empty transitional language.
