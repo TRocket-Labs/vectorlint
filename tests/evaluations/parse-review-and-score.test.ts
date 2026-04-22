@@ -238,4 +238,24 @@ describe("--write-log flag integration", () => {
     expect(log.findings[0].ruleName).toBe("AI Patterns");
     expect(log.findings[0].confidence).toBe(0.85);
   });
+
+  it("writes an empty session log when review has no findings", () => {
+    const noFindingsMd = "## Findings\nNo findings.";
+    const reviewPath = path.join(tmpDir, "empty-review.md");
+    writeFileSync(reviewPath, noFindingsMd);
+
+    execSync(
+      `npx tsx ${path.resolve(".codex/skills/agentic-content-review/scripts/parse-review-and-score.ts")} ${reviewPath} --write-log`,
+      { cwd: tmpDir, env: { ...process.env } }
+    );
+
+    const sessionsDir = path.join(tmpDir, ".vlint", "sessions");
+    const files = readdirSync(sessionsDir);
+    expect(files).toHaveLength(1);
+
+    const log = JSON.parse(readFileSync(path.join(sessionsDir, files[0]!), "utf8"));
+    expect(log.findingCount).toBe(0);
+    expect(log.score).toBe(10);
+    expect(log.findings).toHaveLength(0);
+  });
 });

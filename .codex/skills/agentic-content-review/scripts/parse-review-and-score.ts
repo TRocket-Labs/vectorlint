@@ -510,6 +510,13 @@ function main(): void {
 
   const markdown = readFileSync(resolvedReviewPath, "utf8");
   if (isNoFindings(markdown)) {
+    const writeLog = parseWriteLogFlag(process.argv.slice(2));
+    if (writeLog) {
+      const sessionsDir = path.join(process.cwd(), ".vlint", "sessions");
+      const timestamp = new Date().toISOString();
+      const sessionLog = buildSessionLog([], 0, 0, 10, timestamp);
+      writeSessionLog(sessionLog, sessionsDir);
+    }
     const output: Output = { valid: true, findingCount: 0, wordCount: 0, score: 10, findings: [], warnings, errors };
     console.log(JSON.stringify(output, null, 2));
     return;
