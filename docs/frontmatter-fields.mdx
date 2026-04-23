@@ -1,0 +1,143 @@
+---
+title: Frontmatter field reference
+description: Complete reference for YAML frontmatter fields in VectorLint rule files.
+---
+
+Every VectorLint rule file begins with a YAML frontmatter block that controls how VectorLint runs the evaluation, handles the result, and reports violations. The Markdown body that follows is the prompt sent to the LLM.
+
+```markdown
+---
+id: MyRule
+name: My Rule
+type: check
+severity: error
+---
+
+Your LLM prompt goes here.
+```
+
+## Required fields
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | Unique identifier for the rule. Used in CLI output and in `.vectorlint.ini` overrides. PascalCase recommended (e.g., `GrammarChecker`). |
+| `name` | string | Human-readable display name shown in CLI output. |
+
+## Optional fields
+
+| Field | Default | Description |
+|---|---|---|
+| `specVersion` | _(none)_ | Rule spec version. Set to `1.0.0` for rules using the full judge schema. |
+| `evaluator` | `base` | Evaluator type. Use `base` for standard rules. Use `technical-accuracy` for rules that verify factual claims against live web search (requires a search provider). |
+| `type` | `check` | Evaluation mode. `check` finds specific, countable violations. `judge` scores content against weighted criteria on a 1–4 rubric. |
+| `severity` | `warning` | How a failing result is reported. `error` causes a non-zero exit code; `warning` reports the issue without failing the run. |
+| `evaluateAs` | `chunk` | Whether to evaluate content in sections (`chunk`) or as a single unit (`document`). Chunking is applied automatically to documents over 600 words. Set to `document` to disable chunking for a specific rule. |
+| `target` | _(none)_ | Regex specification to extract and evaluate a specific portion of the content, such as the H1 headline. See [Target fields](#target-fields) below. |
+| `criteria` | _(none)_ | Required when `type` is `judge`. Defines the scoring dimensions and their weights. See [Criteria fields](#criteria-fields) below. |
+
+## Target fields
+
+The `target` field narrows evaluation to a specific part of the document. It is an object with the following sub-fields:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `regex` | string | Yes | Regular expression pattern to match the target content. |
+| `flags` | string | No | Regex flags (e.g., `"mu"` for multiline and Unicode). |
+| `group` | number | No | Capture group index to extract. If omitted, the full match is used. |
+| `required` | boolean | No | When `true`, a missing match immediately reports an `error` with the `suggestion` text and skips LLM evaluation. When `false` or omitted, a missing match causes VectorLint to evaluate the full document instead. |
+| `suggestion` | string | No | Message shown when `required: true` and the pattern does not match. |
+
+**Example — targeting only the H1 headline:**
+
+```yaml
+target:
+  regex: '^#\s+(.+)$'
+  flags: "mu"
+  group: 1
+  required: true
+  suggestion: Add an H1 headline for the article.
+```
+
+## Criteria fields
+
+The `criteria` field is an array of criterion objects used with `type: judge`. Each criterion defines one scoring dimension.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | Yes | Human-readable criterion name shown in CLI output. |
+| `id` | string | Yes | Unique identifier for this criterion. PascalCase recommended (e.g., `TechnicalAccuracy`). Referenced in the Markdown body rubric as `# CriterionName <weight=N>`. |
+| `weight` | number | No | Relative importance of this criterion in the weighted average. Higher values increase the criterion's influence on the final score. Defaults to `1`. |
+| `target` | object | No | Criterion-specific content matching. Uses the same sub-fields as the top-level `target`. Overrides the rule-level target for this criterion only. |
+
+**Example — judge rule with two weighted criteria:**
+
+```yaml
+criteria:
+  - name: Technical Accuracy
+    id: TechnicalAccuracy
+    weight: 40
+  - name: Readability
+    id: Readability
+    weight: 30
+```
+
+## Complete example
+
+The following rule uses all commonly-used fields. It targets the H1 headline, judges it against two criteria, and requires the headline to exist before evaluation runs.
+
+```markdown
+---
+specVersion: 1.0.0
+evaluator: base
+type: judge
+id: HeadlineEvaluator
+name: Headline Evaluator
+severity: error
+evaluateAs: document
+target:
+  regex: '^#\s+(.+)$'
+  flags: "mu"
+  group: 1
+  required: true
+  suggestion: Add an H1 headline for the article.
+criteria:
+  - name: Value Communication
+    id: ValueCommunication
+    weight: 12
+  - name: Curiosity Gap
+    id: CuriosityGap
+    weight: 2
+---
+
+You are a headline evaluator for developer blog posts.
+
+## RUBRIC
+
+# Value Communication <weight=12>
+
+### Excellent <score=4>
+Specific, immediately appealing benefit clearly stated.
+
+### Good <score=3>
+Clear benefit but less specific impact.
+
+### Fair <score=2>
+Vague benefit implied but not stated.
+
+### Poor <score=1>
+No apparent benefit to the reader.
+
+# Curiosity Gap <weight=2>
+
+### Excellent <score=4>
+Creates genuine intrigue without being misleading.
+
+### Good <score=3>
+Mildly interesting, reader may continue.
+
+### Fair <score=2>
+Neutral — no curiosity created.
+
+### Poor <score=1>
+Actively off-putting or confusing.
+```

@@ -1,0 +1,65 @@
+---
+title: How it works
+description: How VectorLint evaluates content using LLM-as-a-Judge, filtering, and two scoring methods.
+---
+
+VectorLint evaluates your content by sending it to a large language model (LLM) along with a structured prompt that defines your quality criteria. The LLM acts as a judge — reading your content, applying the criteria, and returning findings. VectorLint then filters those findings through a deterministic pipeline before surfacing violations in the CLI.
+
+If you haven't run your first check yet, start with the [Quickstart](/quickstart). This page is for understanding the architecture behind what you're running.
+
+## The evaluation pipeline
+
+Every time you run `vectorlint doc.md`, three things happen in sequence.
+
+### 1. Rule resolution
+
+VectorLint reads your `.vectorlint.ini` to determine which rule packs apply to the file. It loads those rule files, prepends the contents of `VECTORLINT.md` (if present) to each rule's system prompt, and assembles the evaluation context.
+
+If no `.vectorlint.ini` exists, VectorLint detects `VECTORLINT.md` and creates a synthetic "Style Guide Compliance" rule automatically. This is the zero-config path — the fastest way to get from nothing to a working evaluation without writing any rule pack files.
+
+### 2. LLM evaluation
+
+VectorLint sends your content to the configured LLM provider with each rule's prompt. Depending on the rule type, the model returns either:
+
+- **A list of specific violations** (check rules) — for countable errors like grammar mistakes or banned terms
+- **A scored rubric** (judge rules) — for quality dimensions like tone, clarity, or technical accuracy rated on a 1–4 scale
+
+Rules run concurrently up to the `Concurrency` limit set in `.vectorlint.ini`.
+
+### 3. Filtering
+
+Raw model output contains noise — potential violations that don't hold up under scrutiny. VectorLint reduces false positives through a two-phase filtering process:
+
+1. **Candidate generation** — the model returns all potential violations, each tagged with required fields: rule support, exact evidence, context support, plausible non-violation, and fix quality.
+2. **Deterministic surfacing** — VectorLint applies a strict filter and only surfaces violations that pass all required gates.
+
+The CLI output is intentionally stricter than raw model candidates with fewer results and higher confidence.
+
+You can tune how aggressively the filter operates with `CONFIDENCE_THRESHOLD` (default: `0.75`). Lower values surface more findings with higher recall; higher values surface fewer findings with higher precision. See [Configuring LLM providers](/llm-providers) for details.
+
+## Scoring
+
+VectorLint uses two scoring methods depending on the rule type.
+
+**Density-based scoring** (check rules) calculates error density, violations per 100 words. VectorLint weights a single error in a short document more heavily than the same error in a long one. This normalizes quality assessment across documents of any length.
+
+**Rubric-based scoring** (judge rules) normalizes the LLM's 1–4 rating to a 1–10 scale and computes a weighted average across all criteria. Criteria weights reflect your real-world priorities — technical accuracy might carry a weight of 40 while SEO carries a weight of 10.
+
+See [Quality scoring](/quality-scoring) for the full scoring reference.
+
+## Two ways to define quality
+
+VectorLint gives you two complementary tools for expressing your content standards:
+
+- **`VECTORLINT.md`** — plain-language style instructions that apply globally to every evaluation. The fastest path to useful output: no rule files, no configuration syntax, just plain English instructions that the LLM uses as context for every check.
+- **Rule pack files** — structured LLM prompts for specific, measurable checks with weighted scoring criteria. Use these when you need reproducible, auditable results on a particular dimension of quality.
+
+The two work together: `VECTORLINT.md` sets the baseline context, and rule pack files enforce specific criteria on top of it.
+
+See [Defining your style rules](/style-guide) for how to create both.
+
+## Next steps
+
+- [Quickstart](/quickstart) — run your first evaluation in minutes
+- [Defining your style rules](/style-guide) — create VECTORLINT.md and write custom rules
+- [Configuring a project](/project-config) — map files to rule packs

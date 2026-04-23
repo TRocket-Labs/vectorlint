@@ -1,0 +1,73 @@
+---
+title: Running your first style check
+description: Use VECTORLINT.md to run your first content evaluation without writing any rules.
+---
+
+The fastest way to get value from VectorLint is to create a `VECTORLINT.md` file in your project root. This is the zero-config path — no rule pack files, no `.vectorlint.ini` required. VectorLint detects the file automatically, creates a "Style Guide Compliance" rule from its contents, and evaluates your content against it.
+
+## Before you start
+
+You'll need a working VectorLint installation with an LLM provider configured. If you haven't done that yet, complete [Installation](/installation) and [Configuration](/configuration) first.
+
+## Step 1: Create your VECTORLINT.md
+
+Create a file called `VECTORLINT.md` in your project root. Write your style standards as plain-language instructions — short imperative rules grouped under headings. VectorLint passes this content directly to the LLM as context for every evaluation.
+
+Here's a minimal example to start from:
+
+```markdown
+## Voice and tone
+
+- Write in second person. Address the reader as "you."
+- Use active voice. Avoid passive constructions.
+- Be direct. Remove filler phrases like "it is important to note that."
+
+## Terminology
+
+- Use "sign in" not "log in."
+- Use "select" not "click" for UI actions.
+- Avoid "easy," "simple," and "just" — these are subjective and dismissive.
+
+## Sentence structure
+
+- Keep sentences under 25 words.
+- One idea per sentence.
+- Spell out acronyms on first use.
+```
+
+<Tip>
+  Keep `VECTORLINT.md` under 800 tokens. This leaves room for rule-specific context without approaching the 4,000-token warning threshold.
+</Tip>
+
+If your team already has a style guide, you don't need to write this by hand. See [Defining your style rules](/style-guide) for an extraction prompt that converts an existing style guide into a `VECTORLINT.md`-optimized file.
+
+## Step 2: Run a check
+
+Point VectorLint at any Markdown file:
+
+```bash
+vectorlint doc.md
+```
+
+VectorLint reads your `VECTORLINT.md`, builds a compliance rule from it, sends your content to the LLM, and prints any violations. A clean file produces no output and exits with status `0`. A file with violations prints each finding with its location and a suggested fix.
+
+## Step 3: Iterate on your rules
+
+`VECTORLINT.md` is a living file. As you see what VectorLint flags — and what it misses — update the file to tighten or relax your standards.
+
+- **Too many false positives?** Make a rule more specific or remove it.
+- **Missing a pattern?** Add a new rule under an existing heading or create a new one.
+- **Terminology changing?** Update the Terminology section directly.
+
+Because `VECTORLINT.md` is plain language, anyone on your team can read and edit it without learning a configuration format.
+
+## Going further
+
+`VECTORLINT.md` handles broad, always-applicable standards well. It also supports creating custom rule pack files — targeted LLM prompts that enforce specific, measurable criteria that plain-language instructions can't capture precisely enough.
+
+For example, a `VECTORLINT.md` rule like "avoid passive voice" gives the LLM general guidance. A rule pack file with a structured prompt, scoring rubric, and audience context gives it precise, reproducible criteria with weighted scoring.
+
+When you're ready to go beyond `VECTORLINT.md`:
+
+- [Customize style rules](/customize-style-rules) — step-by-step guide to writing your first rule pack file and crafting effective prompts
+- [Defining your style rules](/style-guide) — full reference for rule anatomy, evaluation modes, targeting, and examples
