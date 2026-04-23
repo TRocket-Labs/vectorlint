@@ -1,0 +1,140 @@
+---
+title: Best practices
+description: Proven patterns for getting accurate, low-noise results from VectorLint across your content workflow.
+---
+
+These practices are drawn from the patterns that appear throughout the VectorLint documentation — consolidated here so you can apply them without reading every page first.
+
+## Start with VECTORLINT.md, not rule pack files
+
+Start with `VECTORLINT.md`. It requires no configuration, activates immediately, and brings your most important standards in plain language before you commit to structured prompts.
+
+After you run `VECTORLINT.md` against your content library and complete your first assessments, you can begin tuning the rules in 'VECTORLINT.md' based on your initial findings. This way, you'll have a sense of if you have styling gaps that warrant a dedicated rule pack file.
+
+## Keep VECTORLINT.md under 800 tokens
+
+VectorLint emits a warning at 4,000 tokens, but a practical target is *much* lower. Under 800 tokens leaves headroom for rule-specific prompts to add context without the combined system prompt becoming unwieldy. Long context degrades LLM precision and increases API costs on every evaluation.
+
+If your `VECTORLINT.md` is growing, that's usually a sign that some rules are specific enough to belong in a dedicated rule pack file instead.
+
+## Write specific prompts, not general ones
+
+The quality of VectorLint's findings is directly proportional to the specificity of your prompts. Vague prompts produce vague findings — or worse, inconsistent findings that vary by run.
+
+Instead of:
+```
+Check if the writing is clear.
+```
+
+Write:
+```
+You are a clarity evaluator for developer documentation. Flag sentences that:
+1. Exceed 25 words
+2. Use passive voice where active voice is possible
+3. Contain filler phrases: "it is important to note", "please be aware", "in order to"
+```
+
+The second prompt gives the LLM a defined audience, measurable criteria, and specific examples. It will produce consistent, actionable findings.
+
+## Give rules domain context
+
+LLMs evaluate content relative to an implied standard. Make that standard explicit with a context block in your rule prompt. Tell the model who the audience is, what they value, and what good looks like for your specific content type.
+
+```markdown
+## CONTEXT BANK
+
+**Audience**: Software engineers and DevOps practitioners who value:
+- Technical precision over marketing language
+- Practical examples over theory
+- Direct answers without lengthy preambles
+```
+
+A grammar rule without context produces generic grammar findings. The same rule with a developer audience context produces findings calibrated to technical writing conventions.
+
+## Use weights that reflect real priorities
+
+In judge rules, weights are the single most important configuration decision. They determine which criteria actually control the final score. Treat them as a statement of your content team's values — not arbitrary numbers.
+
+```yaml
+criteria:
+  - name: Technical Accuracy
+    weight: 40    # Factual errors erode user trust — this matters most
+  - name: Clarity
+    weight: 30    # Unclear docs generate support tickets
+  - name: Tone
+    weight: 20    # Important but recoverable in editing
+  - name: SEO
+    weight: 10    # Nice to have, never at the expense of the above
+```
+
+If everything has the same weight, nothing is prioritized.
+
+## Tier strictness by content type
+
+Not all content deserves the same quality bar. Apply strictness in proportion to how much a failure costs — measured in user trust, support load, or brand impact.
+
+```ini
+# Customer-facing API docs — every error matters
+[content/docs/**/*.md]
+GrammarChecker.strictness=strict
+
+# Blog posts — quality matters, tone is flexible
+[content/blog/**/*.md]
+GrammarChecker.strictness=standard
+
+# Internal drafts — let writers write
+[content/drafts/**/*.md]
+RunRules=
+```
+
+Setting the same strictness everywhere produces either too much noise on low-stakes content or too little signal on high-stakes content.
+
+## Start permissive, tighten over time
+
+When rolling VectorLint out to a team for the first time, resist the urge to apply strict settings immediately. A workflow that generates too many findings on day one loses the team's trust before it earns it.
+
+1. Start with `CONFIDENCE_THRESHOLD=0.75` and `standard` strictness
+2. Run against your existing content library and review findings as a team
+3. Identify which findings are consistently useful vs. consistently dismissed
+4. Raise strictness on your highest-stakes content first
+5. Raise `CONFIDENCE_THRESHOLD` once your rules are stable
+
+The goal is a workflow where every finding is worth reading. That takes iteration.
+
+## Set a higher confidence threshold in CI than locally
+
+In CI, a false positive blocks a merge. Set `CONFIDENCE_THRESHOLD` higher in your CI environment than in local development so only the highest-confidence findings gate a merge. Lower-confidence candidates still surface locally where a writer can evaluate them in context.
+
+```bash
+# Local development — catch more, review in context
+CONFIDENCE_THRESHOLD=0.75
+
+# CI environment — only high-confidence findings block merges
+CONFIDENCE_THRESHOLD=0.85
+```
+
+## Gate CI only on production-bound content
+
+Limit your CI workflow's `paths` filter to directories that actually ship to users. Checking drafts or work-in-progress in CI creates unnecessary friction and noise.
+
+```yaml
+on:
+  pull_request:
+    paths:
+      - 'content/docs/**'
+      - 'content/api/**'
+```
+
+Drafts should have `RunRules=` in `.vectorlint.ini` — VectorLint skips them entirely and they never reach CI.
+
+## Validate new rules before raising strictness
+
+When you write a new rule, run it at `lenient` strictness and low `CONFIDENCE_THRESHOLD` first. Review everything it flags. Once you're confident the rule's coverage is correct and its false positive rate is acceptable, raise both settings to production levels.
+
+Skipping this step leads to rules that look correct on paper but produce noise in practice — which erodes team confidence in the entire workflow.
+
+## Next steps
+
+- [Tuning evaluation precision](/false-positive-tuning) — detailed guidance on CONFIDENCE_THRESHOLD and strictness
+- [CI Integration](/ci-integration) — set up content quality gates in your pipeline
+- [Customize style rules](/customize-style-rules) — write effective prompts for rule pack files

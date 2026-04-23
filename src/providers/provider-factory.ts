@@ -8,11 +8,13 @@ import { LLMProvider } from './llm-provider';
 import { VercelAIProvider, type VercelAIConfig } from './vercel-ai-provider';
 import { RequestBuilder } from './request-builder';
 import type { EnvConfig } from '../schemas/env-schemas';
+import type { Logger } from '../logging/logger';
 
 export interface ProviderOptions {
   debug?: boolean;
   showPrompt?: boolean;
   showPromptTrunc?: boolean;
+  logger?: Logger;
 }
 
 export enum ProviderType {
@@ -103,6 +105,7 @@ export function createProvider(
     ...(options.debug !== undefined && { debug: options.debug }),
     ...(options.showPrompt !== undefined && { showPrompt: options.showPrompt }),
     ...(options.showPromptTrunc !== undefined && { showPromptTrunc: options.showPromptTrunc }),
+    ...(options.logger ? { logger: options.logger } : {}),
   };
 
   return new VercelAIProvider(config, builder);

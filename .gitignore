@@ -12,6 +12,4 @@ vectorlint.ini
 # .agent/
 /.idea
 /npm
-VECTORLINT.md
 .vectorlint/runs/
-docs

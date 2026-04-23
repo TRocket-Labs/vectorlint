@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PerplexitySearchProvider } from '../src/providers/perplexity-provider';
+import { createMockLogger } from './utils';
 
 
 // Mock the Vercel AI SDK — use vi.hoisted so the mock is available in the vi.mock factory
@@ -63,7 +64,7 @@ describe('PerplexitySearchProvider', () => {
     });
 
     it('accepts override config with apiKey', () => {
-      const provider = new PerplexitySearchProvider({ apiKey: 'custom-key', maxResults: 10, debug: true });
+      const provider = new PerplexitySearchProvider({ apiKey: 'custom-key', maxResults: 10 });
       expect(provider).toBeInstanceOf(PerplexitySearchProvider);
     });
 
@@ -160,48 +161,72 @@ describe('PerplexitySearchProvider', () => {
     });
   });
 
-  describe('Debug Logging', () => {
-    let consoleSpy: ReturnType<typeof vi.spyOn>;
+  describe('Logging', () => {
+    const logger = createMockLogger();
 
     beforeEach(() => {
-      consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+      vi.clearAllMocks();
     });
 
-    afterEach(() => {
-      consoleSpy.mockRestore();
-    });
-
-    it('logs search query when debug is enabled', async () => {
+    it('logs the search query through the injected logger', async () => {
       MOCK_GENERATE_TEXT.mockResolvedValue({
         sources: MOCK_SOURCES,
       });
 
-      const provider = new PerplexitySearchProvider({ debug: true });
+      const provider = new PerplexitySearchProvider({ logger });
       await provider.search('test query');
 
-      expect(consoleSpy).toHaveBeenCalledWith('[Perplexity] Searching: "test query"');
+      expect(logger.debug).toHaveBeenCalledWith('Perplexity search started', {
+        query: 'test query',
+      });
     });
 
-    it('logs results count when debug is enabled', async () => {
+    it('logs the result count through the injected logger', async () => {
       MOCK_GENERATE_TEXT.mockResolvedValue({
         sources: MOCK_SOURCES,
       });
 
-      const provider = new PerplexitySearchProvider({ debug: true });
+      const provider = new PerplexitySearchProvider({ logger });
       await provider.search('test query');
 
-      expect(consoleSpy).toHaveBeenCalledWith('[Perplexity] Found 2 results');
+      expect(logger.debug).toHaveBeenCalledWith('Perplexity search completed', {
+        resultCount: 2,
+      });
     });
 
-    it('does not log when debug is disabled', async () => {
+    it('logs a structured result preview', async () => {
       MOCK_GENERATE_TEXT.mockResolvedValue({
         sources: MOCK_SOURCES,
       });
 
-      const provider = new PerplexitySearchProvider({ debug: false });
+      const provider = new PerplexitySearchProvider({ logger });
       await provider.search('test query');
 
-      expect(consoleSpy).not.toHaveBeenCalled();
+      expect(logger.debug).toHaveBeenCalledWith('Perplexity result preview', {
+        results: EXPECTED_RESULTS,
+      });
+    });
+
+    it('warns when source validation fails', async () => {
+      MOCK_GENERATE_TEXT.mockResolvedValue({
+        sources: [null],
+      });
+
+      const provider = new PerplexitySearchProvider({ logger });
+      const results = await provider.search('test query');
+
+      expect(results).toEqual([]);
+      expect(logger.warn).toHaveBeenCalled();
+      const warnCall = logger.warn.mock.calls.at(-1);
+      expect(warnCall?.[0]).toBe('Perplexity source validation failed');
+      const warnMeta: unknown = warnCall?.[1];
+      expect(warnMeta).toBeDefined();
+      expect(warnMeta).not.toBeNull();
+      expect(typeof warnMeta).toBe('object');
+      if (!warnMeta || typeof warnMeta !== 'object' || !('error' in warnMeta)) {
+        throw new Error('Expected warning metadata with an error field');
+      }
+      expect(warnMeta.error).toContain('Expected object, received null');
     });
   });
 
@@ -219,7 +244,7 @@ describe('PerplexitySearchProvider', () => {
 
       const provider = new PerplexitySearchProvider();
 
-      await expect(provider.search('test')).rejects.toThrow('Perplexity API call failed: String error');
+      await expect(provider.search('test')).rejects.toThrow('Perplexity API call failed: Perplexity API call: String error');
     });
   });
 

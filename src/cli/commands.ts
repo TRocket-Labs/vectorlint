@@ -18,8 +18,9 @@ import { resolveTargets } from '../scan/file-resolver';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
-import { OutputFormat } from './types';
+import { DEFAULT_REVIEW_MODE, OUTPUT_FORMATS, OutputFormat } from './types';
 import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
+import { createWinstonLogger } from '../logging/winston-logger';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const __filename = fileURLToPath(import.meta.url);
@@ -45,6 +46,26 @@ function resolvePresetsDir(dir: string): string {
   throw new Error(`Could not locate presets directory containing meta.json. Looked in ${buildPath} and ${devPath}`);
 }
 
+async function runOrExit<T>(
+  context: string,
+  operation: () => T | Promise<T>,
+  options: {
+    messagePrefix?: string;
+    extraLines?: string[];
+  } = {}
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (e: unknown) {
+    const err = handleUnknownError(e, context);
+    console.error(`${options.messagePrefix ?? 'Error:'} ${err.message}`);
+    for (const line of options.extraLines ?? []) {
+      console.error(line);
+    }
+    process.exit(1);
+  }
+}
+
 /*
  * Registers the main evaluation command with Commander.
  * This is the default command that runs content evaluations against target files.
@@ -55,7 +76,9 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt', 'Print full prompt and injected content')
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
-    .option('--output <format>', 'Output format: line (default), json, or vale-json, rdjson', 'line')
+    .option('--output <format>', `Output format: ${OUTPUT_FORMATS.join(', ')}`, OUTPUT_FORMATS[0])
+    .option('--mode <mode>', 'Execution mode: standard (default) or agent', DEFAULT_REVIEW_MODE)
+    .option('-p, --print', 'Suppress interactive progress output in agent mode')
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
     .action(async (paths: string[] = []) => {
@@ -67,35 +90,15 @@ export function registerMainCommand(program: Command): void {
       }
 
       // Parse and validate CLI options
-      let cliOptions;
-      try {
-        cliOptions = parseCliOptions(program.opts());
-      } catch (e: unknown) {
-        const err = handleUnknownError(e, 'Parsing CLI options');
-        console.error(`Error: ${err.message}`);
-        process.exit(1);
-      }
+      const cliOptions = await runOrExit('Parsing CLI options', () => parseCliOptions(program.opts()));
 
       // Parse and validate environment variables
-      let env;
-      try {
-        env = parseEnvironment();
-      } catch (e: unknown) {
-        const err = handleUnknownError(e, 'Validating environment variables');
-        console.error(`Error: ${err.message}`);
-        console.error('Please set these in your .env file or environment.');
-        process.exit(1);
-      }
+      const env = await runOrExit('Validating environment variables', () => parseEnvironment(), {
+        extraLines: ['Please set these in your .env file or environment.'],
+      });
 
       // Load directive and create provider
-      let directive;
-      try {
-        directive = loadDirective();
-      } catch (e: unknown) {
-        const err = handleUnknownError(e, 'Loading directive');
-        console.error(`Error: ${err.message}`);
-        process.exit(1);
-      }
+      const directive = await runOrExit('Loading directive', () => loadDirective());
 
       // Load user instructions (VECTORLINT.md)
       const userInstructions = loadUserInstructions(process.cwd());
@@ -103,12 +106,17 @@ export function registerMainCommand(program: Command): void {
         console.log(`[vectorlint] Loaded user instructions from ${USER_INSTRUCTION_FILENAME} (${userInstructions.tokenEstimate} estimated tokens)`);
       }
 
+      const runtimeLogger = createWinstonLogger({
+        level: cliOptions.verbose ? 'debug' : 'info',
+      });
+
       const provider = createProvider(
         env,
         {
           debug: cliOptions.verbose,
           showPrompt: cliOptions.showPrompt,
           showPromptTrunc: cliOptions.showPromptTrunc,
+          logger: runtimeLogger,
         },
         new DefaultRequestBuilder(directive, userInstructions.content || undefined)
       );
@@ -119,14 +127,7 @@ export function registerMainCommand(program: Command): void {
       }
 
       // Load config and prompts
-      let config;
-      try {
-        config = loadConfig(process.cwd(), cliOptions.config);
-      } catch (e: unknown) {
-        const err = handleUnknownError(e, 'Loading configuration');
-        console.error(`Error: ${err.message}`);
-        process.exit(1);
-      }
+      const config = await runOrExit('Loading configuration', () => loadConfig(process.cwd(), cliOptions.config));
 
       const { rulesPath } = config;
       // Only check existence if rulesPath was provided
@@ -193,14 +194,8 @@ export function registerMainCommand(program: Command): void {
 
       // Create search provider if API key is available
       const searchProvider: SearchProvider | undefined = process.env.PERPLEXITY_API_KEY
-        ? new PerplexitySearchProvider({ debug: false })
+        ? new PerplexitySearchProvider({ logger: runtimeLogger })
         : undefined;
-
-      const outputFormat = cliOptions.output as OutputFormat;
-      if (!Object.values(OutputFormat).includes(outputFormat)) {
-        console.error(`Error: Invalid output format '${cliOptions.output}'. Valid options: line, json, vale-json, rdjson`);
-        process.exit(1);
-      }
 
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
@@ -211,7 +206,9 @@ export function registerMainCommand(program: Command): void {
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
         debugJson: cliOptions.debugJson,
-        outputFormat: outputFormat,
+        outputFormat: cliOptions.output,
+        mode: cliOptions.mode,
+        printMode: cliOptions.print,
         scanPaths: config.scanPaths,
         pricing: {
           inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,
@@ -221,7 +218,7 @@ export function registerMainCommand(program: Command): void {
       });
 
       // Print global summary (only for line format)
-      if (cliOptions.output === 'line') {
+      if (cliOptions.output === OutputFormat.Line) {
         if (result.tokenUsage) {
           printTokenUsage(result.tokenUsage);
         }

@@ -30,6 +30,14 @@ export class ProcessingError extends VectorlintError {
   }
 }
 
+// Agent tool/runtime error for agent-mode operational failures
+export class AgentToolError extends VectorlintError {
+  constructor(message: string, code = 'AGENT_TOOL_ERROR') {
+    super(message, code);
+    this.name = 'AgentToolError';
+  }
+}
+
 // Missing dependency error for when required dependencies are not available
 export class MissingDependencyError extends VectorlintError {
   constructor(

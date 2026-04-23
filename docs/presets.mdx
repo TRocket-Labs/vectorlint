@@ -1,0 +1,66 @@
+---
+title: Presets
+description: Use VectorLint's built-in rule presets to start evaluating content without writing custom rules.
+---
+
+VectorLint ships with a built-in rule preset that activates automatically when you run `vectorlint init`. Presets give you immediate, useful output without requiring you to write any rules first.
+
+## The VectorLint preset
+
+The default preset includes rules for:
+
+- **AI pattern detection** — flags overused buzzwords, formulaic transitions, hollow openings, and excessive hedging that signal AI-generated writing
+- **Directness** — identifies passive constructions, unnecessary qualifiers, and roundabout phrasing that weakens clarity
+
+These rules run against all Markdown files by default when the preset is active.
+
+## How presets are configured
+
+When you run `vectorlint init`, the generated `.vectorlint.ini` references the `VectorLint` preset by name:
+
+```ini
+[**/*.md]
+RunRules=VectorLint
+```
+
+Preset rules behave identically to custom rules — you can override their strictness, combine them with your own rule packs, or disable them for specific file patterns.
+
+## Combining presets with custom rules
+
+Run the built-in preset alongside your own pack by listing both in `RunRules`:
+
+```ini
+[**/*.md]
+RunRules=VectorLint, MyTeam
+```
+
+Files matching this pattern will run all VectorLint preset rules plus all rules in your `MyTeam` pack.
+
+## Disabling presets for specific patterns
+
+To skip preset rules on drafts or generated content:
+
+```ini
+[**/*.md]
+RunRules=VectorLint
+
+[content/drafts/**/*.md]
+RunRules=
+```
+
+## Overriding preset strictness
+
+Tune how harshly a preset rule scores content using its rule ID:
+
+```ini
+[content/docs/**/*.md]
+RunRules=VectorLint
+AIPatterns.strictness=strict
+```
+
+See [Project Configuration](/project-config) for the full strictness reference.
+
+## Next steps
+
+- [Defining your style rules](/style-guide) — write custom rules to enforce your specific standards
+- [Project Configuration](/project-config) — control which rules run on which files
