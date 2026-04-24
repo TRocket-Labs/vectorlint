@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MODEL_CAPABILITY_TIERS } from '../providers/model-capability';
 
 export const SESSION_EVENT_TYPE = {
   SessionStarted: 'session_started',
@@ -9,10 +10,26 @@ export const SESSION_EVENT_TYPE = {
   SessionFinalized: 'session_finalized',
 } as const;
 
+export const TRIMMED_NON_BLANK_STRING = z.string().trim().min(1);
+
+export const RULE_CALL_SCHEMA = z.object({
+  ruleSource: TRIMMED_NON_BLANK_STRING,
+  reviewInstruction: TRIMMED_NON_BLANK_STRING.optional(),
+  context: TRIMMED_NON_BLANK_STRING.optional(),
+});
+
+export const MODEL_CAPABILITY_TIER_SCHEMA = z.enum(MODEL_CAPABILITY_TIERS);
+
 export const LINT_TOOL_INPUT_SCHEMA = z.object({
-  file: z.string().min(1),
-  ruleSource: z.string().min(1),
-  reviewInstruction: z.string().min(1).optional(),
+  file: TRIMMED_NON_BLANK_STRING,
+  rules: z.array(RULE_CALL_SCHEMA).min(1),
+  model: MODEL_CAPABILITY_TIER_SCHEMA.optional(),
+});
+
+export const AGENT_TOOL_INPUT_SCHEMA = z.object({
+  task: TRIMMED_NON_BLANK_STRING,
+  label: TRIMMED_NON_BLANK_STRING.optional(),
+  model: MODEL_CAPABILITY_TIER_SCHEMA.optional(),
 });
 
 export const TOP_LEVEL_REFERENCE_SCHEMA = z.object({

@@ -146,6 +146,8 @@ To suppress interactive progress in line output:
 vectorlint doc.md --mode agent --print
 ```
 
+Agent mode uses your configured LLM provider. Provider-specific model selection and capability tier fields can be configured in your global config or project `.env`. See [Configuration Guide](./CONFIGURATION.md) for the full reference.
+
 
 ## Contributing
 

@@ -1,5 +1,5 @@
-import { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
-import { Severity } from '../evaluators/types';
+import { RuleFile, RuleMeta, RuleCriterionSpec } from '../schemas/rule-schemas';
+import { Severity } from '../schemas/rule-schemas';
 
 export type ValidationLevel = Severity;
 export interface Validation {
@@ -16,7 +16,7 @@ function validateFlags(flags?: string): boolean {
   return true;
 }
 
-function uniqueIds(criteria: PromptCriterionSpec[]): string[] {
+function uniqueIds(criteria: RuleCriterionSpec[]): string[] {
   const seen = new Set<string>();
   const dups: string[] = [];
   for (const c of criteria) {
@@ -26,9 +26,9 @@ function uniqueIds(criteria: PromptCriterionSpec[]): string[] {
   return dups;
 }
 
-export function validatePrompt(p: PromptFile): Validation[] {
+export function validateRule(p: RuleFile): Validation[] {
   const out: Validation[] = [];
-  const meta: PromptMeta = p.meta;
+  const meta: RuleMeta = p.meta;
 
   if (!meta.criteria || meta.criteria.length === 0) {
     out.push({ file: p.filename, level: Severity.ERROR, message: 'No criteria defined' });
@@ -84,11 +84,11 @@ export function validatePrompt(p: PromptFile): Validation[] {
   return out;
 }
 
-export function validateAll(prompts: PromptFile[]): { errors: Validation[]; warnings: Validation[] } {
+export function validateAll(rules: RuleFile[]): { errors: Validation[]; warnings: Validation[] } {
   const errors: Validation[] = [];
   const warnings: Validation[] = [];
-  for (const p of prompts) {
-    const findings = validatePrompt(p);
+  for (const p of rules) {
+    const findings = validateRule(p);
     for (const f of findings) (f.level === Severity.ERROR ? errors : warnings).push(f);
   }
   return { errors, warnings };

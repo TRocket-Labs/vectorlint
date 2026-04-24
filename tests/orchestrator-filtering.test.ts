@@ -4,9 +4,10 @@ import { tmpdir } from "os";
 import path from "path";
 import { evaluateFiles } from "../src/cli/orchestrator";
 import { OutputFormat, type EvaluationOptions } from "../src/cli/types";
-import { EvaluationType, Severity } from "../src/evaluators/types";
+import { ReviewType } from "../src/lint/types";
+import { Severity } from "../src/schemas/rule-schemas";
 import type { Result } from "../src/output/json-formatter";
-import type { PromptFile } from "../src/prompts/prompt-loader";
+import type { RuleFile } from "../src/rules/rule-loader";
 import type { ValeOutput } from "../src/schemas/vale-responses";
 import type { JudgeResult, RawCheckResult } from "../src/prompts/schema";
 
@@ -17,26 +18,24 @@ const { EVALUATE_MOCK } = vi.hoisted(() => ({
 type CheckViolation = RawCheckResult["violations"][number];
 type JudgeViolation = JudgeResult["criteria"][number]["violations"][number];
 
-vi.mock("../src/evaluators/index", () => ({
-  createEvaluator: vi.fn(() => ({
-    evaluate: EVALUATE_MOCK,
-  })),
+vi.mock("../src/lint", () => ({
+  runLint: EVALUATE_MOCK,
 }));
 
-function createPrompt(meta: PromptFile["meta"]): PromptFile {
+function createPrompt(meta: RuleFile["meta"]): RuleFile {
   return {
     id: meta.id,
     filename: `${meta.id}.md`,
     fullPath: path.join(process.cwd(), "prompts", `${meta.id}.md`),
     meta,
-    body: "Prompt body",
+    content: "Prompt body",
     pack: "TestPack",
   };
 }
 
-function createBaseOptions(prompts: PromptFile[]): EvaluationOptions {
+function createBaseOptions(rules: RuleFile[]): EvaluationOptions {
   return {
-    prompts,
+    rules,
     rulesPath: undefined,
     provider: {} as never,
     concurrency: 1,
@@ -119,7 +118,7 @@ function makeCheckResult(params: {
   wordCount?: number;
 }): RawCheckResult {
   return {
-    type: EvaluationType.CHECK,
+    type: ReviewType.CHECK,
     violations: params.violations,
     word_count: params.wordCount ?? 100,
   };
@@ -127,7 +126,7 @@ function makeCheckResult(params: {
 
 function makeJudgeResult(violations: JudgeViolation[]): JudgeResult {
   return {
-    type: EvaluationType.JUDGE,
+    type: ReviewType.JUDGE,
     final_score: 5,
     criteria: [
       {

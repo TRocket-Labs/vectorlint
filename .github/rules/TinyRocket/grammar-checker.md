@@ -1,5 +1,4 @@
 ---
-evaluator: base
 id: GrammarChecker
 name: Grammar Checker
 severity: error

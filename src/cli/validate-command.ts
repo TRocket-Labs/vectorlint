@@ -1,16 +1,17 @@
 import type { Command } from 'commander';
 import { existsSync } from 'fs';
 import { loadConfig } from '../boundaries/config-loader';
-import { loadRuleFile, type PromptFile } from '../prompts/prompt-loader';
+import { loadRuleFile, type RuleFile } from '../rules/rule-loader';
 import { RulePackLoader } from '../boundaries/rule-pack-loader';
 import { PresetLoader } from '../config/preset-loader';
-import { validateAll } from '../prompts/prompt-validator';
+import { validateAll } from '../rules/rule-validator';
 import { parseValidateOptions } from '../boundaries/index';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { handleUnknownError } from '../errors/index';
 import { printFileHeader, printValidationRow } from '../output/reporter';
+import { resolvePresetsDir } from './preset-resolution';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const __filename = fileURLToPath(import.meta.url);
@@ -61,11 +62,11 @@ export function registerValidateCommand(program: Command): void {
         process.exit(1);
       }
 
-      // Load prompts with verbose output
-      const prompts: PromptFile[] = [];
+      // Load rules with verbose output
+      const rules: RuleFile[] = [];
       const warnings: string[] = [];
       try {
-        const presetsDir = path.resolve(__dirname, '../presets');
+        const presetsDir = resolvePresetsDir(__dirname);
         const presetLoader = new PresetLoader(presetsDir);
         const loader = new RulePackLoader(presetLoader);
 
@@ -81,22 +82,22 @@ export function registerValidateCommand(program: Command): void {
             if (result.warning) {
               warnings.push(result.warning);
             }
-            if (result.prompt) {
-              prompts.push(result.prompt);
+            if (result.rule) {
+              rules.push(result.rule);
             }
           }
         }
 
-        if (prompts.length === 0) {
+        if (rules.length === 0) {
           if (!rulesPath) {
             console.error('Error: no rules found. Either set RulesPath in config or configure RunRules with a valid preset.');
           } else {
-            console.error(`Error: no .md prompts found in ${rulesPath} or presets.`);
+            console.error(`Error: no .md rule files found in ${rulesPath} or presets.`);
           }
           process.exit(1);
         }
       } catch (e: unknown) {
-        const err = handleUnknownError(e, 'Loading prompts');
+        const err = handleUnknownError(e, 'Loading rules');
         console.error(`Error: ${err.message}`);
         process.exit(1);
       }
@@ -109,8 +110,8 @@ export function registerValidateCommand(program: Command): void {
       }
 
 
-      // Validate all prompts
-      const result = validateAll(prompts);
+      // Validate all rules
+      const result = validateAll(rules);
 
       // Group errors and warnings by file
       const byFile = new Map<string, { e: string[]; w: string[] }>();
@@ -138,7 +139,7 @@ export function registerValidateCommand(program: Command): void {
       const totalWarns = result.warnings.length;
       const okMark = totalErrs === 0 ? '✓' : '✖';
       console.log(
-        `${okMark} ${totalErrs} errors, ${totalWarns} warnings in ${prompts.length} prompt(s).`
+        `${okMark} ${totalErrs} errors, ${totalWarns} warnings in ${rules.length} rule(s).`
       );
 
       // Exit with appropriate code

@@ -1,50 +1,31 @@
 import type { Command } from 'commander';
 import { existsSync } from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { createProvider } from '../providers/provider-factory';
+import { createCapabilityProviderResolver } from '../providers/capability-provider-resolver';
 import { PerplexitySearchProvider } from '../providers/perplexity-provider';
 import type { SearchProvider } from '../providers/search-provider';
 import { loadConfig } from '../boundaries/config-loader';
 import { loadUserInstructions } from '../boundaries/user-instruction-loader';
-import { loadRuleFile, type PromptFile } from '../prompts/prompt-loader';
+import { loadRuleFile, type RuleFile } from '../rules/rule-loader';
 import { RulePackLoader } from '../boundaries/rule-pack-loader';
 import { PresetLoader } from '../config/preset-loader';
 import { printGlobalSummary, printTokenUsage } from '../output/reporter';
-import { DefaultRequestBuilder } from '../providers/request-builder';
 import { loadDirective } from '../prompts/directive-loader';
 import { resolveTargets } from '../scan/file-resolver';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
-import { DEFAULT_REVIEW_MODE, OUTPUT_FORMATS, OutputFormat } from './types';
+import { AGENT_REVIEW_MODE, DEFAULT_REVIEW_MODE, OUTPUT_FORMATS, OutputFormat } from './types';
 import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { createWinstonLogger } from '../logging/winston-logger';
+import { resolvePresetsDir } from './preset-resolution';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const __filename = fileURLToPath(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const __dirname = dirname(__filename);
-
-/**
- * Resolves the presets directory for both dev and built modes.
- * - Built mode: __dirname is `dist/`, so `../presets` resolves to project root `presets/`
- * - Dev mode: __dirname is `src/cli/`, so `../../presets` resolves to project root `presets/`
- */
-function resolvePresetsDir(dir: string): string {
-  const buildPath = path.resolve(dir, '../presets');
-  if (existsSync(path.join(buildPath, 'meta.json'))) {
-    return buildPath;
-  }
-  // Dev mode fallback: src/cli/ → ../../presets
-  const devPath = path.resolve(dir, '../../presets');
-  if (existsSync(path.join(devPath, 'meta.json'))) {
-    return devPath;
-  }
-
-  throw new Error(`Could not locate presets directory containing meta.json. Looked in ${buildPath} and ${devPath}`);
-}
 
 async function runOrExit<T>(
   context: string,
@@ -77,7 +58,7 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
     .option('--output <format>', `Output format: ${OUTPUT_FORMATS.join(', ')}`, OUTPUT_FORMATS[0])
-    .option('--mode <mode>', 'Execution mode: standard (default) or agent', DEFAULT_REVIEW_MODE)
+    .option('--mode <mode>', 'Execution mode: lint (default) or agent', DEFAULT_REVIEW_MODE)
     .option('-p, --print', 'Suppress interactive progress output in agent mode')
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
@@ -110,16 +91,17 @@ export function registerMainCommand(program: Command): void {
         level: cliOptions.verbose ? 'debug' : 'info',
       });
 
-      const provider = createProvider(
-        env,
-        {
-          debug: cliOptions.verbose,
-          showPrompt: cliOptions.showPrompt,
-          showPromptTrunc: cliOptions.showPromptTrunc,
-          logger: runtimeLogger,
-        },
-        new DefaultRequestBuilder(directive, userInstructions.content || undefined)
-      );
+      const providerOptions = {
+        debug: cliOptions.verbose,
+        showPrompt: cliOptions.showPrompt,
+        showPromptTrunc: cliOptions.showPromptTrunc,
+        logger: runtimeLogger,
+      };
+      const capabilityProviderResolver = cliOptions.mode === AGENT_REVIEW_MODE
+        ? createCapabilityProviderResolver(env, providerOptions)
+        : undefined;
+      const provider = capabilityProviderResolver?.defaultProvider
+        ?? createProvider(env, providerOptions);
 
       if (cliOptions.verbose) {
         const directiveLen = directive ? directive.length : 0;
@@ -136,7 +118,7 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
-      const prompts: PromptFile[] = [];
+      const rules: RuleFile[] = [];
       try {
         const presetsDir = resolvePresetsDir(__dirname);
         const presetLoader = new PresetLoader(presetsDir);
@@ -158,14 +140,14 @@ export function registerMainCommand(program: Command): void {
             if (result.warning) {
               if (cliOptions.verbose) console.warn(`[vectorlint] ${result.warning}`);
             }
-            if (result.prompt) {
-              prompts.push(result.prompt);
+            if (result.rule) {
+              rules.push(result.rule);
             }
           }
         }
       } catch (e: unknown) {
-        const err = handleUnknownError(e, 'Loading prompts');
-        console.error(`Error: failed to load prompts: ${err.message}`);
+        const err = handleUnknownError(e, 'Loading rules');
+        console.error(`Error: failed to load rules: ${err.message}`);
         process.exit(1);
       }
 
@@ -199,9 +181,10 @@ export function registerMainCommand(program: Command): void {
 
       // Run evaluations via orchestrator
       const result = await evaluateFiles(targets, {
-        prompts,
+        rules,
         rulesPath,
         provider,
+        ...(capabilityProviderResolver ? { capabilityProviderResolver } : {}),
         ...(searchProvider ? { searchProvider } : {}),
         concurrency: config.concurrency,
         verbose: cliOptions.verbose,
@@ -214,6 +197,7 @@ export function registerMainCommand(program: Command): void {
           inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,
           outputPricePerMillion: env.OUTPUT_PRICE_PER_MILLION,
         },
+        ...(directive ? { systemDirective: directive } : {}),
         ...(userInstructions.content ? { userInstructionContent: userInstructions.content } : {}),
       });
 

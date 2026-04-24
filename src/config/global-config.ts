@@ -13,6 +13,11 @@ export function getGlobalConfigPath(): string {
 const DEFAULT_GLOBAL_CONFIG_TEMPLATE = `# VectorLint Environment Configuration
 # This file contains API keys and provider settings.
 # Keys defined here are available as environment variables.
+# Capability-tier fallback is upward-only within the active provider:
+# low -> mid -> high -> provider default.
+# In agent mode, the top-level loop uses the default provider,
+# lint uses the default provider unless a call specifies a model tier,
+# and delegated sub-agents use the high-capability provider when no model is specified.
 
 [env]
 # ============================================
@@ -24,6 +29,9 @@ const DEFAULT_GLOBAL_CONFIG_TEMPLATE = `# VectorLint Environment Configuration
 # LLM_PROVIDER = "openai"
 # OPENAI_API_KEY = "sk-..."
 # OPENAI_MODEL = "gpt-4o"
+# OPENAI_HIGH_CAPABILITY_MODEL = "gpt-4.1"
+# OPENAI_MID_CAPABILITY_MODEL = "gpt-4o"
+# OPENAI_LOW_CAPABILITY_MODEL = "gpt-4o-mini"
 # OPENAI_TEMPERATURE = "0.2"
 
 # --- Option 2: Azure OpenAI ---
@@ -31,6 +39,9 @@ const DEFAULT_GLOBAL_CONFIG_TEMPLATE = `# VectorLint Environment Configuration
 # AZURE_OPENAI_API_KEY = "your-api-key-here"
 # AZURE_OPENAI_ENDPOINT = "https://your-resource-name.openai.azure.com"
 # AZURE_OPENAI_DEPLOYMENT_NAME = "your-deployment-name"
+# AZURE_OPENAI_HIGH_CAPABILITY_DEPLOYMENT_NAME = "your-high-capability-deployment-name"
+# AZURE_OPENAI_MID_CAPABILITY_DEPLOYMENT_NAME = "your-mid-capability-deployment-name"
+# AZURE_OPENAI_LOW_CAPABILITY_DEPLOYMENT_NAME = "your-low-capability-deployment-name"
 # AZURE_OPENAI_API_VERSION = "2024-02-15-preview"
 # AZURE_OPENAI_TEMPERATURE = "0.2"
 
@@ -38,6 +49,9 @@ const DEFAULT_GLOBAL_CONFIG_TEMPLATE = `# VectorLint Environment Configuration
 # LLM_PROVIDER = "anthropic"
 # ANTHROPIC_API_KEY = "your-anthropic-api-key-here"
 # ANTHROPIC_MODEL = "claude-3-5-sonnet-20240620"
+# ANTHROPIC_HIGH_CAPABILITY_MODEL = "claude-opus-4-20250514"
+# ANTHROPIC_MID_CAPABILITY_MODEL = "claude-3-5-sonnet-20240620"
+# ANTHROPIC_LOW_CAPABILITY_MODEL = "claude-3-haiku-20240307"
 # ANTHROPIC_MAX_TOKENS = "4096"
 # ANTHROPIC_TEMPERATURE = "0.2"
 
@@ -45,6 +59,9 @@ const DEFAULT_GLOBAL_CONFIG_TEMPLATE = `# VectorLint Environment Configuration
 # LLM_PROVIDER = "gemini"
 # GEMINI_API_KEY = "your-gemini-api-key-here"
 # GEMINI_MODEL = "gemini-2.5-pro"
+# GEMINI_HIGH_CAPABILITY_MODEL = "gemini-2.5-pro"
+# GEMINI_MID_CAPABILITY_MODEL = "gemini-2.5-flash"
+# GEMINI_LOW_CAPABILITY_MODEL = "gemini-2.0-flash"
 # GEMINI_TEMPERATURE = "0.2"
 
 # --- Option 5: Amazon Bedrock ---
@@ -54,6 +71,9 @@ const DEFAULT_GLOBAL_CONFIG_TEMPLATE = `# VectorLint Environment Configuration
 # # AWS_SECRET_ACCESS_KEY = "your-aws-secret-access-key"
 # AWS_REGION = "us-east-1"
 # BEDROCK_MODEL = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+# BEDROCK_HIGH_CAPABILITY_MODEL = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+# BEDROCK_MID_CAPABILITY_MODEL = "anthropic.claude-3-sonnet-20240229-v1:0"
+# BEDROCK_LOW_CAPABILITY_MODEL = "anthropic.claude-3-haiku-20240307-v1:0"
 # BEDROCK_TEMPERATURE = "0.2"
 
 # ============================================

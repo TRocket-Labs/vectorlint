@@ -1,5 +1,6 @@
 import type { AgentToolDefinition } from '../providers/llm-provider';
 import {
+  AGENT_TOOL_INPUT_SCHEMA,
   FINALIZE_REVIEW_INPUT_SCHEMA,
   LINT_TOOL_INPUT_SCHEMA,
   LIST_DIRECTORY_INPUT_SCHEMA,
@@ -10,6 +11,7 @@ import {
 } from './types';
 
 export type AgentToolName =
+  | 'agent'
   | 'lint'
   | 'report_finding'
   | 'read_file'
@@ -32,8 +34,13 @@ export function createAgentTools(params: {
   const { runTool, handlers } = params;
 
   return {
+    agent: {
+      description: 'Delegate bounded read-only workspace analysis to a sub-agent.',
+      inputSchema: AGENT_TOOL_INPUT_SCHEMA,
+      execute: (input) => runTool('agent', input, handlers.agent),
+    },
     lint: {
-      description: 'Review a file against a source-backed rule, optionally using an override review instruction for that call.',
+      description: 'Review one file against an explicit rules[] list of source-backed rule calls.',
       inputSchema: LINT_TOOL_INPUT_SCHEMA,
       execute: (input) => runTool('lint', input, handlers.lint),
     },

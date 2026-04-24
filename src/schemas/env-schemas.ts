@@ -28,6 +28,9 @@ const AZURE_OPENAI_CONFIG_SCHEMA = z.object({
   AZURE_OPENAI_API_KEY: z.string().min(1),
   AZURE_OPENAI_ENDPOINT: z.string().url(),
   AZURE_OPENAI_DEPLOYMENT_NAME: z.string().min(1),
+  AZURE_OPENAI_HIGH_CAPABILITY_DEPLOYMENT_NAME: z.string().min(1).optional(),
+  AZURE_OPENAI_MID_CAPABILITY_DEPLOYMENT_NAME: z.string().min(1).optional(),
+  AZURE_OPENAI_LOW_CAPABILITY_DEPLOYMENT_NAME: z.string().min(1).optional(),
   AZURE_OPENAI_API_VERSION: z.string().default(AZURE_OPENAI_DEFAULT_CONFIG.apiVersion),
   AZURE_OPENAI_TEMPERATURE: z.coerce.number().min(0).max(2).optional(),
 });
@@ -36,6 +39,9 @@ const AZURE_OPENAI_CONFIG_SCHEMA = z.object({
 const ANTHROPIC_CONFIG_SCHEMA = z.object({
   ANTHROPIC_API_KEY: z.string().min(1),
   ANTHROPIC_MODEL: z.string().default(ANTHROPIC_DEFAULT_CONFIG.model),
+  ANTHROPIC_HIGH_CAPABILITY_MODEL: z.string().min(1).optional(),
+  ANTHROPIC_MID_CAPABILITY_MODEL: z.string().min(1).optional(),
+  ANTHROPIC_LOW_CAPABILITY_MODEL: z.string().min(1).optional(),
   ANTHROPIC_MAX_TOKENS: z.coerce.number().positive().default(4096),
   ANTHROPIC_TEMPERATURE: z.coerce.number().min(0).max(1).optional(),
 });
@@ -44,6 +50,9 @@ const ANTHROPIC_CONFIG_SCHEMA = z.object({
 const OPENAI_CONFIG_SCHEMA = z.object({
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_MODEL: z.string().default(OPENAI_DEFAULT_CONFIG.model),
+  OPENAI_HIGH_CAPABILITY_MODEL: z.string().min(1).optional(),
+  OPENAI_MID_CAPABILITY_MODEL: z.string().min(1).optional(),
+  OPENAI_LOW_CAPABILITY_MODEL: z.string().min(1).optional(),
   OPENAI_TEMPERATURE: z.coerce.number().min(0).max(2).optional(),
 });
 
@@ -51,6 +60,9 @@ const OPENAI_CONFIG_SCHEMA = z.object({
 const GEMINI_CONFIG_SCHEMA = z.object({
   GEMINI_API_KEY: z.string().min(1),
   GEMINI_MODEL: z.string().default(GEMINI_DEFAULT_CONFIG.model),
+  GEMINI_HIGH_CAPABILITY_MODEL: z.string().min(1).optional(),
+  GEMINI_MID_CAPABILITY_MODEL: z.string().min(1).optional(),
+  GEMINI_LOW_CAPABILITY_MODEL: z.string().min(1).optional(),
   GEMINI_TEMPERATURE: z.coerce.number().min(0).max(1).optional(),
 });
 
@@ -60,6 +72,9 @@ const BEDROCK_CONFIG_SCHEMA = z.object({
   AWS_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   AWS_REGION: z.string().min(1),
   BEDROCK_MODEL: z.string().default(BEDROCK_DEFAULT_CONFIG.model),
+  BEDROCK_HIGH_CAPABILITY_MODEL: z.string().min(1).optional(),
+  BEDROCK_MID_CAPABILITY_MODEL: z.string().min(1).optional(),
+  BEDROCK_LOW_CAPABILITY_MODEL: z.string().min(1).optional(),
   BEDROCK_TEMPERATURE: z.coerce.number().min(0).max(1).optional(),
 });
 

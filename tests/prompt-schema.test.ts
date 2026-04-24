@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildCheckLLMSchema, buildJudgeLLMSchema } from "../src/prompts/schema";
+import {
+  buildCheckLLMSchema,
+  buildJudgeLLMSchema,
+  buildMergedCheckLLMSchema,
+} from "../src/prompts/schema";
 
 describe("prompt schema verbosity constraints", () => {
   it("includes concise analysis and suggestion descriptions for check schema", () => {
@@ -67,5 +71,18 @@ describe("prompt schema verbosity constraints", () => {
     const required =
       schema.schema.properties.criteria.items.properties.violations.items.required;
     expect(required).toContain("message");
+  });
+
+  it("merged lint schema adds ruleSource to the base finding shape", () => {
+    const schema = buildMergedCheckLLMSchema();
+    const findingProperties = schema.schema.properties.findings.items.properties;
+
+    expect(schema.name).toBe("vectorlint_merged_check_result");
+    expect(findingProperties.ruleSource).toEqual({ type: "string" });
+    expect(findingProperties.message).toEqual({
+      type: "string",
+      description: "Under 15 words. State the issue directly to the user. No rule references.",
+    });
+    expect(schema.schema.properties.findings.items.required).toContain("ruleSource");
   });
 });

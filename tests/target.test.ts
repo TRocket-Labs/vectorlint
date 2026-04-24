@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { loadRules } from '../src/prompts/prompt-loader.js';
+import { loadRules } from '../src/rules/rule-loader.js';
 import { checkTarget } from '../src/prompts/target.js';
 
 function setupPrompt(yaml: string) {
@@ -10,8 +10,8 @@ function setupPrompt(yaml: string) {
   const promptsDir = path.join(root, 'prompts');
   mkdirSync(promptsDir, { recursive: true });
   writeFileSync(path.join(promptsDir, 'p.md'), `---\n${yaml}\n---\nBody`);
-  const { prompts } = loadRules(promptsDir);
-  const prompt = prompts[0];
+  const { rules } = loadRules(promptsDir);
+  const prompt = rules[0];
   if (!prompt) throw new Error("Failed to setup prompt");
   return { root, promptsDir, prompt };
 }

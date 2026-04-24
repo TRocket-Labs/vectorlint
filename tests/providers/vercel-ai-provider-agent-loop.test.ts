@@ -71,7 +71,7 @@ describe('VercelAIProvider agent loop', () => {
       throw new Error('runAgentToolLoop is not implemented');
     }
 
-    await runAgentToolLoop({
+    const result = await runAgentToolLoop({
       systemPrompt: 'system',
       prompt: 'prompt',
       maxRetries: 4,
@@ -84,6 +84,11 @@ describe('VercelAIProvider agent loop', () => {
           execute: () => Promise.resolve({ ok: true }),
         },
       },
+    });
+
+    expect(result).toEqual({
+      text: 'done',
+      usage: { inputTokens: 10, outputTokens: 5 },
     });
 
     const call = MOCK_GENERATE_TEXT.mock.calls.at(-1)?.[0] as {

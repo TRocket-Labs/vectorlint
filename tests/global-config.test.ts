@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { loadGlobalConfig } from '../src/config/global-config';
+import { ensureGlobalConfig, loadGlobalConfig } from '../src/config/global-config';
 import { GLOBAL_CONFIG_DIR, GLOBAL_CONFIG_FILE } from '../src/config/constants';
 
 // Mock fs and os
@@ -83,5 +83,21 @@ EXISTING_KEY = "new-value"
         loadGlobalConfig();
 
         expect(consoleSpy).toHaveBeenCalled();
+    });
+
+    it('should create a template that includes capability-tier settings', () => {
+        vi.mocked(fs.existsSync).mockReturnValue(false);
+
+        const configPath = ensureGlobalConfig();
+
+        expect(configPath).toBe(mockConfigPath);
+        expect(fs.writeFileSync).toHaveBeenCalled();
+        const template = vi.mocked(fs.writeFileSync).mock.calls[0]?.[1] as string;
+
+        expect(template).toContain('OPENAI_HIGH_CAPABILITY_MODEL');
+        expect(template).toContain('ANTHROPIC_LOW_CAPABILITY_MODEL');
+        expect(template).toContain('GEMINI_MID_CAPABILITY_MODEL');
+        expect(template).toContain('BEDROCK_HIGH_CAPABILITY_MODEL');
+        expect(template).toContain('AZURE_OPENAI_LOW_CAPABILITY_DEPLOYMENT_NAME');
     });
 });

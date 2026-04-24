@@ -54,6 +54,26 @@ describe('Environment Parser', () => {
       expect(() => parseEnvironment(env)).toThrow(ValidationError);
       expect(() => parseEnvironment(env)).toThrow(/Azure OpenAI environment variables/);
     });
+
+    it('parses provider-scoped capability-tier deployment fields', () => {
+      const env = {
+        LLM_PROVIDER: 'azure-openai',
+        AZURE_OPENAI_API_KEY: 'test-key',
+        AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
+        AZURE_OPENAI_DEPLOYMENT_NAME: 'default-deployment',
+        AZURE_OPENAI_LOW_CAPABILITY_DEPLOYMENT_NAME: 'low-deployment',
+        AZURE_OPENAI_MID_CAPABILITY_DEPLOYMENT_NAME: 'mid-deployment',
+        AZURE_OPENAI_HIGH_CAPABILITY_DEPLOYMENT_NAME: 'high-deployment',
+      };
+
+      const result = parseEnvironment(env);
+
+      if (result.LLM_PROVIDER === ProviderType.AzureOpenAI) {
+        expect(result.AZURE_OPENAI_LOW_CAPABILITY_DEPLOYMENT_NAME).toBe('low-deployment');
+        expect(result.AZURE_OPENAI_MID_CAPABILITY_DEPLOYMENT_NAME).toBe('mid-deployment');
+        expect(result.AZURE_OPENAI_HIGH_CAPABILITY_DEPLOYMENT_NAME).toBe('high-deployment');
+      }
+    });
   });
 
   describe('Anthropic Configuration', () => {
@@ -101,6 +121,24 @@ describe('Environment Parser', () => {
       expect(() => parseEnvironment(env)).toThrow(ValidationError);
       expect(() => parseEnvironment(env)).toThrow(/Anthropic environment variables/);
     });
+
+    it('parses provider-scoped capability-tier model fields', () => {
+      const env = {
+        LLM_PROVIDER: 'anthropic',
+        ANTHROPIC_API_KEY: 'sk-ant-test-key',
+        ANTHROPIC_LOW_CAPABILITY_MODEL: 'claude-3-haiku-20240307',
+        ANTHROPIC_MID_CAPABILITY_MODEL: 'claude-3-5-sonnet-20241022',
+        ANTHROPIC_HIGH_CAPABILITY_MODEL: 'claude-opus-4-20250514',
+      };
+
+      const result = parseEnvironment(env);
+
+      if (result.LLM_PROVIDER === ProviderType.Anthropic) {
+        expect(result.ANTHROPIC_LOW_CAPABILITY_MODEL).toBe('claude-3-haiku-20240307');
+        expect(result.ANTHROPIC_MID_CAPABILITY_MODEL).toBe('claude-3-5-sonnet-20241022');
+        expect(result.ANTHROPIC_HIGH_CAPABILITY_MODEL).toBe('claude-opus-4-20250514');
+      }
+    });
   });
 
   describe('OpenAI Configuration', () => {
@@ -146,6 +184,25 @@ describe('Environment Parser', () => {
       expect(() => parseEnvironment(env)).toThrow(/OpenAI environment variables/);
     });
 
+    it('parses provider-scoped capability-tier model fields', () => {
+      const env = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_LOW_CAPABILITY_MODEL: 'gpt-4o-mini',
+        OPENAI_MID_CAPABILITY_MODEL: 'gpt-4o',
+        OPENAI_HIGH_CAPABILITY_MODEL: 'gpt-4.1',
+      };
+
+      const result = parseEnvironment(env);
+
+      if (result.LLM_PROVIDER === ProviderType.OpenAI) {
+        expect(result.OPENAI_LOW_CAPABILITY_MODEL).toBe('gpt-4o-mini');
+        expect(result.OPENAI_MID_CAPABILITY_MODEL).toBe('gpt-4o');
+        expect(result.OPENAI_HIGH_CAPABILITY_MODEL).toBe('gpt-4.1');
+      }
+    });
+
     it('validates OpenAI temperature range (0-2)', () => {
       const validEnv = {
         LLM_PROVIDER: 'openai',
@@ -172,6 +229,42 @@ describe('Environment Parser', () => {
 
       expect(() => parseEnvironment(invalidEnv)).toThrow(ValidationError);
       expect(() => parseEnvironment(invalidEnv)).toThrow(/Invalid environment variable values.*OPENAI_API_KEY.*String must contain at least 1 character/);
+    });
+
+  });
+
+  describe('Gemini and Amazon Bedrock Configuration', () => {
+    it('parses provider-scoped capability-tier model fields', () => {
+      const geminiEnv = {
+        LLM_PROVIDER: 'gemini',
+        GEMINI_API_KEY: 'gemini-key',
+        GEMINI_LOW_CAPABILITY_MODEL: 'gemini-2.0-flash',
+        GEMINI_MID_CAPABILITY_MODEL: 'gemini-2.5-flash',
+        GEMINI_HIGH_CAPABILITY_MODEL: 'gemini-2.5-pro',
+      };
+
+      const bedrockEnv = {
+        LLM_PROVIDER: 'amazon-bedrock',
+        AWS_REGION: 'us-east-1',
+        BEDROCK_LOW_CAPABILITY_MODEL: 'anthropic.claude-3-haiku-20240307-v1:0',
+        BEDROCK_MID_CAPABILITY_MODEL: 'anthropic.claude-3-sonnet-20240229-v1:0',
+        BEDROCK_HIGH_CAPABILITY_MODEL: 'anthropic.claude-3-5-sonnet-20240620-v1:0',
+      };
+
+      const geminiResult = parseEnvironment(geminiEnv);
+      const bedrockResult = parseEnvironment(bedrockEnv);
+
+      if (geminiResult.LLM_PROVIDER === ProviderType.Gemini) {
+        expect(geminiResult.GEMINI_LOW_CAPABILITY_MODEL).toBe('gemini-2.0-flash');
+        expect(geminiResult.GEMINI_MID_CAPABILITY_MODEL).toBe('gemini-2.5-flash');
+        expect(geminiResult.GEMINI_HIGH_CAPABILITY_MODEL).toBe('gemini-2.5-pro');
+      }
+
+      if (bedrockResult.LLM_PROVIDER === ProviderType.AmazonBedrock) {
+        expect(bedrockResult.BEDROCK_LOW_CAPABILITY_MODEL).toBe('anthropic.claude-3-haiku-20240307-v1:0');
+        expect(bedrockResult.BEDROCK_MID_CAPABILITY_MODEL).toBe('anthropic.claude-3-sonnet-20240229-v1:0');
+        expect(bedrockResult.BEDROCK_HIGH_CAPABILITY_MODEL).toBe('anthropic.claude-3-5-sonnet-20240620-v1:0');
+      }
     });
   });
 

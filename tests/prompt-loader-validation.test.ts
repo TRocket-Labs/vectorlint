@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { loadRules } from '../src/prompts/prompt-loader';
+import { loadRules } from '../src/rules/rule-loader';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -25,7 +25,6 @@ describe('Prompt Loader Validation', () => {
     describe('Base Evaluator', () => {
         it('should load base prompt with criteria (optional weight)', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 name: Test Evaluator
 criteria:
@@ -34,29 +33,26 @@ criteria:
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadRules(tmpDir);
+            const { rules, warnings } = loadRules(tmpDir);
             expect(warnings).toHaveLength(0);
-            expect(prompts).toHaveLength(1);
-            expect(prompts[0].meta.evaluator).toBe('base');
-            expect(prompts[0].meta.criteria).toHaveLength(1);
+            expect(rules).toHaveLength(1);
+            expect(rules[0].meta.criteria).toHaveLength(1);
         });
 
         it('should load base prompt without criteria', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 name: Test Evaluator
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadRules(tmpDir);
+            const { rules, warnings } = loadRules(tmpDir);
             expect(warnings).toHaveLength(0);
-            expect(prompts).toHaveLength(1);
+            expect(rules).toHaveLength(1);
         });
 
         it('should load base prompt with weight in criteria', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 name: Test Evaluator
 criteria:
@@ -66,41 +62,38 @@ criteria:
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadRules(tmpDir);
+            const { rules, warnings } = loadRules(tmpDir);
             expect(warnings).toHaveLength(0);
-            expect(prompts).toHaveLength(1);
-            expect(prompts[0].meta.criteria![0].weight).toBe(1);
+            expect(rules).toHaveLength(1);
+            expect(rules[0].meta.criteria![0].weight).toBe(1);
         });
 
         it('should reject base prompt missing id', () => {
             createPrompt('test.md', `---
-evaluator: base
 name: Test Evaluator
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadRules(tmpDir);
-            expect(prompts).toHaveLength(0);
+            const { rules, warnings } = loadRules(tmpDir);
+            expect(rules).toHaveLength(0);
             expect(warnings.length).toBeGreaterThan(0);
             expect(warnings[0]).toContain('test.md');
         });
 
         it('should reject base prompt missing name', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadRules(tmpDir);
-            expect(prompts).toHaveLength(0);
+            const { rules, warnings } = loadRules(tmpDir);
+            expect(rules).toHaveLength(0);
             expect(warnings.length).toBeGreaterThan(0);
             expect(warnings[0]).toContain('test.md');
         });
 
         it('should reject base prompt with criterion missing id', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 name: Test Evaluator
 criteria:
@@ -108,15 +101,14 @@ criteria:
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadRules(tmpDir);
-            expect(prompts).toHaveLength(0);
+            const { rules, warnings } = loadRules(tmpDir);
+            expect(rules).toHaveLength(0);
             expect(warnings.length).toBeGreaterThan(0);
             expect(warnings[0]).toContain('test.md');
         });
 
         it('should reject base prompt with criterion missing name', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 name: Test Evaluator
 criteria:
@@ -124,8 +116,8 @@ criteria:
 ---
 Check content.`);
 
-            const { prompts, warnings } = loadRules(tmpDir);
-            expect(prompts).toHaveLength(0);
+            const { rules, warnings } = loadRules(tmpDir);
+            expect(rules).toHaveLength(0);
             expect(warnings.length).toBeGreaterThan(0);
             expect(warnings[0]).toContain('test.md');
         });

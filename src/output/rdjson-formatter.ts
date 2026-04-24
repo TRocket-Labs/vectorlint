@@ -1,5 +1,5 @@
 import type { Issue, EvaluationScore } from './json-formatter';
-import { Severity } from '../evaluators/types';
+import { Severity } from '../schemas/rule-schemas';
 
 export interface RdJsonResult {
     source: {

@@ -98,6 +98,9 @@ For documents >600 words, VectorLint automatically chunks content:
 - Indentation: 2 spaces; avoid trailing whitespace
 - Rule YAML: `name` (human), `id` (PascalCase), criteria `id` (PascalCase)
 - IDs shown as `PromptId.CriterionId` in output
+- No top-level `src/utils/` directory: utility functions live in a `utils.ts` scoped to the module that owns them (e.g. `src/agent/utils.ts`, `src/chunking/utils.ts`). A utility needed by two unrelated modules is a signal to extract a focused module, not to create a shared utils bucket
+- Prompt construction is centralized: system prompt strings and their assembly belong in dedicated builder modules (e.g. `src/agent/prompt-builder.ts`). Callers import named builder functions and do not assemble prompt strings inline
+- Names (functions, types, variables) must make their purpose clear without reading the implementation. Avoid hedging suffixes like `Like` or `ish` — prefer a concrete domain term (`FilterableViolation` over `ViolationLike`). `Finder` or `Manager` suffixes are justified only when the type owns a well-defined lifecycle or coordination responsibility; a thin wrapper or bag of exported functions should use a noun describing the domain concept instead
 
 ## Testing Guidelines
 

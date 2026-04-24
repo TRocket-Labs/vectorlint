@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createProvider, ProviderType } from '../src/providers/provider-factory';
 import { VercelAIProvider } from '../src/providers/vercel-ai-provider';
-import { DefaultRequestBuilder } from '../src/providers/request-builder';
+import { ConfigError } from '../src/errors';
 import type { EnvConfig } from '../src/schemas/env-schemas';
+import { createCapabilityProviderResolver } from '../src/providers/capability-provider-resolver';
+import { MODEL_CAPABILITY_TIERS, resolveConfiguredModelForCapability } from '../src/providers/model-capability';
 
 // Mock the Vercel AI SDK provider creators
 vi.mock('@ai-sdk/openai', () => ({
@@ -24,6 +26,11 @@ vi.mock('@ai-sdk/google', () => ({
 vi.mock('@ai-sdk/amazon-bedrock', () => ({
   createAmazonBedrock: vi.fn(() => vi.fn((model: string) => ({ _type: 'bedrock', model }))),
 }));
+
+function getProviderModelName(provider: unknown): string | undefined {
+  const candidate = provider as { config?: { model?: { model?: string } } };
+  return candidate.config?.model?.model;
+}
 
 describe('Provider Factory', () => {
   describe('Provider Instantiation', () => {
@@ -318,20 +325,6 @@ describe('Provider Factory', () => {
     });
   });
 
-  describe('Custom Request Builder', () => {
-    it('passes custom request builder to provider', () => {
-      const envConfig: EnvConfig = {
-        LLM_PROVIDER: ProviderType.OpenAI,
-        OPENAI_API_KEY: 'sk-test-key',
-        OPENAI_MODEL: 'gpt-4o',
-      };
-
-      const customBuilder = new DefaultRequestBuilder('Custom directive');
-      const provider = createProvider(envConfig, {}, customBuilder);
-      expect(provider).toBeInstanceOf(VercelAIProvider);
-    });
-  });
-
   describe('Provider-Specific Configuration', () => {
     it('handles Azure OpenAI specific fields correctly', () => {
       const envConfig: EnvConfig = {
@@ -391,6 +384,174 @@ describe('Provider Factory', () => {
       };
 
       expect(() => createProvider(envConfig)).not.toThrow();
+    });
+  });
+
+  describe('Capability Tier Resolver', () => {
+    it('exposes the expected tier order', () => {
+      expect(MODEL_CAPABILITY_TIERS).toEqual(['high-cap', 'mid-cap', 'low-cap']);
+    });
+
+    it('resolves OpenAI capability tiers with upward-only fallback', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_LOW_CAPABILITY_MODEL: 'gpt-4o-mini',
+        OPENAI_MID_CAPABILITY_MODEL: 'gpt-4o',
+        OPENAI_HIGH_CAPABILITY_MODEL: 'gpt-4.1',
+      };
+
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-cap')).toBe('gpt-4o-mini');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-cap')).toBe('gpt-4o');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-cap')).toBe('gpt-4.1');
+    });
+
+    it('resolves Anthropic capability tiers with upward-only fallback', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.Anthropic,
+        ANTHROPIC_API_KEY: 'sk-ant-test-key',
+        ANTHROPIC_MODEL: 'claude-3-sonnet-20240229',
+        ANTHROPIC_LOW_CAPABILITY_MODEL: 'claude-3-haiku-20240307',
+        ANTHROPIC_MID_CAPABILITY_MODEL: 'claude-3-5-sonnet-20241022',
+        ANTHROPIC_HIGH_CAPABILITY_MODEL: 'claude-opus-4-20250514',
+      };
+
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-cap')).toBe('claude-3-haiku-20240307');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-cap')).toBe('claude-3-5-sonnet-20241022');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-cap')).toBe('claude-opus-4-20250514');
+    });
+
+    it('resolves Gemini capability tiers with upward-only fallback', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.Gemini,
+        GEMINI_API_KEY: 'gemini-key',
+        GEMINI_MODEL: 'gemini-2.5-flash',
+        GEMINI_LOW_CAPABILITY_MODEL: 'gemini-2.0-flash',
+        GEMINI_MID_CAPABILITY_MODEL: 'gemini-2.5-flash',
+        GEMINI_HIGH_CAPABILITY_MODEL: 'gemini-2.5-pro',
+      };
+
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-cap')).toBe('gemini-2.0-flash');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-cap')).toBe('gemini-2.5-flash');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-cap')).toBe('gemini-2.5-pro');
+    });
+
+    it('resolves Bedrock capability tiers with upward-only fallback', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.AmazonBedrock,
+        AWS_REGION: 'us-east-1',
+        BEDROCK_MODEL: 'global.anthropic.claude-sonnet-4-5-20250929-v1:0',
+        BEDROCK_LOW_CAPABILITY_MODEL: 'anthropic.claude-3-haiku-20240307-v1:0',
+        BEDROCK_MID_CAPABILITY_MODEL: 'anthropic.claude-3-sonnet-20240229-v1:0',
+        BEDROCK_HIGH_CAPABILITY_MODEL: 'anthropic.claude-3-5-sonnet-20240620-v1:0',
+      };
+
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-cap')).toBe('anthropic.claude-3-haiku-20240307-v1:0');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-cap')).toBe('anthropic.claude-3-sonnet-20240229-v1:0');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-cap')).toBe('anthropic.claude-3-5-sonnet-20240620-v1:0');
+    });
+
+    it('resolves Azure deployment names with upward-only fallback', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.AzureOpenAI,
+        AZURE_OPENAI_API_KEY: 'test-key',
+        AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
+        AZURE_OPENAI_DEPLOYMENT_NAME: 'default-deployment',
+        AZURE_OPENAI_LOW_CAPABILITY_DEPLOYMENT_NAME: 'low-deployment',
+        AZURE_OPENAI_MID_CAPABILITY_DEPLOYMENT_NAME: 'mid-deployment',
+        AZURE_OPENAI_HIGH_CAPABILITY_DEPLOYMENT_NAME: 'high-deployment',
+      };
+
+      expect(resolveConfiguredModelForCapability(envConfig, 'low-cap')).toBe('low-deployment');
+      expect(resolveConfiguredModelForCapability(envConfig, 'mid-cap')).toBe('mid-deployment');
+      expect(resolveConfiguredModelForCapability(envConfig, 'high-cap')).toBe('high-deployment');
+    });
+
+    it('falls back to the provider default when capability tiers are absent', () => {
+      const openaiEnv: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+      const azureEnv: EnvConfig = {
+        LLM_PROVIDER: ProviderType.AzureOpenAI,
+        AZURE_OPENAI_API_KEY: 'test-key',
+        AZURE_OPENAI_ENDPOINT: 'https://test.openai.azure.com',
+        AZURE_OPENAI_DEPLOYMENT_NAME: 'default-deployment',
+      };
+
+      expect(resolveConfiguredModelForCapability(openaiEnv, 'low-cap')).toBe('gpt-4o');
+      expect(resolveConfiguredModelForCapability(openaiEnv, 'mid-cap')).toBe('gpt-4o');
+      expect(resolveConfiguredModelForCapability(openaiEnv, 'high-cap')).toBe('gpt-4o');
+      expect(resolveConfiguredModelForCapability(azureEnv, 'low-cap')).toBe('default-deployment');
+      expect(resolveConfiguredModelForCapability(azureEnv, 'mid-cap')).toBe('default-deployment');
+      expect(resolveConfiguredModelForCapability(azureEnv, 'high-cap')).toBe('default-deployment');
+    });
+
+    it('throws when all configured identifiers are blank after trimming', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: '   ',
+        OPENAI_LOW_CAPABILITY_MODEL: '  ',
+        OPENAI_MID_CAPABILITY_MODEL: '\t',
+        OPENAI_HIGH_CAPABILITY_MODEL: '\n',
+      };
+
+      expect(() => resolveConfiguredModelForCapability(envConfig, 'low-cap')).toThrow(
+        new ConfigError('No configured model or deployment name found for requested capability tier: low-cap')
+      );
+    });
+  });
+
+  describe('Capability Provider Resolver', () => {
+    it('resolves high, mid, and low capability providers to the configured models', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_LOW_CAPABILITY_MODEL: 'gpt-4o-mini',
+        OPENAI_MID_CAPABILITY_MODEL: 'gpt-4o',
+        OPENAI_HIGH_CAPABILITY_MODEL: 'gpt-4.1',
+      };
+
+      const resolver = createCapabilityProviderResolver(envConfig);
+
+      expect(getProviderModelName(resolver.defaultProvider)).toBe('gpt-4o');
+      expect(getProviderModelName(resolver.resolveCapabilityProvider('low-cap'))).toBe('gpt-4o-mini');
+      expect(getProviderModelName(resolver.resolveCapabilityProvider('mid-cap'))).toBe('gpt-4o');
+      expect(getProviderModelName(resolver.resolveCapabilityProvider('high-cap'))).toBe('gpt-4.1');
+      expect(resolver.resolveCapabilityProvider('mid-cap')).toBe(resolver.defaultProvider);
+    });
+
+    it('applies upward-only fallback when a requested tier is not configured', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_MID_CAPABILITY_MODEL: 'gpt-4.1-mini',
+      };
+
+      const resolver = createCapabilityProviderResolver(envConfig);
+
+      expect(getProviderModelName(resolver.resolveCapabilityProvider('low-cap'))).toBe('gpt-4.1-mini');
+      expect(getProviderModelName(resolver.resolveCapabilityProvider('mid-cap'))).toBe('gpt-4.1-mini');
+      expect(getProviderModelName(resolver.resolveCapabilityProvider('high-cap'))).toBe('gpt-4o');
+    });
+
+    it('reuses the default provider model when no capability tiers are configured', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+
+      const resolver = createCapabilityProviderResolver(envConfig);
+
+      expect(resolver.resolveCapabilityProvider('low-cap')).toBe(resolver.defaultProvider);
+      expect(resolver.resolveCapabilityProvider('mid-cap')).toBe(resolver.defaultProvider);
+      expect(resolver.resolveCapabilityProvider('high-cap')).toBe(resolver.defaultProvider);
     });
   });
 });

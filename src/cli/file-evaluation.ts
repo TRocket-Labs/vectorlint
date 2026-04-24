@@ -1,0 +1,249 @@
+import { readFileSync } from 'fs';
+import * as path from 'path';
+import type { RuleFile } from '../rules/rule-loader';
+import { USER_INSTRUCTION_FILENAME } from '../config/constants';
+import { handleUnknownError, MissingDependencyError, NoConfigurationFoundError } from '../errors/index';
+import { runLint } from '../lint';
+import { Severity } from '../schemas/rule-schemas';
+import {
+  printEvaluationSummaries,
+  printFileHeader,
+  type EvaluationSummary,
+} from '../output/reporter';
+import type {
+  EvaluateFileParams,
+  EvaluateFileResult,
+  RunPromptEvaluationParams,
+  RunPromptEvaluationResult,
+  RunPromptEvaluationResultSuccess,
+} from './types';
+import { buildRuleName } from './issue-output';
+import { routePromptResult } from './result-routing';
+import { OutputFormat } from './types';
+import { type TokenUsageStats } from '../providers/token-usage';
+import { resolveMatchedRulesForFile } from '../rules/matched-rules';
+
+/*
+ * Generic concurrency runner that executes workers in parallel up to a specified limit.
+ * Preserves result order matching input order.
+ */
+async function runWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array<R>(items.length);
+  let i = 0;
+  const workers = new Array(Math.min(limit, items.length))
+    .fill(0)
+    .map(async () => {
+      while (true) {
+        const idx = i++;
+        if (idx >= items.length) break;
+        const item = items[idx];
+        if (item !== undefined) {
+          results[idx] = await worker(item, idx);
+        }
+      }
+    });
+  await Promise.all(workers);
+  return results;
+}
+
+/*
+ * Runs a single prompt evaluation.
+ * BaseEvaluator auto-detects mode from criteria presence:
+ * - criteria defined -> scored mode
+ * - no criteria -> basic mode
+ */
+async function runPromptEvaluation(
+  params: RunPromptEvaluationParams
+): Promise<RunPromptEvaluationResult> {
+  const {
+    promptFile,
+    content,
+    provider,
+    systemDirective,
+    userInstructions,
+  } = params;
+
+  try {
+    const result = await runLint({
+      content,
+      rule: promptFile,
+      provider,
+      options: {
+        ...(systemDirective ? { systemDirective } : {}),
+        ...(userInstructions ? { userInstructions } : {}),
+      },
+    });
+    const resultObj: RunPromptEvaluationResultSuccess = { ok: true, result };
+    return resultObj;
+  } catch (e: unknown) {
+    const err = handleUnknownError(e, `Running prompt ${promptFile.filename}`);
+    return { ok: false, error: err };
+  }
+}
+
+/*
+ * Evaluates a single file with all applicable prompts.
+ */
+export async function evaluateFile(
+  params: EvaluateFileParams
+): Promise<EvaluateFileResult> {
+  const { file, options, jsonFormatter } = params;
+  const {
+    rules,
+    provider,
+    searchProvider,
+    concurrency,
+    scanPaths,
+    outputFormat = OutputFormat.Line,
+    verbose,
+    debugJson,
+  } = options;
+
+  let hadOperationalErrors = false;
+  let hadSeverityErrors = false;
+  let totalErrors = 0;
+  let totalWarnings = 0;
+  let requestFailures = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+
+  const allScores = new Map<string, EvaluationSummary[]>();
+
+  const content = readFileSync(file, 'utf-8');
+  const relFile = path.relative(process.cwd(), file) || file;
+
+  // Determine applicable rules for this file
+  let toRun: RuleFile[];
+  try {
+    toRun = resolveMatchedRulesForFile({
+      filePath: relFile,
+      rules,
+      scanPaths,
+    }).rules;
+  } catch (e: unknown) {
+    if (e instanceof NoConfigurationFoundError) {
+      return {
+        errors: 0,
+        warnings: 0,
+        requestFailures: 0,
+        hadOperationalErrors: false,
+        hadSeverityErrors: false,
+        tokenUsage: { totalInputTokens: 0, totalOutputTokens: 0 },
+      };
+    }
+    throw e;
+  }
+
+  if (outputFormat === OutputFormat.Line) {
+    printFileHeader(relFile);
+  }
+
+  // If VECTORLINT.md content was loaded, append a synthetic prompt so it is
+  // evaluated alongside any matched rule prompts.
+  if (options.userInstructionContent) {
+    toRun.push({
+      id: USER_INSTRUCTION_FILENAME,
+      filename: USER_INSTRUCTION_FILENAME,
+      fullPath: USER_INSTRUCTION_FILENAME,
+      pack: '',
+      content: '',
+      meta: {
+        id: USER_INSTRUCTION_FILENAME,
+        name: USER_INSTRUCTION_FILENAME,
+        severity: Severity.WARNING,
+      },
+    });
+  }
+
+  const results = await runWithConcurrency(
+    toRun,
+    concurrency,
+    async (prompt) => {
+      return runPromptEvaluation({
+        promptFile: prompt,
+        relFile,
+        content,
+        provider,
+        ...(searchProvider !== undefined && { searchProvider }),
+        ...(options.systemDirective ? { systemDirective: options.systemDirective } : {}),
+        ...(options.userInstructionContent ? { userInstructions: options.userInstructionContent } : {}),
+      });
+    }
+  );
+
+  // Aggregate results from each prompt
+  for (let idx = 0; idx < toRun.length; idx++) {
+    const p = toRun[idx];
+    const r = results[idx];
+    if (!p || !r) continue;
+
+    if (r.ok !== true) {
+      // Check if this is a missing dependency error - if so, skip gracefully
+      if (r.error instanceof MissingDependencyError) {
+        console.warn(`[vectorlint] Skipping ${p.filename}: ${r.error.message}`);
+        if (r.error.hint) {
+          console.warn(`[vectorlint] Hint: ${r.error.hint}`);
+        }
+        // Skip this evaluation entirely - don't count it as a failure
+        continue;
+      }
+
+      // Other errors are actual failures
+      console.error(`  Prompt failed: ${p.filename}`);
+      console.error(r.error);
+      hadOperationalErrors = true;
+      requestFailures += 1;
+      continue;
+    }
+
+    // Accumulate token usage
+    if (r.result.usage) {
+      totalInputTokens += r.result.usage.inputTokens;
+      totalOutputTokens += r.result.usage.outputTokens;
+    }
+
+    const promptResult = routePromptResult({
+      promptFile: p,
+      result: r.result,
+      content,
+      relFile,
+      outputFormat,
+      jsonFormatter,
+      verbose,
+      ...(debugJson !== undefined ? { debugJson } : {}),
+    });
+    totalErrors += promptResult.errors;
+    totalWarnings += promptResult.warnings;
+    hadOperationalErrors =
+      hadOperationalErrors || promptResult.hadOperationalErrors;
+    hadSeverityErrors = hadSeverityErrors || promptResult.hadSeverityErrors;
+
+    if (promptResult.scoreEntries && promptResult.scoreEntries.length > 0) {
+      const ruleName = buildRuleName(p.pack, (p.meta.id || p.filename).toString(), undefined);
+      allScores.set(ruleName, promptResult.scoreEntries);
+    }
+  }
+
+  const tokenUsageStats: TokenUsageStats = {
+    totalInputTokens,
+    totalOutputTokens,
+  };
+
+  if (outputFormat === OutputFormat.Line) {
+    printEvaluationSummaries(allScores);
+    console.log('');
+  }
+
+  return {
+    errors: totalErrors,
+    warnings: totalWarnings,
+    requestFailures,
+    hadOperationalErrors,
+    hadSeverityErrors,
+    tokenUsage: tokenUsageStats,
+  };
+}

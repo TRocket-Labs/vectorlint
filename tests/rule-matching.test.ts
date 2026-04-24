@@ -1,0 +1,278 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import path from 'path';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { runAgentExecutor } from '../src/agent/executor';
+import { OutputFormat, type EvaluationOptions } from '../src/cli/types';
+import { ReviewType } from '../src/lint/types';
+import { Severity } from '../src/schemas/rule-schemas';
+import type { RuleFile } from '../src/rules/rule-loader';
+import type { LLMProvider } from '../src/providers/llm-provider';
+import { resolveMatchedRulesForFile } from '../src/rules/matched-rules';
+import type { FilePatternConfig } from '../src/boundaries/file-section-parser';
+
+function makePrompt(params: {
+  fullPath: string;
+  id: string;
+  name: string;
+  pack?: string;
+}): RuleFile {
+  return {
+    id: params.id.toLowerCase(),
+    filename: path.basename(params.fullPath),
+    fullPath: params.fullPath,
+    pack: params.pack ?? 'Default',
+    content: `${params.name} body`,
+    meta: {
+      id: params.id,
+      name: params.name,
+      type: 'check',
+      severity: Severity.WARNING,
+    },
+  };
+}
+
+function makeStandardOptions(rules: RuleFile[], scanPaths: EvaluationOptions['scanPaths']): EvaluationOptions {
+  return {
+    rules,
+    rulesPath: undefined,
+    provider: {} as never,
+    concurrency: 1,
+    verbose: false,
+    debugJson: false,
+    scanPaths,
+    outputFormat: OutputFormat.Json,
+  };
+}
+
+function normalizeRuleMatches(
+  matches: Array<{ file: string; ruleSource: string }>
+): string[] {
+  return matches.map((match) => `${match.file}:${match.ruleSource}`);
+}
+
+function makeAgentProvider(): LLMProvider {
+  return {
+    runPromptStructured() {
+      throw new Error('not used');
+    },
+    async runAgentToolLoop(params: Record<string, unknown>) {
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      await tools.finalize_review.execute({});
+      return {
+        usage: { inputTokens: 1, outputTokens: 1 },
+      };
+    },
+  } as unknown as LLMProvider;
+}
+
+describe('rule matching', () => {
+  beforeAll(() => {
+    process.env.LLM_PROVIDER = 'anthropic';
+  });
+
+  const tempDirs: string[] = [];
+
+  function createTempRepo(): string {
+    const repo = mkdtempSync(path.join(process.cwd(), 'tmp-rule-matching-'));
+    tempDirs.push(repo);
+    return repo;
+  }
+
+  beforeEach(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    for (const dir of tempDirs.splice(0, tempDirs.length)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('returns all prompts when scanPaths is empty', () => {
+    const prompts = [
+      makePrompt({
+        fullPath: 'packs/default/consistency.md',
+        id: 'Consistency',
+        name: 'Consistency',
+      }),
+      makePrompt({
+        fullPath: 'VECTORLINT.md',
+        id: 'StyleGuide',
+        name: 'Style Guide',
+        pack: '',
+      }),
+    ];
+
+    const resolution = resolveMatchedRulesForFile({
+      filePath: 'docs/guide.md',
+      rules: prompts,
+      scanPaths: [],
+    });
+
+    expect(resolution.rules).toEqual(prompts);
+    expect(resolution.packs).toEqual(['Default']);
+    expect(resolution.overrides).toEqual({});
+  });
+
+  it('filters by active packs and disabled overrides while keeping packless prompts', () => {
+    const prompts = [
+      makePrompt({
+        fullPath: 'packs/default/consistency.md',
+        id: 'Consistency',
+        name: 'Consistency',
+      }),
+      makePrompt({
+        fullPath: 'packs/default/links.md',
+        id: 'Links',
+        name: 'Links',
+      }),
+      makePrompt({
+        fullPath: 'packs/seo/headings.md',
+        id: 'Headings',
+        name: 'Headings',
+        pack: 'SEO',
+      }),
+      makePrompt({
+        fullPath: 'VECTORLINT.md',
+        id: 'StyleGuide',
+        name: 'Style Guide',
+        pack: '',
+      }),
+    ];
+
+    const resolution = resolveMatchedRulesForFile({
+      filePath: 'docs/guide.md',
+      rules: prompts,
+      scanPaths: [
+        {
+          pattern: '**/*.md',
+          runRules: ['Default'],
+          overrides: {
+            'Default.Links': 'disabled',
+          },
+        },
+      ],
+    });
+
+    expect(resolution.rules.map((rule) => rule.fullPath)).toEqual([
+      'packs/default/consistency.md',
+      'VECTORLINT.md',
+    ]);
+    expect(resolution.packs).toEqual(['Default']);
+    expect(resolution.overrides).toEqual({
+      'Default.Links': 'disabled',
+    });
+  });
+
+  it('keeps lint and agent flows in sync for matched rules', async () => {
+    const { evaluateFiles } = await import('../src/cli/orchestrator');
+    const lint = await import('../src/lint');
+
+    const repo = createTempRepo();
+    const file = path.join(repo, 'docs', 'release', 'guide.md');
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, 'content\n', 'utf8');
+    const standardMatchedPromptSources: string[] = [];
+
+    const prompts = [
+      makePrompt({
+        fullPath: 'packs/default/consistency.md',
+        id: 'Consistency',
+        name: 'Consistency',
+      }),
+      makePrompt({
+        fullPath: 'packs/default/links.md',
+        id: 'Links',
+        name: 'Links',
+      }),
+      makePrompt({
+        fullPath: 'packs/seo/headings.md',
+        id: 'Headings',
+        name: 'Headings',
+        pack: 'SEO',
+      }),
+      makePrompt({
+        fullPath: 'VECTORLINT.md',
+        id: 'StyleGuide',
+        name: 'Style Guide',
+        pack: '',
+      }),
+    ];
+    const anchoredPrefix = path.basename(repo);
+    const scanPaths: FilePatternConfig[] = [
+      {
+        pattern: `${anchoredPrefix}/docs/**/*.md`,
+        runRules: ['Default', 'SEO'],
+        overrides: {
+          'Default.Links': 'disabled',
+        },
+      },
+      {
+        pattern: `${anchoredPrefix}/docs/release/*.md`,
+        overrides: {
+          'SEO.Headings': 'disabled',
+        },
+      },
+    ];
+
+    vi.spyOn(lint, 'runLint').mockImplementation(
+      ({ rule }: { rule: RuleFile }) => {
+        standardMatchedPromptSources.push(rule.fullPath);
+        return Promise.resolve({
+          type: ReviewType.CHECK,
+          violations: [],
+          word_count: 10,
+        });
+      }
+    );
+
+    await evaluateFiles([file], makeStandardOptions(prompts, scanPaths));
+
+    const agentResult = await runAgentExecutor({
+      targets: [file],
+      rules: prompts,
+      provider: makeAgentProvider(),
+      workspaceRoot: process.cwd(),
+      scanPaths,
+      outputFormat: OutputFormat.Json,
+      printMode: false,
+      sessionHomeDir: repo,
+    });
+
+    expect(standardMatchedPromptSources).toEqual([
+      'packs/default/consistency.md',
+      'VECTORLINT.md',
+    ]);
+    expect(normalizeRuleMatches(agentResult.fileRuleMatches)).toEqual([
+      `${anchoredPrefix}/docs/release/guide.md:packs/default/consistency.md`,
+      `${anchoredPrefix}/docs/release/guide.md:VECTORLINT.md`,
+    ]);
+  });
+
+  it('throws when scanPaths is non-empty and no pattern matches the file', () => {
+    const prompts = [
+      makePrompt({
+        fullPath: 'packs/default/consistency.md',
+        id: 'Consistency',
+        name: 'Consistency',
+      }),
+    ];
+
+    expect(() =>
+      resolveMatchedRulesForFile({
+        filePath: 'docs/guide.md',
+        rules: prompts,
+        scanPaths: [
+          {
+            pattern: 'blog/**/*.md',
+            runRules: ['Default'],
+            overrides: {},
+          },
+        ],
+      })
+    ).toThrow('No configuration found for this path: docs/guide.md');
+  });
+});

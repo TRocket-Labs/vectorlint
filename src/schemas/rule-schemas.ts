@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { Severity } from "../evaluators/types";
+
+// Severity enum moved from evaluators/types
+export enum Severity {
+  ERROR = 'error',
+  WARNING = 'warning',
+}
 
 // Target specification schema for regex matching
 export const TARGET_SPEC_SCHEMA = z
@@ -12,20 +17,16 @@ export const TARGET_SPEC_SCHEMA = z
   })
   .strict();
 
-// Prompt criterion specification schema
-export const PROMPT_CRITERION_SCHEMA = z.object({
+// Rule criterion specification schema
+export const RULE_CRITERION_SCHEMA = z.object({
   id: z.string(),
   name: z.string(),
   weight: z.number().positive().optional(),
   target: TARGET_SPEC_SCHEMA.optional(),
 });
 
-// Prompt metadata schema for YAML frontmatter
+// Rule metadata schema for YAML frontmatter
 /*
- * Evaluator type selection:
- * - 'base': unified evaluator (auto-detects scored vs basic mode from criteria)
- * - 'technical-accuracy': specialized evaluator with claim extraction + search
- *
  * Evaluation type:
  * - 'judge': 1-4 scores per criterion, normalized to 1-10
  * - 'check': density-based scoring (errors per 100 words)
@@ -38,9 +39,8 @@ export const PROMPT_CRITERION_SCHEMA = z.object({
  * - Determines penalty weight per 1% error density.
  * - Default: 10
  */
-export const PROMPT_META_SCHEMA = z.object({
+export const RULE_META_SCHEMA = z.object({
   specVersion: z.union([z.string(), z.number()]).optional(),
-  evaluator: z.enum(["base", "technical-accuracy"]).optional(),
   type: z
     .enum(["judge", "check", "subjective", "semi-objective"])
     .transform((val) => {
@@ -57,24 +57,24 @@ export const PROMPT_META_SCHEMA = z.object({
     .union([z.number().positive(), z.enum(["lenient", "standard", "strict"])])
     .optional(),
   target: TARGET_SPEC_SCHEMA.optional(),
-  criteria: z.array(PROMPT_CRITERION_SCHEMA).optional(),
+  criteria: z.array(RULE_CRITERION_SCHEMA).optional(),
   // Determines how content is evaluated: 'chunk' (default) for chunked processing, 'document' for full document
   evaluateAs: z.enum(["document", "chunk"]).optional(),
 });
 
 
-// Complete prompt file schema
-export const PROMPT_FILE_SCHEMA = z.object({
+// Complete rule file schema
+export const RULE_FILE_SCHEMA = z.object({
   id: z.string(),
   filename: z.string(),
   fullPath: z.string(),
-  meta: PROMPT_META_SCHEMA,
-  body: z.string(),
+  meta: RULE_META_SCHEMA,
+  content: z.string(),
   pack: z.string(),
 });
 
 // Inferred types
 export type TargetSpec = z.infer<typeof TARGET_SPEC_SCHEMA>;
-export type PromptCriterionSpec = z.infer<typeof PROMPT_CRITERION_SCHEMA>;
-export type PromptMeta = z.infer<typeof PROMPT_META_SCHEMA>;
-export type PromptFile = z.infer<typeof PROMPT_FILE_SCHEMA>;
+export type RuleCriterionSpec = z.infer<typeof RULE_CRITERION_SCHEMA>;
+export type RuleMeta = z.infer<typeof RULE_META_SCHEMA>;
+export type RuleFile = z.infer<typeof RULE_FILE_SCHEMA>;

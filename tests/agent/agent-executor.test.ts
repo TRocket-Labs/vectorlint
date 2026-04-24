@@ -1,26 +1,51 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { afterEach, describe, expect, it } from 'vitest';
-import type { PromptFile } from '../../src/prompts/prompt-loader';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import type { RuleFile } from '../../src/rules/rule-loader';
 import type { LLMProvider } from '../../src/providers/llm-provider';
-import { Severity } from '../../src/evaluators/types';
+import { Severity } from '../../src/schemas/rule-schemas';
 import { OutputFormat } from '../../src/cli/types';
 import { SESSION_EVENT_TYPE } from '../../src/agent/types';
 import { AgentToolError } from '../../src/errors';
+import { HIGH_CAPABILITY_TIER } from '../../src/providers/model-capability';
 
-function makePrompt(): PromptFile {
+function makePrompt(): RuleFile {
   return {
     id: 'consistency',
     filename: 'consistency.md',
     fullPath: 'packs/default/consistency.md',
     pack: 'Default',
-    body: 'Find inconsistent wording.',
+    content: 'Find inconsistent wording.',
     meta: {
       id: 'Consistency',
       name: 'Consistency',
       type: 'check',
       severity: Severity.WARNING,
+    },
+  };
+}
+
+// Test factory: builds a RuleFile with a specific fullPath and content,
+// normalizing the id to lowercase and defaulting pack/type/severity.
+function makePromptVariant(params: {
+  fullPath: string;
+  id: string;
+  name: string;
+  body: string;
+  severity?: Severity;
+}): RuleFile {
+  return {
+    id: params.id.toLowerCase(),
+    filename: path.basename(params.fullPath),
+    fullPath: params.fullPath,
+    pack: 'Default',
+    content: params.body,
+    meta: {
+      id: params.id,
+      name: params.name,
+      type: 'check',
+      severity: params.severity ?? Severity.WARNING,
     },
   };
 }
@@ -33,8 +58,9 @@ function makeProvider(
       return Promise.resolve({
         data: {
           reasoning: 'detected issue',
-          violations: [
+          findings: [
             {
+              ruleSource: 'packs/default/consistency.md',
               line: 1,
               quoted_text: 'bad phrase',
               context_before: '',
@@ -72,6 +98,10 @@ function makeProvider(
 }
 
 describe('agent executor', () => {
+  beforeAll(() => {
+    process.env.LLM_PROVIDER = 'anthropic';
+  });
+
   const tempDirs: string[] = [];
 
   function createTempRepo(): string {
@@ -86,7 +116,7 @@ describe('agent executor', () => {
     }
   });
 
-  it('exposes only non-mutating analysis tools plus finalize_review', async () => {
+  it('exposes only read-only analysis tools plus finalize_review', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
     const repo = createTempRepo();
@@ -96,6 +126,7 @@ describe('agent executor', () => {
       const tools = (params.tools ?? {}) as Record<string, unknown>;
       const names = Object.keys(tools).sort();
       expect(names).toEqual([
+        'agent',
         'finalize_review',
         'lint',
         'list_directory',
@@ -112,7 +143,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -124,6 +155,372 @@ describe('agent executor', () => {
     expect(result.hadOperationalErrors).toBe(false);
     expect(result.fileRuleMatches).toEqual([
       { file: 'doc.md', ruleSource: 'packs/default/consistency.md' },
+    ]);
+  }, 30000);
+
+  it('builds the agent loop prompt from matched rule units', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const provider = makeProvider(async (params) => {
+      const systemPrompt = typeof params.systemPrompt === 'string' ? params.systemPrompt : '';
+
+      expect(systemPrompt).toContain('Review files and Matched Rule Units:');
+      expect(systemPrompt).toContain('- doc.md');
+      expect(systemPrompt).toContain('  - Matched Rule Unit:');
+      expect(systemPrompt).toContain('    - packs/default/consistency.md');
+      expect(systemPrompt).toContain('    - packs/default/links.md');
+
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      rules: [
+        makePrompt(),
+        makePromptVariant({
+          fullPath: 'packs/default/links.md',
+          id: 'Links',
+          name: 'Links',
+          body: 'Find broken links.',
+        }),
+      ],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+  });
+
+  it('lets the main agent delegate bounded read-only work to a sub-agent', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const topLevelProvider: LLMProvider = {
+      runPromptStructured() {
+        throw new Error('not used');
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        const delegated = await tools.agent.execute({
+          task: 'Summarize the document',
+          model: 'high-cap',
+        });
+        expect(delegated).toEqual({
+          ok: true,
+          result: 'sub-agent summary',
+          usage: { inputTokens: 2, outputTokens: 1 },
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    const subAgentProvider: LLMProvider = {
+      runPromptStructured() {
+        throw new Error('not used');
+      },
+      runAgentToolLoop(params: Record<string, unknown>) {
+        const toolNames = Object.keys((params.tools ?? {}) as Record<string, unknown>).sort();
+        expect(toolNames).toEqual([
+          'list_directory',
+          'read_file',
+          'search_content',
+          'search_files',
+        ]);
+        return Promise.resolve({
+          text: 'sub-agent summary',
+          usage: { inputTokens: 2, outputTokens: 1 },
+        });
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      rules: [makePrompt()],
+      provider: topLevelProvider,
+      resolveCapabilityProvider: (requested) =>
+        requested === 'high-cap' ? subAgentProvider : topLevelProvider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(result.usage).toEqual({
+      inputTokens: 3,
+      outputTokens: 2,
+    });
+  });
+
+  it('uses the requested capability tier when delegating to a sub-agent', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const requestedModels: string[] = [];
+    const topLevelProvider = makeProvider(async (params) => {
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      const delegated = await tools.agent.execute({
+        task: 'Summarize the document',
+        model: 'low-cap',
+      });
+      expect(delegated).toEqual({ ok: true, result: 'mid fallback summary' });
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+
+    const midFallbackProvider: LLMProvider = {
+      runPromptStructured() {
+        throw new Error('not used');
+      },
+      runAgentToolLoop() {
+        return Promise.resolve({ text: 'mid fallback summary' });
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      rules: [makePrompt()],
+      provider: topLevelProvider,
+      resolveCapabilityProvider: (requested) => {
+        requestedModels.push(requested);
+        return midFallbackProvider;
+      },
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(requestedModels).toContain('low-cap');
+  });
+
+  it('returns a compact sub-agent error without failing the main review loop', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const topLevelProvider = makeProvider(async (params) => {
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      const delegated = await tools.agent.execute({
+        task: 'Summarize the document',
+        model: 'high-cap',
+      });
+      expect(delegated).toEqual({ ok: false, error: 'sub-agent blew up' });
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+
+    const failingSubAgentProvider: LLMProvider = {
+      runPromptStructured() {
+        throw new Error('not used');
+      },
+      runAgentToolLoop() {
+        return Promise.reject(new Error('sub-agent blew up'));
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      rules: [makePrompt()],
+      provider: topLevelProvider,
+      resolveCapabilityProvider: () => failingSubAgentProvider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+  });
+
+  it('uses the default provider when the agent tool omits model', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    let resolvedTier: string | undefined;
+    const provider: LLMProvider = {
+      runPromptStructured() {
+        throw new Error('not used');
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        const toolNames = Object.keys(tools).sort();
+        if (toolNames.includes('agent')) {
+          const delegated = await tools.agent.execute({ task: 'Summarize the document' });
+          expect(delegated).toEqual({ ok: true, result: 'default provider summary' });
+          await tools.finalize_review.execute({});
+          return { usage: { inputTokens: 1, outputTokens: 1 } };
+        }
+
+        expect(toolNames).toEqual([
+          'list_directory',
+          'read_file',
+          'search_content',
+          'search_files',
+        ]);
+        return { text: 'default provider summary' };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      rules: [makePrompt()],
+      provider,
+      resolveCapabilityProvider: (requested) => {
+        resolvedTier = requested;
+        return provider;
+      },
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(resolvedTier).toBe(HIGH_CAPABILITY_TIER);
+  });
+
+  it('merges multiple lint rules into one structured request and preserves rule severity', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    let structuredCalls = 0;
+    const provider: LLMProvider = {
+      runPromptStructured(systemPrompt: string) {
+        structuredCalls += 1;
+        expect(systemPrompt).toContain('Rule 1');
+        expect(systemPrompt).toContain('Rule 2');
+        return Promise.resolve({
+          data: {
+            reasoning: 'ok',
+            findings: [
+              {
+                ruleSource: 'packs/default/consistency.md',
+                line: 1,
+                quoted_text: 'bad phrase',
+                context_before: '',
+                context_after: '',
+                description: 'Consistency issue',
+                analysis: 'Inconsistent wording.',
+                message: 'Use consistent wording',
+                suggestion: 'Replace the phrase',
+                fix: 'better phrase',
+                rule_quote: 'Keep wording consistent',
+                checks: {
+                  rule_supports_claim: true,
+                  evidence_exact: true,
+                  context_supports_violation: true,
+                  plausible_non_violation: false,
+                  fix_is_drop_in: true,
+                  fix_preserves_meaning: true,
+                },
+                check_notes: {
+                  rule_supports_claim: 'clear',
+                  evidence_exact: 'exact',
+                  context_supports_violation: 'yes',
+                  plausible_non_violation: 'none',
+                  fix_is_drop_in: 'yes',
+                  fix_preserves_meaning: 'yes',
+                },
+                confidence: 0.95,
+              },
+              {
+                ruleSource: 'packs/default/accuracy.md',
+                line: 1,
+                quoted_text: 'bad phrase',
+                context_before: '',
+                context_after: '',
+                description: 'Accuracy issue',
+                analysis: 'This claim is unsupported.',
+                message: 'Support the claim',
+                suggestion: 'Add evidence',
+                fix: 'supported phrase',
+                rule_quote: 'Support technical claims',
+                checks: {
+                  rule_supports_claim: true,
+                  evidence_exact: true,
+                  context_supports_violation: true,
+                  plausible_non_violation: false,
+                  fix_is_drop_in: true,
+                  fix_preserves_meaning: true,
+                },
+                check_notes: {
+                  rule_supports_claim: 'clear',
+                  evidence_exact: 'exact',
+                  context_supports_violation: 'yes',
+                  plausible_non_violation: 'none',
+                  fix_is_drop_in: 'yes',
+                  fix_preserves_meaning: 'yes',
+                },
+                confidence: 0.91,
+              },
+            ],
+          },
+        });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          rules: [
+            { ruleSource: 'packs/default/consistency.md' },
+            { ruleSource: 'packs/default/accuracy.md' },
+          ],
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      rules: [
+        makePrompt(),
+        makePromptVariant({
+          fullPath: 'packs/default/accuracy.md',
+          id: 'Accuracy',
+          name: 'Accuracy',
+          body: 'Support technical claims.',
+          severity: Severity.ERROR,
+        }),
+      ],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(structuredCalls).toBe(1);
+    expect(result.findings.map((finding) => finding.severity)).toEqual([
+      Severity.WARNING,
+      Severity.ERROR,
     ]);
   });
 
@@ -139,7 +536,7 @@ describe('agent executor', () => {
       try {
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/does-not-exist.md',
+          rules: [{ ruleSource: 'packs/default/does-not-exist.md' }],
         });
       } catch (error) {
         expect(error).toBeInstanceOf(AgentToolError);
@@ -153,7 +550,92 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+  });
+
+  it('rejects merged lint findings that reference a rule outside the requested rules', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const provider = makeProvider(async (params) => {
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      let errorMessage = '';
+      try {
+        await tools.lint.execute({
+          file: 'doc.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(AgentToolError);
+        errorMessage = error instanceof Error ? error.message : String(error);
+      }
+      expect(errorMessage).toContain('Unknown ruleSource');
+      expect(errorMessage).toContain('packs/default/consistency.md');
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+    provider.runPromptStructured = () =>
+      Promise.resolve({
+        data: {
+          reasoning: 'detected issue',
+          findings: [
+            {
+              ruleSource: 'packs/default/accuracy.md',
+              line: 1,
+              quoted_text: 'bad phrase',
+              context_before: '',
+              context_after: '',
+              description: 'Accuracy issue',
+              analysis: 'This claim is unsupported.',
+              message: 'Support the claim',
+              suggestion: 'Add evidence',
+              fix: 'supported phrase',
+              rule_quote: 'Support technical claims',
+              checks: {
+                rule_supports_claim: true,
+                evidence_exact: true,
+                context_supports_violation: true,
+                plausible_non_violation: false,
+                fix_is_drop_in: true,
+                fix_preserves_meaning: true,
+              },
+              check_notes: {
+                rule_supports_claim: 'clear',
+                evidence_exact: 'exact',
+                context_supports_violation: 'yes',
+                plausible_non_violation: 'none',
+                fix_is_drop_in: 'yes',
+                fix_preserves_meaning: 'yes',
+              },
+              confidence: 0.91,
+            },
+          ],
+        },
+      });
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      rules: [
+        makePrompt(),
+        makePromptVariant({
+          fullPath: 'packs/default/accuracy.md',
+          id: 'Accuracy',
+          name: 'Accuracy',
+          body: 'Support technical claims.',
+          severity: Severity.ERROR,
+        }),
+      ],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -183,7 +665,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -207,7 +689,7 @@ describe('agent executor', () => {
       const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
       await tools.lint.execute({
         file: 'doc.md',
-        ruleSource: 'packs/default/consistency.md',
+        rules: [{ ruleSource: 'packs/default/consistency.md' }],
       });
       await tools.report_finding.execute({
         kind: 'top-level',
@@ -221,7 +703,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -263,7 +745,7 @@ describe('agent executor', () => {
         return Promise.resolve({
           data: {
             reasoning: 'detected issue',
-            violations: [],
+            findings: [],
           },
           usage: {
             inputTokens: 7,
@@ -275,7 +757,7 @@ describe('agent executor', () => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 11, outputTokens: 5 } };
@@ -284,7 +766,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -313,7 +795,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [],
@@ -328,6 +810,39 @@ describe('agent executor', () => {
     ]);
   });
 
+  it('skips unmatched scanPaths targets without hard-failing the agent run', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const provider = makeProvider(async (params) => {
+      const systemPrompt = typeof params.systemPrompt === 'string' ? params.systemPrompt : '';
+      expect(systemPrompt).toContain('Review files and Matched Rule Units:');
+
+      const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+      await tools.finalize_review.execute({});
+      return { usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      rules: [makePrompt()],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: 'blog/**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.fileRuleMatches).toEqual([]);
+    expect(result.requestFailures).toBe(0);
+    expect(result.hadOperationalErrors).toBe(true);
+    expect(result.errorMessage).toContain('doc.md');
+    expect(result.errorMessage).toContain('No scanPaths configuration matched');
+  });
+
   it('records the required session event stream and preserves lifecycle ordering', async () => {
     const { runAgentExecutor } = await import('../../src/agent/executor');
 
@@ -339,7 +854,7 @@ describe('agent executor', () => {
 
       await tools.lint.execute({
         file: 'doc.md',
-        ruleSource: 'packs/default/consistency.md',
+        rules: [{ ruleSource: 'packs/default/consistency.md' }],
       });
       await tools.report_finding.execute({
         kind: 'top-level',
@@ -353,7 +868,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -393,7 +908,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -454,7 +969,7 @@ describe('agent executor', () => {
 
       const result = await runAgentExecutor({
         targets: [path.join(repo, 'doc.md')],
-        prompts: [makePrompt()],
+        rules: [makePrompt()],
         provider,
         workspaceRoot: repo,
         scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -484,7 +999,7 @@ describe('agent executor', () => {
       try {
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/does-not-exist.md',
+          rules: [{ ruleSource: 'packs/default/does-not-exist.md' }],
         });
       } catch (error) {
         toolError = error instanceof Error ? error.message : String(error);
@@ -492,7 +1007,7 @@ describe('agent executor', () => {
 
       await tools.lint.execute({
         file: 'doc.md',
-        ruleSource: 'packs/default/consistency.md',
+        rules: [{ ruleSource: 'packs/default/consistency.md' }],
       });
       await tools.finalize_review.execute({ summary: 'done' });
 
@@ -501,7 +1016,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -542,7 +1057,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -564,14 +1079,14 @@ describe('agent executor', () => {
       const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
       await tools.lint.execute({
         file: 'doc.md',
-        ruleSource: 'packs/default/consistency.md',
+        rules: [{ ruleSource: 'packs/default/consistency.md' }],
       });
       return { usage: { inputTokens: 1, outputTokens: 1 } };
     });
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -593,16 +1108,20 @@ describe('agent executor', () => {
 
     const promptBodies: string[] = [];
     const provider: LLMProvider = {
-      runPromptStructured(_content, promptText: string) {
-        promptBodies.push(promptText);
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      runPromptStructured(systemPrompt: string) {
+        promptBodies.push(systemPrompt);
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
-          reviewInstruction: 'Review this file for wording consistency using the evidence you gathered.',
+          rules: [
+            {
+              ruleSource: 'packs/default/consistency.md',
+              reviewInstruction: 'Review this file for wording consistency using the evidence you gathered.',
+            },
+          ],
         });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 1, outputTokens: 1 } };
@@ -611,7 +1130,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -622,9 +1141,12 @@ describe('agent executor', () => {
 
     expect(result.hadOperationalErrors).toBe(false);
     expect(promptBodies.length).toBeGreaterThan(0);
-    expect(promptBodies[0]).toBe(
+    expect(promptBodies[0]).toContain('Rule 1');
+    expect(promptBodies[0]).toContain('ruleSource: packs/default/consistency.md');
+    expect(promptBodies[0]).toContain(
       'Review this file for wording consistency using the evidence you gathered.'
     );
+    expect(promptBodies[0]).not.toContain('Find inconsistent wording.');
   });
 
   it('keeps lint prompt body unchanged when reviewInstruction is not provided', async () => {
@@ -635,15 +1157,15 @@ describe('agent executor', () => {
 
     const promptBodies: string[] = [];
     const provider: LLMProvider = {
-      runPromptStructured(_content, promptText: string) {
-        promptBodies.push(promptText);
-        return Promise.resolve({ data: { reasoning: 'ok', violations: [] } });
+      runPromptStructured(systemPrompt: string) {
+        promptBodies.push(systemPrompt);
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
       },
       runAgentToolLoop: async (params: Record<string, unknown>) => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 1, outputTokens: 1 } };
@@ -652,7 +1174,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -663,7 +1185,68 @@ describe('agent executor', () => {
 
     expect(result.hadOperationalErrors).toBe(false);
     expect(promptBodies.length).toBeGreaterThan(0);
-    expect(promptBodies[0]).toBe('Find inconsistent wording.');
+    expect(promptBodies[0]).toContain('Rule 1');
+    expect(promptBodies[0]).toContain('ruleSource: packs/default/consistency.md');
+    expect(promptBodies[0]).toContain('Find inconsistent wording.');
+  });
+
+  it('keeps reviewInstruction and context isolated per merged lint member', async () => {
+    const { runAgentExecutor } = await import('../../src/agent/executor');
+
+    const repo = createTempRepo();
+    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
+
+    const promptBodies: string[] = [];
+    const provider: LLMProvider = {
+      runPromptStructured(systemPrompt: string) {
+        promptBodies.push(systemPrompt);
+        return Promise.resolve({ data: { reasoning: 'ok', findings: [] } });
+      },
+      runAgentToolLoop: async (params: Record<string, unknown>) => {
+        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
+        await tools.lint.execute({
+          file: 'doc.md',
+          rules: [
+            {
+              ruleSource: 'packs/default/consistency.md',
+              reviewInstruction: 'Use the gathered evidence for consistency.',
+              context: 'Evidence from docs/glossary.md',
+            },
+            {
+              ruleSource: 'packs/default/links.md',
+            },
+          ],
+        });
+        await tools.finalize_review.execute({});
+        return { usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    } as unknown as LLMProvider;
+
+    const result = await runAgentExecutor({
+      targets: [path.join(repo, 'doc.md')],
+      rules: [
+        makePrompt(),
+        makePromptVariant({
+          fullPath: 'packs/default/links.md',
+          id: 'Links',
+          name: 'Links',
+          body: 'Check link targets.',
+        }),
+      ],
+      provider,
+      workspaceRoot: repo,
+      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      outputFormat: OutputFormat.Json,
+      printMode: true,
+      sessionHomeDir: repo,
+    });
+
+    expect(result.hadOperationalErrors).toBe(false);
+    expect(promptBodies[0]).toContain('Rule 1');
+    expect(promptBodies[0]).toContain('Use the gathered evidence for consistency.');
+    expect(promptBodies[0]).toContain('Required context for this review:\nEvidence from docs/glossary.md');
+    expect(promptBodies[0]).toContain('Rule 2');
+    expect(promptBodies[0]).toContain('Check link targets.');
   });
 
   it('records judge-style violations as inline findings in agent mode', async () => {
@@ -673,9 +1256,9 @@ describe('agent executor', () => {
     writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
 
     const basePrompt = makePrompt();
-    const judgePrompt: PromptFile = {
+    const judgePrompt: RuleFile = {
       ...basePrompt,
-      body: 'Judge the document for clarity.',
+      content: 'Judge the document for clarity.',
       meta: {
         ...basePrompt.meta,
         type: 'judge',
@@ -687,43 +1270,37 @@ describe('agent executor', () => {
       runPromptStructured() {
         return Promise.resolve({
           data: {
-            criteria: [
+            reasoning: 'The wording is unclear.',
+            findings: [
               {
-                name: 'Clarity',
-                score: 2,
-                summary: 'Needs work',
-                reasoning: 'The wording is unclear.',
-                violations: [
-                  {
-                    line: 1,
-                    quoted_text: 'bad phrase',
-                    context_before: '',
-                    context_after: '',
-                    description: 'Unclear wording',
-                    analysis: 'This phrase is vague.',
-                    message: 'Use clearer wording',
-                    suggestion: 'Replace the vague phrase',
-                    fix: 'better phrase',
-                    rule_quote: 'Prefer precise language',
-                    checks: {
-                      rule_supports_claim: true,
-                      evidence_exact: true,
-                      context_supports_violation: true,
-                      plausible_non_violation: false,
-                      fix_is_drop_in: true,
-                      fix_preserves_meaning: true,
-                    },
-                    check_notes: {
-                      rule_supports_claim: 'clear',
-                      evidence_exact: 'exact',
-                      context_supports_violation: 'yes',
-                      plausible_non_violation: 'none',
-                      fix_is_drop_in: 'yes',
-                      fix_preserves_meaning: 'yes',
-                    },
-                    confidence: 0.95,
-                  },
-                ],
+                ruleSource: 'packs/default/consistency.md',
+                line: 1,
+                quoted_text: 'bad phrase',
+                context_before: '',
+                context_after: '',
+                description: 'Unclear wording',
+                analysis: 'This phrase is vague.',
+                message: 'Use clearer wording',
+                suggestion: 'Replace the vague phrase',
+                fix: 'better phrase',
+                rule_quote: 'Prefer precise language',
+                checks: {
+                  rule_supports_claim: true,
+                  evidence_exact: true,
+                  context_supports_violation: true,
+                  plausible_non_violation: false,
+                  fix_is_drop_in: true,
+                  fix_preserves_meaning: true,
+                },
+                check_notes: {
+                  rule_supports_claim: 'clear',
+                  evidence_exact: 'exact',
+                  context_supports_violation: 'yes',
+                  plausible_non_violation: 'none',
+                  fix_is_drop_in: 'yes',
+                  fix_preserves_meaning: 'yes',
+                },
+                confidence: 0.95,
               },
             ],
           },
@@ -733,7 +1310,7 @@ describe('agent executor', () => {
         const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
         await tools.lint.execute({
           file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
+          rules: [{ ruleSource: 'packs/default/consistency.md' }],
         });
         await tools.finalize_review.execute({});
         return { usage: { inputTokens: 1, outputTokens: 1 } };
@@ -742,7 +1319,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [judgePrompt],
+      rules: [judgePrompt],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -778,7 +1355,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
@@ -815,7 +1392,7 @@ describe('agent executor', () => {
 
     const result = await runAgentExecutor({
       targets: [path.join(repo, 'doc.md')],
-      prompts: [makePrompt()],
+      rules: [makePrompt()],
       provider,
       workspaceRoot: repo,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],

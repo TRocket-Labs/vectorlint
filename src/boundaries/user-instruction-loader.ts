@@ -1,19 +1,12 @@
 import { existsSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { USER_INSTRUCTION_FILENAME, USER_INSTRUCTION_TOKEN_WARNING_THRESHOLD } from '../config/constants';
+import { resolveTokenizer, estimateTokens } from '../tokenizer';
 
 export interface UserInstructionResult {
     content: string | null;
     tokenEstimate: number;
     path: string | null;
-}
-
-/**
- * Estimates token count for a given text string.
- * Uses a rough approximation of 4 characters per token.
- */
-export function estimateTokens(text: string): number {
-    return Math.ceil((text?.length ?? 0) / 4);
 }
 
 /**
@@ -33,7 +26,7 @@ export function loadUserInstructions(cwd: string): UserInstructionResult {
 
     try {
         const content = readFileSync(userInstructionPath, 'utf-8');
-        const tokenEstimate = estimateTokens(content);
+        const tokenEstimate = estimateTokens(content, resolveTokenizer());
 
         if (tokenEstimate > USER_INSTRUCTION_TOKEN_WARNING_THRESHOLD) {
             console.warn(

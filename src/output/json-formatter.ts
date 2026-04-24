@@ -1,4 +1,4 @@
-import { Severity } from '../evaluators/types';
+import { Severity } from '../schemas/rule-schemas';
 import { CLI_VERSION } from '../config/constants';
 export interface ScoreComponent {
   criterion?: string;

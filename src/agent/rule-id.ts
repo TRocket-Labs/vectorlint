@@ -1,9 +1,9 @@
-import type { PromptFile } from '../prompts/prompt-loader';
+import type { RuleFile } from '../rules/rule-loader';
 
-export function buildRuleId(prompt: PromptFile): string {
-  const pack = prompt.pack || 'Default';
-  const rule = String(prompt.meta.id || prompt.filename || 'Rule');
-  return `${pack}.${rule}`;
+export function buildRuleId(rule: RuleFile): string {
+  const pack = rule.pack || 'Default';
+  const ruleId = String(rule.meta.id || rule.filename || 'Rule');
+  return `${pack}.${ruleId}`;
 }
 
 export function normalizeRuleSource(ruleSource: string): string {

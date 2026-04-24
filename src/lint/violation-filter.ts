@@ -8,7 +8,7 @@ export type FilterDecision = {
 const DEFAULT_CONFIDENCE_THRESHOLD = 0.75;
 const CONFIDENCE_THRESHOLD_ENV = "CONFIDENCE_THRESHOLD";
 
-type GateViolationLike = {
+type FilterableViolation = {
   rule_quote?: string;
   fix?: string;
   confidence?: number;
@@ -27,7 +27,7 @@ function resolveConfidenceThreshold(): number {
     : DEFAULT_CONFIDENCE_THRESHOLD;
 }
 
-export function computeFilterDecision(v: GateViolationLike): FilterDecision {
+export function computeFilterDecision(v: FilterableViolation): FilterDecision {
   const reasons: string[] = [];
   const confidenceThreshold = resolveConfidenceThreshold();
   const checks = v.checks;
