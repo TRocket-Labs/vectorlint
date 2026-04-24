@@ -1,0 +1,74 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "VectorLint",
+  "colors": {
+    "primary": "#3B82F6",
+    "light": "#60A5FA",
+    "dark": "#2563EB"
+  },
+  "description": "An LLM-based prose linter that lets you enforce your style guide in one prompt.",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Overview",
+        "pages": [
+          "introduction",
+          "use-cases",
+          "how-it-works"
+        ]
+      },
+      {
+        "group": "Get started",
+        "pages": [
+          "quickstart",
+          "installation",
+          "initial-style-check"
+        ]
+      },
+      {
+        "group": "Configuration",
+        "pages": [
+          "configuration",
+          "project-config",
+          "style-guide",
+          "customize-style-rules",
+          "llm-providers",
+          "presets"
+        ]
+      },
+      {
+        "group": "Quality scoring",
+        "pages": [
+          "quality-scoring",
+          "density-scoring",
+          "rubric-scoring"
+        ]
+      },
+      {
+        "group": "For teams & organizations",
+        "pages": [
+          "ci-integration",
+          "team-rule-packs",
+          "false-positive-tuning"
+        ]
+      },
+      {
+        "group": "Best practices",
+        "pages": [
+          "best-practices"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "cli-reference",
+          "configuration-schema",
+          "env-variables",
+          "frontmatter-fields",
+          "troubleshooting"
+        ]
+      }
+    ]
+  }
+}
