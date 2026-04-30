@@ -23,6 +23,9 @@ export const BEDROCK_DEFAULT_CONFIG = {
   model: 'global.anthropic.claude-sonnet-4-5-20250929-v1:0',
 };
 
+export const OBSERVABILITY_BACKENDS = ['langfuse'] as const;
+export type ObservabilityBackend = (typeof OBSERVABILITY_BACKENDS)[number];
+
 // Azure OpenAI configuration schema
 const AZURE_OPENAI_CONFIG_SCHEMA = z.object({
   AZURE_OPENAI_API_KEY: z.string().min(1),
@@ -63,11 +66,18 @@ const BEDROCK_CONFIG_SCHEMA = z.object({
   BEDROCK_TEMPERATURE: z.coerce.number().min(0).max(1).optional(),
 });
 
+const OBSERVABILITY_ENV_SCHEMA = z.object({
+  OBSERVABILITY_BACKEND: z.enum(OBSERVABILITY_BACKENDS).optional(),
+  LANGFUSE_PUBLIC_KEY: z.string().min(1).optional(),
+  LANGFUSE_SECRET_KEY: z.string().min(1).optional(),
+  LANGFUSE_BASE_URL: z.string().url().optional(),
+});
+
 // Base environment schema with shared optional variables
 const BASE_ENV_SCHEMA = z.object({
   INPUT_PRICE_PER_MILLION: z.coerce.number().positive().optional(),
   OUTPUT_PRICE_PER_MILLION: z.coerce.number().positive().optional(),
-});
+}).merge(OBSERVABILITY_ENV_SCHEMA);
 
 // Discriminated union based on provider type
 export const ENV_SCHEMA = z.discriminatedUnion('LLM_PROVIDER', [
@@ -84,6 +94,24 @@ export const ENV_SCHEMA = z.discriminatedUnion('LLM_PROVIDER', [
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must both be provided or both be omitted',
+      });
+    }
+  }
+
+  if (data.OBSERVABILITY_BACKEND === OBSERVABILITY_BACKENDS[0]) {
+    if (!data.LANGFUSE_PUBLIC_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['LANGFUSE_PUBLIC_KEY'],
+        message: 'LANGFUSE_PUBLIC_KEY is required when OBSERVABILITY_BACKEND=langfuse',
+      });
+    }
+
+    if (!data.LANGFUSE_SECRET_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['LANGFUSE_SECRET_KEY'],
+        message: 'LANGFUSE_SECRET_KEY is required when OBSERVABILITY_BACKEND=langfuse',
       });
     }
   }

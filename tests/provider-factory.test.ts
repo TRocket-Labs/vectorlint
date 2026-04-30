@@ -3,6 +3,7 @@ import { createProvider, ProviderType } from '../src/providers/provider-factory'
 import { VercelAIProvider } from '../src/providers/vercel-ai-provider';
 import { DefaultRequestBuilder } from '../src/providers/request-builder';
 import type { EnvConfig } from '../src/schemas/env-schemas';
+import type { AIObservability } from '../src/observability/ai-observability';
 
 // Mock the Vercel AI SDK provider creators
 vi.mock('@ai-sdk/openai', () => ({
@@ -329,6 +330,42 @@ describe('Provider Factory', () => {
       const customBuilder = new DefaultRequestBuilder('Custom directive');
       const provider = createProvider(envConfig, {}, customBuilder);
       expect(provider).toBeInstanceOf(VercelAIProvider);
+    });
+  });
+
+  describe('Observability Wiring', () => {
+    it('passes observability through to VercelAIProvider', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+      const observability: AIObservability = {
+        init: vi.fn(),
+        decorateCall: vi.fn(() => ({})),
+        shutdown: vi.fn(),
+      };
+
+      const provider = createProvider(envConfig, { observability }) as unknown as {
+        config?: { observability?: AIObservability };
+      };
+
+      expect(provider.config?.observability).toBe(observability);
+    });
+
+    it('passes explicit provider and model names to VercelAIProvider config', () => {
+      const envConfig: EnvConfig = {
+        LLM_PROVIDER: ProviderType.OpenAI,
+        OPENAI_API_KEY: 'sk-test-key',
+        OPENAI_MODEL: 'gpt-4o',
+      };
+
+      const provider = createProvider(envConfig) as unknown as {
+        config?: { providerName?: string; modelName?: string };
+      };
+
+      expect(provider.config?.providerName).toBe(ProviderType.OpenAI);
+      expect(provider.config?.modelName).toBe('gpt-4o');
     });
   });
 

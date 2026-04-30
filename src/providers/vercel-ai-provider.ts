@@ -5,21 +5,27 @@ import pLimit from 'p-limit';
 import { AgentToolLoopParams, AgentToolLoopResult, LLMProvider, LLMResult } from './llm-provider';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import { createNoopLogger, type Logger } from '../logging/logger';
+import type { AIExecutionContext, AIObservability } from '../observability/ai-observability';
+import { handleUnknownError } from '../errors';
 
 export interface VercelAIConfig {
   model: LanguageModel;
+  providerName?: string;
+  modelName?: string;
   temperature?: number;
   maxTokens?: number;
   debug?: boolean;
   showPrompt?: boolean;
   showPromptTrunc?: boolean;
   logger?: Logger;
+  observability?: AIObservability;
 }
 
 export class VercelAIProvider implements LLMProvider {
   private config: VercelAIConfig;
   private builder: RequestBuilder;
   private logger: Logger;
+  private observability?: AIObservability;
 
   constructor(config: VercelAIConfig, builder?: RequestBuilder) {
     this.config = {
@@ -29,6 +35,7 @@ export class VercelAIProvider implements LLMProvider {
     };
     this.builder = builder ?? new DefaultRequestBuilder();
     this.logger = config.logger ?? createNoopLogger();
+    this.observability = config.observability;
   };
 
   async runPromptStructured<T = unknown>(
@@ -66,12 +73,21 @@ export class VercelAIProvider implements LLMProvider {
     }
 
     try {
+      const observabilityOptions = this.getObservabilityOptions({
+        operation: 'structured-eval',
+        provider: this.config.providerName ?? 'unknown',
+        model: this.config.modelName ?? 'unknown',
+        evaluator: this.extractContextValue(context, 'evaluatorName', 'evaluator'),
+        rule: this.extractContextValue(context, 'ruleName', 'rule'),
+      });
+
       const result = await generateText({
         model: this.config.model,
         system: systemPrompt,
         prompt: `Input:\n\n${content}`,
         ...(this.config.temperature !== undefined && { temperature: this.config.temperature }),
         ...(this.config.maxTokens !== undefined && { maxTokens: this.config.maxTokens }),
+        ...observabilityOptions,
         output: Output.object({
           schema: zodSchema,
         }),
@@ -137,6 +153,11 @@ export class VercelAIProvider implements LLMProvider {
       system: params.systemPrompt,
       prompt: params.prompt,
       ...(params.maxRetries !== undefined ? { maxRetries: params.maxRetries } : {}),
+      ...this.getObservabilityOptions({
+        operation: 'agent-tool-loop',
+        provider: this.config.providerName ?? 'unknown',
+        model: this.config.modelName ?? 'unknown',
+      }),
       stopWhen: stepCountIs(params.maxSteps ?? 1000),
       providerOptions: {
         openai: {
@@ -174,6 +195,41 @@ export class VercelAIProvider implements LLMProvider {
         }
         : undefined,
     };
+  }
+
+  private getObservabilityOptions(context: AIExecutionContext): Record<string, unknown> {
+    if (!this.observability) {
+      return {};
+    }
+
+    try {
+      return this.observability.decorateCall(context);
+    } catch (error) {
+      const err = handleUnknownError(error, 'Decorating AI call for observability');
+      this.logger.warn('[vectorlint] Failed to decorate AI call for observability; continuing without telemetry options', {
+        error: err.message,
+        operation: context.operation,
+      });
+      return {};
+    }
+  }
+
+  private extractContextValue(
+    context: import('./request-builder').EvalContext | undefined,
+    ...keys: string[]
+  ): string | undefined {
+    if (!context) {
+      return undefined;
+    }
+
+    const contextRecord = context as unknown as Record<string, unknown>;
+    for (const key of keys) {
+      const value = contextRecord[key];
+      if (typeof value === 'string' && value.length > 0) {
+        return value;
+      }
+    }
+    return undefined;
   }
 
   /**

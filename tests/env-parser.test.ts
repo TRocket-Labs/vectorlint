@@ -208,7 +208,7 @@ describe('Environment Parser', () => {
       };
 
       expect(() => parseEnvironment(env)).toThrow(ValidationError);
-      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER is required and must be either 'azure-openai', 'anthropic', or 'openai'/);
+      expect(() => parseEnvironment(env)).toThrow(/LLM_PROVIDER is required and must be one of 'azure-openai', 'anthropic', 'openai', 'gemini', 'amazon-bedrock'/);
     });
 
     it('provides specific error message for missing Azure OpenAI variables', () => {
@@ -301,6 +301,37 @@ describe('Environment Parser', () => {
 
       expect(() => parseEnvironment(env)).toThrow(ValidationError);
       expect(() => parseEnvironment(env)).toThrow(/Invalid environment variable values/);
+    });
+  });
+
+  describe('Observability Configuration', () => {
+    it('parses Langfuse observability configuration', () => {
+      const env = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+        OBSERVABILITY_BACKEND: 'langfuse',
+        LANGFUSE_PUBLIC_KEY: 'pk-lf-test',
+        LANGFUSE_SECRET_KEY: 'sk-lf-test',
+        LANGFUSE_BASE_URL: 'https://cloud.langfuse.com',
+      };
+
+      const result = parseEnvironment(env);
+
+      expect(result.OBSERVABILITY_BACKEND).toBe('langfuse');
+      expect(result.LANGFUSE_PUBLIC_KEY).toBe('pk-lf-test');
+      expect(result.LANGFUSE_SECRET_KEY).toBe('sk-lf-test');
+      expect(result.LANGFUSE_BASE_URL).toBe('https://cloud.langfuse.com');
+    });
+
+    it('requires Langfuse credentials when OBSERVABILITY_BACKEND is langfuse', () => {
+      const env = {
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+        OBSERVABILITY_BACKEND: 'langfuse',
+      };
+
+      expect(() => parseEnvironment(env)).toThrow(ValidationError);
+      expect(() => parseEnvironment(env)).toThrow(/Missing required Langfuse observability environment variables.*LANGFUSE_PUBLIC_KEY.*LANGFUSE_SECRET_KEY/);
     });
   });
 });

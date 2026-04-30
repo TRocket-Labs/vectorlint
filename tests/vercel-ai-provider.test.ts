@@ -44,7 +44,10 @@ import { createMockLogger } from './utils';
 
 // Mock model stub — only stored in config and passed through to the mocked
 // generateText function, so it doesn't need to implement the full interface.
-const MOCK_MODEL = {} as unknown as LanguageModel;
+const MOCK_MODEL = {
+  provider: 'openai',
+  modelId: 'gpt-4o',
+} as unknown as LanguageModel;
 
 describe('VercelAIProvider', () => {
   beforeEach(() => {
@@ -216,6 +219,84 @@ describe('VercelAIProvider', () => {
         expect.objectContaining({
           temperature: 0.7,
         })
+      );
+    });
+
+    it('adds observability options to structured generateText calls', async () => {
+      const observability = {
+        init: vi.fn(),
+        decorateCall: vi.fn(() => ({
+          experimental_telemetry: { isEnabled: true, functionId: 'vectorlint.structured-eval' },
+        })),
+        shutdown: vi.fn(),
+      };
+
+      MOCK_GENERATE_TEXT.mockResolvedValue({ output: { result: 'success' } });
+
+      const provider = new VercelAIProvider({
+        model: MOCK_MODEL,
+        providerName: 'openai',
+        modelName: 'gpt-4o',
+        observability,
+      });
+
+      await provider.runPromptStructured(
+        'Test content',
+        'Test prompt',
+        {
+          name: 'test_schema',
+          schema: { properties: { result: { type: 'string' } }, type: 'object' },
+        }
+      );
+
+      expect(observability.decorateCall).toHaveBeenCalledWith({
+        operation: 'structured-eval',
+        provider: 'openai',
+        model: 'gpt-4o',
+        evaluator: undefined,
+        rule: undefined,
+      });
+      expect(MOCK_GENERATE_TEXT).toHaveBeenCalledWith(
+        expect.objectContaining({
+          experimental_telemetry: { isEnabled: true, functionId: 'vectorlint.structured-eval' },
+        })
+      );
+    });
+
+    it('continues structured AI calls when observability decoration fails', async () => {
+      const logger = createMockLogger();
+      const observability = {
+        init: vi.fn(),
+        decorateCall: vi.fn(() => {
+          throw new Error('telemetry failed');
+        }),
+        shutdown: vi.fn(),
+      };
+
+      MOCK_GENERATE_TEXT.mockResolvedValue({ output: { result: 'success' } });
+
+      const provider = new VercelAIProvider({
+        model: MOCK_MODEL,
+        providerName: 'openai',
+        modelName: 'gpt-4o',
+        logger,
+        observability,
+      });
+
+      await provider.runPromptStructured(
+        'Test content',
+        'Test prompt',
+        {
+          name: 'test_schema',
+          schema: { properties: { result: { type: 'string' } }, type: 'object' },
+        }
+      );
+
+      const call = MOCK_GENERATE_TEXT.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(call).not.toHaveProperty('experimental_telemetry');
+      expect(logger.warn).toHaveBeenCalledWith(
+        '[vectorlint] Failed to decorate AI call for observability; continuing without telemetry options',
+        expect.objectContaining({ error: 'telemetry failed', operation: 'structured-eval' })
       );
     });
   });

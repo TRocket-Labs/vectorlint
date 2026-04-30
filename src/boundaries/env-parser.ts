@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { ENV_SCHEMA, type EnvConfig } from '../schemas/env-schemas';
+import { ENV_SCHEMA, OBSERVABILITY_BACKENDS, type EnvConfig } from '../schemas/env-schemas';
 import { ValidationError, handleUnknownError } from '../errors/index';
+import { ProviderType } from '../providers/provider-factory';
 
 export function parseEnvironment(env: unknown = process.env): EnvConfig {
   try {
@@ -28,7 +29,8 @@ function formatProviderValidationError(zodError: z.ZodError, env: unknown): stri
   );
 
   if (discriminatorIssue) {
-    return `LLM_PROVIDER is required and must be either 'azure-openai', 'anthropic', or 'openai'. Received: ${providerType ?? 'undefined'}`;
+    const allowedProviders = Object.values(ProviderType).map(value => `'${value}'`).join(', ');
+    return `LLM_PROVIDER is required and must be one of ${allowedProviders}. Received: ${providerType ?? 'undefined'}`;
   }
 
   // Check for missing required fields based on provider type
@@ -56,6 +58,21 @@ function formatProviderValidationError(zodError: z.ZodError, env: unknown): stri
       if (openaiFields.length > 0) {
         return `Missing required OpenAI environment variables: ${openaiFields.join(', ')}. When using LLM_PROVIDER=openai, ensure OPENAI_API_KEY is set.`;
       }
+    }
+  }
+
+  if (envObj.OBSERVABILITY_BACKEND === OBSERVABILITY_BACKENDS[0]) {
+    const langfuseFields = issues
+      .filter((issue) =>
+        issue.code === 'custom' &&
+        issue.path.length > 0 &&
+        ['LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY'].includes(String(issue.path[0]))
+      )
+      .map((issue) => issue.path.join('.'));
+    const missingLangfuseFields = [...new Set(langfuseFields)];
+
+    if (missingLangfuseFields.length > 0) {
+      return `Missing required Langfuse observability environment variables: ${missingLangfuseFields.join(', ')}. When using OBSERVABILITY_BACKEND=langfuse, ensure LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are set.`;
     }
   }
 

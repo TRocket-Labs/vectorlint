@@ -14,6 +14,8 @@ Install globally from npm:
 npm install -g vectorlint
 ```
 
+VectorLint currently requires Node.js `20.6+`.
+
 Verify installation:
 
 ```bash
@@ -122,6 +124,26 @@ vectorlint doc.md
 VectorLint is bundled with a `VectorLint` preset containing rules for AI pattern detection, directness, and more. The `init` command configures this automatically.
 
 👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
+
+### 4. Optional: Enable Langfuse observability
+
+VectorLint can emit AI execution telemetry through Langfuse without hardcoding Langfuse into the provider layer. This is best-effort instrumentation for the Vercel AI SDK calls used by `VercelAIProvider`.
+
+Add these environment variables to your global config or local `.env` file:
+
+```toml
+[env]
+OBSERVABILITY_BACKEND = "langfuse"
+LANGFUSE_PUBLIC_KEY = "pk-lf-..."
+LANGFUSE_SECRET_KEY = "sk-lf-..."
+# Optional for self-hosted Langfuse. Defaults to cloud.langfuse.com.
+LANGFUSE_BASE_URL = "https://cloud.langfuse.com"
+```
+
+Notes:
+- Observability is non-blocking. If Langfuse setup fails, VectorLint continues without telemetry.
+- Prompts and outputs are recorded when Langfuse observability is enabled.
+- Do not send secrets, credentials, or PII unless your policy explicitly allows observability tooling to access that data.
 
 ## Agent Mode
 

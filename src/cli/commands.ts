@@ -21,6 +21,11 @@ import { evaluateFiles } from './orchestrator';
 import { DEFAULT_REVIEW_MODE, OUTPUT_FORMATS, OutputFormat } from './types';
 import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { createWinstonLogger } from '../logging/winston-logger';
+import { createNoopLogger } from '../logging/logger';
+import type { AIObservability } from '../observability/ai-observability';
+import { createObservability } from '../observability/factory';
+import { NoopObservability } from '../observability/noop-observability';
+import type { Logger } from '../logging/logger';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const __filename = fileURLToPath(import.meta.url);
@@ -97,7 +102,7 @@ export function registerMainCommand(program: Command): void {
         extraLines: ['Please set these in your .env file or environment.'],
       });
 
-      // Load directive and create provider
+      // Load directive and prompt inputs before provider setup
       const directive = await runOrExit('Loading directive', () => loadDirective());
 
       // Load user instructions (VECTORLINT.md)
@@ -106,25 +111,11 @@ export function registerMainCommand(program: Command): void {
         console.log(`[vectorlint] Loaded user instructions from ${USER_INSTRUCTION_FILENAME} (${userInstructions.tokenEstimate} estimated tokens)`);
       }
 
-      const runtimeLogger = createWinstonLogger({
-        level: cliOptions.verbose ? 'debug' : 'info',
-      });
-
-      const provider = createProvider(
-        env,
-        {
-          debug: cliOptions.verbose,
-          showPrompt: cliOptions.showPrompt,
-          showPromptTrunc: cliOptions.showPromptTrunc,
-          logger: runtimeLogger,
-        },
-        new DefaultRequestBuilder(directive, userInstructions.content || undefined)
-      );
-
-      if (cliOptions.verbose) {
-        const directiveLen = directive ? directive.length : 0;
-        console.log(`[vectorlint] Directive active: ${directiveLen} char(s)`);
-      }
+      const runtimeLogger = shouldUseRuntimeLogger(cliOptions.verbose, env)
+        ? createWinstonLogger({
+          level: cliOptions.verbose ? 'debug' : 'info',
+        })
+        : createNoopLogger();
 
       // Load config and prompts
       const config = await runOrExit('Loading configuration', () => loadConfig(process.cwd(), cliOptions.config));
@@ -190,47 +181,97 @@ export function registerMainCommand(program: Command): void {
         process.exit(1);
       }
 
-
-
-      // Create search provider if API key is available
-      const searchProvider: SearchProvider | undefined = process.env.PERPLEXITY_API_KEY
-        ? new PerplexitySearchProvider({ logger: runtimeLogger })
-        : undefined;
-
-      // Run evaluations via orchestrator
-      const result = await evaluateFiles(targets, {
-        prompts,
-        rulesPath,
-        provider,
-        ...(searchProvider ? { searchProvider } : {}),
-        concurrency: config.concurrency,
-        verbose: cliOptions.verbose,
-        debugJson: cliOptions.debugJson,
-        outputFormat: cliOptions.output,
-        mode: cliOptions.mode,
-        printMode: cliOptions.print,
-        scanPaths: config.scanPaths,
-        pricing: {
-          inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,
-          outputPricePerMillion: env.OUTPUT_PRICE_PER_MILLION,
-        },
-        ...(userInstructions.content ? { userInstructionContent: userInstructions.content } : {}),
-      });
-
-      // Print global summary (only for line format)
-      if (cliOptions.output === OutputFormat.Line) {
-        if (result.tokenUsage) {
-          printTokenUsage(result.tokenUsage);
-        }
-        printGlobalSummary(
-          result.totalFiles,
-          result.totalErrors,
-          result.totalWarnings,
-          result.requestFailures
-        );
+      if (cliOptions.verbose) {
+        const directiveLen = directive ? directive.length : 0;
+        console.log(`[vectorlint] Directive active: ${directiveLen} char(s)`);
       }
 
-      // Exit with appropriate code
-      process.exit(result.hadOperationalErrors || result.hadSeverityErrors ? 1 : 0);
+      let observability: AIObservability = new NoopObservability();
+      let exitCode = 1;
+
+      try {
+        observability = await initializeObservability(env, runtimeLogger);
+
+        const provider = createProvider(
+          env,
+          {
+            debug: cliOptions.verbose,
+            showPrompt: cliOptions.showPrompt,
+            showPromptTrunc: cliOptions.showPromptTrunc,
+            logger: runtimeLogger,
+            observability,
+          },
+          new DefaultRequestBuilder(directive, userInstructions.content || undefined)
+        );
+
+        // Create search provider if API key is available
+        const searchProvider: SearchProvider | undefined = process.env.PERPLEXITY_API_KEY
+          ? new PerplexitySearchProvider({ logger: runtimeLogger })
+          : undefined;
+
+        // Run evaluations via orchestrator
+        const result = await evaluateFiles(targets, {
+          prompts,
+          rulesPath,
+          provider,
+          ...(searchProvider ? { searchProvider } : {}),
+          concurrency: config.concurrency,
+          verbose: cliOptions.verbose,
+          debugJson: cliOptions.debugJson,
+          outputFormat: cliOptions.output,
+          mode: cliOptions.mode,
+          printMode: cliOptions.print,
+          scanPaths: config.scanPaths,
+          pricing: {
+            inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,
+            outputPricePerMillion: env.OUTPUT_PRICE_PER_MILLION,
+          },
+          ...(userInstructions.content ? { userInstructionContent: userInstructions.content } : {}),
+        });
+
+        // Print global summary (only for line format)
+        if (cliOptions.output === OutputFormat.Line) {
+          if (result.tokenUsage) {
+            printTokenUsage(result.tokenUsage);
+          }
+          printGlobalSummary(
+            result.totalFiles,
+            result.totalErrors,
+            result.totalWarnings,
+            result.requestFailures
+          );
+        }
+
+        exitCode = result.hadOperationalErrors || result.hadSeverityErrors ? 1 : 0;
+      } finally {
+        try {
+          await observability.shutdown?.();
+        } catch (error) {
+          const err = handleUnknownError(error, 'Shutting down observability');
+          runtimeLogger.warn('[vectorlint] Observability shutdown failed', {
+            error: err.message,
+          });
+        }
+      }
+
+      process.exit(exitCode);
     });
+}
+
+async function initializeObservability(env: ReturnType<typeof parseEnvironment>, logger: Logger): Promise<AIObservability> {
+  try {
+    const observability = createObservability(env, logger);
+    await observability.init();
+    return observability;
+  } catch (error) {
+    const err = handleUnknownError(error, 'Initializing observability');
+    logger.warn('[vectorlint] Observability initialization failed; continuing without telemetry', {
+      error: err.message,
+    });
+    return new NoopObservability();
+  }
+}
+
+function shouldUseRuntimeLogger(verbose: boolean, env: ReturnType<typeof parseEnvironment>): boolean {
+  return verbose || env.OBSERVABILITY_BACKEND === 'langfuse';
 }

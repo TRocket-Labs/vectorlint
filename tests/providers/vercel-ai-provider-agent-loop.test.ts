@@ -97,6 +97,95 @@ describe('VercelAIProvider agent loop', () => {
     });
   });
 
+  it('adds observability options to agent-loop generateText calls', async () => {
+    const observability = {
+      init: vi.fn(),
+      decorateCall: vi.fn(() => ({
+        experimental_telemetry: { isEnabled: true, functionId: 'vectorlint.agent-tool-loop' },
+      })),
+      shutdown: vi.fn(),
+    };
+
+    MOCK_GENERATE_TEXT.mockResolvedValue({
+      text: 'done',
+      usage: { inputTokens: 10, outputTokens: 5 },
+      steps: [],
+      finishReason: 'stop',
+    });
+
+    const provider = new VercelAIProvider({
+      model: { provider: 'openai', modelId: 'gpt-4o-mini' } as unknown as LanguageModel,
+      providerName: 'openai',
+      modelName: 'gpt-4o-mini',
+      observability,
+    });
+
+    await provider.runAgentToolLoop({
+      systemPrompt: 'system',
+      prompt: 'prompt',
+      tools: {
+        finalize_review: {
+          description: 'Finalize review session',
+          inputSchema: z.object({ summary: z.string().optional() }),
+          execute: () => Promise.resolve({ ok: true }),
+        },
+      },
+    });
+
+    expect(observability.decorateCall).toHaveBeenCalledWith({
+      operation: 'agent-tool-loop',
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+    });
+    const call = MOCK_GENERATE_TEXT.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(call).toHaveProperty('experimental_telemetry');
+  });
+
+  it('continues agent-loop AI calls when observability decoration fails', async () => {
+    const logger = createMockLogger();
+    const observability = {
+      init: vi.fn(),
+      decorateCall: vi.fn(() => {
+        throw new Error('telemetry failed');
+      }),
+      shutdown: vi.fn(),
+    };
+
+    MOCK_GENERATE_TEXT.mockResolvedValue({
+      text: 'done',
+      usage: { inputTokens: 10, outputTokens: 5 },
+      steps: [],
+      finishReason: 'stop',
+    });
+
+    const provider = new VercelAIProvider({
+      model: { provider: 'openai', modelId: 'gpt-4o-mini' } as unknown as LanguageModel,
+      providerName: 'openai',
+      modelName: 'gpt-4o-mini',
+      logger,
+      observability,
+    });
+
+    await provider.runAgentToolLoop({
+      systemPrompt: 'system',
+      prompt: 'prompt',
+      tools: {
+        finalize_review: {
+          description: 'Finalize review session',
+          inputSchema: z.object({ summary: z.string().optional() }),
+          execute: () => Promise.resolve({ ok: true }),
+        },
+      },
+    });
+
+    const call = MOCK_GENERATE_TEXT.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(call).not.toHaveProperty('experimental_telemetry');
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[vectorlint] Failed to decorate AI call for observability; continuing without telemetry options',
+      expect.objectContaining({ error: 'telemetry failed', operation: 'agent-tool-loop' })
+    );
+  });
+
   it('limits concurrent tool executes to maxParallelToolCalls', async () => {
     let maxConcurrent = 0;
     let currentConcurrent = 0;
