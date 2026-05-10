@@ -3,10 +3,15 @@
   "theme": "mint",
   "name": "VectorLint",
   "colors": {
-    "primary": "#3B82F6",
-    "light": "#60A5FA",
-    "dark": "#2563EB"
+    "primary": "#18e6ce",
+    "light": "#5beede",
+    "dark": "#12c4ad"
   },
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.svg",
   "description": "An LLM-based prose linter that lets you enforce your style guide in one prompt.",
   "navigation": {
     "groups": [
