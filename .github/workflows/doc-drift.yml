@@ -107,11 +107,11 @@ jobs:
         env:
           AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.PI_BEDROCK_API_KEY }}
           AWS_REGION: ${{ secrets.PI_BEDROCK_REGION }}
-          MODEL: ${{ secrets.MODEL }}
+          PI_MODEL: ${{ secrets.PI_MODEL }}
         run: |
           pi --approve --no-session -p \
             --provider amazon-bedrock \
-            --model "$MODEL" \
+            --model "$PI_MODEL" \
             --skill .agents/skills/doc-drift \
             "/skill:doc-drift $(cat /tmp/pi-message.txt)"
 
