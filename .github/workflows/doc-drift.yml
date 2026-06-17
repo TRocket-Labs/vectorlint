@@ -1,0 +1,155 @@
+name: Doc Drift Check
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  check-docs:
+    name: Check documentation drift
+    runs-on: ubuntu-latest
+    # Only run on PR comments that start with /check-docs
+    if: |
+      github.event.issue.pull_request != null &&
+      startsWith(github.event.comment.body, '/check-docs')
+
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Check authorization
+        id: auth
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const association = context.payload.comment.author_association;
+            if (association !== 'OWNER') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `@${context.payload.comment.user.login} Only the repo owner can trigger doc drift checks.`
+              });
+              core.setOutput('authorized', 'false');
+            } else {
+              core.setOutput('authorized', 'true');
+            }
+
+      - name: React to comment
+        if: steps.auth.outputs.authorized == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'eyes'
+            });
+
+      - name: Get PR head SHA
+        id: pr
+        if: steps.auth.outputs.authorized == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('head_sha', pr.data.head.sha);
+
+      - name: Checkout PR branch
+        if: steps.auth.outputs.authorized == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        if: steps.auth.outputs.authorized == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Pi
+        if: steps.auth.outputs.authorized == 'true'
+        # TODO: confirm exact Pi package name and install command with owner
+        run: npm install -g @earendil-works/pi-coding-agent
+
+      - name: Fetch PR diff
+        if: steps.auth.outputs.authorized == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr diff ${{ github.event.issue.number }} > /tmp/pr.diff
+          echo "Diff size: $(wc -l < /tmp/pr.diff) lines"
+
+      - name: Build agent message
+        if: steps.auth.outputs.authorized == 'true'
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          python3 -c "
+          import os
+          diff = open('/tmp/pr.diff').read()
+          ws = os.environ['GITHUB_WORKSPACE']
+          lines = [
+            'You are running a doc drift check on a pull request in the VectorLint repository.',
+            '',
+            'The PR diff is:',
+            '',
+            '<diff>',
+            diff,
+            '</diff>',
+            '',
+            'Work through the doc-drift skill. When you have finished, write one report file',
+            'per behavioral change you identified, named sequentially:',
+            f'  {ws}/.doc-drift-1.md',
+            f'  {ws}/.doc-drift-2.md',
+            '  ... and so on.',
+            '',
+            f'If there are no issues to report, write a single file {ws}/.doc-drift-1.md',
+            'containing the no-issues-found report.',
+            '',
+            'Do not post anything to GitHub directly. The workflow will handle posting.',
+          ]
+          open('/tmp/pi-message.txt', 'w').write('\n'.join(lines))
+          "
+
+      - name: Run doc drift check
+        if: steps.auth.outputs.authorized == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # TODO: confirm exact Pi headless invocation flags with owner
+          pi --headless \
+            --skill .pi/agents/skills/doc-drift \
+            --message "$(cat /tmp/pi-message.txt)"
+
+      - name: Post report comments
+        if: steps.auth.outputs.authorized == 'true' && success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPORT_FILES=$(ls $GITHUB_WORKSPACE/.doc-drift-*.md 2>/dev/null | sort -V)
+          if [ -z "$REPORT_FILES" ]; then
+            gh pr comment ${{ github.event.issue.number }} \
+              --body "Doc drift check completed but produced no output. Check the [Actions log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
+          else
+            for file in $REPORT_FILES; do
+              gh pr comment ${{ github.event.issue.number }} --body-file "$file"
+            done
+          fi
+
+      - name: Post failure comment
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.issue.number }} \
+            --body "Doc drift check failed. Check the [Actions log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
