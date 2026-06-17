@@ -11,7 +11,7 @@ You are checking a pull request in the VectorLint repository for documentation d
 
 Work only within these boundaries:
 - Source changes: analyse only `src/` file changes from the diff. Ignore changes to `tests/`, `.github/`, `package.json`, `tsconfig.json`, `.vectorlint.ini`, and all non-source paths.
-- Documentation: search only `docs/*.mdx` files. Do not check `README.md`, `CLAUDE.md`, or root-level markdown.
+- Documentation: search `docs/*.mdx`, `README.md`, `CLAUDE.md`, and `AGENTS.md`.
 
 ## Phase 1 — Extract behavioral changes
 
@@ -32,7 +32,7 @@ For each behavioral change, generate search terms at multiple granularities:
 - **Concept variants**: synonyms or related terms a doc author might have used
 - **Feature area**: the module or subsystem name (e.g. `provider`, `scoring`, `chunking`)
 
-Search across `docs/` for each term set using whatever search tools are available. Find candidate files first, then read the relevant sections.
+Search across `docs/*.mdx`, `README.md`, `CLAUDE.md`, and `AGENTS.md` for each term set using whatever search tools are available. Find candidate files first, then read the relevant sections.
 
 **False negative guard:** if your first set of search terms returns no results, do not immediately conclude there is no documentation. Keep trying alternative terms until additional searches consistently surface files you have already found, or until you can confidently account for all the main terminology a doc author would use for this change. Record what you searched — the output will include this as search coverage.
 

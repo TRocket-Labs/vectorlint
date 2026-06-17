@@ -144,7 +144,7 @@ Guide the agent through a five-phase analysis: extract change intents from the d
 
 The agent works only within these boundaries:
 - Source changes: `src/` files only. Ignore changes to `tests/`, `.github/`, `package.json`, `tsconfig.json`, `.vectorlint.ini`, and any non-source path.
-- Documentation: `docs/*.mdx` files only. Do not check `README.md`, `CLAUDE.md`, or other root-level markdown.
+- Documentation: `docs/*.mdx`, `README.md`, `CLAUDE.md`, and `AGENTS.md`.
 
 ### Five-phase decision tree
 
