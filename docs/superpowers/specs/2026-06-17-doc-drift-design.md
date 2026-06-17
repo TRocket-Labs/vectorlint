@@ -1,19 +1,19 @@
-# Doc Drift Checker — Design Spec
+# Doc Drift Checker - Design Spec
 
-**Date:** 2026-06-17  
-**Status:** Approved for implementation  
+**Date:** 2026-06-17
+**Status:** Approved for implementation
 **Scope:** VectorLint repository only
 
 ---
 
 ## 1. Overview
 
-When code changes, documentation can silently become false. A flag gets renamed, a default changes, a workflow shifts — and the docs still describe the old behaviour. This system detects that gap automatically on pull requests.
+When code changes, documentation can silently become false. A flag gets renamed, a default changes, a workflow shifts - and the docs still describe the old behaviour. This system detects that gap automatically on pull requests.
 
 Two failure modes are caught:
 
-- **Doc drift** — an existing doc page makes a claim that the code change has invalidated
-- **Undocumented user-facing change** — no existing doc covers the changed behaviour, but the change is user-visible and probably should be documented
+- **Doc drift** - an existing doc page makes a claim that the code change has invalidated
+- **Undocumented user-facing change** - no existing doc covers the changed behaviour, but the change is user-visible and probably should be documented
 
 The system posts a structured PR comment with findings and a copy-pasteable agent prompt the author can use to fix the docs immediately.
 
@@ -31,7 +31,7 @@ GitHub Actions: doc-drift.yml
   3. Invoke Pi headless, passing diff + output file path
   4. Pi runs .pi/agents/skills/doc-drift/ skill
         │
-        ├── Explores repo freely (rg, read files)
+        ├── Explores repo freely (search tools, read files)
         ├── Works through 5-phase decision tree
         └── Writes structured report to output file path
   5. Workflow posts report file as PR comment via gh pr comment
@@ -60,12 +60,12 @@ on:
     types: [created]
 ```
 
-Filtered to PR comments only: `github.event.issue.pull_request` must exist.  
+Filtered to PR comments only: `github.event.issue.pull_request` must exist.
 Trigger phrase: comment body must start with `/check-docs` (case-insensitive).
 
 ### Auth gate
 
-Check `github.event.comment.user.login` against `author_association`.  
+Check `github.event.comment.user.login` against `author_association`.
 Allow only `OWNER`. Any other role gets a reply comment:
 
 > `@<username> Only the repo owner can trigger doc drift checks.`
@@ -91,14 +91,16 @@ Workflow exits after posting the reply.
    - Gives the author immediate feedback that the workflow started
 
 6. Run Pi headless
-   - Initial message: contents of pr.diff + instruction to write report
-     to $GITHUB_WORKSPACE/.doc-drift-report.md
+   - Initial message: contents of pr.diff + instruction to write one
+     report file per behavioral change, named sequentially:
+     $GITHUB_WORKSPACE/.doc-drift-1.md, .doc-drift-2.md, etc.
    - Skill: .pi/agents/skills/doc-drift/
    - GITHUB_TOKEN passed as env var (for gh CLI inside Pi if needed)
 
-7. Post report as PR comment
-   - gh pr comment ${{ github.event.issue.number }} \
-       --body-file $GITHUB_WORKSPACE/.doc-drift-report.md
+7. Post each report file as a separate PR comment
+   - for file in $(ls $GITHUB_WORKSPACE/.doc-drift-*.md | sort -V); do
+       gh pr comment ${{ github.event.issue.number }} --body-file "$file"
+     done
 
 8. On failure
    - Post a minimal error comment so the PR is never left silent:
@@ -116,8 +118,14 @@ The PR diff is:
 {contents of /tmp/pr.diff}
 </diff>
 
-Work through the doc-drift skill. When you have finished, write your complete 
-report to: $GITHUB_WORKSPACE/.doc-drift-report.md
+Work through the doc-drift skill. When you have finished, write one report file
+per behavioral change you identified, named sequentially:
+  $GITHUB_WORKSPACE/.doc-drift-1.md
+  $GITHUB_WORKSPACE/.doc-drift-2.md
+  ... and so on.
+
+If there are no issues to report, write a single file $GITHUB_WORKSPACE/.doc-drift-1.md
+containing the no-issues-found report.
 
 Do not post anything to GitHub directly. The workflow will handle posting.
 ```
@@ -142,7 +150,7 @@ The agent works only within these boundaries:
 
 ---
 
-**Phase 1 — Intent extraction**
+**Phase 1 - Intent extraction**
 
 Read the full diff holistically before doing anything else. The goal is to understand *what changed in terms of user-visible behaviour*, not which files were touched.
 
@@ -152,26 +160,26 @@ For each meaningful change cluster in the diff, write a short intent statement:
 
 Discard as noise: whitespace-only changes, test-only changes, internal refactors with no user-visible effect, comment changes, import reordering.
 
-One PR may produce 2–4 distinct intents. Treat each independently from here.
+A PR may produce any number of distinct behavioral changes. Extract all of them - do not merge separate changes to fit a limit, and do not stop early. Treat each independently from here.
 
 ---
 
-**Phase 2 — Doc search (per intent)**
+**Phase 2 - Doc search (per intent)**
 
 For each intent, generate search terms at multiple granularities:
 - **Exact names**: the precise flag name, command name, config key, or function name as it appears in the diff
 - **Concept variants**: synonyms or related terms a doc author might have used (e.g. if a flag is `--output`, also search `output format`, `format`, `output flag`)
 - **Feature area**: the module or subsystem name (e.g. `provider`, `scoring`, `chunking`)
 
-Run `rg` searches across `docs/` for each term set. Use `rg -i -l` to find candidate files first, then read the relevant sections.
+Search across `docs/` for each term set using whatever search tools are available. Find candidate files first, then read the relevant sections.
 
-**False negative guard:** if your first set of search terms returns no results, do not immediately conclude there is no documentation. Try at least two alternative term sets before concluding absence. Log what you searched so the output can explain the coverage.
+**False negative guard:** if your first set of search terms returns no results, do not immediately conclude there is no documentation. Keep trying alternative terms until additional searches consistently surface files you have already found, or until you can confidently account for all the main terminology a doc author would use for this change. Record what you searched - the output will include this as search coverage.
 
-One intent may surface multiple doc files. That is expected — collect all candidates.
+One intent may surface multiple doc files. That is expected - collect all candidates.
 
 ---
 
-**Phase 3 — Cross-reference (per intent × doc candidate)**
+**Phase 3 - Cross-reference (per intent × doc candidate)**
 
 For each (intent, candidate doc file) pair:
 
@@ -189,7 +197,7 @@ If no → the doc is still accurate. No action.
 
 ---
 
-**Phase 4 — Coverage assessment (per intent with no doc match)**
+**Phase 4 - Coverage assessment (per intent with no doc match)**
 
 For intents where Phase 2 found no candidate doc files after a thorough search:
 
@@ -207,11 +215,11 @@ If the intent is internal only → discard. Do not mention it in the report.
 
 **Phase 5 — Write report**
 
-Compile all findings and write the report to the output file path given in the initial message.
+Write one report file per behavioral change to the numbered paths given in the initial message (`.doc-drift-1.md`, `.doc-drift-2.md`, etc.). Each file is a self-contained comment covering one behavioral change and all doc files affected by it.
 
-Follow the format in `references/comment.md` exactly.
+Follow the format in `references/comment.md` exactly for each file.
 
-If there are no findings after Phases 3 and 4 → write the "no issues found" report. Do not leave the file empty.
+If there are no findings after Phases 3 and 4 → write a single `.doc-drift-1.md` containing the no-issues-found report. Do not skip writing a file.
 
 ---
 
@@ -223,13 +231,13 @@ Defines what counts as a user-facing change in VectorLint specifically. The agen
 
 **Contents to include:**
 
-A change is user-facing if it affects any of the following:
+The following are examples of user-facing changes in VectorLint. This list is illustrative, not exhaustive - apply the same judgement to anything with a similar character:
 - A CLI flag, command, or exit code
 - A configuration key in `.vectorlint.ini` or `config.toml`
 - An environment variable name or its accepted values
 - A rule frontmatter field (name, id, evaluateAs, etc.)
 - A preset name or bundled preset behaviour
-- An output format (line, json, vale-json) — structure, field names, values
+- An output format (line, json, vale-json) - structure, field names, values
 - A scoring behaviour visible in output (thresholds, density calculation, rubric scoring)
 - A provider configuration option or supported model list
 - An error message or warning the user reads
@@ -253,56 +261,41 @@ Defines the output format for all scenarios, in both GitHub and local contexts.
 **Environment detection:**
 
 Check for the `GITHUB_ACTIONS` environment variable.
-- If `GITHUB_ACTIONS=true` → GitHub context: write a formatted markdown report to the output file path. Do not print to terminal. Do not interact with the user.
+- If `GITHUB_ACTIONS=true` → GitHub context: write one report file per behavioral change to the numbered paths given in the initial message. Do not print to terminal. Do not interact with the user.
 - If `GITHUB_ACTIONS` is not set → local context: print findings to the terminal, then ask the user whether they want to update the documentation.
+
+**Language note:** never use the word "intent" in any output. Describe each behavioral change in plain language.
 
 ---
 
 **GitHub context — drift detected**
 
+One file per behavioral change. Each file is a self-contained PR comment.
+
 ```markdown
-## Doc drift report
+## ⚠️ Doc drift — {plain language description of what changed}
 
-> Triggered by @{username}
+{for each drift finding under this behavioral change:}
+### `{doc file path}` — {section name}
 
-### ⚠️ Drift detected
+**What the doc claims:** {quote or close paraphrase of the invalidated claim}  
+**What's now true:** {one sentence}
 
-{for each drift finding:}
-#### `{doc file path}` — {section name}
-
-**What changed in the code:** {one sentence describing the intent}  
-**What the doc currently claims:** {quote or close paraphrase of the invalidated claim}  
-**Why it no longer holds:** {one sentence}
+Fix prompt:
+~~~
+{fix prompt for this finding}
+~~~
 
 ---
-
 {end for}
-
-### Fix with your agent
-
-Copy the prompt below and run it with Pi (or your agent of choice):
-
-```
-{dynamically generated fix prompt — see format below}
-```
 ```
 
-**Fix prompt format (inside the code block):**
+**Fix prompt format — drift:**
+
+Short, direct, one instruction per finding:
 
 ```
-Review the following documentation files for accuracy against recent code changes 
-in the VectorLint repository.
-
-Files to update:
-{list of affected doc files}
-
-For each file:
-1. Read the current content
-2. Apply these specific corrections:
-{for each finding: "In {file}, {section}: update the claim that {old claim} — 
-the correct behaviour is now {new behaviour}"}
-
-Keep all existing structure, tone, and style. Only change what is factually incorrect.
+`{doc file}`, {section}: "{old claim}" is no longer accurate — {correct behaviour}. Update it. Keep all existing structure, tone, and style.
 ```
 
 ---
@@ -310,62 +303,64 @@ Keep all existing structure, tone, and style. Only change what is factually inco
 **GitHub context — undocumented user-facing change**
 
 ```markdown
-## Doc drift report
+## 📝 Undocumented change — {plain language description of what changed}
 
-> Triggered by @{username}
-
-### 📝 Undocumented user-facing change
-
-The following changes appear to be user-facing but have no corresponding 
-documentation coverage:
-
-{for each undocumented finding:}
-#### {feature or intent description}
+{for each undocumented finding under this behavioral change:}
+### {suggested doc file, or "New page: {suggested title}"}
 
 **What changed:** {one sentence}  
-**Why it is user-facing:** {one sentence referencing the criteria}  
-**Suggested location:** {existing doc file, or "new page needed" with a suggested title}
+**Why it needs docs:** {one sentence}
+
+Fix prompt:
+~~~
+{fix prompt for this finding}
+~~~
 
 ---
-
 {end for}
+```
 
-### Fix with your agent
+**Fix prompt format — undocumented change:**
 
 ```
-{dynamically generated fix prompt}
-```
+Add documentation to `{suggested file}` covering {what changed}. {one sentence on what the new content should say}. Keep all existing structure, tone, and style.
 ```
 
 ---
 
 **GitHub context — no issues found**
 
+A single file: `.doc-drift-1.md`.
+
 ```markdown
-## Doc drift report
+## ✅ No documentation drift detected
 
-> Triggered by @{username}
+The changes in this PR do not invalidate any existing documentation and do not introduce undocumented user-facing behaviour.
 
-### ✅ No documentation drift detected
-
-The changes in this PR do not invalidate any existing documentation and do not 
-introduce undocumented user-facing behaviour.
-
-**Search coverage:** {brief summary of what intents were extracted and what 
-doc files were checked, so the author can verify the check was thorough}
+**Search coverage:** {list the behavioral changes extracted and the doc files checked for each, so the author can verify the check was thorough}
 ```
 
-The search coverage summary is important — it lets the author confirm the agent actually checked the right things, rather than just trusting a green result.
+The search coverage summary matters — it lets the author confirm the agent checked the right things rather than just trusting a green result.
 
 ---
 
 **Local context (no GITHUB_ACTIONS)**
 
-Print findings to the terminal in a readable format (no strict markdown required).
+Print each behavioral change's findings to the terminal in a readable format. After printing all findings, ask:
 
-After printing, ask:
+> "Would you like me to help you update the documentation now?"
 
-> "I found the above. Would you like me to help you update the documentation now?"
+Wait for the user's response before doing anything. If they say yes, guide them through the changes. If no, summarise what they would need to do manually and exit.
+
+The search coverage summary matters — it lets the author confirm the agent checked the right things rather than just trusting a green result.
+
+---
+
+**Local context (no GITHUB_ACTIONS)**
+
+Print each behavioral change's findings to the terminal in a readable format. After printing all findings, ask:
+
+> "Would you like me to help you update the documentation now?"
 
 Wait for the user's response before doing anything. If they say yes, guide them through the changes. If no, summarise what they would need to do manually and exit.
 
@@ -376,11 +371,11 @@ Wait for the user's response before doing anything. If they say yes, guide them 
 | Scenario | Handling |
 |---|---|
 | PR only changes tests | All changes discarded in Phase 1 as noise. Report: no issues found. |
-| PR changes a doc file directly | Ignore doc file changes in the diff — we only analyse source changes against docs, not doc-against-doc. |
-| Intent maps to multiple doc files | Report a finding per doc file. Each gets its own section in the output. |
-| Two intents map to the same doc file | Group under that doc file in the output with separate sub-sections per intent. |
-| Agent finds no results after multiple search attempts | Note in the report under "search coverage" that no docs were found for this intent and the searches used. Do not silently drop it. |
-| Very large diff (many files, many intents) | Process all intents. If more than 6 intents are found, note at the top of the report that the PR is large and the author should review findings carefully. |
+| PR changes a doc file directly | Ignore doc file changes in the diff - we only analyse source changes against docs, not doc-against-doc. |
+| One behavioral change affects multiple doc files | Report a finding per doc file. Each gets its own section within that behavioral change's comment. |
+| Two behavioral changes affect the same doc file | Each gets its own comment. The per-change comment model handles this naturally — no special grouping needed. |
+| Agent finds no results after exhaustive search for a behavioral change | Note under "search coverage" in the no-issues comment what was searched. Do not silently drop it. |
+| Very large diff (many behavioral changes) | Process all of them. If more than six are found, note at the top of each comment that this is a large PR and findings should be reviewed carefully. |
 | Pi fails or times out | Workflow step 8 catches this and posts the error comment. |
 
 ---
