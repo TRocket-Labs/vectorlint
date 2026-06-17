@@ -1,0 +1,85 @@
+name: Doc Drift Manual Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Base ref to diff against
+        required: true
+        default: main
+      head_ref:
+        description: Head ref to check out and analyze
+        required: true
+        default: main
+
+jobs:
+  check-docs:
+    name: Check documentation drift
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout head branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.head_ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install GitHub CLI
+        run: |
+          type -p curl >/dev/null || (apt-get update && apt-get install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
+            dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
+            tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          apt-get update
+          apt-get install gh -y
+
+      - name: Install Pi
+        run: npm install -g @earendil-works/pi-coding-agent
+
+      - name: Fetch base ref
+        run: |
+          git fetch origin "${{ inputs.base_ref }}" "${{ inputs.head_ref }}"
+
+      - name: Build diff from base to head
+        run: |
+          git diff "origin/${{ inputs.base_ref }}...HEAD" > /tmp/pr.diff
+          echo "Diff size: $(wc -l < /tmp/pr.diff) lines"
+
+      - name: Build agent message
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          npx tsx .github/scripts/build-doc-drift-message.ts /tmp/pr.diff /tmp/pi-message.txt
+
+      - name: Run doc drift check
+        env:
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.PI_BEDROCK_API_KEY }}
+          AWS_REGION: ${{ secrets.PI_BEDROCK_REGION }}
+          MODEL: ${{ secrets.MODEL }}
+        run: |
+          pi --approve --no-session -p \
+            --provider amazon-bedrock \
+            --model "$MODEL" \
+            --skill .agents/skills/doc-drift \
+            "/skill:doc-drift $(cat /tmp/pi-message.txt)"
+
+      - name: Upload report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: doc-drift-report-${{ github.run_id }}
+          path: |
+            .doc-drift-*.md
+            /tmp/pr.diff
+            /tmp/pi-message.txt
+          if-no-files-found: warn

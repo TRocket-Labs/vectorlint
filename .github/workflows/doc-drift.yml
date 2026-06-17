@@ -105,10 +105,13 @@ jobs:
 
       - name: Run doc drift check
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.PI_BEDROCK_API_KEY }}
+          AWS_REGION: ${{ secrets.PI_BEDROCK_REGION }}
+          MODEL: ${{ secrets.MODEL }}
         run: |
           pi --approve --no-session -p \
+            --provider amazon-bedrock \
+            --model "$MODEL" \
             --skill .agents/skills/doc-drift \
             "/skill:doc-drift $(cat /tmp/pi-message.txt)"
 
