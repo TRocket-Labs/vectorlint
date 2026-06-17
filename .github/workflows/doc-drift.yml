@@ -5,8 +5,8 @@ on:
     types: [created]
 
 jobs:
-  check-docs:
-    name: Check documentation drift
+  authorize:
+    name: Check authorization
     runs-on: ubuntu-latest
     # Only run on PR comments that start with /check-docs
     if: |
@@ -17,6 +17,9 @@ jobs:
       issues: write
       pull-requests: write
       contents: read
+
+    outputs:
+      authorized: ${{ steps.auth.outputs.authorized }}
 
     steps:
       - name: Check authorization
@@ -37,8 +40,20 @@ jobs:
               core.setOutput('authorized', 'true');
             }
 
+  check-docs:
+    name: Check documentation drift
+    runs-on: ubuntu-latest
+    needs: authorize
+    if: needs.authorize.outputs.authorized == 'true'
+
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: read
+
+    steps:
+
       - name: React to comment
-        if: steps.auth.outputs.authorized == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -51,7 +66,6 @@ jobs:
 
       - name: Get PR head SHA
         id: pr
-        if: steps.auth.outputs.authorized == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -63,25 +77,20 @@ jobs:
             core.setOutput('head_sha', pr.data.head.sha);
 
       - name: Checkout PR branch
-        if: steps.auth.outputs.authorized == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.pr.outputs.head_sha }}
           fetch-depth: 0
 
       - name: Setup Node.js
-        if: steps.auth.outputs.authorized == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install Pi
-        if: steps.auth.outputs.authorized == 'true'
-        # TODO: confirm exact Pi package name and install command with owner
         run: npm install -g @earendil-works/pi-coding-agent
 
       - name: Fetch PR diff
-        if: steps.auth.outputs.authorized == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -89,50 +98,21 @@ jobs:
           echo "Diff size: $(wc -l < /tmp/pr.diff) lines"
 
       - name: Build agent message
-        if: steps.auth.outputs.authorized == 'true'
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
-          python3 -c "
-          import os
-          diff = open('/tmp/pr.diff').read()
-          ws = os.environ['GITHUB_WORKSPACE']
-          lines = [
-            'You are running a doc drift check on a pull request in the VectorLint repository.',
-            '',
-            'The PR diff is:',
-            '',
-            '<diff>',
-            diff,
-            '</diff>',
-            '',
-            'Work through the doc-drift skill. When you have finished, write one report file',
-            'per behavioral change you identified, named sequentially:',
-            f'  {ws}/.doc-drift-1.md',
-            f'  {ws}/.doc-drift-2.md',
-            '  ... and so on.',
-            '',
-            f'If there are no issues to report, write a single file {ws}/.doc-drift-1.md',
-            'containing the no-issues-found report.',
-            '',
-            'Do not post anything to GitHub directly. The workflow will handle posting.',
-          ]
-          open('/tmp/pi-message.txt', 'w').write('\n'.join(lines))
-          "
+          npx tsx .github/scripts/build-doc-drift-message.ts /tmp/pr.diff /tmp/pi-message.txt
 
       - name: Run doc drift check
-        if: steps.auth.outputs.authorized == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          # TODO: confirm exact Pi headless invocation flags with owner
-          pi --headless \
-            --skill .pi/agents/skills/doc-drift \
-            --message "$(cat /tmp/pi-message.txt)"
+          pi --approve --no-session -p \
+            --skill .agents/skills/doc-drift \
+            "/skill:doc-drift $(cat /tmp/pi-message.txt)"
 
       - name: Post report comments
-        if: steps.auth.outputs.authorized == 'true' && success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
