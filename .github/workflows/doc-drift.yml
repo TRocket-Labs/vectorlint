@@ -15,7 +15,7 @@ jobs:
 
     permissions:
       issues: write
-      pull-requests: write
+      pull-requests: read
       contents: read
 
     outputs:
@@ -48,7 +48,7 @@ jobs:
 
     permissions:
       issues: write
-      pull-requests: write
+      pull-requests: read
       contents: read
 
     steps:
@@ -76,10 +76,18 @@ jobs:
             });
             core.setOutput('head_sha', pr.data.head.sha);
 
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: main
+          fetch-depth: 0
+
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.pr.outputs.head_sha }}
+          path: pr
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -90,36 +98,41 @@ jobs:
       - name: Install Pi
         run: npm install -g @earendil-works/pi-coding-agent
 
+      - name: Show Pi version
+        run: pi --version
+
       - name: Fetch PR diff
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr diff ${{ github.event.issue.number }} > /tmp/pr.diff
-          echo "Diff size: $(wc -l < /tmp/pr.diff) lines"
+          DIFF_PATH="$GITHUB_WORKSPACE/pr/.doc-drift-input.diff"
+          gh pr diff ${{ github.event.issue.number }} > "$DIFF_PATH"
+          echo "Diff size: $(wc -l < "$DIFF_PATH") lines"
 
       - name: Build agent message
         env:
-          GITHUB_WORKSPACE: ${{ github.workspace }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}/pr
         run: |
-          npx tsx .github/scripts/build-doc-drift-message.ts /tmp/pr.diff /tmp/pi-message.txt
+          npx tsx main/.github/scripts/build-doc-drift-message.ts "$GITHUB_WORKSPACE/.doc-drift-input.diff" /tmp/pi-message.txt
 
       - name: Run doc drift check
+        working-directory: pr
         env:
           AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.PI_BEDROCK_API_KEY }}
           AWS_REGION: ${{ secrets.PI_BEDROCK_REGION }}
           PI_MODEL: ${{ secrets.PI_MODEL }}
         run: |
-          pi --approve --no-session -p \
+          pi --no-session -p \
             --provider amazon-bedrock \
             --model "$PI_MODEL" \
-            --skill .agents/skills/doc-drift \
+            --skill ../main/.agents/skills/doc-drift \
             "/skill:doc-drift $(cat /tmp/pi-message.txt)"
 
       - name: Post report comments
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          REPORT_FILES=$(ls $GITHUB_WORKSPACE/.doc-drift-*.md 2>/dev/null | sort -V)
+          REPORT_FILES=$(ls "$GITHUB_WORKSPACE"/pr/.doc-drift-*.md 2>/dev/null | sort -V)
           if [ -z "$REPORT_FILES" ]; then
             gh pr comment ${{ github.event.issue.number }} \
               --body "Doc drift check completed but produced no output. Check the [Actions log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."

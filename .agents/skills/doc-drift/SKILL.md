@@ -34,7 +34,7 @@ For each behavioral change, generate search terms at multiple granularities:
 
 Search across `docs/*.mdx`, `README.md`, `CLAUDE.md`, and `AGENTS.md` for each term set using whatever search tools are available. Find candidate files first, then read the relevant sections.
 
-**False negative guard:** if your first set of search terms returns no results, do not immediately conclude there is no documentation. Keep trying alternative terms until additional searches consistently surface files you have already found, or until you can confidently account for all the main terminology a doc author would use for this change. Record what you searched — the output will include this as search coverage.
+**False negative guard:** if your first set of search terms returns no results, do not immediately conclude there is no documentation. Keep trying alternative terms until additional searches consistently surface files you have already found, or until you can confidently account for all the main terminology a doc author would use for this change. Keep enough notes to justify the conclusion in the final output, but do not dump a search log or internal process notes into the output.
 
 One behavioral change may surface multiple doc files. Collect all candidates.
 
@@ -68,10 +68,15 @@ If the change meets the criteria for a user-facing change:
 
 If the change is internal only → discard it entirely. Do not mention it in the output.
 
-## Phase 5 — Write report
+## Phase 5 — Write output
 
-Write one report file per behavioral change to the numbered paths given in the initial message (`.doc-drift-1.md`, `.doc-drift-2.md`, etc.). Each file is a self-contained comment covering one behavioral change and all doc files affected by it.
+Use `references/comment.md` to choose the correct output structure for the current environment.
 
-Follow the format in `references/comment.md` exactly for each file.
+- GitHub context (`GITHUB_ACTIONS=true`): write one report file per behavioral change to the numbered paths given in the initial message (`.doc-drift-1.md`, `.doc-drift-2.md`, etc.). Each file is a self-contained comment covering one behavioral change and all doc files affected by it.
+- Non-GitHub context: present each behavioral change directly to the user using the non-GitHub structure from `references/comment.md`. Do not rely on GitHub-only presentation features such as collapsible HTML sections.
 
-If there are no findings after Phases 3 and 4 → write a single `.doc-drift-1.md` containing the no-issues-found report. Do not skip writing the file.
+If there are no findings after Phases 3 and 4:
+- GitHub context: write a single `.doc-drift-1.md` containing the no-issues-found report.
+- Non-GitHub context: present a single no-issues-found message.
+
+In either case, explain the code change in plain language and why it does not invalidate existing docs or require new user-facing documentation. Do not skip writing or presenting the output.

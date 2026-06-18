@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 
 const [, , diffPath, outputPath] = process.argv;
 
@@ -12,13 +12,13 @@ if (!workspace) {
   throw new Error('GITHUB_WORKSPACE is required');
 }
 
-const diff = await readFile(diffPath, 'utf8');
 const message = `You are running a doc drift check on a pull request in the VectorLint repository.
 
-The PR diff is:
+The pull request checkout to inspect is located at:
+  ${workspace}
 
-<diff>
-${diff}</diff>
+Read the PR diff from this file:
+  ${diffPath}
 
 Use the doc-drift skill. When you have finished, write one report file
 per behavioral change you identified, named sequentially:
