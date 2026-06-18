@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Check authorization
         id: auth
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             const association = context.payload.comment.author_association;
@@ -54,7 +54,7 @@ jobs:
     steps:
 
       - name: React to comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             await github.rest.reactions.createForIssueComment({
@@ -66,7 +66,7 @@ jobs:
 
       - name: Get PR head SHA
         id: pr
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             const pr = await github.rest.pulls.get({
@@ -77,26 +77,26 @@ jobs:
             core.setOutput('head_sha', pr.data.head.sha);
 
       - name: Checkout main branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           ref: ${{ github.event.repository.default_branch }}
           path: main
           fetch-depth: 0
 
       - name: Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           ref: ${{ steps.pr.outputs.head_sha }}
           path: pr
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
       - name: Install Pi
-        run: npm install -g @earendil-works/pi-coding-agent
+        run: npm install -g @earendil-works/pi-coding-agent@0.79.6
 
       - name: Show Pi version
         run: pi --version
@@ -113,7 +113,7 @@ jobs:
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}/pr
         run: |
-          npx tsx main/.github/scripts/build-doc-drift-message.ts "$GITHUB_WORKSPACE/.doc-drift-input.diff" /tmp/pi-message.txt
+          npx --yes tsx@4.22.4 main/.github/scripts/build-doc-drift-message.ts "$GITHUB_WORKSPACE/.doc-drift-input.diff" /tmp/pi-message.txt
 
       - name: Run doc drift check
         working-directory: pr

@@ -151,7 +151,7 @@ VectorLint supports multiple output formats via the `--output` flag:
 ### LLM Providers
 
 - OpenAI: GPT-4o and other OpenAI models
-- Anthropic: Codex models (Opus, Sonnet, Haiku)
+- Anthropic: Claude models (Opus, Sonnet, Haiku)
 - Azure OpenAI: Azure-hosted OpenAI models
 - Google Gemini: Gemini Pro and other Gemini models
 

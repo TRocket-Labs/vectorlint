@@ -3,8 +3,8 @@
 This directory contains local workflow tests that are meant to be run with
 `act`.
 
-These tests exist to verify workflow behavior locally instead of using actual PRs which are slower
-and create dirty commit on iteration. 
+These tests exist to verify workflow behavior locally instead of using actual PRs, which are slower
+and create dirty commits during iteration.
 
 ## Tests
 

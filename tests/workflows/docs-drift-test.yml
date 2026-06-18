@@ -22,18 +22,18 @@ jobs:
 
     steps:
       - name: Checkout head branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           ref: ${{ inputs.head_ref }}
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
 
       - name: Install Pi
-        run: npm install -g @earendil-works/pi-coding-agent
+        run: npm install -g @earendil-works/pi-coding-agent@0.79.6
 
       - name: Show Pi version
         run: pi --version
@@ -52,7 +52,7 @@ jobs:
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
-          npx tsx .github/scripts/build-doc-drift-message.ts "$GITHUB_WORKSPACE/.doc-drift-input.diff" /tmp/pi-message.txt
+          npx --yes tsx@4.22.4 .github/scripts/build-doc-drift-message.ts "$GITHUB_WORKSPACE/.doc-drift-input.diff" /tmp/pi-message.txt
 
       - name: Run doc drift check
         env:
