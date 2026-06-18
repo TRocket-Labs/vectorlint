@@ -1,35 +1,35 @@
 import { writeFile } from 'node:fs/promises';
 
-const [, , diffPath, outputPath] = process.argv;
+const [, , DIFF_PATH, OUTPUT_PATH] = process.argv;
 
-if (!diffPath || !outputPath) {
+if (!DIFF_PATH || !OUTPUT_PATH) {
   throw new Error('Usage: tsx .github/scripts/build-doc-drift-message.ts <diff-path> <output-path>');
 }
 
-const workspace = process.env.GITHUB_WORKSPACE;
+const WORKSPACE = process.env.GITHUB_WORKSPACE;
 
-if (!workspace) {
+if (!WORKSPACE) {
   throw new Error('GITHUB_WORKSPACE is required');
 }
 
-const message = `You are running a doc drift check on a pull request in the VectorLint repository.
+const MESSAGE = `You are running a doc drift check on a pull request in the VectorLint repository.
 
 The pull request checkout to inspect is located at:
-  ${workspace}
+  ${WORKSPACE}
 
 Read the PR diff from this file:
-  ${diffPath}
+  ${DIFF_PATH}
 
 Use the doc-drift skill. When you have finished, write one report file
 per behavioral change you identified, named sequentially:
-  ${workspace}/.doc-drift-1.md
-  ${workspace}/.doc-drift-2.md
+  ${WORKSPACE}/.doc-drift-1.md
+  ${WORKSPACE}/.doc-drift-2.md
   ... and so on.
 
-If there are no issues to report, write a single file ${workspace}/.doc-drift-1.md
+If there are no issues to report, write a single file ${WORKSPACE}/.doc-drift-1.md
 containing the no-issues-found report.
 
 Do not post anything to GitHub directly. The workflow will handle posting.
 `;
 
-await writeFile(outputPath, message);
+await writeFile(OUTPUT_PATH, MESSAGE);
