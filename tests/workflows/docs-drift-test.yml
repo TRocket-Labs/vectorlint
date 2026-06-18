@@ -1,0 +1,77 @@
+name: Doc Drift Manual Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Base ref to diff against
+        required: true
+        default: main
+      head_ref:
+        description: Head ref to check out and analyze
+        required: true
+        default: main
+
+jobs:
+  check-docs:
+    name: Check documentation drift
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout head branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ inputs.head_ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+
+      - name: Install Pi
+        run: npm install -g @earendil-works/pi-coding-agent@0.79.6
+
+      - name: Show Pi version
+        run: pi --version
+
+      - name: Fetch base ref
+        run: |
+          git fetch origin "${{ inputs.base_ref }}" "${{ inputs.head_ref }}"
+
+      - name: Build diff from base to head
+        run: |
+          DIFF_PATH="$GITHUB_WORKSPACE/.doc-drift-input.diff"
+          git diff "origin/${{ inputs.base_ref }}...HEAD" > "$DIFF_PATH"
+          echo "Diff size: $(wc -l < "$DIFF_PATH") lines"
+
+      - name: Build agent message
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          npx --yes tsx@4.22.4 .github/scripts/build-doc-drift-message.ts "$GITHUB_WORKSPACE/.doc-drift-input.diff" /tmp/pi-message.txt
+
+      - name: Run doc drift check
+        env:
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.PI_BEDROCK_API_KEY }}
+          AWS_REGION: ${{ secrets.PI_BEDROCK_REGION }}
+          PI_MODEL: ${{ secrets.PI_MODEL }}
+        run: |
+          pi --no-session -p \
+            --provider amazon-bedrock \
+            --model "$PI_MODEL" \
+            --skill .agents/skills/doc-drift \
+            "/skill:doc-drift $(cat /tmp/pi-message.txt)"
+
+      - name: Write local artifacts
+        if: always()
+        run: |
+          ARTIFACT_DIR="artifacts/doc-drift"
+          mkdir -p "$ARTIFACT_DIR"
+          cp "$GITHUB_WORKSPACE/.doc-drift-input.diff" "$ARTIFACT_DIR/pr.diff"
+          cp /tmp/pi-message.txt "$ARTIFACT_DIR/pi-message.txt"
+          find . -maxdepth 1 -name '.doc-drift-*.md' -exec cp {} "$ARTIFACT_DIR/" \;
+          ls -la "$ARTIFACT_DIR"

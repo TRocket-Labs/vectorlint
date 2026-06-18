@@ -13,3 +13,6 @@ vectorlint.ini
 /.idea
 /npm
 .vectorlint/runs/
+.secrets
+docs/plans/
+docs/superpowers/

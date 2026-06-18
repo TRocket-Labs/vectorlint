@@ -1,0 +1,151 @@
+name: Doc Drift Check
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  authorize:
+    name: Check authorization
+    runs-on: ubuntu-latest
+    # Only run on PR comments that start with /check-docs
+    if: |
+      github.event.issue.pull_request != null &&
+      startsWith(github.event.comment.body, '/check-docs')
+
+    permissions:
+      issues: write
+      pull-requests: read
+      contents: read
+
+    outputs:
+      authorized: ${{ steps.auth.outputs.authorized }}
+
+    steps:
+      - name: Check authorization
+        id: auth
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        with:
+          script: |
+            const association = context.payload.comment.author_association;
+            if (association !== 'OWNER') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `@${context.payload.comment.user.login} Only the repo owner can trigger doc drift checks.`
+              });
+              core.setOutput('authorized', 'false');
+            } else {
+              core.setOutput('authorized', 'true');
+            }
+
+  check-docs:
+    name: Check documentation drift
+    runs-on: ubuntu-latest
+    needs: authorize
+    if: needs.authorize.outputs.authorized == 'true'
+
+    permissions:
+      issues: write
+      pull-requests: read
+      contents: read
+
+    steps:
+
+      - name: React to comment
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'eyes'
+            });
+
+      - name: Get PR head SHA
+        id: pr
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('head_sha', pr.data.head.sha);
+
+      - name: Checkout main branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: main
+          fetch-depth: 0
+
+      - name: Checkout PR branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ steps.pr.outputs.head_sha }}
+          path: pr
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+
+      - name: Install Pi
+        run: npm install -g @earendil-works/pi-coding-agent@0.79.6
+
+      - name: Show Pi version
+        run: pi --version
+
+      - name: Fetch PR diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DIFF_PATH="$GITHUB_WORKSPACE/pr/.doc-drift-input.diff"
+          gh pr diff ${{ github.event.issue.number }} > "$DIFF_PATH"
+          echo "Diff size: $(wc -l < "$DIFF_PATH") lines"
+
+      - name: Build agent message
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}/pr
+        run: |
+          npx --yes tsx@4.22.4 main/.github/scripts/build-doc-drift-message.ts "$GITHUB_WORKSPACE/.doc-drift-input.diff" /tmp/pi-message.txt
+
+      - name: Run doc drift check
+        working-directory: pr
+        env:
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.PI_BEDROCK_API_KEY }}
+          AWS_REGION: ${{ secrets.PI_BEDROCK_REGION }}
+          PI_MODEL: ${{ secrets.PI_MODEL }}
+        run: |
+          pi --no-session -p \
+            --provider amazon-bedrock \
+            --model "$PI_MODEL" \
+            --skill ../main/.agents/skills/doc-drift \
+            "/skill:doc-drift $(cat /tmp/pi-message.txt)"
+
+      - name: Post report comments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPORT_FILES=$(ls "$GITHUB_WORKSPACE"/pr/.doc-drift-*.md 2>/dev/null | sort -V)
+          if [ -z "$REPORT_FILES" ]; then
+            gh pr comment ${{ github.event.issue.number }} \
+              --body "Doc drift check completed but produced no output. Check the [Actions log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
+          else
+            for file in $REPORT_FILES; do
+              gh pr comment ${{ github.event.issue.number }} --body-file "$file"
+            done
+          fi
+
+      - name: Post failure comment
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.issue.number }} \
+            --body "Doc drift check failed. Check the [Actions log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
