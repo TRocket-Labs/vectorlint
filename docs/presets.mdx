@@ -7,10 +7,16 @@ VectorLint ships with a built-in rule preset that activates automatically when y
 
 ## The VectorLint preset
 
-The default preset includes rules for:
+The default preset includes eight `check` rules:
 
-- **AI pattern detection** — flags overused buzzwords, formulaic transitions, hollow openings, and excessive hedging that signal AI-generated writing
-- **Directness** — identifies passive constructions, unnecessary qualifiers, and roundabout phrasing that weakens clarity
+- **AI Pattern** (`AIPattern`) — flags structural tells, rhetorical scaffolding, and tone problems that signal AI-generated writing
+- **Capitalization** (`Capitalization`) — flags inconsistent capitalization style across headings in the same document
+- **Consistency** (`Consistency`) — flags naming and terminology inconsistency within a document
+- **Inclusivity** (`Inclusivity`) — flags gendered pronouns and role nouns where a neutral alternative exists
+- **Passive Voice** (`PassiveVoice`) — flags passive constructions that reduce clarity or directness
+- **Repetition** (`Repetition`) — flags repeated words and ideas restated without adding new information
+- **Unsupported Claims** (`UnsupportedClaims`) — flags unsourced factual claims and vague authority citations
+- **Wordiness** (`Wordiness`) — flags wordy phrases where a shorter equivalent exists
 
 These rules run against all Markdown files by default when the preset is active.
 
@@ -55,7 +61,7 @@ Tune how harshly a preset rule scores content using its rule ID:
 ```ini
 [content/docs/**/*.md]
 RunRules=VectorLint
-AIPatterns.strictness=strict
+AIPattern.strictness=strict
 ```
 
 See [Project Configuration](/project-config) for the full strictness reference.
