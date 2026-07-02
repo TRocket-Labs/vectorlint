@@ -49,7 +49,7 @@ VectorLint filters raw LLM candidates through a series of gate checks before sur
 1. **Candidate generation** — the LLM returns all potential violations, each with required gate-check fields: rule support, exact evidence, context support, plausible non-violation, and fix quality.
 2. **Deterministic filtering** — VectorLint applies a strict filter and only surfaces violations that pass all required gates.
 
-VectorLint's output is intentionally stricter than raw model candidates; it reports only findings that pass all gates. You can tune how aggressively the pipeline filters findings to match your content workflow. See [Tuning evaluation precision](/false-positive-tuning).
+VectorLint's output is intentionally stricter than raw model candidates; it reports only findings that pass all gates. You can tune how aggressively the pipeline filters findings to match your content workflow. See [Handling false positives](/handling-false-positives).
 
 ## Next steps
 
