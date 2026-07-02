@@ -1,12 +1,12 @@
 # Creating Rules for VectorLint
 
-A comprehensive guide to creating powerful, reusable content evaluations using VectorLint's prompt system.
+A comprehensive guide to creating powerful, reusable content reviews using VectorLint's prompt system.
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Rule Anatomy](#rule-anatomy)
-- [Evaluation Modes](#evaluation-modes)
+- [Review modes](#review-modes)
 - [Check Rules](#check-rules)
 - [Judge Rules](#judge-rules)
 - [Target Specification](#target-specification)
@@ -18,13 +18,13 @@ A comprehensive guide to creating powerful, reusable content evaluations using V
 
 ## Overview
 
-VectorLint rules are Markdown files with YAML frontmatter that define how your content should be assessed. They're quality checks powered by LLMs instead of regex patterns.
+VectorLint rules are Markdown files with YAML frontmatter that define how your content should be assessed. They're quality rules powered by LLMs instead of regex patterns.
 
 **Key Concepts:**
 
 - **Rule = Prompt file** (`.md` file organized in rule packs)
 - **Pack** = Subdirectory containing related rules (typically named after a company/style guide)
-- **Criteria** = Individual quality checks within a rule
+- **Criteria** = Individual quality dimensions within a rule
 - **Score** = LLM-assigned rating (1-4 scale for judge, density-based for check)
 
 - **Severity** = How failures are reported (`error` or `warning`)
@@ -72,14 +72,14 @@ project/
 
 ---
 
-## Evaluation Modes
+## Review modes
 
 VectorLint uses a single **Base Evaluator** (`evaluator: base`) that operates in two distinct modes, determined by the `type` field:
 
 | Mode       | `type`  | Use Case                              | Scoring                     | Output                  |
 | ---------- | ------- | ------------------------------------- | --------------------------- | ----------------------- |
-| **Check**  | `check` | Pass/fail checks, counting violations | 10 points - 1 per violation | List of specific issues |
-| **Judge**  | `judge` | Multi-dimensional quality scoring     | 0-4 scale per criterion     | Weighted average score  |
+| **Check**  | `check` | Pass/fail checks, counting violations | Density-based (per 100 words) | List of specific issues |
+| **Judge**  | `judge` | Multi-dimensional quality scoring     | 1-4 scale per criterion     | Weighted average score  |
 
 ### When to Use Each
 
@@ -210,7 +210,7 @@ VectorLint uses a **1-4 scale** for all judge criteria, which is then normalized
 
 The `target` field allows you to:
 
-1. **Specify which part** of content to evaluate (via regex)
+1. **Specify which part** of content to review (via regex)
 2. **Require certain content** to exist (e.g., "must have an H1 headline")
 3. **Provide helpful suggestions** when content is missing
 
@@ -229,13 +229,13 @@ target:
 
 **When `required: true`:**
 
-- If content matches → Evaluation proceeds normally
+- If content matches → The review proceeds normally
 - If no match → Immediate `error` with the suggestion message
 
 **When `required: false` or omitted:**
 
-- If content matches → Evaluate the matched content
-- If no match → Evaluate entire content
+- If content matches → Review the matched content
+- If no match → Review entire content
 
 ---
 
@@ -252,9 +252,9 @@ target:
 | `name`        | string        | **Yes**  | Human-readable name                                                |
 
 | `severity` | string | No | `error` or `warning` (default: `warning`) |
-| `evaluateAs` | string | No | `document` or `chunk` - whether to evaluate content as a whole or in chunks (default: `chunk`) |
+| `evaluateAs` | string | No | `document` or `chunk` - whether to review content as a whole or in chunks (default: `chunk`) |
 | `target` | object | No | Content matching specification |
-| `criteria` | array | **Yes\*** | List of evaluation criteria (\*required for judge) |
+| `criteria` | array | **Yes\*** | List of criteria (\*required for judge) |
 
 ### Criterion Fields
 
@@ -288,7 +288,7 @@ You are a headline evaluator for developer blog posts. Assess whether the headli
 2. Uses natural, conversational language (avoid buzzwords)
 3. Creates curiosity without being clickbait
 
-For each criterion, provide a score (0-4) and specific examples from the text.
+For each criterion, provide a score (1-4) and specific examples from the text.
 ```
 
 ### 2. **Use Meaningful Weights (Subjective)**
@@ -419,4 +419,4 @@ Scan for common AI patterns:
 
 ---
 
-**Happy evaluating! 🚀**
+**Happy reviewing! 🚀**

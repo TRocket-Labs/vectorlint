@@ -1,9 +1,9 @@
 ---
 title: Configuring LLM providers
-description: Connect VectorLint to OpenAI, Anthropic, Azure OpenAI, Google Gemini, or Amazon Bedrock.
+description: Connect VectorLint to a supported LLM provider.
 ---
 
-VectorLint sends your content to an LLM (Large Language Model) for evaluation. Configure a provider and supply credentials before running your first check.
+VectorLint sends your content to an LLM (Large Language Model) for review. Configure a provider and supply credentials before running your first review.
 
 ## Supported providers
 
@@ -20,7 +20,7 @@ VectorLint sends your content to an LLM (Large Language Model) for evaluation. C
 VectorLint resolves credentials in this order. Later sources override earlier ones:
 
 1. Built-in defaults
-2. Global config — `~/.vectorlint/config.toml`
+2. Global config: `~/.vectorlint/config.toml`
 3. Local `.env` file in your project root
 4. Shell environment variables
 
@@ -278,10 +278,10 @@ For other CI/CD systems, use the equivalent secret mechanism: GitLab CI variable
 
 ## Troubleshooting
 
-**`Authentication failed` or `Invalid API key`** — Verify the key value is correct, confirm it hasn't expired, and check that your account has available credits.
+**`Authentication failed` or `Invalid API key`:** Verify the key value is correct, confirm it hasn't expired, and check that your account has available credits.
 
-**`Unknown provider: xyz`** — Check that `LLM_PROVIDER` matches one of the supported values exactly: `openai`, `anthropic`, `azure-openai`, `gemini`, `amazon-bedrock`. The value is case-sensitive.
+**`Unknown provider: xyz`:** Check that `LLM_PROVIDER` matches one of the supported values exactly: `openai`, `anthropic`, `azure-openai`, `gemini`, `amazon-bedrock`. The value is case-sensitive.
 
-**Configuration not loading** — Verify the global config is at `~/.vectorlint/config.toml` and the file is readable. Confirm the TOML syntax is valid. As a quick test, try passing the credentials as environment variables directly.
+**Configuration not loading:** Verify the global config is at `~/.vectorlint/config.toml` and the file is readable. Confirm the TOML syntax is valid. As a quick test, try passing the credentials as environment variables directly.
 
-**`Rate limit exceeded`** — Reduce the `Concurrency` setting in the `.vectorlint.ini` file in your project, upgrade your API tier with the provider, or switch to a provider with higher rate limits.
+**`Rate limit exceeded`:** Reduce the `Concurrency` setting in the `.vectorlint.ini` file in your project, upgrade your API tier with the provider, or switch to a provider with higher rate limits.

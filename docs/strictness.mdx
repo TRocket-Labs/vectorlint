@@ -1,0 +1,68 @@
+---
+title: "Strictness"
+description: "Control how strongly errors are penalized when scoring."
+---
+
+**Strictness** is a per-rule setting, configured in a rule’s YAML frontmatter, that controls how strongly density scoring penalizes errors in the documents a check rule reviews.
+
+## Why it exists
+
+Not every rule should penalize errors equally. A rule that catches banned phrases in polished marketing copy should be unforgiving; a rule that flags style preferences in early drafts should be more lenient. Strictness scales the penalty per rule without changing the rule's criteria or the scoring formula.
+
+## How it works
+
+Strictness is the multiplier in the [density scoring formula](/density-scoring):
+
+```text
+rawScore = clamp(0, 100,  100 - density * strictness)
+```
+
+A higher strictness means a given error density causes a larger score drop. VectorLint accepts three named levels or any positive number:
+
+| Level | Value | Behavior |
+|-------|-------|----------|
+| `lenient` | 5 | Forgives occasional errors; small penalty per issue |
+| `standard` | 10 | Balanced - the **default** when strictness is unset |
+| `strict` | 20 | Penalizes errors heavily; small issues still cost points |
+
+Any positive number is also valid, for fine-grained control between the named levels.
+
+## Key properties
+
+Set strictness with the `strictness` field in the rule's frontmatter. A check rule using the strict preset:
+
+```yaml
+---
+specVersion: 2.0.0
+evaluator: base
+type: check
+id: AIPattern
+name: AI Pattern
+severity: warning
+strictness: strict
+---
+```
+
+A numeric value works the same way:
+
+```yaml
+strictness: 15
+```
+
+When `strictness` is omitted, the rule scores at **standard** (10).
+
+- **`lenient`** forgives occasional errors - suited to draft-stage or low-stakes content.
+- **`standard`** is the balanced default for most rules.
+- **`strict`** penalizes errors heavily - suited to published, high-stakes content where even rare issues matter.
+
+## Constraints
+
+- Strictness applies **only to density scoring** - rules that count discrete issues. It has no effect on [rubric scoring](/rubric-scoring), which uses criterion weights instead.
+- Strictness is set **per rule**, in its [frontmatter](/rule-frontmatter).
+
+## Related
+
+- [Density scoring](/density-scoring) - the formula strictness multiplies
+- [Rubric scoring](/rubric-scoring) - unaffected by strictness
+- [Rule frontmatter](/rule-frontmatter) - where the `strictness` field lives
+- [Handling false positives](/handling-false-positives) - strictness controls scoring severity; `CONFIDENCE_THRESHOLD` controls whether a candidate issue is surfaced at all. Different layers, different problems.

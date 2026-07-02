@@ -1,6 +1,6 @@
 ---
 title: CLI reference
-description: Complete reference for the VectorLint command-line interface — commands, flags, and exit codes.
+description: Complete reference for the VectorLint command-line interface, including commands, flags, and exit codes.
 ---
 
 VectorLint runs from the command line. You invoke it against one or more files and it prints findings to standard output. This page is the complete reference for all commands, flags, and exit behavior.
@@ -11,7 +11,7 @@ VectorLint runs from the command line. You invoke it against one or more files a
 vectorlint [flags] <file> [files...]
 ```
 
-Run a check against one file:
+Run a review against one file:
 
 ```bash
 vectorlint doc.md
@@ -37,7 +37,7 @@ Creates two files:
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `.vectorlint.ini` | Project root | File patterns, rule packs, strictness overrides |
+| `.vectorlint.ini` | Project root | File patterns and rule packs |
 | `config.toml` | `~/.vectorlint/` | LLM provider API keys |
 
 #### `--quick` flag
@@ -46,7 +46,7 @@ Creates two files:
 vectorlint init --quick
 ```
 
-Zero-config mode. Creates only a `VECTORLINT.md` file in your project root. VectorLint detects it automatically and creates a "Style Guide Compliance" rule from its contents — no `.vectorlint.ini` required.
+Zero-config mode. Creates only a `VECTORLINT.md` file in your project root. VectorLint detects it automatically and creates a "Style Guide Compliance" rule from its contents. No `.vectorlint.ini` required.
 
 ### `vectorlint --help`
 
@@ -73,7 +73,7 @@ A file with no violations produces no output.
 
 | Code | Meaning |
 |------|---------|
-| `0` | No violations found — all files passed |
+| `0` | No violations found. All files passed |
 | `1` | One or more violations found |
 
 Exit codes make VectorLint suitable for CI pipelines. A non-zero exit blocks a merge when content fails quality checks. See [CI Integration](/ci-integration) for setup examples.
@@ -84,20 +84,20 @@ VectorLint reads configuration from environment variables in addition to config 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LLM_PROVIDER` | — | LLM provider to use: `openai`, `anthropic`, `azure-openai`, `gemini`, `amazon-bedrock` |
-| `OPENAI_API_KEY` | — | API key for OpenAI |
-| `ANTHROPIC_API_KEY` | — | API key for Anthropic |
-| `GEMINI_API_KEY` | — | API key for Google Gemini |
-| `AZURE_OPENAI_API_KEY` | — | API key for Azure OpenAI |
-| `SEARCH_PROVIDER` | — | Search provider for `technical-accuracy` evaluator: `perplexity` |
-| `PERPLEXITY_API_KEY` | — | API key for Perplexity search |
-| `CONFIDENCE_THRESHOLD` | `0.75` | PAT pipeline confidence gate. Lower surfaces more findings; higher surfaces fewer. |
+| `LLM_PROVIDER` | _(none)_ | LLM provider to use: `openai`, `anthropic`, `azure-openai`, `gemini`, `amazon-bedrock` |
+| `OPENAI_API_KEY` | _(none)_ | API key for OpenAI |
+| `ANTHROPIC_API_KEY` | _(none)_ | API key for Anthropic |
+| `GEMINI_API_KEY` | _(none)_ | API key for Google Gemini |
+| `AZURE_OPENAI_API_KEY` | _(none)_ | API key for Azure OpenAI |
+| `SEARCH_PROVIDER` | _(none)_ | Search provider for `technical-accuracy` evaluator: `perplexity` |
+| `PERPLEXITY_API_KEY` | _(none)_ | API key for Perplexity search |
+| `CONFIDENCE_THRESHOLD` | `0.75` | Confidence gate. Lower surfaces more findings; higher surfaces fewer. |
 
 For the full environment variable reference see [Environment variables](/env-variables).
 
 ## Related
 
-- [Installation](/installation) — install VectorLint globally or run with npx
-- [Configuration](/configuration) — configure VectorLint for your project
-- [Tuning evaluation precision](/false-positive-tuning) — adjust `CONFIDENCE_THRESHOLD` and strictness
-- [CI Integration](/ci-integration) — use exit codes to gate merges on content quality
+- [Installation](/installation): install VectorLint globally or run with npx
+- [Configuration](/configuration): configure VectorLint for your project
+- [Handling false positives](/handling-false-positives): adjust `CONFIDENCE_THRESHOLD` and strictness
+- [CI Integration](/ci-integration): use exit codes to gate merges on content quality

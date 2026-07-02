@@ -7,11 +7,11 @@ VectorLint exits with a non-zero status code when it finds violations, making it
 
 ## How it works in CI
 
-When VectorLint finds violations it exits with code `1`. When content passes all checks it exits with code `0`. Most CI systems treat a non-zero exit as a failed step and block the merge automatically — no additional configuration needed.
+When VectorLint finds violations it exits with code `1`. When content passes all checks it exits with code `0`. Most CI systems treat a non-zero exit as a failed step and block the merge automatically. No additional configuration needed.
 
 | Exit code | Meaning |
 |-----------|---------|
-| `0` | All files passed — no violations found |
+| `0` | All files passed. No violations found |
 | `1` | One or more violations found |
 
 ## GitHub Actions
@@ -50,7 +50,7 @@ jobs:
           CONFIDENCE_THRESHOLD: 0.85
 ```
 
-The `paths` filter limits the workflow to runs where content files actually changed — it won't fire on code-only PRs.
+The `paths` filter limits the workflow to runs where content files actually changed. It won't fire on code-only PRs.
 
 ### Storing API keys
 
@@ -62,7 +62,7 @@ Never commit API keys to your repository. Store them as GitHub Actions secrets:
 
 ### Checking only changed files
 
-For large content libraries, checking every file on every PR is slow and expensive. Use `git diff` to check only the files changed in the PR:
+For large content libraries, reviewing every file on every PR is slow and expensive. Use `git diff` to review only the files changed in the PR:
 
 ```yaml
       - name: Get changed files
@@ -80,7 +80,7 @@ For large content libraries, checking every file on every PR is slow and expensi
 
 ## Recommended CI configuration
 
-CI environments should be stricter than local development. A finding a writer might dismiss in review becomes a merge blocker in CI — so surface only high-confidence violations.
+CI environments should be stricter than local development. A finding a writer might dismiss in review becomes a merge blocker in CI, so surface only high-confidence violations.
 
 **Raise `CONFIDENCE_THRESHOLD` in CI.** Set it higher than your local default so only the most certain findings block a merge:
 
@@ -89,7 +89,7 @@ env:
   CONFIDENCE_THRESHOLD: 0.85
 ```
 
-**Gate checks only on production-bound content.** Limit the workflow `paths` filter to directories that ship to users, not drafts or internal docs:
+**Run the review only on production-bound content.** Limit the workflow `paths` filter to directories that ship to users, not drafts or internal docs:
 
 ```yaml
 on:
@@ -99,22 +99,9 @@ on:
       - 'content/api/**'
 ```
 
-**Use strict strictness on gated content.** In your `.vectorlint.ini`, apply strict scoring to the files that CI checks:
-
-```ini
-[content/docs/**/*.md]
-RunRules=TechDocs
-GrammarChecker.strictness=strict
-
-[content/drafts/**/*.md]
-RunRules=
-```
-
-Drafts never reach CI — the empty `RunRules=` means VectorLint skips them entirely.
-
 ## Other CI systems
 
-VectorLint works with any CI system that supports running shell commands. The pattern is the same: install VectorLint, set environment variables from secrets, run the check.
+VectorLint works with any CI system that supports running shell commands. The pattern is the same: install VectorLint, set environment variables from secrets, run the review.
 
 **GitLab CI:**
 
@@ -151,10 +138,10 @@ jobs:
             LLM_PROVIDER: openai
 ```
 
-Store API keys in your CI system's secret or environment variable manager — never in the workflow file itself.
+Store API keys in your CI system's secret or environment variable manager. Never store them in the workflow file itself.
 
 ## Next steps
 
-- [Tuning evaluation precision](/false-positive-tuning) — set `CONFIDENCE_THRESHOLD` and strictness for CI
-- [Project Configuration](/project-config) — configure which files CI checks
-- [CLI reference](/cli-reference) — full command and exit code reference
+- [Handling false positives](/handling-false-positives): set `CONFIDENCE_THRESHOLD` and strictness for CI
+- [Project Configuration](/project-config): configure which files CI checks
+- [CLI reference](/cli-reference): full command and exit code reference

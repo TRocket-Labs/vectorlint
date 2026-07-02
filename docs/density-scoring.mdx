@@ -1,8 +1,50 @@
 ---
-title: Density Scoring
-description: This page is coming soon.
+title: "Density Scoring"
+description: "How VectorLint scores content when reviewing for discrete issues."
 ---
 
-<Note>
-  This page is coming soon. Check back for updates, or follow the [VectorLint GitHub repository](https://github.com/TRocket-Labs/vectorlint) for the latest news.
-</Note>
+Density scoring is the method VectorLint uses when reviewing content for discrete issues: banned phrases, structural errors, or missing elements. The rule defines what the LLM should look for; VectorLint counts what the LLM finds and calculates a score.
+
+## Why it exists
+
+A raw issue count treats every document the same. One banned phrase in a 100-word release note and the same phrase in a 1,000-word spec would lose the same points. Density scoring measures issues **per 100 words** instead, so an error weighs more in a short document than in a long one. The score reflects proportional quality, not absolute count.
+
+## How it works
+
+VectorLint calculates **error density** (violations per 100 words) then subtracts a penalty scaled by that density and the rule's strictness:
+
+```text
+density    = (violations / wordCount) * 100
+rawScore   = clamp(0, 100,  100 - density * strictness)
+finalScore = rawScore / 10
+```
+
+The final score is on a 0–10 scale. The full expression in one line:
+
+```text
+score = (100 - (violations / wordCount * 100 * strictness)) / 10
+```
+
+`strictness` is a multiplier (default **10**) set in the rule's frontmatter. See [Strictness](/strictness).
+
+## Key properties
+
+With the default `strictness = 10`, one violation scores differently depending on document length:
+
+| Violations | Word count | density | rawScore | Score |
+|------------|-----------|---------|----------|-------|
+| 1 | 100 | `(1/100) * 100 = 1.0` | `100 - 1.0 * 10 = 90` | **9.0** |
+| 1 | 1,000 | `(1/1000) * 100 = 0.1` | `100 - 0.1 * 10 = 99` | **9.9** |
+
+The same error costs more in the short document because it represents a higher proportion of the content.
+
+A score below **10** means VectorLint found at least one issue. It reports the score at the rule's configured severity; a severity of `error` causes a non-zero exit code and fails CI.
+
+## Constraints
+
+A score of **0** means `rawScore` was clamped at the floor. The error density was high enough to exhaust the entire penalty budget.
+
+## Related
+
+- [Rubric scoring](/rubric-scoring): the method used when reviewing quality on a spectrum instead of counting issues
+- [Strictness](/strictness): the multiplier in the formula and how to set it

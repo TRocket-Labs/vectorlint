@@ -1,6 +1,6 @@
 ---
 title: Configuring a project
-description: Map files to rule packs and tune evaluation behavior with .vectorlint.ini.
+description: Choose which rules apply to which files and configure review behavior.
 ---
 
 `.vectorlint.ini` is VectorLint's project configuration file. It lives in your project root and controls three things: global behavior settings, where VectorLint looks for custom rules, and which rule packs run on which files.
@@ -9,12 +9,12 @@ Run `vectorlint init` to generate a starter file. You can edit it manually at an
 
 ## Global Settings
 
-These settings apply to all evaluations in the project.
+These settings apply to all reviews in the project.
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `RulesPath` | string | _(none)_ | Root directory for custom rule packs. If omitted, only built-in presets are used. |
-| `Concurrency` | integer | `4` | Number of evaluations to run in parallel. |
+| `Concurrency` | integer | `4` | Number of reviews to run in parallel. |
 | `DefaultSeverity` | string | `warning` | Severity level for reported violations: `warning` or `error`. |
 
 ```ini
@@ -35,12 +35,9 @@ RunRules=Acme
 
 [content/docs/**/*.md]
 RunRules=Acme
-GrammarChecker.strictness=9
-TechnicalAccuracy.threshold=8.0
 
 [content/marketing/**/*.md]
 RunRules=TechCorp
-BrandVoice.strictness=8
 
 [content/drafts/**/*.md]
 RunRules=
@@ -72,52 +69,42 @@ project/
 └── .vectorlint.ini
 ```
 
-Rules inside `Acme/` are available when you set `RunRules=Acme`. Nesting is supported — you can organize rules into subdirectories within a pack.
+Rules inside `Acme/` are available when you set `RunRules=Acme`. Nesting is supported: you can organize rules into subdirectories within a pack.
 
 ## Cascading Configuration
 
-VectorLint applies configuration blocks from general to specific, similar to Vale's cascade behavior. All blocks that match a given file are applied; more specific patterns override settings from more general ones, and rule packs accumulate.
+VectorLint applies configuration blocks from general to specific, similar to Vale's cascade behavior. All blocks that match a given file are applied, and rule packs accumulate. A file runs every pack from every matching block, from the most general to the most specific.
 
 ```ini
-# Applied first — general
+# Applied first: general
 [**/*.md]
 RunRules=GeneralRules
-Grammar.strictness=5
 
-# Applied second — more specific
-# Result: runs GeneralRules AND TechDocs; strictness is 9 (overrides 5)
+# Applied second: more specific
+# Result: content/docs/api.md runs GeneralRules AND TechDocs
 [content/docs/**/*.md]
 RunRules=TechDocs
-Grammar.strictness=9
 ```
 
 **Specificity** is determined by path depth and wildcard count. `content/docs/**/*.md` is more specific than `**/*.md`.
 
-## Strictness Overrides
+## Confidence threshold
 
-You can tune how harshly individual check rules score content on a per-pattern basis.
+VectorLint filters findings through confidence checks before surfacing violations. The confidence threshold controls how aggressively this filter applies.
 
-```ini
-[pattern]
-RuleID.strictness=value
+Set it in your `.env` file or as an environment variable:
+
+```bash
+CONFIDENCE_THRESHOLD=0.75
 ```
 
-Strictness controls the penalty weight applied to error density. Higher values penalize the same error rate more severely.
+| Value | Effect |
+|---|---|
+| Lower (for example `0.5`) | More findings surfaced, higher recall, more noise |
+| Default (`0.75`) | Balanced precision and recall |
+| Higher (for example `0.9`) | Fewer findings surfaced, higher precision, fewer false positives |
 
-| Level | Value | Penalty per 1% error density | Typical use |
-|-------|-------|------------------------------|-------------|
-| Lenient | `1`–`3` | ~5 points | Drafts |
-| Standard | `4`–`7` | ~10 points | General content |
-| Strict | `8`–`10` | ~20 points | Technical documentation |
-
-You can use named levels (`lenient`, `standard`, `strict`) or direct numeric multipliers:
-
-```ini
-[content/docs/**/*.md]
-RunRules=Acme
-GrammarChecker.strictness=strict
-TechnicalAccuracy.strictness=20
-```
+Invalid values fall back to the default of `0.75`.
 
 ## Complete Example
 
@@ -128,23 +115,19 @@ RulesPath=.github/rules
 Concurrency=4
 DefaultSeverity=warning
 
-# All markdown files — baseline checks
+# All markdown files: baseline checks
 [**/*.md]
 RunRules=Acme
-GrammarChecker.strictness=5
 
-# Technical docs — stricter standards
+# Technical docs
 [content/docs/**/*.md]
 RunRules=Acme
-GrammarChecker.strictness=9
-TechnicalAccuracy.threshold=8.0
 
-# Marketing — brand voice rules
+# Marketing: brand voice rules
 [content/marketing/**/*.md]
 RunRules=TechCorp
-BrandVoice.strictness=8
 
-# Drafts — skip all checks
+# Drafts: skip all checks
 [content/drafts/**/*.md]
 RunRules=
 ```
@@ -153,15 +136,15 @@ RunRules=
 
 In addition to `.vectorlint.ini`, you can place a `VECTORLINT.md` file in your project root to define global style instructions in plain language.
 
-**Zero-config mode:** If no `.vectorlint.ini` exists, VectorLint automatically detects `VECTORLINT.md`, creates a synthetic "Style Guide Compliance" rule, and evaluates content against it.
+**Zero-config mode:** If no `.vectorlint.ini` exists, VectorLint automatically detects `VECTORLINT.md`, creates a synthetic "Style Guide Compliance" rule, and reviews content against it.
 
-**Combined mode:** When `.vectorlint.ini` is present, the contents of `VECTORLINT.md` are prepended to the system prompt for every evaluation — making your global tone and terminology preferences active across all rules.
+**Combined mode:** When `.vectorlint.ini` is present, the contents of `VECTORLINT.md` apply globally to every review, making your tone and terminology preferences active across all rules.
 
 <Note>
-Keep `VECTORLINT.md` concise. VectorLint emits a warning if the file exceeds approximately 4,000 tokens, as very large contexts can degrade evaluation quality and increase API costs.
+Keep `VECTORLINT.md` concise. VectorLint emits a warning if the file exceeds approximately 4,000 tokens, as very large contexts can degrade review quality and increase API costs.
 </Note>
 
 ## Next Steps
 
-- [LLM Providers](/llm-providers) — configure the model that runs evaluations
-- [Style Guide](/style-guide) — write custom rules for your content standards
+- [LLM Providers](/llm-providers): configure the model that runs reviews
+- [Style Guide](/style-guide): write custom rules for your content standards

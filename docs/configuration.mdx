@@ -1,5 +1,5 @@
 ---
-title: "Configuration overview"
+title: "Overview"
 description: "Understand VectorLint's configuration files and how they work together."
 ---
 
@@ -7,12 +7,12 @@ VectorLint is configured through four files. Running `vectorlint init` creates t
  
 | File | Location | Purpose | Required |
 |------|----------|---------|----------|
-| `VECTORLINT.md` | Project root | Global style instructions in plain language — prepended to every evaluation | Required for zero-config mode |
-| `.vectorlint.ini` | Project root | File patterns, rule packs, strictness overrides | Required for rule packs and file-specific configuration |
-| `config.toml` | `~/.vectorlint/` | LLM provider API keys — applies globally across projects | Always required |
-| Rule pack files | `RulesPath` directory | Targeted LLM prompts for specific checks — for advanced content quality workflows | Optional |
+| `VECTORLINT.md` | Project root | Global style instructions in plain language, applied to every review | Required for zero-config mode |
+| `.vectorlint.ini` | Project root | File patterns and rule packs | Required for rule packs and file-specific configuration |
+| `config.toml` | `~/.vectorlint/` | LLM provider API keys (applies globally across projects) | Always required |
+| Rule pack files | `RulesPath` directory | Targeted rules for specific standards, for advanced content quality workflows | Optional |
 
-For more information about integrating your style guide into the `VECTORLINT.md` file, see [Your first style check](./initial-style-check).
+For more information about integrating your style guide into the `VECTORLINT.md` file, see [Your first review](./initial-style-check).
 For more information about rule pack files, see [Defining your style rules](./style-guide).
 
 ---
@@ -23,15 +23,15 @@ VectorLint provides two initialization modes depending on how much configuration
 
 ### Zero-config mode (fastest)
 
-If you want to check content against a style guide with no additional setup:
+If you want to review content against a style guide with no additional setup:
 
 ```bash
 vectorlint init --quick
 ```
 
-This creates a `VECTORLINT.md` file in your project root where you paste your style guide. VectorLint automatically creates a "Style Guide Compliance" rule from it and evaluates your content against it.
+This creates a `VECTORLINT.md` file in your project root where you paste your style guide. VectorLint automatically creates a "Style Guide Compliance" rule from it and reviews your content against it.
 
-Run a check:
+Run a review:
 
 ```bash
 vectorlint doc.md
@@ -53,15 +53,15 @@ This creates both `.vectorlint.ini` and `~/.vectorlint/config.toml`. Edit them m
 
 Each file has its own reference page with complete field definitions, examples, and behavior details.
 
-- [LLM Providers](/llm-providers) — configure your LLM provider, search provider, and false-positive filtering threshold
-- [Project Configuration](/project-config) — map file patterns to rule packs, set strictness overrides, and understand cascading behavior
-- [Defining your style rules](/style-guide) — create `VECTORLINT.md` and write targeted rule pack files
+- [LLM Providers](/llm-providers): configure your LLM provider, search provider, and false-positive filtering threshold
+- [Project Configuration](/project-config): choose which rules apply to which files and understand cascading behavior
+- [Defining your style rules](/style-guide): create `VECTORLINT.md` and write targeted rule pack files
 
 ---
 
-## Run a check
+## Run a review
 
-Once your provider is configured, run a check against any Markdown file:
+Once your provider is configured, run a review against any Markdown file:
 
 ```bash
 vectorlint doc.md
@@ -75,10 +75,10 @@ VectorLint ships with a built-in preset containing eight `check` rules (AI Patte
 
 <CardGroup cols={2}>
   <Card title="LLM Providers" icon="key" href="/llm-providers">
-    Configure the model and API keys that power your evaluations.
+    Configure the model and API keys that power your reviews.
   </Card>
   <Card title="Project Configuration" icon="sliders" href="/project-config">
-    Map files to rule packs and tune evaluation behavior.
+    Choose which rules apply to which files and configure review behavior.
   </Card>
   <Card title="Defining your style rules" icon="file-pen" href="/style-guide">
     Create VECTORLINT.md and write custom rule pack files.

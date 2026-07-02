@@ -19,7 +19,6 @@
         "group": "Overview",
         "pages": [
           "introduction",
-          "use-cases",
           "how-it-works"
         ]
       },
@@ -36,41 +35,40 @@
         "pages": [
           "configuration",
           "project-config",
+          "llm-providers"
+        ]
+      },
+      {
+        "group": "Rules",
+        "pages": [
           "style-guide",
           "customize-style-rules",
-          "llm-providers",
           "presets"
         ]
       },
       {
-        "group": "Quality scoring",
+        "group": "Scoring",
         "pages": [
-          "quality-scoring",
+          "scoring",
           "density-scoring",
-          "rubric-scoring"
+          "rubric-scoring",
+          "strictness"
         ]
       },
       {
-        "group": "For teams & organizations",
+        "group": "Guides",
         "pages": [
           "ci-integration",
-          "team-rule-packs",
-          "false-positive-tuning"
-        ]
-      },
-      {
-        "group": "Best practices",
-        "pages": [
-          "best-practices"
+          "best-practices",
+          "handling-false-positives"
         ]
       },
       {
         "group": "Reference",
         "pages": [
           "cli-reference",
-          "configuration-schema",
           "env-variables",
-          "frontmatter-fields",
+          "rule-frontmatter",
           "troubleshooting"
         ]
       }

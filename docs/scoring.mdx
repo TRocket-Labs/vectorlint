@@ -1,0 +1,30 @@
+---
+title: "Overview"
+description: "How VectorLint scores content using two scoring methods."
+---
+
+VectorLint reviews each document against the rules that apply to it and assigns the document a **score on a ten-point scale**. A score of 10 means the document fully meets the rule's criteria. A score below 10 means VectorLint found issues, and it reports a violation at the rule's configured severity.
+
+## Why it exists
+
+The score is a shared, measurable quality signal. It makes quality comparable across documents and trackable over time, and it doubles as a CI gate: a score below 10 reports a violation, and a violation at `error` severity exits non-zero and fails the run. A numeric signal is easier to act on than a binary pass/fail.
+
+## How it works
+
+VectorLint scores a document with one of two methods, chosen by what the rule asks for.
+
+| When a rule defines… | VectorLint scores the document with… | What the score reflects |
+|--------------|---------------------------------------|------------------------|
+| Discrete issues to find (a banned phrase, a missing element, a structural error) | [Density scoring](/density-scoring) | How often issues appear relative to document length |
+| Quality criteria to rate on a spectrum (clarity, tone, completeness) | [Rubric scoring](/rubric-scoring) | A weighted average of LLM ratings against a rubric |
+
+Both methods report a score where 10 means the document fully meets the rule's criteria and lower scores reflect more issues. Density scoring rewards documents where issues are rare relative to length; rubric scoring rewards documents that rate highly across the rubric's criteria.
+
+Density scoring is tunable per rule through [strictness](/strictness), a multiplier on error density. Rubric scoring is tuned through criterion weights in the rule's frontmatter.
+
+The formulas and worked examples live on the [density scoring](/density-scoring) and [rubric scoring](/rubric-scoring) pages.
+
+## Related
+
+- [How it works](/how-it-works): the full review pipeline, from file discovery through scoring and reporting
+- [Strictness](/strictness): control how strongly density scoring penalizes errors

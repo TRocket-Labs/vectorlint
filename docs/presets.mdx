@@ -1,6 +1,6 @@
 ---
 title: Presets
-description: Use VectorLint's built-in rule presets to start evaluating content without writing custom rules.
+description: Use VectorLint's built-in rule presets to start reviewing content without writing custom rules.
 ---
 
 VectorLint ships with a built-in rule preset that activates automatically when you run `vectorlint init`. Presets give you immediate, useful output without requiring you to write any rules first.
@@ -9,14 +9,14 @@ VectorLint ships with a built-in rule preset that activates automatically when y
 
 The default preset includes eight `check` rules:
 
-- **AI Pattern** (`AIPattern`) — flags structural tells, rhetorical scaffolding, and tone problems that signal AI-generated writing
-- **Capitalization** (`Capitalization`) — flags inconsistent capitalization style across headings in the same document
-- **Consistency** (`Consistency`) — flags naming and terminology inconsistency within a document
-- **Inclusivity** (`Inclusivity`) — flags gendered pronouns and role nouns where a neutral alternative exists
-- **Passive Voice** (`PassiveVoice`) — flags passive constructions that reduce clarity or directness
-- **Repetition** (`Repetition`) — flags repeated words and ideas restated without adding new information
-- **Unsupported Claims** (`UnsupportedClaims`) — flags unsourced factual claims and vague authority citations
-- **Wordiness** (`Wordiness`) — flags wordy phrases where a shorter equivalent exists
+- **AI Pattern** (`AIPattern`): flags structural tells, rhetorical scaffolding, and tone problems that signal AI-generated writing
+- **Capitalization** (`Capitalization`): flags inconsistent capitalization style across headings in the same document
+- **Consistency** (`Consistency`): flags naming and terminology inconsistency within a document
+- **Inclusivity** (`Inclusivity`): flags gendered pronouns and role nouns where a neutral alternative exists
+- **Passive Voice** (`PassiveVoice`): flags passive constructions that reduce clarity or directness
+- **Repetition** (`Repetition`): flags repeated words and ideas restated without adding new information
+- **Unsupported Claims** (`UnsupportedClaims`): flags unsourced factual claims and vague authority citations
+- **Wordiness** (`Wordiness`): flags wordy phrases where a shorter equivalent exists
 
 These rules run against all Markdown files by default when the preset is active.
 
@@ -29,7 +29,7 @@ When you run `vectorlint init`, the generated `.vectorlint.ini` references the `
 RunRules=VectorLint
 ```
 
-Preset rules behave identically to custom rules — you can override their strictness, combine them with your own rule packs, or disable them for specific file patterns.
+Preset rules behave identically to custom rules. You can combine them with your own rule packs or disable them for specific file patterns.
 
 ## Combining presets with custom rules
 
@@ -54,19 +54,7 @@ RunRules=VectorLint
 RunRules=
 ```
 
-## Overriding preset strictness
-
-Tune how harshly a preset rule scores content using its rule ID:
-
-```ini
-[content/docs/**/*.md]
-RunRules=VectorLint
-AIPattern.strictness=strict
-```
-
-See [Project Configuration](/project-config) for the full strictness reference.
-
 ## Next steps
 
-- [Defining your style rules](/style-guide) — write custom rules to enforce your specific standards
-- [Project Configuration](/project-config) — control which rules run on which files
+- [Defining your style rules](/style-guide): write custom rules to enforce your specific standards
+- [Project Configuration](/project-config): control which rules run on which files

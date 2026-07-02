@@ -1,19 +1,19 @@
 ---
 title: Defining your style rules
-description: Set global style instructions and create targeted LLM prompts to evaluate content against your style guide, terminology, and content standards.
+description: Define your content standards and create rules to enforce them.
 ---
 
-VectorLint gives you two ways to bring your style guide into evaluations. Understanding which to use and when to combine them is the starting point for any content quality workflow:
+VectorLint gives you two ways to bring your style guide into reviews. Understanding which to use and when to combine them is the starting point for any content quality workflow:
 
-- **`VECTORLINT.md` file**: the global style instructions in plain language. Create this file from your style guide and place it in your project root. VectorLint prepends its contents to the system prompt for every evaluation, making your tone, terminology, and baseline standards apply across all rules automatically. Use it for broad, always-applicable guidance. See [Project Configuration](/project-config) for details.
+- **`VECTORLINT.md` file**: the global style instructions in plain language. Create this file from your style guide and place it in your project root. VectorLint applies its contents to every review, making your tone, terminology, and baseline standards active across all rules automatically. Use it for broad, always-applicable guidance. See [Project Configuration](/project-config) for details.
 
-- **Rule pack files**: the targeted LLM prompts for specific checks. Create these as separate Markdown files as described below. Each file is a structured prompt that instructs the LLM to evaluate content against one specific standard: grammar, headline quality, AI pattern detection, technical accuracy, and so on. Rules are organized into packs and mapped to file patterns in `.vectorlint.ini`. Rule pack files live in subdirectories under `RulesPath` — see [File Structure Reference](#file-structure-reference) below.
+- **Rule pack files**: the targeted rules for specific standards. Create these as separate Markdown files as described below. Each file instructs the LLM to review content against one specific standard: grammar, headline quality, AI pattern detection, technical accuracy, and so on. Rules are organized into packs and mapped to file patterns in `.vectorlint.ini`. Rule pack files live in subdirectories under `RulesPath`. See [File Structure Reference](#file-structure-reference) below.
 
 If you can write a prompt for it, you can lint for it with VectorLint.
 
 ## Creating your VECTORLINT.md
 
-Place a `VECTORLINT.md` file in your project root to define global style instructions that apply to every evaluation. VectorLint prepends its contents to the system prompt for every rule it runs.
+Place a `VECTORLINT.md` file in your project root to define global style instructions that apply to every review. VectorLint uses its contents as context for every rule it runs.
 
 Keep this file concise. VectorLint emits a warning if the file exceeds approximately 4,000 tokens, as very large contexts can degrade performance and increase API costs.
 
@@ -30,7 +30,7 @@ Rules for extraction:
 - Output imperative rules only. No explanations, rationale, or examples.
 - Group rules under short, plain-language headings.
 - Remove all tables, comparison columns, governing references, and
-  checklists — extract only the actionable rules they contain.
+  checklists. Extract only the actionable rules they contain.
 - Remove any rule that is structural (document architecture, heading
   levels) rather than evaluable at the sentence or paragraph level.
 - Use plain markdown bullets. No bold, no nested lists beyond one level.
@@ -42,14 +42,14 @@ Style guide to extract from:
 ```
 
 <Tip>
-  Target your `VECTORLINT.md` file at under 800 tokens. This leaves room for rule-specific prompts without approaching the warning threshold.
+  Target your `VECTORLINT.md` file at under 800 tokens. This leaves room for rule-specific instructions without approaching the warning threshold.
 </Tip>
 
 To help you get started, the VectorLint docs repository includes an [example VECTORLINT.md](https://github.com/taz-mon/vectorlint-docs/blob/main/VECTORLINT.md) covering common technical writing rules that you can copy and adapt.
 
 ## Creating rule pack files
 
-Rule pack files are optional Markdown files, each containing a targeted LLM prompt for a specific check. Unlike `VECTORLINT.md`, which sets broad context for every evaluation, rule pack files enforce precise, measurable criteria — grammar, headline quality, AI pattern detection, technical accuracy, and so on. You can create as many as your content workflow requires and organize them into packs mapped to specific file patterns in `.vectorlint.ini`.
+Rule pack files are optional Markdown files, each defining a targeted rule for a specific standard. Unlike `VECTORLINT.md`, which sets broad context for every review, rule pack files enforce precise, measurable criteria. You can create as many as your content workflow requires and organize them into packs mapped to specific file patterns in `.vectorlint.ini`.
 
 Each rule file has two parts: YAML frontmatter that configures how VectorLint handles the result, and a Markdown body that is the actual prompt sent to the LLM.
 
@@ -79,16 +79,16 @@ Your detailed instructions for the LLM go here.
 | Field | Default | Description |
 |-------|---------|-------------|
 | `evaluator` | `base` | Evaluator type. Use `base` for most rules; `technical-accuracy` for fact-checking rules that need search. |
-| `type` | `check` | Evaluation mode: `check` or `judge`. See below. |
+| `type` | `check` | Review mode: `check` or `judge`. See below. |
 | `severity` | `warning` | How failures are reported: `error` or `warning`. |
 | `evaluateAs` | `chunk` | Whether to evaluate content as a whole (`document`) or in sections (`chunk`). |
 | `target` | _(none)_ | Regex to target a specific part of the content (e.g., only the H1 headline). |
 | `criteria` | _(none)_ | Required for `judge` rules. Defines the scoring dimensions. |
 | `specVersion` | _(none)_ | Rule spec version. Use `1.0.0`. |
 
-## Evaluation Modes
+## Review modes
 
-VectorLint supports two evaluation modes, chosen with the `type` field.
+VectorLint supports two review modes, chosen with the `type` field.
 
 | Mode | `type` value | Best for |
 |------|-------------|----------|
@@ -112,15 +112,15 @@ Check this content for grammar issues, spelling errors, and punctuation mistakes
 Report any errors found with specific examples.
 ```
 
-**Scoring:** Start at 10. Each percentage point of error density deducts points according to the strictness level configured for this rule in `.vectorlint.ini`. A score below 10 triggers a violation at the configured severity.
+**Scoring:** Start at 10. Each percentage point of error density deducts points according to the rule's strictness level, set in the rule's frontmatter. A score below 10 triggers a violation at the configured severity.
 
-**Strictness levels** (set per-pattern in `.vectorlint.ini`):
+**Strictness levels** (set per rule in frontmatter):
 
 | Level | Penalty per 1% density |
 |-------|------------------------|
-| `lenient` (1–3) | ~5 points |
-| `standard` (4–7) | ~10 points |
-| `strict` (8–10) | ~20 points |
+| `lenient` (5) | ~5 points |
+| `standard` (10, default) | ~10 points |
+| `strict` (20) | ~20 points |
 
 ### Judge rules
 
@@ -179,7 +179,7 @@ Creates genuine intrigue without being misleading.
 Mildly interesting, reader may continue.
 
 ### Fair <score=2>
-Neutral — no curiosity created.
+Neutral, no curiosity created.
 
 ### Poor <score=1>
 Actively off-putting or confusing.
@@ -187,7 +187,7 @@ Actively off-putting or confusing.
 
 ## Targeting Specific Content
 
-The `target` field lets you evaluate a specific portion of a document — for example, only the H1 headline — rather than the full content.
+The `target` field lets you review a specific portion of a document (for example, only the H1 headline) rather than the full content.
 
 ```yaml
 target:
@@ -198,9 +198,9 @@ target:
   suggestion: Add an H1 headline for the article.
 ```
 
-**When `required: true`:** If the pattern doesn't match, VectorLint reports an immediate `error` with the `suggestion` text, and skips LLM evaluation.
+**When `required: true`:** If the pattern doesn't match, VectorLint reports an immediate `error` with the `suggestion` text, and skips LLM review.
 
-**When `required: false` (or omitted):** If the pattern doesn't match, VectorLint evaluates the full document instead.
+**When `required: false` (or omitted):** If the pattern doesn't match, VectorLint reviews the full document instead.
 
 ## File Structure Reference
 
@@ -276,6 +276,6 @@ Pervasive AI patterns throughout.
 
 ## Next Steps
 
-- [Customize style rules](/customize-style-rules) — learn how to write effective LLM prompts for your rule pack files
-- [Project Configuration](/project-config) — assign rule packs to file patterns
-- [LLM Providers](/llm-providers) — configure the model used for evaluations
+- [Customize style rules](/customize-style-rules): learn how to write effective rules for your rule pack files
+- [Project Configuration](/project-config): assign rule packs to file patterns
+- [LLM Providers](/llm-providers): configure the model used for reviews

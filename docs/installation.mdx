@@ -8,7 +8,7 @@ description: Install VectorLint globally or run it with npx. Covers Node.js requ
 VectorLint requires Node.js 18 or later. Node.js 22 LTS is recommended. If you need to install or update Node.js, use [nvm](https://github.com/nvm-sh/nvm) (recommended) or download directly from [nodejs.org](https://nodejs.org).
 
 <Warning>
-Installing VectorLint makes the CLI available, but the tool requires a configured LLM provider to evaluate content. If you run `vectorlint` against a file before completing provider configuration, you get no output and no error. After installing, complete [Configuring LLM providers](/llm-providers) before running your first check.
+Installing VectorLint makes the CLI available, but the tool requires a configured LLM provider to review content. If you run `vectorlint` against a file before completing provider configuration, you get no output and no error. After installing, complete [Configuring LLM providers](/llm-providers) before running your first review.
 </Warning>
 
 ---
@@ -53,6 +53,6 @@ npx vectorlint@2.5.0 path/to/doc.md
 
 ## Next steps
 
-- [Quickstart](/quickstart) — configure your LLM provider and run your first check end to end
-- [Configuring LLM providers](/llm-providers) — set up your API key for OpenAI, Anthropic, Gemini, Azure OpenAI, or Amazon Bedrock
-- [Using VECTORLINT.md](/initial-style-check) — start evaluating content without writing any rule pack files
+- [Quickstart](/quickstart): configure your LLM provider and run your first review end to end
+- [Configuring LLM providers](/llm-providers): set up your API key for a supported provider
+- [Using VECTORLINT.md](/initial-style-check): start reviewing content without writing any rule pack files
