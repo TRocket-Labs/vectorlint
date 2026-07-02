@@ -119,11 +119,18 @@ Key style requirements:
 5. **Commit properly**: Follow our commit message guidelines
 6. **Create PR**: Provide a clear description of your changes
 
-### Docs Branch Targeting
+## Docs Contribution Guidelines
 
-- Target `release-docs` when the change should be visible in public docs now and is true for the latest released CLI.
-- Target `main` when the change describes unreleased or in-development behavior.
-- If a docs hotfix lands in `release-docs`, let the sync workflow carry it back to `main` instead of manually cherry-picking.
+VectorLint uses two documentation tracks:
+
+- `main` is for work in active development
+- `release-docs` is for the docs that should match the latest released CLI
+
+When you open a docs PR, use this rule:
+
+- Open the PR and target `release-docs` if the change should go live now and it is accurate for the latest released CLI.
+- Open the PR and target `main` if the change describes a feature, behavior, or workflow that is still in development.
+- If a docs fix goes into `release-docs`, let the sync workflow carry that change back into `main` instead of manually cherry-picking it.
 
 ### Before Submitting
 
