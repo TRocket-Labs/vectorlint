@@ -1,0 +1,55 @@
+---
+title: "Strictness"
+description: "Tuning how harshly check rules penalize error density."
+---
+
+Strictness controls the penalty weight applied to error density for **check rules only**. It is the multiplier in the [density scoring formula](/density-scoring):
+
+```
+rawScore = clamp(0, 100,  100 - density * strictness)
+```
+
+A higher strictness value means a given error density causes a larger score drop.
+
+## Named levels
+
+| Level | Numeric value | Effect at 1% density |
+|-------|--------------|----------------------|
+| `lenient` | 5 | ~5 point penalty |
+| `standard` | 10 | ~10 point penalty *(default)* |
+| `strict` | 20 | ~20 point penalty |
+
+You can also supply any positive number directly.
+
+## Configuration
+
+Set strictness per-rule, per-glob pattern in `.vectorlint.ini`:
+
+```ini
+[docs/**/*.md]
+RunRules=VectorLint
+VectorLint/ai-pattern.strictness=strict
+
+[blog/**/*.md]
+RunRules=VectorLint
+VectorLint/ai-pattern.strictness=standard
+
+[drafts/**/*.md]
+RunRules=VectorLint
+VectorLint/ai-pattern.strictness=lenient
+```
+
+The key format is `RuleID.strictness=value` under a glob section. This lets you apply tighter standards to published content and looser standards to drafts without changing the rule itself.
+
+## Strictness vs. confidence threshold
+
+Strictness and `CONFIDENCE_THRESHOLD` solve different problems.
+
+- **Strictness** controls *how harshly* a confirmed violation affects the score. It operates at the scoring layer.
+- **`CONFIDENCE_THRESHOLD`** controls *whether* a candidate violation is surfaced at all. It operates at the filtering layer.
+
+See [Handling false positives](/handling-false-positives) for the confidence threshold lever.
+
+## No effect on judge rules
+
+Strictness has no effect on `judge` rules. Judge rules use a weighted rubric — adjust criterion weights in the rule frontmatter to shift scoring emphasis. See [Rubric Scoring](/rubric-scoring).
