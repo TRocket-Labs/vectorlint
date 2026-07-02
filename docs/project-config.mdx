@@ -119,6 +119,24 @@ GrammarChecker.strictness=strict
 TechnicalAccuracy.strictness=20
 ```
 
+## Confidence threshold
+
+VectorLint filters raw LLM candidates through gate checks before surfacing violations. The confidence threshold controls how aggressively this filter applies.
+
+Set it in your `.env` file or as an environment variable:
+
+```bash
+CONFIDENCE_THRESHOLD=0.75
+```
+
+| Value | Effect |
+|---|---|
+| Lower (for example `0.5`) | More findings surfaced — higher recall, more noise |
+| Default (`0.75`) | Balanced precision and recall |
+| Higher (for example `0.9`) | Fewer findings surfaced — higher precision, fewer false positives |
+
+Invalid values fall back to the default of `0.75`.
+
 ## Complete Example
 
 ```ini
