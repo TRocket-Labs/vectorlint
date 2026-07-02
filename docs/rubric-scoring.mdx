@@ -1,13 +1,13 @@
 ---
 title: "Rubric Scoring"
-description: "How VectorLint scores content when a rule rates quality on a rubric."
+description: "How VectorLint scores content by rating quality on a rubric."
 ---
 
-Rubric scoring is the method VectorLint uses to score a document when the rule evaluates it by rating quality on a spectrum — clarity, tone, technical accuracy, or completeness. Rules define the criteria; the document is what is scored.
+Rubric scoring is the method VectorLint uses when reviewing content on a quality spectrum — clarity, tone, technical accuracy, or completeness. The rule defines the criteria and rubric levels; the LLM rates the content against each criterion, and VectorLint calculates the final score.
 
 ## How it works
 
-The rule's rubric lists **criteria**, each scored by the LLM on a **1–4 scale**. VectorLint normalizes each rating to the **1–10** range, then combines them into a weighted average.
+The rule defines **criteria**, each rated by the LLM on a **1–4 scale**. VectorLint normalizes each rating to the **1–10** range, then combines them into a weighted average.
 
 The normalization maps the full 1–4 rating range onto 1–10:
 
@@ -30,7 +30,7 @@ Each criterion carries a `weight` (default **1** when unset). A higher weight gi
 finalScore = sum(normalized_i * weight_i) / sum(weight_i)
 ```
 
-Criteria are defined in the rule's frontmatter — a human-readable `name`, an `id`, and an optional `weight`. The LLM evaluates each criterion against the rubric text in the rule's body. See [Rule frontmatter](/rule-frontmatter).
+Criteria are defined in the rule's frontmatter — a human-readable `name`, an `id`, and an optional `weight`. The LLM rates the content against each criterion using the rubric described in the rule's body. See [Rule frontmatter](/rule-frontmatter).
 
 ## Key properties
 
@@ -52,9 +52,9 @@ VectorLint reports scores to one decimal place, so this document scores **8.3**.
 ## Constraints
 
 - **Strictness has no effect on rubric scoring.** Strictness is a multiplier on error density and applies only to density scoring. See [Strictness](/strictness).
-- For documents above the chunking threshold, VectorLint evaluates each chunk independently. Judge scores are averaged across chunks, weighted by chunk size. This is an implementation detail — no configuration is required.
+- For documents above the chunking threshold, VectorLint reviews each chunk independently. Judge scores are averaged across chunks, weighted by chunk size. This is an implementation detail — no configuration is required.
 
 ## Related
 
-- [Density scoring](/density-scoring) — the method used when a rule counts discrete issues
-- [How it works](/how-it-works) — the full evaluation pipeline, including chunking
+- [Density scoring](/density-scoring) — the method used when reviewing for discrete issues instead of rating quality
+- [How it works](/how-it-works) — the full review pipeline, including chunking

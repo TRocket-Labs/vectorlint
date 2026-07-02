@@ -1,9 +1,9 @@
 ---
 title: "Density Scoring"
-description: "How VectorLint scores content when a rule counts discrete issues."
+description: "How VectorLint scores content when reviewing for discrete issues."
 ---
 
-Density scoring is the method VectorLint uses to score a document when the rule evaluates it by counting discrete issues — banned phrases, structural errors, or missing elements. Rules define the criteria; the document is what is scored.
+Density scoring is the method VectorLint uses when reviewing content for discrete issues — banned phrases, structural errors, or missing elements. The rule defines what the LLM should look for; VectorLint counts what the LLM finds and calculates a score.
 
 ## Why it exists
 
@@ -38,7 +38,7 @@ With the default `strictness = 10`, one violation scores differently depending o
 
 The same error costs more in the short document because it represents a higher proportion of the content.
 
-A score below **10** means the rule found at least one issue. VectorLint reports it at the rule's configured severity; a severity of `error` causes a non-zero exit code and fails CI.
+A score below **10** means VectorLint found at least one issue. It reports the score at the rule's configured severity; a severity of `error` causes a non-zero exit code and fails CI.
 
 ## Constraints
 
@@ -46,5 +46,5 @@ A score of **0** means `rawScore` was clamped at the floor — the error density
 
 ## Related
 
-- [Rubric scoring](/rubric-scoring) — the method used when a rule rates quality instead of counting issues
+- [Rubric scoring](/rubric-scoring) — the method used when reviewing quality on a spectrum instead of counting issues
 - [Strictness](/strictness) — the multiplier in the formula and how to set it
