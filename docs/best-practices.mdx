@@ -69,26 +69,6 @@ criteria:
 
 If everything has the same weight, nothing is prioritized.
 
-## Tier strictness by content type
-
-Not all content deserves the same quality bar. Apply strictness in proportion to how much a failure costs — measured in user trust, support load, or brand impact.
-
-```ini
-# Customer-facing API docs — every error matters
-[content/docs/**/*.md]
-GrammarChecker.strictness=strict
-
-# Blog posts — quality matters, tone is flexible
-[content/blog/**/*.md]
-GrammarChecker.strictness=standard
-
-# Internal drafts — let writers write
-[content/drafts/**/*.md]
-RunRules=
-```
-
-Setting the same strictness everywhere produces either too much noise on low-stakes content or too little signal on high-stakes content.
-
 ## Start permissive, tighten over time
 
 When rolling VectorLint out to a team for the first time, resist the urge to apply strict settings immediately. A workflow that generates too many findings on day one loses the team's trust before it earns it.
@@ -96,7 +76,7 @@ When rolling VectorLint out to a team for the first time, resist the urge to app
 1. Start with `CONFIDENCE_THRESHOLD=0.75` and `standard` strictness
 2. Run against your existing content library and review findings as a team
 3. Identify which findings are consistently useful vs. consistently dismissed
-4. Raise strictness on your highest-stakes content first
+4. Raise strictness on your highest-stakes rules first
 5. Raise `CONFIDENCE_THRESHOLD` once your rules are stable
 
 The goal is a workflow where every finding is worth reading. That takes iteration.

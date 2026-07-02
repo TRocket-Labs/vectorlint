@@ -35,12 +35,9 @@ RunRules=Acme
 
 [content/docs/**/*.md]
 RunRules=Acme
-GrammarChecker.strictness=9
-TechnicalAccuracy.threshold=8.0
 
 [content/marketing/**/*.md]
 RunRules=TechCorp
-BrandVoice.strictness=8
 
 [content/drafts/**/*.md]
 RunRules=
@@ -76,48 +73,20 @@ Rules inside `Acme/` are available when you set `RunRules=Acme`. Nesting is supp
 
 ## Cascading Configuration
 
-VectorLint applies configuration blocks from general to specific, similar to Vale's cascade behavior. All blocks that match a given file are applied; more specific patterns override settings from more general ones, and rule packs accumulate.
+VectorLint applies configuration blocks from general to specific, similar to Vale's cascade behavior. All blocks that match a given file are applied, and rule packs accumulate — a file runs every pack from every matching block, from the most general to the most specific.
 
 ```ini
 # Applied first — general
 [**/*.md]
 RunRules=GeneralRules
-Grammar.strictness=5
 
 # Applied second — more specific
-# Result: runs GeneralRules AND TechDocs; strictness is 9 (overrides 5)
+# Result: content/docs/api.md runs GeneralRules AND TechDocs
 [content/docs/**/*.md]
 RunRules=TechDocs
-Grammar.strictness=9
 ```
 
 **Specificity** is determined by path depth and wildcard count. `content/docs/**/*.md` is more specific than `**/*.md`.
-
-## Strictness Overrides
-
-You can tune how harshly individual check rules score content on a per-pattern basis.
-
-```ini
-[pattern]
-RuleID.strictness=value
-```
-
-Strictness controls the penalty weight applied to error density. Higher values penalize the same error rate more severely.
-
-| Level | Value | Penalty per 1% error density | Typical use |
-|-------|-------|------------------------------|-------------|
-| Lenient | `1`–`3` | ~5 points | Drafts |
-| Standard | `4`–`7` | ~10 points | General content |
-| Strict | `8`–`10` | ~20 points | Technical documentation |
-
-You can use named levels (`lenient`, `standard`, `strict`) or direct numeric multipliers:
-
-```ini
-[content/docs/**/*.md]
-RunRules=Acme
-GrammarChecker.strictness=strict
-TechnicalAccuracy.strictness=20
-```
 
 ## Confidence threshold
 
@@ -149,18 +118,14 @@ DefaultSeverity=warning
 # All markdown files — baseline checks
 [**/*.md]
 RunRules=Acme
-GrammarChecker.strictness=5
 
-# Technical docs — stricter standards
+# Technical docs
 [content/docs/**/*.md]
 RunRules=Acme
-GrammarChecker.strictness=9
-TechnicalAccuracy.threshold=8.0
 
 # Marketing — brand voice rules
 [content/marketing/**/*.md]
 RunRules=TechCorp
-BrandVoice.strictness=8
 
 # Drafts — skip all checks
 [content/drafts/**/*.md]

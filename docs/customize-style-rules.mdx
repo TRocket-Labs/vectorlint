@@ -61,18 +61,6 @@ VectorLint sends the file content to your LLM with the `GrammarChecker` prompt, 
 
 A clean file produces no output and exits with status `0`. A file with violations prints each finding and exits with a non-zero status.
 
-## Step 5: Tune strictness (optional)
-
-By default, VectorLint uses standard strictness — a penalty of ~10 points per 1% error density. For technical documentation where accuracy matters more, raise it:
-
-```ini
-[content/docs/**/*.md]
-RunRules=MyTeam
-GrammarChecker.strictness=strict
-```
-
-See [Project Configuration](/project-config) for the full strictness reference.
-
 ## Writing effective prompts
 
 The Markdown body of your rule file is the prompt sent to the LLM. Specificity here directly determines evaluation quality — a vague prompt produces vague findings.

@@ -148,11 +148,11 @@ Without a search provider, `technical-accuracy` evaluators cannot verify facts a
 
 ### Cascading configuration not behaving as expected
 
-**Symptom:** A file is running the wrong rules or using the wrong strictness settings.
+**Symptom:** A file is running the wrong rules.
 
 **Cause:** VectorLint applies all matching patterns from general to specific. More specific patterns override settings from general ones, but rule packs accumulate — a file can run rules from multiple patterns.
 
-**Fix:** Trace which patterns match your file path. For a file at `content/docs/api.md`, both `**/*.md` and `content/docs/**/*.md` match. The file will run rules from both patterns, with `content/docs/**/*.md` overriding any settings (like strictness) that conflict. See [Project Configuration](/project-config) for the full cascade reference.
+**Fix:** Trace which patterns match your file path. For a file at `content/docs/api.md`, both `**/*.md` and `content/docs/**/*.md` match. The file runs rule packs from both patterns. See [Project Configuration](/project-config) for the full cascade reference.
 
 ---
 

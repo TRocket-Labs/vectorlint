@@ -99,19 +99,6 @@ on:
       - 'content/api/**'
 ```
 
-**Use strict strictness on gated content.** In your `.vectorlint.ini`, apply strict scoring to the files that CI checks:
-
-```ini
-[content/docs/**/*.md]
-RunRules=TechDocs
-GrammarChecker.strictness=strict
-
-[content/drafts/**/*.md]
-RunRules=
-```
-
-Drafts never reach CI — the empty `RunRules=` means VectorLint skips them entirely.
-
 ## Other CI systems
 
 VectorLint works with any CI system that supports running shell commands. The pattern is the same: install VectorLint, set environment variables from secrets, run the check.

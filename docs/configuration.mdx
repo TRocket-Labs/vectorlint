@@ -8,7 +8,7 @@ VectorLint is configured through four files. Running `vectorlint init` creates t
 | File | Location | Purpose | Required |
 |------|----------|---------|----------|
 | `VECTORLINT.md` | Project root | Global style instructions in plain language — prepended to every evaluation | Required for zero-config mode |
-| `.vectorlint.ini` | Project root | File patterns, rule packs, strictness overrides | Required for rule packs and file-specific configuration |
+| `.vectorlint.ini` | Project root | File patterns and rule packs | Required for rule packs and file-specific configuration |
 | `config.toml` | `~/.vectorlint/` | LLM provider API keys — applies globally across projects | Always required |
 | Rule pack files | `RulesPath` directory | Targeted LLM prompts for specific checks — for advanced content quality workflows | Optional |
 
@@ -54,7 +54,7 @@ This creates both `.vectorlint.ini` and `~/.vectorlint/config.toml`. Edit them m
 Each file has its own reference page with complete field definitions, examples, and behavior details.
 
 - [LLM Providers](/llm-providers) — configure your LLM provider, search provider, and false-positive filtering threshold
-- [Project Configuration](/project-config) — map file patterns to rule packs, set strictness overrides, and understand cascading behavior
+- [Project Configuration](/project-config) — map file patterns to rule packs and understand cascading behavior
 - [Defining your style rules](/style-guide) — create `VECTORLINT.md` and write targeted rule pack files
 
 ---

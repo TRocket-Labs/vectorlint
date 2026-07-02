@@ -29,7 +29,7 @@ When you run `vectorlint init`, the generated `.vectorlint.ini` references the `
 RunRules=VectorLint
 ```
 
-Preset rules behave identically to custom rules — you can override their strictness, combine them with your own rule packs, or disable them for specific file patterns.
+Preset rules behave identically to custom rules — you can combine them with your own rule packs or disable them for specific file patterns.
 
 ## Combining presets with custom rules
 
@@ -53,18 +53,6 @@ RunRules=VectorLint
 [content/drafts/**/*.md]
 RunRules=
 ```
-
-## Overriding preset strictness
-
-Tune how harshly a preset rule scores content using its rule ID:
-
-```ini
-[content/docs/**/*.md]
-RunRules=VectorLint
-AIPattern.strictness=strict
-```
-
-See [Project Configuration](/project-config) for the full strictness reference.
 
 ## Next steps
 

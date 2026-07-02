@@ -112,15 +112,15 @@ Check this content for grammar issues, spelling errors, and punctuation mistakes
 Report any errors found with specific examples.
 ```
 
-**Scoring:** Start at 10. Each percentage point of error density deducts points according to the strictness level configured for this rule in `.vectorlint.ini`. A score below 10 triggers a violation at the configured severity.
+**Scoring:** Start at 10. Each percentage point of error density deducts points according to the rule's strictness level, set in the rule's frontmatter. A score below 10 triggers a violation at the configured severity.
 
-**Strictness levels** (set per-pattern in `.vectorlint.ini`):
+**Strictness levels** (set per rule in frontmatter):
 
 | Level | Penalty per 1% density |
 |-------|------------------------|
-| `lenient` (1–3) | ~5 points |
-| `standard` (4–7) | ~10 points |
-| `strict` (8–10) | ~20 points |
+| `lenient` (5) | ~5 points |
+| `standard` (10, default) | ~10 points |
+| `strict` (20) | ~20 points |
 
 ### Judge rules
 
