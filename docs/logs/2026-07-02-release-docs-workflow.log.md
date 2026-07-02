@@ -3,7 +3,7 @@
 - **Plan**: `docs/plans/2026-07-02-release-docs-workflow.md`
 - **Issue**: `RDEVS-117`
 - **Started**: 2026-07-02
-- **Status**: in-progress
+- **Status**: completed
 
 ---
 
@@ -28,3 +28,13 @@
 - **Status**: completed
 - **What was done**: Added branch-targeting guidance to the contributing guide and created a PR template that forces contributors to declare whether a change belongs on `release-docs` or `main`.
 - **Files changed**: `.github/CONTRIBUTING.md`, `.github/pull_request_template.md`, `docs/logs/2026-07-02-release-docs-workflow.log.md`
+
+### Task: Add internal runbook and complete verification
+- **Status**: completed
+- **What was done**: Added a runbook for the manual Mintlify and GitHub setup steps, then validated all workflow YAML files, checked patch hygiene, and confirmed the runbook includes the required setup and operating sections.
+- **Files changed**: `docs/artifacts/2026-07-02-release-docs-workflow-runbook.md`, `docs/logs/2026-07-02-release-docs-workflow.log.md`
+
+### Final Summary
+- **Status**: completed
+- **What was done**: Finished the repo-side implementation for the `release-docs` workflow on `main` in a clean worktree tied to `RDEVS-117`. The remaining work is outside the repo: configure Mintlify, enable GitHub workflow PR permissions, and protect `main` plus `release-docs`, then review the first sync PR after the public docs bootstrap lands.
+- **Files changed**: `.github/workflows/test.yml`, `.github/workflows/lint.yml`, `.github/workflows/release-docs-sync.yml`, `.github/CONTRIBUTING.md`, `.github/pull_request_template.md`, `docs/artifacts/2026-07-02-release-docs-workflow-runbook.md`, `docs/logs/2026-07-02-release-docs-workflow.log.md`
