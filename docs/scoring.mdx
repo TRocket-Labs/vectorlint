@@ -1,0 +1,31 @@
+---
+title: "Overview"
+description: "How VectorLint scores content, and the two scoring methods."
+---
+
+Every rule VectorLint evaluates produces a single **score from 0 to 10**. A score of 10 means the content fully satisfies the rule. A score below 10 means the rule found a problem, and VectorLint reports a violation at the rule's configured severity.
+
+## Why scoring matters
+
+Scores give you a shared, measurable definition of content quality. You can compare scores across documents, track them over time in CI, and gate releases when quality drops below an acceptable threshold. A numeric signal is easier to act on than a binary pass/fail.
+
+## Two scoring methods
+
+VectorLint uses different scoring methods depending on the rule type.
+
+| Rule type | Scoring method | What it measures |
+|-----------|---------------|-----------------|
+| `check`   | [Density scoring](/density-scoring) | Frequency of discrete violations relative to document length |
+| `judge`   | [Rubric scoring](/rubric-scoring) | Quality on a spectrum, scored by the LLM against a weighted rubric |
+
+**Check rules** count concrete errors — a banned phrase, a missing heading, a structural pattern. The score reflects how often those errors appear per 100 words. A single error in a short document hurts more than the same error in a long one.
+
+**Judge rules** ask the LLM to rate each criterion on a 1–4 scale. Those ratings are normalized to the 0–10 range and combined into a weighted average. This suits subjective dimensions like clarity, tone, and completeness.
+
+## Tuning scoring behavior
+
+You can control how aggressively check rules penalize errors using [strictness](/strictness). Strictness is a per-rule multiplier set in `.vectorlint.ini`. It has no effect on judge rules.
+
+## Where scoring fits in the pipeline
+
+Scoring is the final step of the evaluation pipeline. See [How it works](/how-it-works) for the full picture — from file discovery through LLM evaluation to score calculation and reporting.
