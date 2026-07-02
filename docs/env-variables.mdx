@@ -24,7 +24,12 @@ In CI, pass them directly as pipeline environment variables or secrets. See [CI 
 | `GEMINI_API_KEY` | If using Gemini | API key for Google Gemini. |
 | `AZURE_OPENAI_API_KEY` | If using Azure | API key for Azure OpenAI. |
 | `AZURE_OPENAI_ENDPOINT` | If using Azure | Your Azure OpenAI resource endpoint URL. |
-| `AZURE_OPENAI_DEPLOYMENT` | If using Azure | Your Azure OpenAI deployment name. |
+| `AZURE_OPENAI_DEPLOYMENT_NAME` | If using Azure | Your Azure OpenAI deployment name. |
+| `AZURE_OPENAI_API_VERSION` | No | Azure OpenAI API version. Defaults to `2024-02-15-preview`. |
+| `AWS_REGION` | If using Bedrock | AWS region for Bedrock. |
+| `AWS_ACCESS_KEY_ID` | No (Bedrock) | AWS access key. Optional with an IAM role or `~/.aws/credentials`. |
+| `AWS_SECRET_ACCESS_KEY` | No (Bedrock) | AWS secret key. Optional with an IAM role or `~/.aws/credentials`. |
+| `BEDROCK_MODEL` | No | Bedrock model ID. Defaults to `global.anthropic.claude-sonnet-4-5-20250929-v1:0`. |
 
 ## Search provider
 
