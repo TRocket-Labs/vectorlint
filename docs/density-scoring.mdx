@@ -1,49 +1,50 @@
 ---
 title: "Density Scoring"
-description: "How VectorLint scores check rules using error density."
+description: "How VectorLint scores content when a rule counts discrete issues."
 ---
 
-Density scoring is used by `check` rules — rules that count discrete violations such as banned phrases, structural errors, or missing elements.
+Density scoring is the method VectorLint uses to score a document when the rule evaluates it by counting discrete issues — banned phrases, structural errors, or missing elements. Rules define the criteria; the document is what is scored.
 
-## Why density, not raw count
+## Why it exists
 
-A single violation in a 100-word document is far more significant than the same violation in a 1,000-word document. Density scoring captures this: it measures how frequently errors appear per 100 words, so the score reflects proportional quality rather than absolute count.
+A raw issue count treats every document the same. One banned phrase in a 100-word release note and the same phrase in a 1,000-word spec would lose the same points. Density scoring measures issues **per 100 words** instead, so an error weighs more in a short document than in a long one. The score reflects proportional quality, not absolute count.
 
-## Formula
+## How it works
 
-```
-density   = (violations / wordCount) * 100
-rawScore  = clamp(0, 100,  100 - density * strictness)
+VectorLint calculates **error density** — violations per 100 words — then subtracts a penalty scaled by that density and the rule's strictness:
+
+```text
+density    = (violations / wordCount) * 100
+rawScore   = clamp(0, 100,  100 - density * strictness)
 finalScore = rawScore / 10
 ```
 
-`strictness` is a numeric multiplier (default **10**). See [Strictness](/strictness) for named levels and how to set it.
+The final score is on a 0–10 scale. The full expression in one line:
 
-The full expression in one line:
-
-```
-score = clamp(0, 10,  (100 - (violations / wordCount * 100 * strictness)) / 10)
+```text
+score = (100 - (violations / wordCount * 100 * strictness)) / 10
 ```
 
-## Worked example
+`strictness` is a multiplier (default **10**) set in the rule's frontmatter. See [Strictness](/strictness).
 
-Suppose `strictness = 10` (the default) and you have **1 violation**.
+## Key properties
 
-| Document length | density | rawScore | finalScore |
-|----------------|---------|----------|------------|
-| 100 words | `(1/100) * 100 = 1.0` | `100 - 1.0 * 10 = 90` | **9.0** |
-| 1000 words | `(1/1000) * 100 = 0.1` | `100 - 0.1 * 10 = 99` | **9.9** |
+With the default `strictness = 10`, one violation scores differently depending on document length:
 
-The same error scores more harshly in the short document because it represents a higher proportion of the content.
+| Violations | Word count | density | rawScore | Score |
+|------------|-----------|---------|----------|-------|
+| 1 | 100 | `(1/100) * 100 = 1.0` | `100 - 1.0 * 10 = 90` | **9.0** |
+| 1 | 1,000 | `(1/1000) * 100 = 0.1` | `100 - 0.1 * 10 = 99` | **9.9** |
 
-## Score threshold and exit behavior
+The same error costs more in the short document because it represents a higher proportion of the content.
 
-A finalScore below **10** means the rule found at least one violation. VectorLint reports the violation at the rule's configured severity. A severity of `error` causes a non-zero exit code, which fails CI pipelines.
+A score below **10** means the rule found at least one issue. VectorLint reports it at the rule's configured severity; a severity of `error` causes a non-zero exit code and fails CI.
 
-A finalScore of **0** means `rawScore` was clamped at 0 — the error density was high enough to exhaust the entire penalty budget.
+## Constraints
 
-## Tuning
+A score of **0** means `rawScore` was clamped at the floor — the error density was high enough to exhaust the entire penalty budget.
 
-Adjust how harshly errors are penalized by changing the strictness multiplier. A lower value forgives occasional errors; a higher value penalizes them severely. See [Strictness](/strictness) for configuration details.
+## Related
 
-For the LLM-graded alternative, see [Rubric Scoring](/rubric-scoring).
+- [Rubric scoring](/rubric-scoring) — the method used when a rule rates quality instead of counting issues
+- [Strictness](/strictness) — the multiplier in the formula and how to set it
