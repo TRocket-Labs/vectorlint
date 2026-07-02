@@ -1,8 +1,49 @@
 ---
-title: Density Scoring
-description: This page is coming soon.
+title: "Density Scoring"
+description: "How VectorLint scores check rules using error density."
 ---
 
-<Note>
-  This page is coming soon. Check back for updates, or follow the [VectorLint GitHub repository](https://github.com/TRocket-Labs/vectorlint) for the latest news.
-</Note>
+Density scoring is used by `check` rules — rules that count discrete violations such as banned phrases, structural errors, or missing elements.
+
+## Why density, not raw count
+
+A single violation in a 100-word document is far more significant than the same violation in a 1,000-word document. Density scoring captures this: it measures how frequently errors appear per 100 words, so the score reflects proportional quality rather than absolute count.
+
+## Formula
+
+```
+density   = (violations / wordCount) * 100
+rawScore  = clamp(0, 100,  100 - density * strictness)
+finalScore = rawScore / 10
+```
+
+`strictness` is a numeric multiplier (default **10**). See [Strictness](/strictness) for named levels and how to set it.
+
+The full expression in one line:
+
+```
+score = clamp(0, 10,  (100 - (violations / wordCount * 100 * strictness)) / 10)
+```
+
+## Worked example
+
+Suppose `strictness = 10` (the default) and you have **1 violation**.
+
+| Document length | density | rawScore | finalScore |
+|----------------|---------|----------|------------|
+| 100 words | `(1/100) * 100 = 1.0` | `100 - 1.0 * 10 = 90` | **9.0** |
+| 1000 words | `(1/1000) * 100 = 0.1` | `100 - 0.1 * 10 = 99` | **9.9** |
+
+The same error scores more harshly in the short document because it represents a higher proportion of the content.
+
+## Score threshold and exit behavior
+
+A finalScore below **10** means the rule found at least one violation. VectorLint reports the violation at the rule's configured severity. A severity of `error` causes a non-zero exit code, which fails CI pipelines.
+
+A finalScore of **0** means `rawScore` was clamped at 0 — the error density was high enough to exhaust the entire penalty budget.
+
+## Tuning
+
+Adjust how harshly errors are penalized by changing the strictness multiplier. A lower value forgives occasional errors; a higher value penalizes them severely. See [Strictness](/strictness) for configuration details.
+
+For the LLM-graded alternative, see [Rubric Scoring](/rubric-scoring).
