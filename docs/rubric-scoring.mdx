@@ -30,7 +30,7 @@ Each criterion carries a `weight` (default **1** when unset). A higher weight gi
 finalScore = sum(normalized_i * weight_i) / sum(weight_i)
 ```
 
-Criteria are defined in the rule's frontmatter — the `id`, the description the LLM evaluates against, and an optional `weight`. See [Rule frontmatter](/rule-frontmatter).
+Criteria are defined in the rule's frontmatter — a human-readable `name`, an `id`, and an optional `weight`. The LLM evaluates each criterion against the rubric text in the rule's body. See [Rule frontmatter](/rule-frontmatter).
 
 ## Key properties
 
