@@ -13,7 +13,7 @@ After you run `VECTORLINT.md` against your content library and complete your fir
 
 ## Keep VECTORLINT.md under 800 tokens
 
-VectorLint emits a warning at 4,000 tokens, but a practical target is *much* lower. Under 800 tokens leaves headroom for rule-specific prompts to add context without the combined system prompt becoming unwieldy. Long context degrades LLM precision and increases API costs on every evaluation.
+VectorLint emits a warning at 4,000 tokens, but a practical target is *much* lower. Under 800 tokens leaves headroom for rule-specific prompts to add context without the combined system prompt becoming unwieldy. Long context degrades LLM precision and increases API costs on every review.
 
 If your `VECTORLINT.md` is growing, that's usually a sign that some rules are specific enough to belong in a dedicated rule pack file instead.
 
@@ -38,7 +38,7 @@ The second prompt gives the LLM a defined audience, measurable criteria, and spe
 
 ## Give rules domain context
 
-LLMs evaluate content relative to an implied standard. Make that standard explicit with a context block in your rule prompt. Tell the model who the audience is, what they value, and what good looks like for your specific content type.
+LLMs review content relative to an implied standard. Make that standard explicit with a context block in your rule prompt. Tell the model who the audience is, what they value, and what good looks like for your specific content type.
 
 ```markdown
 ## CONTEXT BANK
@@ -83,7 +83,7 @@ The goal is a workflow where every finding is worth reading. That takes iteratio
 
 ## Set a higher confidence threshold in CI than locally
 
-In CI, a false positive blocks a merge. Set `CONFIDENCE_THRESHOLD` higher in your CI environment than in local development so only the highest-confidence findings gate a merge. Lower-confidence candidates still surface locally where a writer can evaluate them in context.
+In CI, a false positive blocks a merge. Set `CONFIDENCE_THRESHOLD` higher in your CI environment than in local development so only the highest-confidence findings gate a merge. Lower-confidence candidates still surface locally where a writer can review them in context.
 
 ```bash
 # Local development — catch more, review in context

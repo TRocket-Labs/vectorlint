@@ -1,19 +1,19 @@
 ---
 title: Defining your style rules
-description: Set global style instructions and create targeted LLM prompts to evaluate content against your style guide, terminology, and content standards.
+description: Set global style instructions and create targeted LLM prompts to review content against your style guide, terminology, and content standards.
 ---
 
-VectorLint gives you two ways to bring your style guide into evaluations. Understanding which to use and when to combine them is the starting point for any content quality workflow:
+VectorLint gives you two ways to bring your style guide into reviews. Understanding which to use and when to combine them is the starting point for any content quality workflow:
 
-- **`VECTORLINT.md` file**: the global style instructions in plain language. Create this file from your style guide and place it in your project root. VectorLint prepends its contents to the system prompt for every evaluation, making your tone, terminology, and baseline standards apply across all rules automatically. Use it for broad, always-applicable guidance. See [Project Configuration](/project-config) for details.
+- **`VECTORLINT.md` file**: the global style instructions in plain language. Create this file from your style guide and place it in your project root. VectorLint prepends its contents to the system prompt for every review, making your tone, terminology, and baseline standards apply across all rules automatically. Use it for broad, always-applicable guidance. See [Project Configuration](/project-config) for details.
 
-- **Rule pack files**: the targeted LLM prompts for specific checks. Create these as separate Markdown files as described below. Each file is a structured prompt that instructs the LLM to evaluate content against one specific standard: grammar, headline quality, AI pattern detection, technical accuracy, and so on. Rules are organized into packs and mapped to file patterns in `.vectorlint.ini`. Rule pack files live in subdirectories under `RulesPath` — see [File Structure Reference](#file-structure-reference) below.
+- **Rule pack files**: the targeted LLM prompts for specific checks. Create these as separate Markdown files as described below. Each file is a structured prompt that instructs the LLM to review content against one specific standard: grammar, headline quality, AI pattern detection, technical accuracy, and so on. Rules are organized into packs and mapped to file patterns in `.vectorlint.ini`. Rule pack files live in subdirectories under `RulesPath` — see [File Structure Reference](#file-structure-reference) below.
 
 If you can write a prompt for it, you can lint for it with VectorLint.
 
 ## Creating your VECTORLINT.md
 
-Place a `VECTORLINT.md` file in your project root to define global style instructions that apply to every evaluation. VectorLint prepends its contents to the system prompt for every rule it runs.
+Place a `VECTORLINT.md` file in your project root to define global style instructions that apply to every review. VectorLint prepends its contents to the system prompt for every rule it runs.
 
 Keep this file concise. VectorLint emits a warning if the file exceeds approximately 4,000 tokens, as very large contexts can degrade performance and increase API costs.
 
@@ -49,7 +49,7 @@ To help you get started, the VectorLint docs repository includes an [example VEC
 
 ## Creating rule pack files
 
-Rule pack files are optional Markdown files, each containing a targeted LLM prompt for a specific check. Unlike `VECTORLINT.md`, which sets broad context for every evaluation, rule pack files enforce precise, measurable criteria — grammar, headline quality, AI pattern detection, technical accuracy, and so on. You can create as many as your content workflow requires and organize them into packs mapped to specific file patterns in `.vectorlint.ini`.
+Rule pack files are optional Markdown files, each containing a targeted LLM prompt for a specific check. Unlike `VECTORLINT.md`, which sets broad context for every review, rule pack files enforce precise, measurable criteria — grammar, headline quality, AI pattern detection, technical accuracy, and so on. You can create as many as your content workflow requires and organize them into packs mapped to specific file patterns in `.vectorlint.ini`.
 
 Each rule file has two parts: YAML frontmatter that configures how VectorLint handles the result, and a Markdown body that is the actual prompt sent to the LLM.
 
@@ -88,7 +88,7 @@ Your detailed instructions for the LLM go here.
 
 ## Evaluation Modes
 
-VectorLint supports two evaluation modes, chosen with the `type` field.
+VectorLint supports two review modes, chosen with the `type` field.
 
 | Mode | `type` value | Best for |
 |------|-------------|----------|
@@ -187,7 +187,7 @@ Actively off-putting or confusing.
 
 ## Targeting Specific Content
 
-The `target` field lets you evaluate a specific portion of a document — for example, only the H1 headline — rather than the full content.
+The `target` field lets you review a specific portion of a document — for example, only the H1 headline — rather than the full content.
 
 ```yaml
 target:
@@ -198,9 +198,9 @@ target:
   suggestion: Add an H1 headline for the article.
 ```
 
-**When `required: true`:** If the pattern doesn't match, VectorLint reports an immediate `error` with the `suggestion` text, and skips LLM evaluation.
+**When `required: true`:** If the pattern doesn't match, VectorLint reports an immediate `error` with the `suggestion` text, and skips LLM review.
 
-**When `required: false` (or omitted):** If the pattern doesn't match, VectorLint evaluates the full document instead.
+**When `required: false` (or omitted):** If the pattern doesn't match, VectorLint reviews the full document instead.
 
 ## File Structure Reference
 
@@ -278,4 +278,4 @@ Pervasive AI patterns throughout.
 
 - [Customize style rules](/customize-style-rules) — learn how to write effective LLM prompts for your rule pack files
 - [Project Configuration](/project-config) — assign rule packs to file patterns
-- [LLM Providers](/llm-providers) — configure the model used for evaluations
+- [LLM Providers](/llm-providers) — configure the model used for reviews

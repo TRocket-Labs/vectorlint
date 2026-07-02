@@ -5,7 +5,7 @@ description: "VectorLint is a large language model (LLM)-based prose linter that
 
 ## What is VectorLint?
 
-VectorLint is a command-line tool that evaluates and scores documentation using large language models (LLMs). Instead of regex patterns that can only catch surface-level issues, VectorLint uses an [LLM-as-a-Judge](https://en.wikipedia.org/wiki/LLM-as-a-Judge) approach to catch terminology misuse, technical inaccuracies, and style inconsistencies that require contextual understanding to detect.
+VectorLint is a command-line tool that reviews and scores documentation using large language models (LLMs). Instead of regex patterns that can only catch surface-level issues, VectorLint uses an [LLM-as-a-Judge](https://en.wikipedia.org/wiki/LLM-as-a-Judge) approach to catch terminology misuse, technical inaccuracies, and style inconsistencies that require contextual understanding to detect.
 
 If you can write a prompt for it, you can lint it with VectorLint.
 
@@ -36,11 +36,11 @@ This gives documentation teams something they haven't had before: a **shared, me
 
 ## How scoring works
 
-VectorLint scores each document using one of two methods, depending on what the rule evaluates:
+VectorLint scores each document using one of two methods, depending on how the rule is configured:
 
-**Density scoring** applies when a rule counts discrete issues (like a grammar checker). It calculates scores based on error density — issues per 100 words — so results are comparable across documents of any length.
+**Density scoring** applies when a rule defines discrete issues to find (like a grammar checker). It calculates scores based on error density — issues per 100 words — so results are comparable across documents of any length.
 
-**Rubric scoring** applies when a rule rates quality on a spectrum (like tone or completeness). The LLM scores each criterion on a 1–4 scale, which VectorLint normalizes to a 1–10 scale for consistent reporting.
+**Rubric scoring** applies when a rule defines quality criteria to rate on a spectrum (like tone or completeness). The LLM scores each criterion on a 1–4 scale, which VectorLint normalizes to a 1–10 scale for consistent reporting.
 
 ## How false positives are reduced
 

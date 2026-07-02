@@ -1,9 +1,9 @@
 ---
-title: Running your first style check
-description: Use VECTORLINT.md to run your first content evaluation without writing any rules.
+title: Running your first review
+description: Use VECTORLINT.md to run your first content review without writing any rules.
 ---
 
-The fastest way to get value from VectorLint is to create a `VECTORLINT.md` file in your project root. This is the zero-config path — no rule pack files, no `.vectorlint.ini` required. VectorLint detects the file automatically, creates a "Style Guide Compliance" rule from its contents, and evaluates your content against it.
+The fastest way to get value from VectorLint is to create a `VECTORLINT.md` file in your project root. This is the zero-config path — no rule pack files, no `.vectorlint.ini` required. VectorLint detects the file automatically, creates a "Style Guide Compliance" rule from its contents, and reviews your content against it.
 
 ## Before you start
 
@@ -11,7 +11,7 @@ You'll need a working VectorLint installation with an LLM provider configured. I
 
 ## Step 1: Create your VECTORLINT.md
 
-Create a file called `VECTORLINT.md` in your project root. Write your style standards as plain-language instructions — short imperative rules grouped under headings. VectorLint passes this content directly to the LLM as context for every evaluation.
+Create a file called `VECTORLINT.md` in your project root. Write your style standards as plain-language instructions — short imperative rules grouped under headings. VectorLint passes this content directly to the LLM as context for every review.
 
 Here's a minimal example to start from:
 
@@ -70,4 +70,4 @@ For example, a `VECTORLINT.md` rule like "avoid passive voice" gives the LLM gen
 When you're ready to go beyond `VECTORLINT.md`:
 
 - [Customize style rules](/customize-style-rules) — step-by-step guide to writing your first rule pack file and crafting effective prompts
-- [Defining your style rules](/style-guide) — full reference for rule anatomy, evaluation modes, targeting, and examples
+- [Defining your style rules](/style-guide) — full reference for rule anatomy, review modes, targeting, and examples
