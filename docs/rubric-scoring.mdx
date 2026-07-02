@@ -1,17 +1,17 @@
 ---
 title: "Rubric Scoring"
-description: "How VectorLint scores judge rules with a weighted rubric."
+description: "How VectorLint scores content when a rule rates quality on a rubric."
 ---
 
-Rubric scoring is used by `judge` rules — rules that measure quality on a spectrum rather than counting discrete errors. It suits dimensions like clarity, tone, technical accuracy, and completeness.
+Rubric scoring is the method VectorLint uses to score a document when the rule evaluates it by rating quality on a spectrum — clarity, tone, technical accuracy, or completeness. Rules define the criteria; the document is what is scored.
 
 ## How it works
 
-The LLM scores each criterion in the rule's rubric on a **1–4 scale**. VectorLint normalizes those ratings to a 0–10 range and combines them into a weighted average.
+The rule's rubric lists **criteria**, each scored by the LLM on a **1–4 scale**. VectorLint normalizes each rating to the **1–10** range, then combines them into a weighted average.
 
-## 1–4 normalization
+The normalization maps the full 1–4 rating range onto 1–10:
 
-```
+```text
 normalized = 1 + ((score - 1) / 3) * 9
 ```
 
@@ -22,36 +22,39 @@ normalized = 1 + ((score - 1) / 3) * 9
 | 2 | Fair | 4.0 |
 | 1 | Poor | 1.0 |
 
-## Weighted average
+The normalized range is **1–10**, not 0–10: a rating of 1 (Poor) floors at 1.0, so even a fully failing criterion still contributes a small positive score.
 
-```
+Each criterion carries a `weight` (default **1** when unset). A higher weight gives that criterion more influence over the final score:
+
+```text
 finalScore = sum(normalized_i * weight_i) / sum(weight_i)
 ```
 
-Each criterion carries a `weight` (default **1** when not set). A higher weight gives that criterion more influence over the final score.
+Criteria are defined in the rule's frontmatter — the `id`, the description the LLM evaluates against, and an optional `weight`. See [Rule frontmatter](/rule-frontmatter).
 
-Criteria are defined in the rule's frontmatter. You set the `id`, the description the LLM uses to evaluate, and optionally a `weight`.
+## Key properties
 
-## Worked example
-
-A rule has two criteria:
+A rule with two criteria:
 
 | Criterion | Weight | LLM rating | Normalized |
 |-----------|--------|-----------|------------|
 | Technical Accuracy | 40 | 3 (Good) | 7.0 |
 | Readability | 30 | 4 (Excellent) | 10.0 |
 
-```
+```text
 weighted points = (7.0 * 40) + (10.0 * 30) = 280 + 300 = 580
 total weight    = 40 + 30 = 70
 finalScore      = 580 / 70 ≈ 8.29
 ```
 
-## Multi-chunk documents
+VectorLint reports scores to one decimal place, so this document scores **8.3**.
 
-For documents that exceed the chunking threshold, VectorLint evaluates each chunk independently. Judge scores are averaged across chunks, weighted by chunk size. This is an implementation detail — you do not need to configure anything for it to work.
+## Constraints
 
-## Notes
+- **Strictness has no effect on rubric scoring.** Strictness is a multiplier on error density and applies only to density scoring. See [Strictness](/strictness).
+- For documents above the chunking threshold, VectorLint evaluates each chunk independently. Judge scores are averaged across chunks, weighted by chunk size. This is an implementation detail — no configuration is required.
 
-- Strictness has **no effect** on judge rules. Strictness is a density multiplier that only applies to `check` rules. See [Density Scoring](/density-scoring) for that method.
-- If you want to understand the full evaluation pipeline, see [How it works](/how-it-works).
+## Related
+
+- [Density scoring](/density-scoring) — the method used when a rule counts discrete issues
+- [How it works](/how-it-works) — the full evaluation pipeline, including chunking
