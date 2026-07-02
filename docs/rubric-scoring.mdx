@@ -1,8 +1,57 @@
 ---
-title: Rubric Scoring
-description: This page is coming soon.
+title: "Rubric Scoring"
+description: "How VectorLint scores judge rules with a weighted rubric."
 ---
 
-<Note>
-  This page is coming soon. Check back for updates, or follow the [VectorLint GitHub repository](https://github.com/TRocket-Labs/vectorlint) for the latest news.
-</Note>
+Rubric scoring is used by `judge` rules — rules that measure quality on a spectrum rather than counting discrete errors. It suits dimensions like clarity, tone, technical accuracy, and completeness.
+
+## How it works
+
+The LLM scores each criterion in the rule's rubric on a **1–4 scale**. VectorLint normalizes those ratings to a 0–10 range and combines them into a weighted average.
+
+## 1–4 normalization
+
+```
+normalized = 1 + ((score - 1) / 3) * 9
+```
+
+| Rating | Label | Normalized score |
+|--------|-------|-----------------|
+| 4 | Excellent | 10.0 |
+| 3 | Good | 7.0 |
+| 2 | Fair | 4.0 |
+| 1 | Poor | 1.0 |
+
+## Weighted average
+
+```
+finalScore = sum(normalized_i * weight_i) / sum(weight_i)
+```
+
+Each criterion carries a `weight` (default **1** when not set). A higher weight gives that criterion more influence over the final score.
+
+Criteria are defined in the rule's frontmatter. You set the `id`, the description the LLM uses to evaluate, and optionally a `weight`.
+
+## Worked example
+
+A rule has two criteria:
+
+| Criterion | Weight | LLM rating | Normalized |
+|-----------|--------|-----------|------------|
+| Technical Accuracy | 40 | 3 (Good) | 7.0 |
+| Readability | 30 | 4 (Excellent) | 10.0 |
+
+```
+weighted points = (7.0 * 40) + (10.0 * 30) = 280 + 300 = 580
+total weight    = 40 + 30 = 70
+finalScore      = 580 / 70 ≈ 8.29
+```
+
+## Multi-chunk documents
+
+For documents that exceed the chunking threshold, VectorLint evaluates each chunk independently. Judge scores are averaged across chunks, weighted by chunk size. This is an implementation detail — you do not need to configure anything for it to work.
+
+## Notes
+
+- Strictness has **no effect** on judge rules. Strictness is a density multiplier that only applies to `check` rules. See [Density Scoring](/density-scoring) for that method.
+- If you want to understand the full evaluation pipeline, see [How it works](/how-it-works).
