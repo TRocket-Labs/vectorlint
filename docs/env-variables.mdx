@@ -40,11 +40,11 @@ Required only for rules that use the `technical-accuracy` evaluator. If not set,
 | `SEARCH_PROVIDER` | If using technical-accuracy | Search provider to use. Accepted value: `perplexity`. |
 | `PERPLEXITY_API_KEY` | If using Perplexity | API key for Perplexity search. |
 
-## Evaluation behavior
+## Review behavior
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CONFIDENCE_THRESHOLD` | `0.75` | PAT pipeline confidence gate. Controls how strictly raw model candidates are filtered before surfacing violations. Accepted range: `0`–`1`. Invalid values fall back to `0.75`. |
+| `CONFIDENCE_THRESHOLD` | `0.75` | Confidence gate. Controls how strictly raw model candidates are filtered before surfacing violations. Accepted range: `0`–`1`. Invalid values fall back to `0.75`. |
 
 Lower values surface more findings (higher recall, more noise). Higher values surface fewer findings (higher precision, fewer false positives). See [Handling false positives](/handling-false-positives) for guidance on when to adjust this.
 

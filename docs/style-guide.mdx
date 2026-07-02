@@ -79,14 +79,14 @@ Your detailed instructions for the LLM go here.
 | Field | Default | Description |
 |-------|---------|-------------|
 | `evaluator` | `base` | Evaluator type. Use `base` for most rules; `technical-accuracy` for fact-checking rules that need search. |
-| `type` | `check` | Evaluation mode: `check` or `judge`. See below. |
+| `type` | `check` | Review mode: `check` or `judge`. See below. |
 | `severity` | `warning` | How failures are reported: `error` or `warning`. |
 | `evaluateAs` | `chunk` | Whether to evaluate content as a whole (`document`) or in sections (`chunk`). |
 | `target` | _(none)_ | Regex to target a specific part of the content (e.g., only the H1 headline). |
 | `criteria` | _(none)_ | Required for `judge` rules. Defines the scoring dimensions. |
 | `specVersion` | _(none)_ | Rule spec version. Use `1.0.0`. |
 
-## Evaluation Modes
+## Review modes
 
 VectorLint supports two review modes, chosen with the `type` field.
 

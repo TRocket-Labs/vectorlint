@@ -89,7 +89,7 @@ env:
   CONFIDENCE_THRESHOLD: 0.85
 ```
 
-**Gate checks only on production-bound content.** Limit the workflow `paths` filter to directories that ship to users, not drafts or internal docs:
+**Run the review only on production-bound content.** Limit the workflow `paths` filter to directories that ship to users, not drafts or internal docs:
 
 ```yaml
 on:
