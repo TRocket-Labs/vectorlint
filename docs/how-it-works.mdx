@@ -39,11 +39,11 @@ You can tune how aggressively the filter operates with `CONFIDENCE_THRESHOLD` (d
 
 ## Scoring
 
-VectorLint uses two scoring methods depending on the rule type.
+VectorLint scores each document using one of two methods, depending on what the rule asks the LLM to do.
 
-**Density-based scoring** (check rules) calculates error density, violations per 100 words. VectorLint weights a single error in a short document more heavily than the same error in a long one. This normalizes quality assessment across documents of any length.
+**Density scoring** applies when a rule counts discrete issues. It calculates error density — violations per 100 words — so a single error in a short document weighs more than the same error in a long one. This normalizes quality assessment across documents of any length.
 
-**Rubric-based scoring** (judge rules) normalizes the LLM's 1–4 rating to a 1–10 scale and computes a weighted average across all criteria. Criteria weights reflect your real-world priorities — technical accuracy might carry a weight of 40 while SEO carries a weight of 10.
+**Rubric scoring** applies when a rule rates quality on a spectrum. It normalizes the LLM's 1–4 rating to a 1–10 scale and computes a weighted average across all criteria. Criteria weights reflect your real-world priorities — technical accuracy might carry a weight of 40 while SEO carries a weight of 10.
 
 See [Scoring](/scoring) for the full scoring reference.
 

@@ -36,11 +36,11 @@ This gives documentation teams something they haven't had before: a **shared, me
 
 ## How scoring works
 
-VectorLint uses two scoring methods depending on the rule type:
+VectorLint scores each document using one of two methods, depending on what the rule evaluates:
 
-**Density-based scoring** is used for rules that count discrete violations (like a grammar checker). VectorLint calculates scores based on error density — errors per 100 words — so results are comparable across documents of any length.
+**Density scoring** applies when a rule counts discrete issues (like a grammar checker). It calculates scores based on error density — issues per 100 words — so results are comparable across documents of any length.
 
-**Rubric-based scoring** is used for rules that measure quality on a spectrum (like tone or completeness). The LLM scores each criterion on a 1–4 scale, which VectorLint normalizes to a 1–10 scale for consistent reporting.
+**Rubric scoring** applies when a rule rates quality on a spectrum (like tone or completeness). The LLM scores each criterion on a 1–4 scale, which VectorLint normalizes to a 1–10 scale for consistent reporting.
 
 ## How false positives are reduced
 
