@@ -4,7 +4,7 @@ A comprehensive reference for configuring VectorLint using`.vectorlint.ini`.
 
 ## Configuration File
 
-VectorLint is configured via a `.vectorlint.ini` file in the root of your project. This file defines global settings, file associations, and rule overrides.
+VectorLint is configured via a `.vectorlint.ini` file in the root of your project. This file defines global settings and maps file patterns to rule packs.
 
 ### Complete Example
 
@@ -15,32 +15,25 @@ VectorLint is configured via a `.vectorlint.ini` file in the root of your projec
 # Optional: Path to custom rules directory
 # If omitted, only preset rules (from RunRules) are used
 # RulesPath=.github/rules
-# Number of concurrent evaluations (Default: 4)
+# Number of concurrent reviews (Default: 4)
 Concurrency=4
 # Default severity for violations (Default: warning)
 DefaultSeverity=warning
 
 # [File Patterns]
-# Map file patterns to rule packs and apply overrides
+# Map file patterns to rule packs
 
 # All markdown files - run "Acme" rule pack
 [**/*.md]
 RunRules=Acme
-# Override strictness for the GrammarChecker rule
-GrammarChecker.strictness=7
 
-# Technical documentation - run "Acme" pack with higher standards
+# Technical documentation - run "Acme" pack
 [content/docs/**/*.md]
 RunRules=Acme
-# Higher strictness for docs
-GrammarChecker.strictness=9
-# Require a higher score for technical accuracy
-TechnicalAccuracy.threshold=8.0
 
 # Marketing content - run "TechCorp" pack
 [content/marketing/**/*.md]
 RunRules=TechCorp
-BrandVoice.strictness=8
 
 # Drafts - skip all rules
 [content/drafts/**/*.md]
@@ -56,7 +49,7 @@ These settings control the application's core behavior.
 | Setting           | Type    | Default      | Description                                                        |
 | ----------------- | ------- | ------------ | ------------------------------------------------------------------ |
 | `RulesPath`       | string  | (none)       | Root directory for custom rule packs. If omitted, only presets are used. |
-| `Concurrency`     | integer | `4`          | Number of concurrent evaluations to run.                           |
+| `Concurrency`     | integer | `4`          | Number of concurrent reviews to run.                              |
 | `DefaultSeverity` | string  | `warning`    | Default severity level (`warning` or `error`) for reported issues. |
 
 ---
@@ -69,10 +62,10 @@ You can place a `VECTORLINT.md` file in your project root to define global style
 If no `.vectorlint.ini` exists, VectorLint will automatically:
 1. Detect `VECTORLINT.md`
 2. Create a synthetic "Style Guide Compliance" rule
-3. Evaluate your contents against it
+3. Review your content against it
 
 ### Combined Mode
-If you have configured rules (via `.vectorlint.ini`), the content of `VECTORLINT.md` is **prepended** to the system prompt for every evaluation. This ensures your global style preferences (tone, terminology) are respected across all specific rules.
+If you have configured rules (via `.vectorlint.ini`), the content of `VECTORLINT.md` is **applied globally** to every review. This ensures your global style preferences (tone, terminology) are respected across all specific rules.
 
 > **Note:** Keep `VECTORLINT.md` concise. VectorLint will emit a warning if the file exceeds ~4,000 tokens, as very large contexts can degrade performance and increase costs.
 
@@ -86,7 +79,7 @@ You can generate these files using the `vectorlint init` command.
 
 ### LLM Providers
 
-VectorLint supports multiple LLM providers. Set `LLM_PROVIDER` to your desired provider (e.g., `openai`, `anthropic`, `gemini`) and provide the corresponding API key.
+VectorLint supports multiple LLM providers. Set `LLM_PROVIDER` to your desired provider (`openai`, `anthropic`, `azure-openai`, `gemini`, or `amazon-bedrock`) and provide the corresponding API key.
 
 ### Search Provider
 
@@ -99,9 +92,9 @@ SEARCH_PROVIDER=perplexity
 PERPLEXITY_API_KEY=pplx-...
 ```
 
-### False-Positive Filtering (PAT)
+### False-Positive Filtering
 
-VectorLint uses PAT (Pay A Tax) style gate checks to reduce false positives. The model may return many raw candidates, but only candidates that pass deterministic gate checks are surfaced in CLI output.
+VectorLint filters raw model output through confidence checks to reduce false positives. The model may return many raw candidates, but only candidates that pass the confidence checks are surfaced in CLI output.
 
 You can tune the confidence gate with an environment variable:
 
@@ -110,7 +103,7 @@ CONFIDENCE_THRESHOLD=0.75
 ```
 
 - Default: `0.75`
-- Applies to surfaced violations in check and judge evaluations
+- Applies to surfaced violations in all reviews
 - Invalid values gracefully fall back to the default
 
 ---
@@ -153,16 +146,12 @@ In this example, VectorLint sees two available packs: `Acme` and `TechCorp`.
 - Files in `.github/rules/Acme/` become rules in the `Acme` pack.
 - To use them, you set `RunRules=Acme` in your config.
 
-### Order of Appearance
-
 ## Cascading Configuration
 
 VectorLint uses a **"Cascading"** logic (similar to Vale.sh) to determine which configuration applies to a file.
 
 1.  **General to Specific**: All configuration blocks that match a file are applied, starting with general patterns and ending with specific ones.
-2.  **What happens**:
-    - **Rule Packs**: A file runs rules from all matching patterns.
-    - **Settings**: More specific patterns override general ones.
+2.  **What happens**: Rule packs accumulate. A file runs rules from all matching patterns, applied from general to specific.
 3.  **Specificity**:
     - **General**: Patterns with fewer path segments or more wildcards (e.g., `*.md`).
     - **Specific**: Patterns with more path segments or exact names (e.g., `content/docs/api.md`).
@@ -173,41 +162,15 @@ VectorLint uses a **"Cascading"** logic (similar to Vale.sh) to determine which 
 # General (Applied FIRST)
 [**/*.md]
 RunRules=GeneralRules
-Grammar.strictness=5
 
-# Specific (Applied SECOND, overrides General)
+# Specific (Applied SECOND, rule packs accumulate)
 # MATCHES: content/docs/api.md
-# RESULT: Runs "GeneralRules" AND "TechDocs". strictness is 9 (overrides 5).
+# RESULT: Runs "GeneralRules" AND "TechDocs"
 [content/docs/**/*.md]
 RunRules=TechDocs
-Grammar.strictness=9
 ```
 
-You can configure the strictness of check rules (like Grammar or AI Detection) to control how they score content. Strictness determines the penalty weight for error density.
-
-### Syntax
-
-```ini
-[pattern]
-RuleID.strictness=value
-```
-
-### Values
-
-You can use named levels or direct numeric multipliers:
-
-- **1-3** or `lenient`: **~5** points penalty per 1% error density. (Drafts)
-- **4-7** or `standard`: **~10** points penalty per 1% error density. (General Content)
-- **8-10** or `strict`: **~20** points penalty per 1% error density. (Technical Docs)
-
-**Example:**
-
-```ini
-[content/docs/**/*.md]
-RunRules=Acme
-GrammarChecker.strictness=strict
-TechnicalAccuracy.strictness=20
-```
+Strictness is not configured in `.vectorlint.ini`. It is a per-rule setting defined in each rule's YAML frontmatter. See [Creating Custom Rules](./CREATING_RULES.md) for the available levels (`lenient` = 5, `standard` = 10, `strict` = 20).
 
 ---
 

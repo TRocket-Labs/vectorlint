@@ -1,6 +1,6 @@
 # VectorLint: Prompt it, Lint it! [![npm version](https://img.shields.io/npm/v/vectorlint.svg)](https://www.npmjs.com/package/vectorlint) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-VectorLint is a command-line tool that evaluates and scores content using LLMs. It uses [LLM-as-a-Judge](https://en.wikipedia.org/wiki/LLM-as-a-Judge) to catch terminology, technical accuracy, and style issues that require contextual understanding.
+VectorLint is a command-line tool that reviews and scores content using LLMs. It uses [LLM-as-a-Judge](https://en.wikipedia.org/wiki/LLM-as-a-Judge) to catch terminology, technical accuracy, and style issues that require contextual understanding.
 
 ![VectorLint Screenshot](./assets/VectorLint_screenshot.jpeg)
 
@@ -32,7 +32,7 @@ npx vectorlint path/to/article.md
 
 Define rules as Markdown files with YAML frontmatter to enforce your specific content standards:
 
-- **Check SEO Optimization** - Verify content follows SEO best practices
+- **Review SEO Optimization** - Verify content follows SEO best practices
 - **Detect AI-Generated Content** - Identify artificial writing patterns
 - **Verify Technical Accuracy** - Catch outdated or incorrect technical information
 - **Ensure Tone & Voice Consistency** - Match content to appropriate tone for your audience
@@ -50,10 +50,10 @@ VectorLint scores your content using error density and a rubric-based system, en
 
 ## How VectorLint Reduces False Positives
 
-VectorLint uses a PAT (Pay A Tax) evaluation approach:
+VectorLint filters raw model output through confidence checks before surfacing violations:
 
-1. **Candidate generation:** the model returns all potential violations with required gate-check fields (rule support, exact evidence, context support, plausible non-violation, and fix quality).
-2. **Deterministic surfacing:** VectorLint applies a strict filter and only surfaces violations that pass all required gates.
+1. **Candidate generation:** the model returns all potential violations with structured evidence.
+2. **Deterministic filtering:** VectorLint applies confidence checks and only surfaces violations that meet its quality thresholds.
 
 This means CLI output is intentionally stricter than raw model candidates, reducing noisy findings and improving precision.
 
@@ -79,7 +79,7 @@ vectorlint init --quick
 
 This creates a `VECTORLINT.md` file where you can paste your style guide.
 
-> **Note:** You must set up your credentials in `~/.vectorlint/config.toml` (see Step 3) before running checks.
+> **Note:** You must set up your credentials in `~/.vectorlint/config.toml` (see Step 3) before running reviews.
 
 Then run:
 
@@ -103,7 +103,7 @@ This creates:
 
 ### 3. Configure API Keys
 
-Open your global **App Config** (`~/.vectorlint/config.toml`) and uncomment the section for your preferred LLM provider (OpenAI, Anthropic, Gemini, or Azure).
+Open your global **App Config** (`~/.vectorlint/config.toml`) and uncomment the section for your preferred LLM provider (OpenAI, Anthropic, Gemini, Azure OpenAI, or Amazon Bedrock).
 
 ```toml
 [env]
@@ -113,13 +113,13 @@ OPENAI_API_KEY = "sk-..."
 
 > *Note: You can also use a local `.env` file in your project, which takes precedence over the global config.*
 
-**Run a check:**
+**Run a review:**
 
 ```bash
 vectorlint doc.md
 ```
 
-VectorLint is bundled with a `VectorLint` preset containing rules for AI pattern detection, directness, and more. The `init` command configures this automatically.
+VectorLint is bundled with a `VectorLint` preset of eight check rules: AI Pattern, Capitalization, Consistency, Inclusivity, Passive Voice, Repetition, Unsupported Claims, and Wordiness. The `init` command configures this automatically.
 
 👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
 
@@ -129,5 +129,5 @@ We welcome your contributions! Whether it's adding new rules, fixing bugs, or im
 
 ## Resources
 
-- **[Creating Custom Rules](./CREATING_RULES.md)** - Write your own quality checks in Markdown
+- **[Creating Custom Rules](./CREATING_RULES.md)** - Write your own quality rules in Markdown
 - **[Configuration Guide](./CONFIGURATION.md)** - Complete reference for `.vectorlint.ini`

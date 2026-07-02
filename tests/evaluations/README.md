@@ -1,13 +1,13 @@
-# Manual Evaluations
+# Manual Reviews
 
-This directory contains test fixtures for running VectorLint manually against real LLM providers. Use it to evaluate accuracy, compare models, and inspect gate check behavior.
+This directory contains test fixtures for running VectorLint manually against real LLM providers. Use it to review accuracy, compare models, and inspect filtering behavior.
 
 ## Contents
 
 ```
 tests/evaluations/
 ├── .vectorlint.ini          # Config pointing at test-rules/
-├── TEST_FILE.md             # Sample document to evaluate
+├── TEST_FILE.md             # Sample document to review
 └── test-rules/
     └── Test/                # Rule pack with general-purpose test rules
         ├── clarity.md
@@ -17,7 +17,7 @@ tests/evaluations/
         └── wordiness.md
 ```
 
-## Running an evaluation
+## Running a review
 
 From the repo root:
 
@@ -26,7 +26,7 @@ From the repo root:
 npm run dev -- tests/evaluations/TEST_FILE.md \
   --config tests/evaluations/.vectorlint.ini
 
-# With debug artifacts (writes raw model output + gate check decisions)
+# With debug artifacts (writes raw model output + filter decisions)
 npm run dev -- tests/evaluations/TEST_FILE.md \
   --config tests/evaluations/.vectorlint.ini \
   --debug-json
@@ -60,8 +60,8 @@ Or configure them in `~/.vectorlint/config.toml`.
 
 Each artifact under `.vectorlint/runs/` contains:
 
-- `raw_model_output` — exact JSON returned by the model, including all gate check fields
-- `filter_decisions` — deterministic surface/hide decision per violation candidate with reasons
-- `surfaced_violations` — candidates that passed all gates
+- `raw_model_output` - exact JSON returned by the model, including all evidence fields
+- `filter_decisions` - deterministic surface/hide decision per violation candidate with reasons
+- `surfaced_violations` - candidates that passed all confidence checks
 
-Use these to compare how different models respond to the same rules and content, and to tune gate check thresholds.
+Use these to compare how different models respond to the same rules and content, and to tune the confidence threshold.
