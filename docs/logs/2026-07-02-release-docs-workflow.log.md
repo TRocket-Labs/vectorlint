@@ -18,3 +18,8 @@
 - **Status**: completed
 - **What was done**: Updated the existing test and lint GitHub Actions workflows so both push and pull request runs now include `release-docs`, giving the public-docs branch the same baseline CI coverage as `main`.
 - **Files changed**: `.github/workflows/test.yml`, `.github/workflows/lint.yml`, `docs/logs/2026-07-02-release-docs-workflow.log.md`
+
+### Task: Add automatic release-docs to main sync workflow
+- **Status**: completed
+- **What was done**: Added a dedicated GitHub Actions workflow that runs on pushes to `release-docs` and uses the GitHub CLI to open or update a single `release-docs -> main` sync PR.
+- **Files changed**: `.github/workflows/release-docs-sync.yml`, `docs/logs/2026-07-02-release-docs-workflow.log.md`

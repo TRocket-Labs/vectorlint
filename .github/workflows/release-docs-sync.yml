@@ -1,0 +1,34 @@
+name: Sync release-docs into main
+
+on:
+  push:
+    branches: [release-docs]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: release-docs-sync
+  cancel-in-progress: true
+
+jobs:
+  sync-pr:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Open or update sync PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing_pr="$(gh pr list --base main --head release-docs --state open --json number --jq '.[0].number')"
+          pr_title="sync: merge release-docs into main"
+          pr_body="Automated sync PR to bring released-doc updates from \`release-docs\` back into \`main\`."
+
+          if [ -n "$existing_pr" ]; then
+            gh pr edit "$existing_pr" --title "$pr_title" --body "$pr_body"
+          else
+            gh pr create --base main --head release-docs --title "$pr_title" --body "$pr_body"
+          fi
