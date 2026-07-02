@@ -1,0 +1,111 @@
+---
+title: Tuning evaluation precision
+description: Use `CONFIDENCE_THRESHOLD` and strictness overrides together to reduce noise and get accurate findings across different content types.
+---
+
+VectorLint gives you two complementary levers for controlling evaluation precision. Used together, they let you calibrate how aggressively VectorLint surfaces findings — globally across your project, and per content type.
+
+- **`CONFIDENCE_THRESHOLD`** — controls how strictly the PAT pipeline filters raw model candidates before surfacing them. A global setting that applies to every evaluation.
+- **Strictness overrides** — controls how harshly check rules score error density for specific file patterns. Set per content type in `.vectorlint.ini`.
+
+Understanding when to reach for each one is the key to a low-noise, high-signal workflow.
+
+## How the two levers differ
+
+`CONFIDENCE_THRESHOLD` operates at the **filtering stage** — it determines whether a candidate violation gets surfaced at all. Lower it and more candidates pass through. Raise it and only the highest-confidence findings appear.
+
+Strictness overrides operate at the **scoring stage** — they determine how heavily a violation is penalized once it's already been surfaced. Higher strictness means a given error density produces a lower score and triggers violations more readily.
+
+They're solving different problems. `CONFIDENCE_THRESHOLD` reduces noise from the model's judgment. Strictness controls how demanding your quality bar is for a given content type.
+
+## When to tune CONFIDENCE_THRESHOLD
+
+The default of `0.75` is a reasonable starting point. Adjust it when the balance between findings and noise isn't working for your team.
+
+```bash
+CONFIDENCE_THRESHOLD=0.75
+```
+
+| Value | Effect | When to use |
+|-------|--------|-------------|
+| Lower (e.g. `0.5`) | More findings — higher recall, more noise | Early-stage rule development, finding gaps in coverage |
+| Default (`0.75`) | Balanced precision and recall | Most production workflows |
+| Higher (e.g. `0.9`) | Fewer findings — higher precision, less noise | CI gates, customer-facing content, high-trust workflows |
+
+Set this in `~/.vectorlint/config.toml` for a global default, or in a project `.env` file to override it for a specific project.
+
+<Tip>
+  When writing a new rule, temporarily lower `CONFIDENCE_THRESHOLD` to see everything the model flags. Once you've validated the rule's coverage, raise it back to filter out low-confidence candidates.
+</Tip>
+
+## When to tune strictness
+
+Different content types warrant different quality bars. A draft circulated internally doesn't need the same scrutiny as customer-facing API documentation. Strictness overrides in `.vectorlint.ini` let you set those bars independently.
+
+```ini
+# Customer-facing docs — strict. Every error matters.
+[content/docs/**/*.md]
+RunRules=TechDocs
+GrammarChecker.strictness=strict
+TechnicalAccuracy.strictness=9
+
+# Blog posts — standard. Quality matters, but tone is flexible.
+[content/blog/**/*.md]
+RunRules=TechDocs
+GrammarChecker.strictness=standard
+
+# Marketing — brand voice is critical, grammar is secondary.
+[content/marketing/**/*.md]
+RunRules=TechCorp
+BrandVoice.strictness=strict
+GrammarChecker.strictness=lenient
+
+# Drafts — no checks. Let writers write.
+[content/drafts/**/*.md]
+RunRules=
+```
+
+| Level | Value | Penalty per 1% error density | Best for |
+|-------|-------|------------------------------|----------|
+| Lenient | `1`–`3` | ~5 points | Drafts, early-stage content |
+| Standard | `4`–`7` | ~10 points | Blog posts, internal docs |
+| Strict | `8`–`10` | ~20 points | Customer-facing docs, API reference |
+
+## Tuning for CI environments
+
+In CI, false positives block merges. A finding that a writer might reasonably dismiss becomes a pipeline failure that needs explaining. Two adjustments help:
+
+**Raise `CONFIDENCE_THRESHOLD` in CI.** Set it higher in your CI environment's `.env` than in local development. This means only the highest-confidence findings block a merge — lower-confidence candidates still get caught locally where a writer can evaluate them in context.
+
+```bash
+# .env in CI environment
+CONFIDENCE_THRESHOLD=0.85
+```
+
+**Use strict patterns only on production-bound content.** Gate CI checks on the directories that actually ship, not on drafts or work-in-progress:
+
+```ini
+# Only these files block CI
+[content/docs/**/*.md]
+RunRules=TechDocs
+GrammarChecker.strictness=strict
+
+# These files are checked locally but don't gate CI
+[content/drafts/**/*.md]
+RunRules=
+```
+
+## A practical starting point for teams
+
+If you're rolling VectorLint out across a team for the first time, start permissive and tighten over time. A workflow that generates too many findings on day one loses the team's trust before it earns it.
+
+1. Start with `CONFIDENCE_THRESHOLD=0.75` and `standard` strictness across all content
+2. Run against your existing content library and review the findings as a team
+3. Raise strictness on your highest-stakes content types first
+4. Raise `CONFIDENCE_THRESHOLD` once your rules are stable and reviewed
+
+## Next steps
+
+- [LLM Providers](/llm-providers) — set `CONFIDENCE_THRESHOLD` in your config
+- [Project Configuration](/project-config) — configure strictness overrides per file pattern
+- [CI Integration](/ci-integration) — gate merges on content quality

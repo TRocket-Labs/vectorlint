@@ -1,0 +1,160 @@
+---
+title: CI integration
+description: Gate merges on content quality by running VectorLint in your CI pipeline.
+---
+
+VectorLint exits with a non-zero status code when it finds violations, making it a natural fit for CI pipelines. Add it as a pre-merge check and content that fails your quality thresholds never reaches production.
+
+## How it works in CI
+
+When VectorLint finds violations it exits with code `1`. When content passes all checks it exits with code `0`. Most CI systems treat a non-zero exit as a failed step and block the merge automatically — no additional configuration needed.
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | All files passed — no violations found |
+| `1` | One or more violations found |
+
+## GitHub Actions
+
+### Basic setup
+
+Add a workflow file at `.github/workflows/vectorlint.yml`:
+
+```yaml
+name: Content quality check
+
+on:
+  pull_request:
+    paths:
+      - 'content/**/*.md'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install VectorLint
+        run: npm install -g vectorlint
+
+      - name: Run content check
+        run: vectorlint content/**/*.md
+        env:
+          LLM_PROVIDER: openai
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CONFIDENCE_THRESHOLD: 0.85
+```
+
+The `paths` filter limits the workflow to runs where content files actually changed — it won't fire on code-only PRs.
+
+### Storing API keys
+
+Never commit API keys to your repository. Store them as GitHub Actions secrets:
+
+1. Go to your repository **Settings → Secrets and variables → Actions**
+2. Add a new secret for each key (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
+3. Reference them in your workflow with `${{ secrets.SECRET_NAME }}`
+
+### Checking only changed files
+
+For large content libraries, checking every file on every PR is slow and expensive. Use `git diff` to check only the files changed in the PR:
+
+```yaml
+      - name: Get changed files
+        id: changed
+        run: |
+          echo "files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '\.md$' | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Run content check
+        if: steps.changed.outputs.files != ''
+        run: vectorlint ${{ steps.changed.outputs.files }}
+        env:
+          LLM_PROVIDER: openai
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+```
+
+## Recommended CI configuration
+
+CI environments should be stricter than local development. A finding a writer might dismiss in review becomes a merge blocker in CI — so surface only high-confidence violations.
+
+**Raise `CONFIDENCE_THRESHOLD` in CI.** Set it higher than your local default so only the most certain findings block a merge:
+
+```yaml
+env:
+  CONFIDENCE_THRESHOLD: 0.85
+```
+
+**Gate checks only on production-bound content.** Limit the workflow `paths` filter to directories that ship to users, not drafts or internal docs:
+
+```yaml
+on:
+  pull_request:
+    paths:
+      - 'content/docs/**'
+      - 'content/api/**'
+```
+
+**Use strict strictness on gated content.** In your `.vectorlint.ini`, apply strict scoring to the files that CI checks:
+
+```ini
+[content/docs/**/*.md]
+RunRules=TechDocs
+GrammarChecker.strictness=strict
+
+[content/drafts/**/*.md]
+RunRules=
+```
+
+Drafts never reach CI — the empty `RunRules=` means VectorLint skips them entirely.
+
+## Other CI systems
+
+VectorLint works with any CI system that supports running shell commands. The pattern is the same: install VectorLint, set environment variables from secrets, run the check.
+
+**GitLab CI:**
+
+```yaml
+content-quality:
+  image: node:lts
+  script:
+    - npm install -g vectorlint
+    - vectorlint content/docs/**/*.md
+  variables:
+    LLM_PROVIDER: openai
+    OPENAI_API_KEY: $OPENAI_API_KEY
+  rules:
+    - changes:
+        - content/**/*.md
+```
+
+**CircleCI:**
+
+```yaml
+jobs:
+  content-check:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - checkout
+      - run:
+          name: Install VectorLint
+          command: npm install -g vectorlint
+      - run:
+          name: Run content check
+          command: vectorlint content/**/*.md
+          environment:
+            LLM_PROVIDER: openai
+```
+
+Store API keys in your CI system's secret or environment variable manager — never in the workflow file itself.
+
+## Next steps
+
+- [Tuning evaluation precision](/false-positive-tuning) — set `CONFIDENCE_THRESHOLD` and strictness for CI
+- [Project Configuration](/project-config) — configure which files CI checks
+- [CLI reference](/cli-reference) — full command and exit code reference

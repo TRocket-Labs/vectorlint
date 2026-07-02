@@ -1,0 +1,287 @@
+---
+title: Configuring LLM providers
+description: Connect VectorLint to OpenAI, Anthropic, Azure OpenAI, Google Gemini, or Amazon Bedrock.
+---
+
+VectorLint sends your content to an LLM (Large Language Model) for evaluation. Configure a provider and supply credentials before running your first check.
+
+## Supported providers
+
+| Provider | `LLM_PROVIDER` value | Notes |
+|---|---|---|
+| OpenAI | `openai` | GPT-4o and other OpenAI models |
+| Anthropic | `anthropic` | Claude Opus, Sonnet, and Haiku |
+| Azure OpenAI | `azure-openai` | Azure-hosted OpenAI models |
+| Google Gemini | `gemini` | Gemini Pro and other Gemini models |
+| Amazon Bedrock | `amazon-bedrock` | Claude models via AWS Bedrock |
+
+## How VectorLint loads credentials
+
+VectorLint resolves credentials in this order. Later sources override earlier ones:
+
+1. Built-in defaults
+2. Global config — `~/.vectorlint/config.toml`
+3. Local `.env` file in your project root
+4. Shell environment variables
+
+This means you can set a global default provider in `config.toml` and override it per project with a `.env` file, or override both with environment variables in Continuous Integration/Continuous Deployment (CI/CD).
+
+## Generate a configuration file
+
+Run `vectorlint init` to generate `~/.vectorlint/config.toml` with placeholder values for all supported providers. Fill in the key for the provider you want to use and leave the others blank.
+
+## OpenAI
+
+Get your API key at [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
+
+**Global config** (`~/.vectorlint/config.toml`)
+
+```toml
+[env]
+LLM_PROVIDER = "openai"
+OPENAI_API_KEY = "sk-..."
+```
+
+**Project `.env` file**
+
+```bash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+```
+
+**Shell / CI environment variables**
+
+```bash
+export LLM_PROVIDER=openai
+export OPENAI_API_KEY=sk-...
+```
+
+## Anthropic
+
+Get your API key at [console.anthropic.com](https://console.anthropic.com/).
+
+**Global config** (`~/.vectorlint/config.toml`)
+
+```toml
+[env]
+LLM_PROVIDER = "anthropic"
+ANTHROPIC_API_KEY = "sk-ant-..."
+# Optional
+ANTHROPIC_MODEL = "claude-haiku-4-5"
+ANTHROPIC_MAX_TOKENS = "4096"
+ANTHROPIC_TEMPERATURE = "0.2"
+```
+
+**Project `.env` file**
+
+```bash
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+# Optional
+ANTHROPIC_MODEL=claude-haiku-4-5
+ANTHROPIC_MAX_TOKENS=4096
+ANTHROPIC_TEMPERATURE=0.2
+```
+
+**Shell / CI environment variables**
+
+```bash
+export LLM_PROVIDER=anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+## Azure OpenAI
+
+In addition to the API key, Azure OpenAI requires your resource endpoint, deployment name, and API version. Find these in the [Azure portal](https://azure.microsoft.com/en-us/products/ai-services/openai-service) under your Azure OpenAI resource.
+
+**Global config** (`~/.vectorlint/config.toml`)
+
+```toml
+[env]
+LLM_PROVIDER = "azure-openai"
+AZURE_OPENAI_API_KEY = "..."
+AZURE_OPENAI_ENDPOINT = "https://your-resource.openai.azure.com"
+AZURE_OPENAI_DEPLOYMENT_NAME = "your-deployment-name"
+AZURE_OPENAI_API_VERSION = "2024-02-15-preview"
+# Optional
+AZURE_OPENAI_TEMPERATURE = "0.2"
+```
+
+**Project `.env` file**
+
+```bash
+LLM_PROVIDER=azure-openai
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+# Optional
+AZURE_OPENAI_TEMPERATURE=0.2
+```
+
+**Shell / CI environment variables**
+
+```bash
+export LLM_PROVIDER=azure-openai
+export AZURE_OPENAI_API_KEY=...
+export AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+export AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
+export AZURE_OPENAI_API_VERSION=2024-02-15-preview
+```
+
+## Google Gemini
+
+Get your API key at [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey).
+
+**Global config** (`~/.vectorlint/config.toml`)
+
+```toml
+[env]
+LLM_PROVIDER = "gemini"
+GEMINI_API_KEY = "..."
+```
+
+**Project `.env` file**
+
+```bash
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=...
+```
+
+**Shell / CI environment variables**
+
+```bash
+export LLM_PROVIDER=gemini
+export GEMINI_API_KEY=...
+```
+
+## Amazon Bedrock
+
+VectorLint accesses Claude models through Amazon Bedrock. You can omit AWS credentials if your environment has an Identity and Access Management (IAM) role or if you've configured a credential profile in `~/.aws/credentials`.
+
+**Global config** (`~/.vectorlint/config.toml`)
+
+```toml
+[env]
+LLM_PROVIDER = "amazon-bedrock"
+AWS_REGION = "us-east-1"
+# Optional if using IAM roles or ~/.aws/credentials
+AWS_ACCESS_KEY_ID = "..."
+AWS_SECRET_ACCESS_KEY = "..."
+# Optional
+BEDROCK_MODEL = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+BEDROCK_TEMPERATURE = "0.2"
+```
+
+**Project `.env` file**
+
+```bash
+LLM_PROVIDER=amazon-bedrock
+AWS_REGION=us-east-1
+# Optional if using IAM roles or ~/.aws/credentials
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+# Optional
+BEDROCK_MODEL=global.anthropic.claude-sonnet-4-5-20250929-v1:0
+BEDROCK_TEMPERATURE=0.2
+```
+
+**Shell / Continuous Integration (CI) environment variables**
+
+```bash
+export LLM_PROVIDER=amazon-bedrock
+export AWS_REGION=us-east-1
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+```
+
+<Note>
+If your environment already provides AWS credentials through an IAM role or `~/.aws/credentials`, you can omit AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.
+</Note>
+
+## Search provider (optional)
+
+The `technical-accuracy` evaluator verifies factual claims against live web search. You need a separate search provider credential. VectorLint currently supports [Perplexity](https://www.perplexity.ai/) for this purpose.
+
+**Global config** (`~/.vectorlint/config.toml`)
+
+```toml
+[env]
+SEARCH_PROVIDER = "perplexity"
+PERPLEXITY_API_KEY = "pplx-..."
+```
+
+**Project `.env` file**
+
+```bash
+SEARCH_PROVIDER=perplexity
+PERPLEXITY_API_KEY=pplx-...
+```
+
+You don't need a search provider for standard `base` evaluator rules.
+
+## Tracking LLM costs
+
+You can configure per-token pricing so VectorLint calculates and reports estimated costs after each run. Check your provider's pricing page for current values.
+
+**Global config** (`~/.vectorlint/config.toml`)
+
+```toml
+[env]
+INPUT_PRICE_PER_MILLION = "2.50"
+OUTPUT_PRICE_PER_MILLION = "10.00"
+```
+
+**Project `.env` file**
+
+```bash
+INPUT_PRICE_PER_MILLION=2.50
+OUTPUT_PRICE_PER_MILLION=10.00
+```
+
+## Using VectorLint in CI/CD
+
+In GitHub Actions, store credentials as repository secrets and pass them as environment variables. Never hard-code API keys in workflow files.
+
+```yaml
+name: Lint content
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run VectorLint
+        env:
+          LLM_PROVIDER: openai
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: npx vectorlint content/**/*.md
+```
+
+For other CI/CD systems, use the equivalent secret mechanism: GitLab CI variables, CircleCI contexts, or Jenkins credentials.
+
+## Security practices
+
+**Keep credentials out of version control.** Add `.env` and any local config files to `.gitignore`:
+
+```
+.env
+.vectorlint.ini
+```
+
+**Use separate keys per project or team.** Project-scoped keys let you rotate more easily if compromised and give you granular cost tracking.
+
+**Rotate keys periodically.** Generate a new key in the provider dashboard, update your configuration, verify VectorLint still works, then delete the old key.
+
+## Troubleshooting
+
+**`Authentication failed` or `Invalid API key`** — Verify the key value is correct, confirm it hasn't expired, and check that your account has available credits.
+
+**`Unknown provider: xyz`** — Check that `LLM_PROVIDER` matches one of the supported values exactly: `openai`, `anthropic`, `azure-openai`, `gemini`, `amazon-bedrock`. The value is case-sensitive.
+
+**Configuration not loading** — Verify the global config is at `~/.vectorlint/config.toml` and the file is readable. Confirm the TOML syntax is valid. As a quick test, try passing the credentials as environment variables directly.
+
+**`Rate limit exceeded`** — Reduce the `Concurrency` setting in the `.vectorlint.ini` file in your project, upgrade your API tier with the provider, or switch to a provider with higher rate limits.
