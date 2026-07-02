@@ -87,9 +87,10 @@ CONFIDENCE_THRESHOLD=0.85
 
 When the same variable is set in multiple places, VectorLint resolves it in this order — highest precedence first:
 
-1. Project `.env` file
-2. Global `~/.vectorlint/config.toml`
-3. System environment variables
+1. Shell / CI environment variables
+2. Project `.env` file
+3. Global `~/.vectorlint/config.toml`
+4. Built-in defaults
 
 ## Related
 
