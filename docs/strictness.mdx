@@ -28,15 +28,15 @@ Set strictness per-rule, per-glob pattern in `.vectorlint.ini`:
 ```ini
 [docs/**/*.md]
 RunRules=VectorLint
-VectorLint/ai-pattern.strictness=strict
+AIPattern.strictness=strict
 
 [blog/**/*.md]
 RunRules=VectorLint
-VectorLint/ai-pattern.strictness=standard
+AIPattern.strictness=standard
 
 [drafts/**/*.md]
 RunRules=VectorLint
-VectorLint/ai-pattern.strictness=lenient
+AIPattern.strictness=lenient
 ```
 
 The key format is `RuleID.strictness=value` under a glob section. This lets you apply tighter standards to published content and looser standards to drafts without changing the rule itself.
