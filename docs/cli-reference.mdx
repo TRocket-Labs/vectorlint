@@ -1,0 +1,103 @@
+---
+title: CLI reference
+description: Complete reference for the VectorLint command-line interface — commands, flags, and exit codes.
+---
+
+VectorLint runs from the command line. You invoke it against one or more files and it prints findings to standard output. This page is the complete reference for all commands, flags, and exit behavior.
+
+## Basic usage
+
+```bash
+vectorlint [flags] <file> [files...]
+```
+
+Run a check against one file:
+
+```bash
+vectorlint doc.md
+```
+
+Run against multiple files or a glob pattern:
+
+```bash
+vectorlint content/docs/**/*.md
+```
+
+## Commands
+
+### `vectorlint init`
+
+Initializes VectorLint in your project. Generates configuration files based on the mode you choose.
+
+```bash
+vectorlint init
+```
+
+Creates two files:
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `.vectorlint.ini` | Project root | File patterns, rule packs, strictness overrides |
+| `config.toml` | `~/.vectorlint/` | LLM provider API keys |
+
+#### `--quick` flag
+
+```bash
+vectorlint init --quick
+```
+
+Zero-config mode. Creates only a `VECTORLINT.md` file in your project root. VectorLint detects it automatically and creates a "Style Guide Compliance" rule from its contents — no `.vectorlint.ini` required.
+
+### `vectorlint --help`
+
+Prints available commands and flags.
+
+```bash
+vectorlint --help
+```
+
+## Flags
+
+| Flag | Description |
+|------|-------------|
+| `--help` | Print help and exit |
+| `--version` | Print the installed VectorLint version and exit |
+
+## Output
+
+VectorLint prints findings to standard output. Each finding includes the rule that triggered it, the location in the file, the specific violation, and a suggested fix.
+
+A file with no violations produces no output.
+
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | No violations found — all files passed |
+| `1` | One or more violations found |
+
+Exit codes make VectorLint suitable for CI pipelines. A non-zero exit blocks a merge when content fails quality checks. See [CI Integration](/ci-integration) for setup examples.
+
+## Environment variables
+
+VectorLint reads configuration from environment variables in addition to config files. Project-level `.env` values take precedence over the global `config.toml`.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_PROVIDER` | — | LLM provider to use: `openai`, `anthropic`, `gemini`, `azure` |
+| `OPENAI_API_KEY` | — | API key for OpenAI |
+| `ANTHROPIC_API_KEY` | — | API key for Anthropic |
+| `GEMINI_API_KEY` | — | API key for Google Gemini |
+| `AZURE_OPENAI_API_KEY` | — | API key for Azure OpenAI |
+| `SEARCH_PROVIDER` | — | Search provider for `technical-accuracy` evaluator: `perplexity` |
+| `PERPLEXITY_API_KEY` | — | API key for Perplexity search |
+| `CONFIDENCE_THRESHOLD` | `0.75` | PAT pipeline confidence gate. Lower surfaces more findings; higher surfaces fewer. |
+
+For the full environment variable reference see [Environment variables](/env-variables).
+
+## Related
+
+- [Installation](/installation) — install VectorLint globally or run with npx
+- [Configuration](/configuration) — configure VectorLint for your project
+- [Tuning evaluation precision](/false-positive-tuning) — adjust `CONFIDENCE_THRESHOLD` and strictness
+- [CI Integration](/ci-integration) — use exit codes to gate merges on content quality

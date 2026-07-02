@@ -1,0 +1,183 @@
+---
+title: Configuring your project
+description: Set up file patterns, rule pack assignments, and quality thresholds in .vectorlint.ini.
+---
+
+VectorLint uses two configuration files with distinct responsibilities. `.vectorlint.ini` in your project root controls which rules run on which files, how strictly violations are scored, and the path to your custom rule packs. You store your large language model (LLM) provider credentials in `~/.vectorlint/config.toml`. For more information, see [Configuring LLM providers](/llm-providers).
+
+Run `vectorlint init` to generate both files with commented placeholders.
+
+## Global settings
+
+These settings go at the top of `.vectorlint.ini`, outside any file pattern section.
+
+| Setting | Default | Description |
+|---|---|---|
+| `RulesPath` | _(none)_ | Path to your custom rule packs directory. Subdirectories inside this path become available pack names. If omitted, only the bundled `VectorLint` preset is available. |
+| `Concurrency` | `4` | Number of rule evaluations to run in parallel. Reduce this if you hit API rate limits. |
+| `DefaultSeverity` | `warning` | Default severity for reported violations: `warning` or `error`. Individual rules can override this with their own `severity` frontmatter field. |
+
+```ini
+# .vectorlint.ini
+
+RulesPath=.github/rules
+Concurrency=4
+DefaultSeverity=warning
+```
+
+## File pattern sections
+
+File pattern sections map glob patterns to rule packs. VectorLint evaluates a file only if at least one pattern matches it.
+
+```ini
+[**/*.md]
+RunRules=Acme
+
+[**/*.mdx]
+RunRules=Acme
+```
+
+### RunRules
+
+`RunRules` takes a comma-separated list of pack names to run on matching files. Pack names correspond to subdirectory names inside `RulesPath`.
+
+```ini
+[content/docs/**/*.md]
+RunRules=Acme, TechCorp
+```
+
+To explicitly skip a set of files, set `RunRules` to empty:
+
+```ini
+[content/drafts/**/*.md]
+RunRules=
+```
+
+### Using the bundled preset
+
+VectorLint includes a `VectorLint` preset containing rules for AI pattern detection, pseudo-advice, and repetition. You can use it without setting `RulesPath`:
+
+```ini
+[**/*.md]
+RunRules=VectorLint
+```
+This is separate from the `VECTORLINT.md` file in which you write your style standards as plain-language instructions.
+
+## Cascading configuration
+
+When multiple patterns match the same file, VectorLint applies all of them — general patterns first, specific patterns second. Rule packs accumulate; settings override.
+
+```ini
+# Applied first — all markdown files run GeneralRules at strictness 5
+[**/*.md]
+RunRules=GeneralRules
+Grammar.strictness=5
+
+# Applied second — docs files also run TechDocs, strictness overrides to 9
+[content/docs/**/*.md]
+RunRules=TechDocs
+Grammar.strictness=9
+```
+
+A file matching `content/docs/api.md` runs both `GeneralRules` and `TechDocs`, with a final strictness of `9`.
+
+## Strictness overrides
+
+Check rules score content based on error density. Strictness controls the penalty per percentage point of error density, letting you apply tighter standards to critical content without changing the rule itself.
+
+Set strictness per rule, per pattern:
+
+```ini
+[content/docs/**/*.md]
+RunRules=Acme
+GrammarChecker.strictness=9
+TechnicalAccuracy.strictness=strict
+```
+
+### Strictness levels
+
+| Level | Value range | Penalty per 1% error density |
+|---|---|---|
+| Lenient | `1`–`3` or `lenient` | ~5 points |
+| Standard | `4`–`7` or `standard` | ~10 points |
+| Strict | `8`–`10` or `strict` | ~20 points |
+
+Use numeric values for precise control or named levels for readability. Both are valid:
+
+```ini
+GrammarChecker.strictness=9
+GrammarChecker.strictness=strict
+```
+
+## Global style context (VECTORLINT.md)
+
+Place a `VECTORLINT.md` file in your project root to define style instructions that apply to every evaluation. VectorLint prepends its contents to the system prompt for every rule, automatically applying your tone, terminology, and baseline standards across all checks.
+
+Keep `VECTORLINT.md` concise. VectorLint emits a warning if the file exceeds 4,000 tokens, as large context blocks degrade evaluation performance and increase costs.
+
+### Zero-config mode
+
+If no `.vectorlint.ini` exists, VectorLint detects `VECTORLINT.md` and creates a synthetic rule from its contents automatically. This approach requires no additional configuration:
+
+```bash
+vectorlint init --quick   # creates VECTORLINT.md only
+vectorlint doc.md
+```
+
+### Combined mode
+
+When `.vectorlint.ini` is present alongside `VECTORLINT.md`, the two work together. `VECTORLINT.md` sets the baseline context and rule pack files enforce specific, measurable criteria on top of it.
+
+## Confidence threshold
+
+VectorLint filters raw LLM candidates through gate checks before surfacing violations. The confidence threshold controls how aggressively this filter applies.
+
+Set it in your `.env` file or as an environment variable:
+
+```bash
+CONFIDENCE_THRESHOLD=0.75
+```
+
+| Value | Effect |
+|---|---|
+| Lower (for example `0.5`) | More findings surfaced — higher recall, more noise |
+| Default (`0.75`) | Balanced precision and recall |
+| Higher (for example `0.9`) | Fewer findings surfaced — higher precision, fewer false positives |
+
+Invalid values fall back to the default of `0.75`.
+
+## Complete example
+
+```ini
+# .vectorlint.ini
+
+# Global settings
+RulesPath=.github/rules
+Concurrency=4
+DefaultSeverity=warning
+
+# All markdown files — run the Acme pack
+[**/*.md]
+RunRules=Acme
+GrammarChecker.strictness=7
+
+# MDX files
+[**/*.mdx]
+RunRules=Acme
+GrammarChecker.strictness=7
+
+# Technical docs — higher standards
+[content/docs/**/*.md]
+RunRules=Acme
+GrammarChecker.strictness=9
+TechnicalAccuracy.threshold=9
+
+# Marketing content — brand voice rules
+[content/marketing/**/*.md]
+RunRules=TechCorp
+BrandVoice.strictness=8
+
+# Drafts — skip all rules
+[content/drafts/**/*.md]
+RunRules=
+```

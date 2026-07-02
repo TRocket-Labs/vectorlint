@@ -1,0 +1,124 @@
+---
+title: Customizing style rules
+description: Write effective LLM prompts for your rule pack files and create targeted content quality checks.
+---
+
+This guide walks you through creating a rule pack file from scratch, wiring it to a file pattern, and writing prompts that produce accurate, low-noise results. By the end you'll have a working rule you can adapt for your own content standards.
+
+## Before you start
+
+You'll need a working VectorLint installation with an LLM provider configured. If you haven't done that yet, complete [Installation](/installation) and [Configuration](/configuration) first.
+
+## Step 1: Create your rules directory
+
+VectorLint looks for rule packs in the directory specified by `RulesPath` in `.vectorlint.ini`. Create the directory structure:
+
+```bash
+mkdir -p .github/rules/MyTeam
+```
+
+This creates a rule pack called `MyTeam`. Pack names come from subdirectory names inside `RulesPath`.
+
+## Step 2: Write the rule file
+
+Create a new file at `.github/rules/MyTeam/grammar-checker.md`:
+
+```markdown
+---
+id: GrammarChecker
+name: Grammar Checker
+evaluator: base
+type: check
+severity: error
+---
+
+Check this content for grammar issues, spelling errors, and punctuation mistakes.
+Report any errors found with specific examples from the text.
+```
+
+That's a complete, working rule. The YAML frontmatter configures how VectorLint handles the result. The Markdown body is the prompt sent to the LLM.
+
+## Step 3: Configure .vectorlint.ini
+
+Open your `.vectorlint.ini` and add the `RulesPath` setting and a file pattern that runs your new pack:
+
+```ini
+RulesPath=.github/rules
+
+[**/*.md]
+RunRules=MyTeam
+```
+
+## Step 4: Run a check
+
+Point VectorLint at any Markdown file:
+
+```bash
+vectorlint doc.md
+```
+
+VectorLint sends the file content to your LLM with the `GrammarChecker` prompt, filters the results through the PAT pipeline, and prints any violations with their location and suggested fix.
+
+A clean file produces no output and exits with status `0`. A file with violations prints each finding and exits with a non-zero status.
+
+## Step 5: Tune strictness (optional)
+
+By default, VectorLint uses standard strictness — a penalty of ~10 points per 1% error density. For technical documentation where accuracy matters more, raise it:
+
+```ini
+[content/docs/**/*.md]
+RunRules=MyTeam
+GrammarChecker.strictness=strict
+```
+
+See [Project Configuration](/project-config) for the full strictness reference.
+
+## Writing effective prompts
+
+The Markdown body of your rule file is the prompt sent to the LLM. Specificity here directly determines evaluation quality — a vague prompt produces vague findings.
+
+**Be explicit about what you're looking for:**
+
+```markdown
+# ❌ Vague
+Check if the headline is good.
+
+# ✅ Specific
+You are a headline evaluator for developer blog posts. Assess whether the headline:
+
+1. Clearly communicates a specific benefit to the reader
+2. Uses natural, conversational language (avoid buzzwords like "leverage" or "unlock")
+3. Creates curiosity without resorting to clickbait
+```
+
+**Give the LLM domain context:**
+
+```markdown
+## CONTEXT BANK
+
+**Audience**: Software engineers, DevOps practitioners, and QA professionals who value:
+- Technical precision over marketing language
+- Practical examples over theory
+- Direct answers over lengthy preambles
+```
+
+**Use meaningful weights** to reflect real-world importance. Scale them to signal what actually matters in your content workflow:
+
+```yaml
+criteria:
+  - name: Technical Accuracy
+    id: TechnicalAccuracy
+    weight: 40       # Critical — factual errors erode trust
+  - name: Readability
+    id: Readability
+    weight: 30       # Important — but recoverable in editing
+  - name: SEO
+    id: SEO
+    weight: 10       # Nice to have
+```
+
+## Next steps
+
+- [Defining your style rules](/style-guide) — full reference for rule anatomy, evaluation modes, targeting, and examples
+- [Project Configuration](/project-config) — control which rules run on which files
+- [LLM Providers](/llm-providers) — switch providers or tune false-positive filtering
