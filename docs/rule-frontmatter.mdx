@@ -13,7 +13,7 @@ type: check
 severity: error
 ---
 
-Your LLM prompt goes here.
+Your rule instructions go here.
 ```
 
 ## Required fields
@@ -32,7 +32,7 @@ Your LLM prompt goes here.
 | `type` | `check` | Evaluation mode. `check` finds specific, countable violations. `judge` scores content against weighted criteria on a 1–4 rubric. |
 | `severity` | `warning` | How a failing result is reported. `error` causes a non-zero exit code; `warning` reports the issue without failing the run. |
 | `evaluateAs` | `chunk` | Whether to evaluate content in sections (`chunk`) or as a single unit (`document`). Chunking is applied automatically to documents over 600 words. Set to `document` to disable chunking for a specific rule. |
-| `strictness` | `standard` | For `check` rules: how harshly error density is penalized when scoring. One of `lenient` (5), `standard` (10, default), `strict` (20), or any positive number. Has no effect on `judge` rules. See [Strictness](/strictness). |
+| `strictness` | `standard` | For `check` rules: how strongly error density is penalized when scoring. One of `lenient` (5), `standard` (10, default), `strict` (20), or any positive number. Has no effect on `judge` rules. See [Strictness](/strictness). |
 | `target` | _(none)_ | Regex specification to extract and review a specific portion of the content, such as the H1 headline. See [Target fields](#target-fields) below. |
 | `criteria` | _(none)_ | Required when `type` is `judge`. Defines the scoring dimensions and their weights. See [Criteria fields](#criteria-fields) below. |
 

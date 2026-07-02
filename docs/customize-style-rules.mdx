@@ -1,9 +1,9 @@
 ---
 title: Customizing style rules
-description: Write effective LLM prompts for your rule pack files and create targeted content quality rules.
+description: Write effective rules for your rule pack files and create targeted content quality rules.
 ---
 
-This guide walks you through creating a rule pack file from scratch, wiring it to a file pattern, and writing prompts that produce accurate, low-noise results. By the end you'll have a working rule you can adapt for your own content standards.
+This guide walks you through creating a rule pack file from scratch, connecting it to a file pattern, and writing rules that produce accurate, low-noise results. By the end you’ll have a working rule you can adapt for your own content standards.
 
 ## Before you start
 
@@ -61,9 +61,9 @@ VectorLint sends the file content to your LLM with the `GrammarChecker` prompt, 
 
 A clean file produces no output and exits with status `0`. A file with violations prints each finding and exits with a non-zero status.
 
-## Writing effective prompts
+## Writing effective rules
 
-The Markdown body of your rule file is the prompt sent to the LLM. Specificity here directly determines review quality — a vague prompt produces vague findings.
+The Markdown body of your rule file is the instruction sent to the LLM. Specificity here directly determines review quality — a vague rule produces vague findings.
 
 **Be explicit about what you're looking for:**
 
@@ -96,10 +96,10 @@ You are a headline evaluator for developer blog posts. Assess whether the headli
 criteria:
   - name: Technical Accuracy
     id: TechnicalAccuracy
-    weight: 40       # Critical — factual errors erode trust
+    weight: 40       # Critical - factual errors erode trust
   - name: Readability
     id: Readability
-    weight: 30       # Important — but recoverable in editing
+    weight: 30       # Important - but recoverable in editing
   - name: SEO
     id: SEO
     weight: 10       # Nice to have
@@ -107,6 +107,6 @@ criteria:
 
 ## Next steps
 
-- [Defining your style rules](/style-guide) — full reference for rule anatomy, review modes, targeting, and examples
-- [Project Configuration](/project-config) — control which rules run on which files
-- [LLM Providers](/llm-providers) — switch providers or tune false-positive filtering
+- [Defining your style rules](/style-guide) - full reference for rule anatomy, review modes, targeting, and examples
+- [Project Configuration](/project-config) - control which rules run on which files
+- [LLM Providers](/llm-providers) - switch providers or tune false-positive filtering
