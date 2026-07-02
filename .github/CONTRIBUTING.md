@@ -119,6 +119,12 @@ Key style requirements:
 5. **Commit properly**: Follow our commit message guidelines
 6. **Create PR**: Provide a clear description of your changes
 
+### Docs Branch Targeting
+
+- Target `release-docs` when the change should be visible in public docs now and is true for the latest released CLI.
+- Target `main` when the change describes unreleased or in-development behavior.
+- If a docs hotfix lands in `release-docs`, let the sync workflow carry it back to `main` instead of manually cherry-picking.
+
 ### Before Submitting
 
 - [ ] All tests pass (`npm run test:run`)

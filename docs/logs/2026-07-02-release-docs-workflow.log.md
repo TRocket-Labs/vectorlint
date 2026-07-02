@@ -23,3 +23,8 @@
 - **Status**: completed
 - **What was done**: Added a dedicated GitHub Actions workflow that runs on pushes to `release-docs` and uses the GitHub CLI to open or update a single `release-docs -> main` sync PR.
 - **Files changed**: `.github/workflows/release-docs-sync.yml`, `docs/logs/2026-07-02-release-docs-workflow.log.md`
+
+### Task: Add contributor guardrails for branch targeting
+- **Status**: completed
+- **What was done**: Added branch-targeting guidance to the contributing guide and created a PR template that forces contributors to declare whether a change belongs on `release-docs` or `main`.
+- **Files changed**: `.github/CONTRIBUTING.md`, `.github/pull_request_template.md`, `docs/logs/2026-07-02-release-docs-workflow.log.md`
