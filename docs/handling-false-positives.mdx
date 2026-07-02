@@ -5,16 +5,16 @@ description: Reduce noise in surfaced findings and tune review precision.
 
 VectorLint gives you two complementary levers for controlling review precision. Used together, they let you calibrate how aggressively VectorLint surfaces findings across your project.
 
-- **`CONFIDENCE_THRESHOLD`** — controls how strictly the PAT pipeline filters raw model candidates before surfacing them. A global setting that applies to every review.
-- **Strictness** — controls how strongly check rules penalize errors when scoring. Set per rule in frontmatter; see [Strictness](/strictness).
+- **`CONFIDENCE_THRESHOLD`**: controls how strictly the PAT pipeline filters raw model candidates before surfacing them. A global setting that applies to every review.
+- **Strictness**: controls how strongly check rules penalize errors when scoring. Set per rule in frontmatter; see [Strictness](/strictness).
 
 Understanding when to reach for each one is the key to a low-noise, high-signal workflow.
 
 ## How the two levers differ
 
-`CONFIDENCE_THRESHOLD` operates at the **filtering stage** — it determines whether a candidate violation gets surfaced at all. Lower it and more candidates pass through. Raise it and only the highest-confidence findings appear.
+`CONFIDENCE_THRESHOLD` operates at the **filtering stage**. It determines whether a candidate violation gets surfaced at all. Lower it and more candidates pass through. Raise it and only the highest-confidence findings appear.
 
-Strictness operates at the **scoring stage** — it determines how heavily a violation is penalized once it's already been surfaced. Higher strictness means a given error density produces a lower score and triggers violations more readily.
+Strictness operates at the **scoring stage**. It determines how heavily a violation is penalized once it's already been surfaced. Higher strictness means a given error density produces a lower score and triggers violations more readily.
 
 They're solving different problems. `CONFIDENCE_THRESHOLD` reduces noise from the model's judgment. Strictness controls how demanding your quality bar is for a given rule.
 
@@ -28,9 +28,9 @@ CONFIDENCE_THRESHOLD=0.75
 
 | Value | Effect | When to use |
 |-------|--------|-------------|
-| Lower (e.g. `0.5`) | More findings — higher recall, more noise | Early-stage rule development, finding gaps in coverage |
+| Lower (e.g. `0.5`) | More findings, higher recall, more noise | Early-stage rule development, finding gaps in coverage |
 | Default (`0.75`) | Balanced precision and recall | Most production workflows |
-| Higher (e.g. `0.9`) | Fewer findings — higher precision, less noise | CI gates, customer-facing content, high-trust workflows |
+| Higher (e.g. `0.9`) | Fewer findings, higher precision, less noise | CI gates, customer-facing content, high-trust workflows |
 
 Set this in `~/.vectorlint/config.toml` for a global default, or in a project `.env` file to override it for a specific project.
 
@@ -42,7 +42,7 @@ Set this in `~/.vectorlint/config.toml` for a global default, or in a project `.
 
 In CI, false positives block merges. A finding that a writer might reasonably dismiss becomes a pipeline failure that needs explaining. Two adjustments help:
 
-**Raise `CONFIDENCE_THRESHOLD` in CI.** Set it higher in your CI environment's `.env` than in local development. This means only the highest-confidence findings block a merge — lower-confidence candidates still get caught locally where a writer can review them in context.
+**Raise `CONFIDENCE_THRESHOLD` in CI.** Set it higher in your CI environment's `.env` than in local development. This means only the highest-confidence findings block a merge. Lower-confidence candidates still get caught locally where a writer can review them in context.
 
 ```bash
 # .env in CI environment
@@ -72,6 +72,6 @@ If you're rolling VectorLint out across a team for the first time, start permiss
 
 ## Next steps
 
-- [LLM Providers](/llm-providers) — set `CONFIDENCE_THRESHOLD` in your config
-- [Strictness](/strictness) — set strictness per rule in frontmatter
-- [CI Integration](/ci-integration) — gate merges on content quality
+- [LLM Providers](/llm-providers): set `CONFIDENCE_THRESHOLD` in your config
+- [Strictness](/strictness): set strictness per rule in frontmatter
+- [CI Integration](/ci-integration): gate merges on content quality

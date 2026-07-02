@@ -7,10 +7,10 @@ VectorLint is configured through four files. Running `vectorlint init` creates t
  
 | File | Location | Purpose | Required |
 |------|----------|---------|----------|
-| `VECTORLINT.md` | Project root | Global style instructions in plain language — prepended to every review | Required for zero-config mode |
+| `VECTORLINT.md` | Project root | Global style instructions in plain language, applied to every review | Required for zero-config mode |
 | `.vectorlint.ini` | Project root | File patterns and rule packs | Required for rule packs and file-specific configuration |
-| `config.toml` | `~/.vectorlint/` | LLM provider API keys — applies globally across projects | Always required |
-| Rule pack files | `RulesPath` directory | Targeted rules for specific standards — for advanced content quality workflows | Optional |
+| `config.toml` | `~/.vectorlint/` | LLM provider API keys (applies globally across projects) | Always required |
+| Rule pack files | `RulesPath` directory | Targeted rules for specific standards, for advanced content quality workflows | Optional |
 
 For more information about integrating your style guide into the `VECTORLINT.md` file, see [Your first review](./initial-style-check).
 For more information about rule pack files, see [Defining your style rules](./style-guide).
@@ -53,9 +53,9 @@ This creates both `.vectorlint.ini` and `~/.vectorlint/config.toml`. Edit them m
 
 Each file has its own reference page with complete field definitions, examples, and behavior details.
 
-- [LLM Providers](/llm-providers) — configure your LLM provider, search provider, and false-positive filtering threshold
-- [Project Configuration](/project-config) — choose which rules apply to which files and understand cascading behavior
-- [Defining your style rules](/style-guide) — create `VECTORLINT.md` and write targeted rule pack files
+- [LLM Providers](/llm-providers): configure your LLM provider, search provider, and false-positive filtering threshold
+- [Project Configuration](/project-config): choose which rules apply to which files and understand cascading behavior
+- [Defining your style rules](/style-guide): create `VECTORLINT.md` and write targeted rule pack files
 
 ---
 

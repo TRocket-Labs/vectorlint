@@ -3,7 +3,7 @@ title: Best practices
 description: Proven patterns for getting accurate, low-noise results from VectorLint across your content workflow.
 ---
 
-These practices are drawn from the patterns that appear throughout the VectorLint documentation — consolidated here so you can apply them without reading every page first.
+These practices are drawn from the patterns that appear throughout the VectorLint documentation, consolidated here so you can apply them without reading every page first.
 
 ## Start with VECTORLINT.md, not rule pack files
 
@@ -19,7 +19,7 @@ If your `VECTORLINT.md` is growing, that's usually a sign that some rules are sp
 
 ## Write specific rules, not general ones
 
-The quality of VectorLint's findings is directly proportional to the specificity of your rules. Vague rules produce vague findings — or worse, inconsistent findings that vary by run.
+The quality of VectorLint's findings is directly proportional to the specificity of your rules. Vague rules produce vague findings, or worse, inconsistent findings that vary by run.
 
 Instead of:
 ```
@@ -53,12 +53,12 @@ A grammar rule without context produces generic grammar findings. The same rule 
 
 ## Use weights that reflect real priorities
 
-In judge rules, weights are the single most important configuration decision. They determine which criteria actually control the final score. Treat them as a statement of your content team's values — not arbitrary numbers.
+In judge rules, weights are the single most important configuration decision. They determine which criteria actually control the final score. Treat them as a statement of your content team's values, not arbitrary numbers.
 
 ```yaml
 criteria:
   - name: Technical Accuracy
-    weight: 40    # Factual errors erode user trust — this matters most
+    weight: 40    # Factual errors erode user trust: this matters most
   - name: Clarity
     weight: 30    # Unclear docs generate support tickets
   - name: Tone
@@ -86,10 +86,10 @@ The goal is a workflow where every finding is worth reading. That takes iteratio
 In CI, a false positive blocks a merge. Set `CONFIDENCE_THRESHOLD` higher in your CI environment than in local development so only the highest-confidence findings gate a merge. Lower-confidence candidates still surface locally where a writer can review them in context.
 
 ```bash
-# Local development — catch more, review in context
+# Local development: catch more, review in context
 CONFIDENCE_THRESHOLD=0.75
 
-# CI environment — only high-confidence findings block merges
+# CI environment: only high-confidence findings block merges
 CONFIDENCE_THRESHOLD=0.85
 ```
 
@@ -105,16 +105,16 @@ on:
       - 'content/api/**'
 ```
 
-Drafts should have `RunRules=` in `.vectorlint.ini` — VectorLint skips them entirely and they never reach CI.
+Drafts should have `RunRules=` in `.vectorlint.ini`. VectorLint skips them entirely and they never reach CI.
 
 ## Validate new rules before raising strictness
 
 When you write a new rule, run it at `lenient` strictness and low `CONFIDENCE_THRESHOLD` first. Review everything it flags. Once you're confident the rule's coverage is correct and its false positive rate is acceptable, raise both settings to production levels.
 
-Skipping this step leads to rules that look correct on paper but produce noise in practice — which erodes team confidence in the entire workflow.
+Skipping this step leads to rules that look correct on paper but produce noise in practice, which erodes team confidence in the entire workflow.
 
 ## Next steps
 
-- [Handling false positives](/handling-false-positives) — detailed guidance on CONFIDENCE_THRESHOLD and strictness
-- [CI Integration](/ci-integration) — set up content quality gates in your pipeline
-- [Customize style rules](/customize-style-rules) — write effective rules for rule pack files
+- [Handling false positives](/handling-false-positives): detailed guidance on CONFIDENCE_THRESHOLD and strictness
+- [CI Integration](/ci-integration): set up content quality gates in your pipeline
+- [Customize style rules](/customize-style-rules): write effective rules for rule pack files

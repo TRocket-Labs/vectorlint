@@ -3,7 +3,7 @@ title: "Rubric Scoring"
 description: "How VectorLint scores content by rating quality on a rubric."
 ---
 
-Rubric scoring is the method VectorLint uses when reviewing content on a quality spectrum — clarity, tone, technical accuracy, or completeness. The rule defines the criteria and rubric levels; the LLM rates the content against each criterion, and VectorLint calculates the final score.
+Rubric scoring is the method VectorLint uses when reviewing content on a quality spectrum: clarity, tone, technical accuracy, or completeness. The rule defines the criteria and rubric levels; the LLM rates the content against each criterion, and VectorLint calculates the final score.
 
 ## How it works
 
@@ -30,7 +30,7 @@ Each criterion carries a `weight` (default **1** when unset). A higher weight gi
 finalScore = sum(normalized_i * weight_i) / sum(weight_i)
 ```
 
-Criteria are defined in the rule's frontmatter — a human-readable `name`, an `id`, and an optional `weight`. The LLM rates the content against each criterion using the rubric described in the rule's body. See [Rule frontmatter](/rule-frontmatter).
+Criteria are defined in the rule's frontmatter: a human-readable `name`, an `id`, and an optional `weight`. The LLM rates the content against each criterion using the rubric described in the rule's body. See [Rule frontmatter](/rule-frontmatter).
 
 ## Key properties
 
@@ -52,9 +52,9 @@ VectorLint reports scores to one decimal place, so this document scores **8.3**.
 ## Constraints
 
 - **Strictness has no effect on rubric scoring.** Strictness is a multiplier on error density and applies only to density scoring. See [Strictness](/strictness).
-- For documents above the chunking threshold, VectorLint reviews each chunk independently. Judge scores are averaged across chunks, weighted by chunk size. This is an implementation detail — no configuration is required.
+- For documents above the chunking threshold, VectorLint reviews each chunk independently. Judge scores are averaged across chunks, weighted by chunk size. This is an implementation detail. No configuration is required.
 
 ## Related
 
-- [Density scoring](/density-scoring) — the method used when reviewing for discrete issues instead of rating quality
-- [How it works](/how-it-works) — the full review pipeline, including chunking
+- [Density scoring](/density-scoring): the method used when reviewing for discrete issues instead of rating quality
+- [How it works](/how-it-works): the full review pipeline, including chunking

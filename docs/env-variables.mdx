@@ -5,8 +5,8 @@ description: Complete reference for all environment variables that configure Vec
 
 VectorLint reads configuration from environment variables at runtime. You can set them in two places:
 
-- **`~/.vectorlint/config.toml`** — global defaults that apply across all projects
-- **`.env` in your project root** — project-level overrides that take precedence over the global config
+- **`~/.vectorlint/config.toml`**: global defaults that apply across all projects
+- **`.env` in your project root**: project-level overrides that take precedence over the global config
 
 In CI, pass them directly as pipeline environment variables or secrets. See [CI Integration](/ci-integration) for examples.
 
@@ -50,7 +50,7 @@ Lower values surface more findings (higher recall, more noise). Higher values su
 
 ## Example configurations
 
-### OpenAI — global config.toml
+### OpenAI: global config.toml
 
 ```toml
 [env]
@@ -58,7 +58,7 @@ LLM_PROVIDER = "openai"
 OPENAI_API_KEY = "sk-..."
 ```
 
-### Anthropic — project .env
+### Anthropic: project .env
 
 ```bash
 LLM_PROVIDER=anthropic
@@ -85,7 +85,7 @@ CONFIDENCE_THRESHOLD=0.85
 
 ## Precedence
 
-When the same variable is set in multiple places, VectorLint resolves it in this order — highest precedence first:
+When the same variable is set in multiple places, VectorLint resolves it in this order (highest precedence first):
 
 1. Shell / CI environment variables
 2. Project `.env` file
@@ -94,6 +94,6 @@ When the same variable is set in multiple places, VectorLint resolves it in this
 
 ## Related
 
-- [LLM Providers](/llm-providers) — configure your provider with full setup examples
-- [CI Integration](/ci-integration) — pass environment variables securely in pipelines
-- [Handling false positives](/handling-false-positives) — when and how to adjust `CONFIDENCE_THRESHOLD`
+- [LLM Providers](/llm-providers): configure your provider with full setup examples
+- [CI Integration](/ci-integration): pass environment variables securely in pipelines
+- [Handling false positives](/handling-false-positives): when and how to adjust `CONFIDENCE_THRESHOLD`

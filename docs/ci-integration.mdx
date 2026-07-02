@@ -7,11 +7,11 @@ VectorLint exits with a non-zero status code when it finds violations, making it
 
 ## How it works in CI
 
-When VectorLint finds violations it exits with code `1`. When content passes all checks it exits with code `0`. Most CI systems treat a non-zero exit as a failed step and block the merge automatically — no additional configuration needed.
+When VectorLint finds violations it exits with code `1`. When content passes all checks it exits with code `0`. Most CI systems treat a non-zero exit as a failed step and block the merge automatically. No additional configuration needed.
 
 | Exit code | Meaning |
 |-----------|---------|
-| `0` | All files passed — no violations found |
+| `0` | All files passed. No violations found |
 | `1` | One or more violations found |
 
 ## GitHub Actions
@@ -50,7 +50,7 @@ jobs:
           CONFIDENCE_THRESHOLD: 0.85
 ```
 
-The `paths` filter limits the workflow to runs where content files actually changed — it won't fire on code-only PRs.
+The `paths` filter limits the workflow to runs where content files actually changed. It won't fire on code-only PRs.
 
 ### Storing API keys
 
@@ -80,7 +80,7 @@ For large content libraries, reviewing every file on every PR is slow and expens
 
 ## Recommended CI configuration
 
-CI environments should be stricter than local development. A finding a writer might dismiss in review becomes a merge blocker in CI — so surface only high-confidence violations.
+CI environments should be stricter than local development. A finding a writer might dismiss in review becomes a merge blocker in CI, so surface only high-confidence violations.
 
 **Raise `CONFIDENCE_THRESHOLD` in CI.** Set it higher than your local default so only the most certain findings block a merge:
 
@@ -138,10 +138,10 @@ jobs:
             LLM_PROVIDER: openai
 ```
 
-Store API keys in your CI system's secret or environment variable manager — never in the workflow file itself.
+Store API keys in your CI system's secret or environment variable manager. Never store them in the workflow file itself.
 
 ## Next steps
 
-- [Handling false positives](/handling-false-positives) — set `CONFIDENCE_THRESHOLD` and strictness for CI
-- [Project Configuration](/project-config) — configure which files CI checks
-- [CLI reference](/cli-reference) — full command and exit code reference
+- [Handling false positives](/handling-false-positives): set `CONFIDENCE_THRESHOLD` and strictness for CI
+- [Project Configuration](/project-config): configure which files CI checks
+- [CLI reference](/cli-reference): full command and exit code reference

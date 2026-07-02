@@ -7,7 +7,7 @@ VectorLint gives you two ways to bring your style guide into reviews. Understand
 
 - **`VECTORLINT.md` file**: the global style instructions in plain language. Create this file from your style guide and place it in your project root. VectorLint applies its contents to every review, making your tone, terminology, and baseline standards active across all rules automatically. Use it for broad, always-applicable guidance. See [Project Configuration](/project-config) for details.
 
-- **Rule pack files**: the targeted rules for specific standards. Create these as separate Markdown files as described below. Each file instructs the LLM to review content against one specific standard: grammar, headline quality, AI pattern detection, technical accuracy, and so on. Rules are organized into packs and mapped to file patterns in `.vectorlint.ini`. Rule pack files live in subdirectories under `RulesPath` — see [File Structure Reference](#file-structure-reference) below.
+- **Rule pack files**: the targeted rules for specific standards. Create these as separate Markdown files as described below. Each file instructs the LLM to review content against one specific standard: grammar, headline quality, AI pattern detection, technical accuracy, and so on. Rules are organized into packs and mapped to file patterns in `.vectorlint.ini`. Rule pack files live in subdirectories under `RulesPath`. See [File Structure Reference](#file-structure-reference) below.
 
 If you can write a prompt for it, you can lint for it with VectorLint.
 
@@ -30,7 +30,7 @@ Rules for extraction:
 - Output imperative rules only. No explanations, rationale, or examples.
 - Group rules under short, plain-language headings.
 - Remove all tables, comparison columns, governing references, and
-  checklists — extract only the actionable rules they contain.
+  checklists. Extract only the actionable rules they contain.
 - Remove any rule that is structural (document architecture, heading
   levels) rather than evaluable at the sentence or paragraph level.
 - Use plain markdown bullets. No bold, no nested lists beyond one level.
@@ -179,7 +179,7 @@ Creates genuine intrigue without being misleading.
 Mildly interesting, reader may continue.
 
 ### Fair <score=2>
-Neutral — no curiosity created.
+Neutral, no curiosity created.
 
 ### Poor <score=1>
 Actively off-putting or confusing.
@@ -187,7 +187,7 @@ Actively off-putting or confusing.
 
 ## Targeting Specific Content
 
-The `target` field lets you review a specific portion of a document — for example, only the H1 headline — rather than the full content.
+The `target` field lets you review a specific portion of a document (for example, only the H1 headline) rather than the full content.
 
 ```yaml
 target:
@@ -276,6 +276,6 @@ Pervasive AI patterns throughout.
 
 ## Next Steps
 
-- [Customize style rules](/customize-style-rules) — learn how to write effective rules for your rule pack files
-- [Project Configuration](/project-config) — assign rule packs to file patterns
-- [LLM Providers](/llm-providers) — configure the model used for reviews
+- [Customize style rules](/customize-style-rules): learn how to write effective rules for your rule pack files
+- [Project Configuration](/project-config): assign rule packs to file patterns
+- [LLM Providers](/llm-providers): configure the model used for reviews

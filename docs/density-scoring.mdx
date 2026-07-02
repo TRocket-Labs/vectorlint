@@ -3,7 +3,7 @@ title: "Density Scoring"
 description: "How VectorLint scores content when reviewing for discrete issues."
 ---
 
-Density scoring is the method VectorLint uses when reviewing content for discrete issues — banned phrases, structural errors, or missing elements. The rule defines what the LLM should look for; VectorLint counts what the LLM finds and calculates a score.
+Density scoring is the method VectorLint uses when reviewing content for discrete issues: banned phrases, structural errors, or missing elements. The rule defines what the LLM should look for; VectorLint counts what the LLM finds and calculates a score.
 
 ## Why it exists
 
@@ -11,7 +11,7 @@ A raw issue count treats every document the same. One banned phrase in a 100-wor
 
 ## How it works
 
-VectorLint calculates **error density** — violations per 100 words — then subtracts a penalty scaled by that density and the rule's strictness:
+VectorLint calculates **error density** (violations per 100 words) then subtracts a penalty scaled by that density and the rule's strictness:
 
 ```text
 density    = (violations / wordCount) * 100
@@ -42,9 +42,9 @@ A score below **10** means VectorLint found at least one issue. It reports the s
 
 ## Constraints
 
-A score of **0** means `rawScore` was clamped at the floor — the error density was high enough to exhaust the entire penalty budget.
+A score of **0** means `rawScore` was clamped at the floor. The error density was high enough to exhaust the entire penalty budget.
 
 ## Related
 
-- [Rubric scoring](/rubric-scoring) — the method used when reviewing quality on a spectrum instead of counting issues
-- [Strictness](/strictness) — the multiplier in the formula and how to set it
+- [Rubric scoring](/rubric-scoring): the method used when reviewing quality on a spectrum instead of counting issues
+- [Strictness](/strictness): the multiplier in the formula and how to set it

@@ -54,7 +54,7 @@ nvm use --lts
 
 ## API key and provider issues
 
-### No output — VectorLint runs but produces nothing
+### No output: VectorLint runs but produces nothing
 
 **Symptom:** `vectorlint doc.md` completes silently with no findings and no errors.
 
@@ -66,7 +66,7 @@ nvm use --lts
    ```
    If findings appear, your threshold is filtering too aggressively. Adjust it in your config.
 
-2. **The file matches a pattern with `RunRules=` (empty).** Check your `.vectorlint.ini` for a pattern that matches the file and has no rules assigned — this is intentional skip behavior for drafts. Confirm the file path matches the pattern you expect.
+2. **The file matches a pattern with `RunRules=` (empty).** Check your `.vectorlint.ini` for a pattern that matches the file and has no rules assigned. This is intentional skip behavior for drafts. Confirm the file path matches the pattern you expect.
 
 3. **The content genuinely passes.** If you've lowered the threshold and still see nothing, the content may actually meet your standards. Try a file you know has issues to confirm the rule is working.
 
@@ -85,7 +85,7 @@ nvm use --lts
 echo $OPENAI_API_KEY
 ```
 
-If empty, set it in your project `.env` file or `~/.vectorlint/config.toml`. Confirm the variable name matches exactly — `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `AZURE_OPENAI_API_KEY` depending on your provider.
+If empty, set it in your project `.env` file or `~/.vectorlint/config.toml`. Confirm the variable name matches exactly: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `AZURE_OPENAI_API_KEY` depending on your provider.
 
 Also confirm `LLM_PROVIDER` matches the key you've set:
 
@@ -142,7 +142,7 @@ Without a search provider, `technical-accuracy` evaluators cannot verify facts a
 
 **Cause:** The file is too large to serve as reliable global context. Excessively large context degrades LLM precision and increases API costs.
 
-**Fix:** Trim `VECTORLINT.md` to under 800 tokens — the practical working target. Move specific or detailed rules into dedicated rule pack files where they can be applied selectively rather than globally. See [Defining your style rules](/style-guide) for the extraction prompt that converts a full style guide into a compact `VECTORLINT.md`.
+**Fix:** Trim `VECTORLINT.md` to under 800 tokens, the practical working target. Move specific or detailed rules into dedicated rule pack files where they can be applied selectively rather than globally. See [Defining your style rules](/style-guide) for the extraction prompt that converts a full style guide into a compact `VECTORLINT.md`.
 
 ---
 
@@ -150,7 +150,7 @@ Without a search provider, `technical-accuracy` evaluators cannot verify facts a
 
 **Symptom:** A file is running the wrong rules.
 
-**Cause:** VectorLint applies all matching patterns from general to specific. More specific patterns override settings from general ones, but rule packs accumulate — a file can run rules from multiple patterns.
+**Cause:** VectorLint applies all matching patterns from general to specific. More specific patterns override settings from general ones, but rule packs accumulate. A file can run rules from multiple patterns.
 
 **Fix:** Trace which patterns match your file path. For a file at `content/docs/api.md`, both `**/*.md` and `content/docs/**/*.md` match. The file runs rule packs from both patterns. See [Project Configuration](/project-config) for the full cascade reference.
 
@@ -186,7 +186,7 @@ Without a search provider, `technical-accuracy` evaluators cannot verify facts a
 
 ## Getting more help
 
-- [VectorLint GitHub issues](https://github.com/TRocket-Labs/vectorlint/issues) — search existing issues or open a new one
-- [CLI reference](/cli-reference) — confirm command syntax and flags
-- [Environment variables](/env-variables) — verify variable names and precedence
-- [Project Configuration](/project-config) — debug `.vectorlint.ini` pattern matching
+- [VectorLint GitHub issues](https://github.com/TRocket-Labs/vectorlint/issues): search existing issues or open a new one
+- [CLI reference](/cli-reference): confirm command syntax and flags
+- [Environment variables](/env-variables): verify variable names and precedence
+- [Project Configuration](/project-config): debug `.vectorlint.ini` pattern matching

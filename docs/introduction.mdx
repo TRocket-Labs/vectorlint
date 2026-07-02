@@ -11,9 +11,9 @@ If you can write a prompt for it, you can lint it with VectorLint.
 
 ## Why VectorLint exists
 
-Traditional prose linters like Vale work by matching text against fixed regex patterns and word lists. They catch what you explicitly tell them to catch — but they can't reason about meaning, context, or technical accuracy.
+Traditional prose linters like Vale work by matching text against fixed regex patterns and word lists. They catch what you explicitly tell them to catch, but they can't reason about meaning, context, or technical accuracy.
 
-VectorLint fills that gap. You define a rule once as a Markdown prompt, and the LLM applies it across your entire content library — scoring each document, surfacing specific violations, and explaining why each violation matters.
+VectorLint fills that gap. You define a rule once as a Markdown prompt, and the LLM applies it across your entire content library, scoring each document, surfacing specific violations, and explaining why each violation matters.
 
 This gives documentation teams something they haven't had before: a **shared, measurable definition of content quality** that scales across writers, repositories, and content types.
 
@@ -24,7 +24,7 @@ This gives documentation teams something they haven't had before: a **shared, me
     Catch outdated API references, incorrect command syntax, and factually wrong claims before they reach users.
   </Card>
   <Card title="Style guide compliance" icon="pen-line">
-    Enforce tone, terminology, and voice consistently across all content — not just the pages you manually review.
+    Enforce tone, terminology, and voice consistently across all content, not just the pages you manually review.
   </Card>
   <Card title="AI-generated content detection" icon="robot">
     Identify artificial writing patterns like formulaic transitions, buzzword overuse, and unnatural sentence structure.
@@ -38,7 +38,7 @@ This gives documentation teams something they haven't had before: a **shared, me
 
 VectorLint scores each document using one of two methods, depending on how the rule is configured:
 
-**Density scoring** applies when a rule defines discrete issues to find (like a grammar checker). It calculates scores based on error density — issues per 100 words — so results are comparable across documents of any length.
+**Density scoring** applies when a rule defines discrete issues to find (like a grammar checker). It calculates scores based on error density (issues per 100 words) so results are comparable across documents of any length.
 
 **Rubric scoring** applies when a rule defines quality criteria to rate on a spectrum (like tone or completeness). The LLM scores each criterion on a 1–4 scale, which VectorLint normalizes to a 1–10 scale for consistent reporting.
 
@@ -46,8 +46,8 @@ VectorLint scores each document using one of two methods, depending on how the r
 
 VectorLint filters findings through a series of confidence checks before surfacing violations to help keep its output precise:
 
-1. **Candidate generation** — the LLM returns all potential violations, each with structured evidence that VectorLint can verify.
-2. **Deterministic filtering** — VectorLint applies confidence checks and only surfaces violations that meet all quality thresholds.
+1. **Candidate generation**: the LLM returns all potential violations, each with structured evidence that VectorLint can verify.
+2. **Deterministic filtering**: VectorLint applies confidence checks and only surfaces violations that meet all quality thresholds.
 
 VectorLint's output is intentionally stricter than what the model initially returns; it reports only findings that pass all confidence checks. You can tune how aggressively the pipeline filters findings to match your content workflow. See [Handling false positives](/handling-false-positives).
 
@@ -55,7 +55,7 @@ VectorLint's output is intentionally stricter than what the model initially retu
 
 <CardGroup cols={2}>
   <Card title="Installation" icon="download" href="/installation">
-    Install VectorLint globally or run it with npx — no setup required.
+    Install VectorLint globally or run it with npx. No setup required.
   </Card>
   <Card title="Quick start" icon="bolt" href="/quickstart">
     Run your first review in under five minutes.

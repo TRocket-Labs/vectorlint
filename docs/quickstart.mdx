@@ -12,7 +12,7 @@ VectorLint requires Node.js 18 or later. Node.js 22 LTS is recommended. If you n
 You will also need an API key for a supported LLM provider. VectorLint sends your content to the provider you configure for review. Supported providers include: OpenAI, Anthropic, Google Gemini, Azure OpenAI, Amazon Bedrock.
 
 <Warning>
-VectorLint requires a configured LLM provider to produce output. Installing the package alone is not enough — if you skip provider configuration, running `vectorlint` against a file will return no results and no error. Complete Step 2 before running a review.
+VectorLint requires a configured LLM provider to produce output. Installing the package alone is not enough. If you skip provider configuration, running `vectorlint` against a file will return no results and no error. Complete Step 2 before running a review.
 </Warning>
 
 ---
@@ -82,7 +82,7 @@ Then open `VECTORLINT.md` and add your standards. A few clear instructions are e
 
 - Use "sign in" not "log in."
 - Use "select" not "click" for UI actions.
-- Avoid "easy," "simple," and "just" — these are subjective and dismissive.
+- Avoid "easy," "simple," and "just" (these are subjective and dismissive).
 
 ## Sentence structure
 
@@ -109,6 +109,6 @@ VectorLint reads your `VECTORLINT.md`, reviews the file against it, and prints f
 
 ## Next steps
 
-- [Using VECTORLINT.md](/initial-style-check) — iterate on your style instructions and understand what makes an effective rule
-- [Configuring LLM providers](/llm-providers) — full provider reference including Azure OpenAI, Google Gemini, and Amazon Bedrock
-- [Configuring a project](/project-config) — set up rule packs and file pattern mapping for a full project workflow
+- [Using VECTORLINT.md](/initial-style-check): iterate on your style instructions and understand what makes an effective rule
+- [Configuring LLM providers](/llm-providers): full provider reference including Azure OpenAI, Google Gemini, and Amazon Bedrock
+- [Configuring a project](/project-config): set up rule packs and file pattern mapping for a full project workflow

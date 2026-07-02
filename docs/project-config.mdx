@@ -69,18 +69,18 @@ project/
 └── .vectorlint.ini
 ```
 
-Rules inside `Acme/` are available when you set `RunRules=Acme`. Nesting is supported — you can organize rules into subdirectories within a pack.
+Rules inside `Acme/` are available when you set `RunRules=Acme`. Nesting is supported: you can organize rules into subdirectories within a pack.
 
 ## Cascading Configuration
 
-VectorLint applies configuration blocks from general to specific, similar to Vale's cascade behavior. All blocks that match a given file are applied, and rule packs accumulate — a file runs every pack from every matching block, from the most general to the most specific.
+VectorLint applies configuration blocks from general to specific, similar to Vale's cascade behavior. All blocks that match a given file are applied, and rule packs accumulate. A file runs every pack from every matching block, from the most general to the most specific.
 
 ```ini
-# Applied first — general
+# Applied first: general
 [**/*.md]
 RunRules=GeneralRules
 
-# Applied second — more specific
+# Applied second: more specific
 # Result: content/docs/api.md runs GeneralRules AND TechDocs
 [content/docs/**/*.md]
 RunRules=TechDocs
@@ -100,9 +100,9 @@ CONFIDENCE_THRESHOLD=0.75
 
 | Value | Effect |
 |---|---|
-| Lower (for example `0.5`) | More findings surfaced — higher recall, more noise |
+| Lower (for example `0.5`) | More findings surfaced, higher recall, more noise |
 | Default (`0.75`) | Balanced precision and recall |
-| Higher (for example `0.9`) | Fewer findings surfaced — higher precision, fewer false positives |
+| Higher (for example `0.9`) | Fewer findings surfaced, higher precision, fewer false positives |
 
 Invalid values fall back to the default of `0.75`.
 
@@ -115,7 +115,7 @@ RulesPath=.github/rules
 Concurrency=4
 DefaultSeverity=warning
 
-# All markdown files — baseline checks
+# All markdown files: baseline checks
 [**/*.md]
 RunRules=Acme
 
@@ -123,11 +123,11 @@ RunRules=Acme
 [content/docs/**/*.md]
 RunRules=Acme
 
-# Marketing — brand voice rules
+# Marketing: brand voice rules
 [content/marketing/**/*.md]
 RunRules=TechCorp
 
-# Drafts — skip all checks
+# Drafts: skip all checks
 [content/drafts/**/*.md]
 RunRules=
 ```
@@ -138,7 +138,7 @@ In addition to `.vectorlint.ini`, you can place a `VECTORLINT.md` file in your p
 
 **Zero-config mode:** If no `.vectorlint.ini` exists, VectorLint automatically detects `VECTORLINT.md`, creates a synthetic "Style Guide Compliance" rule, and reviews content against it.
 
-**Combined mode:** When `.vectorlint.ini` is present, the contents of `VECTORLINT.md` apply globally to every review — making your tone and terminology preferences active across all rules.
+**Combined mode:** When `.vectorlint.ini` is present, the contents of `VECTORLINT.md` apply globally to every review, making your tone and terminology preferences active across all rules.
 
 <Note>
 Keep `VECTORLINT.md` concise. VectorLint emits a warning if the file exceeds approximately 4,000 tokens, as very large contexts can degrade review quality and increase API costs.
@@ -146,5 +146,5 @@ Keep `VECTORLINT.md` concise. VectorLint emits a warning if the file exceeds app
 
 ## Next Steps
 
-- [LLM Providers](/llm-providers) — configure the model that runs reviews
-- [Style Guide](/style-guide) — write custom rules for your content standards
+- [LLM Providers](/llm-providers): configure the model that runs reviews
+- [Style Guide](/style-guide): write custom rules for your content standards

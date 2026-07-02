@@ -48,7 +48,7 @@ The `target` field narrows the review to a specific part of the document. It is 
 | `required` | boolean | No | When `true`, a missing match immediately reports an `error` with the `suggestion` text and skips LLM review. When `false` or omitted, a missing match causes VectorLint to review the full document instead. |
 | `suggestion` | string | No | Message shown when `required: true` and the pattern does not match. |
 
-**Example — targeting only the H1 headline:**
+**Example: targeting only the H1 headline:**
 
 ```yaml
 target:
@@ -70,7 +70,7 @@ The `criteria` field is an array of criterion objects used with `type: judge`. E
 | `weight` | number | No | Relative importance of this criterion in the weighted average. Higher values increase the criterion's influence on the final score. Defaults to `1`. |
 | `target` | object | No | Criterion-specific content matching. Uses the same sub-fields as the top-level `target`. Overrides the rule-level target for this criterion only. |
 
-**Example — judge rule with two weighted criteria:**
+**Example: judge rule with two weighted criteria:**
 
 ```yaml
 criteria:
@@ -137,7 +137,7 @@ Creates genuine intrigue without being misleading.
 Mildly interesting, reader may continue.
 
 ### Fair <score=2>
-Neutral — no curiosity created.
+Neutral, no curiosity created.
 
 ### Poor <score=1>
 Actively off-putting or confusing.
