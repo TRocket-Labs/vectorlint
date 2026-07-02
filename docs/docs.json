@@ -15,13 +15,63 @@
   "description": "An LLM-based prose linter that lets you enforce your style guide in one prompt.",
   "navigation": {
     "groups": [
-      { "group": "Overview", "pages": ["introduction", "use-cases", "how-it-works"] },
-      { "group": "Get started", "pages": ["quickstart", "installation", "initial-style-check"] },
-      { "group": "Configuration", "pages": ["configuration", "project-config", "llm-providers"] },
-      { "group": "Rules", "pages": ["style-guide", "customize-style-rules", "presets"] },
-      { "group": "Scoring", "pages": ["scoring", "density-scoring", "rubric-scoring", "strictness"] },
-      { "group": "Guides", "pages": ["ci-integration", "best-practices", "handling-false-positives"] },
-      { "group": "Reference", "pages": ["cli-reference", "env-variables", "rule-frontmatter", "troubleshooting"] }
+      {
+        "group": "Overview",
+        "pages": [
+          "introduction",
+          "how-it-works"
+        ]
+      },
+      {
+        "group": "Get started",
+        "pages": [
+          "quickstart",
+          "installation",
+          "initial-style-check"
+        ]
+      },
+      {
+        "group": "Configuration",
+        "pages": [
+          "configuration",
+          "project-config",
+          "llm-providers"
+        ]
+      },
+      {
+        "group": "Rules",
+        "pages": [
+          "style-guide",
+          "customize-style-rules",
+          "presets"
+        ]
+      },
+      {
+        "group": "Scoring",
+        "pages": [
+          "scoring",
+          "density-scoring",
+          "rubric-scoring",
+          "strictness"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "ci-integration",
+          "best-practices",
+          "handling-false-positives"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "cli-reference",
+          "env-variables",
+          "rule-frontmatter",
+          "troubleshooting"
+        ]
+      }
     ]
   }
 }
