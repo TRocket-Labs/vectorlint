@@ -16,3 +16,5 @@ vectorlint.ini
 .secrets
 docs/plans/
 docs/superpowers/
+docs/artifacts/
+docs/logs/
