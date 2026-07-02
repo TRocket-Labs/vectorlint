@@ -57,7 +57,7 @@ Point VectorLint at any Markdown file:
 vectorlint doc.md
 ```
 
-VectorLint sends the file content to your LLM with the `GrammarChecker` prompt, filters the results through the PAT pipeline, and prints any violations with their location and suggested fix.
+VectorLint sends the file content to your LLM with the `GrammarChecker` rule, filters the results for confidence, and prints any violations with their location and suggested fix.
 
 A clean file produces no output and exits with status `0`. A file with violations prints each finding and exits with a non-zero status.
 

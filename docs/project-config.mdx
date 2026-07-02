@@ -90,7 +90,7 @@ RunRules=TechDocs
 
 ## Confidence threshold
 
-VectorLint filters raw LLM candidates through gate checks before surfacing violations. The confidence threshold controls how aggressively this filter applies.
+VectorLint filters findings through confidence checks before surfacing violations. The confidence threshold controls how aggressively this filter applies.
 
 Set it in your `.env` file or as an environment variable:
 
@@ -138,7 +138,7 @@ In addition to `.vectorlint.ini`, you can place a `VECTORLINT.md` file in your p
 
 **Zero-config mode:** If no `.vectorlint.ini` exists, VectorLint automatically detects `VECTORLINT.md`, creates a synthetic "Style Guide Compliance" rule, and reviews content against it.
 
-**Combined mode:** When `.vectorlint.ini` is present, the contents of `VECTORLINT.md` are prepended to the system prompt for every review — making your global tone and terminology preferences active across all rules.
+**Combined mode:** When `.vectorlint.ini` is present, the contents of `VECTORLINT.md` apply globally to every review — making your tone and terminology preferences active across all rules.
 
 <Note>
 Keep `VECTORLINT.md` concise. VectorLint emits a warning if the file exceeds approximately 4,000 tokens, as very large contexts can degrade review quality and increase API costs.

@@ -13,7 +13,7 @@ After you run `VECTORLINT.md` against your content library and complete your fir
 
 ## Keep VECTORLINT.md under 800 tokens
 
-VectorLint emits a warning at 4,000 tokens, but a practical target is *much* lower. Under 800 tokens leaves headroom for rule-specific instructions to add context without the combined system context becoming difficult to process. Long context degrades LLM precision and increases API costs on every review.
+VectorLint emits a warning at 4,000 tokens, but a practical target is *much* lower. Under 800 tokens leaves headroom for rule-specific instructions to add context without exceeding the effective limit. Long context degrades LLM precision and increases API costs on every review.
 
 If your `VECTORLINT.md` is growing, that's usually a sign that some rules are specific enough to belong in a dedicated rule pack file instead.
 
