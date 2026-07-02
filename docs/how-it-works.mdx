@@ -5,7 +5,7 @@ description: "How VectorLint reviews content using LLM-as-a-Judge, filtering, an
 
 VectorLint reviews your content by sending it to a large language model (LLM) along with a structured prompt that defines your quality criteria. The LLM acts as a judge — reading your content, applying the criteria, and returning findings. VectorLint then filters those findings through a deterministic pipeline before surfacing violations in the CLI.
 
-If you haven't run your first check yet, start with the [Quickstart](/quickstart). This page is for understanding the architecture behind what you're running.
+If you haven't run your first review yet, start with the [Quickstart](/quickstart). This page is for understanding the architecture behind what you're running.
 
 ## The review pipeline
 
@@ -51,7 +51,7 @@ See [Scoring](/scoring) for the full scoring reference.
 
 VectorLint gives you two complementary tools for expressing your content standards:
 
-- **`VECTORLINT.md`** — plain-language style instructions that apply globally to every review. The fastest path to useful output: no rule files, no configuration syntax, just plain English instructions that the LLM uses as context for every check.
+- **`VECTORLINT.md`** — plain-language style instructions that apply globally to every review. The fastest path to useful output: no rule files, no configuration syntax, just plain English instructions that the LLM uses as context for every review.
 - **Rule pack files** — structured LLM prompts for specific, measurable checks with weighted scoring criteria. Use these when you need reproducible, auditable results on a particular dimension of quality.
 
 The two work together: `VECTORLINT.md` sets the baseline context, and rule pack files enforce specific criteria on top of it.

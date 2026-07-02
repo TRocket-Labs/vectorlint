@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Install VectorLint, configure your LLM provider, and run your first content check.
+description: Install VectorLint, configure your LLM provider, and run your first review.
 ---
 
 Set up VectorLint and run your first content review in under ten minutes. You install VectorLint, add your style instructions, connect an LLM (Large Language Model) provider, and see real output on a file you own.
@@ -12,7 +12,7 @@ VectorLint requires Node.js 18 or later. Node.js 22 LTS is recommended. If you n
 You will also need an API key for a supported LLM provider. VectorLint sends your content to the provider you configure for review. Supported providers include: OpenAI, Anthropic, Google Gemini, Azure OpenAI, Amazon Bedrock.
 
 <Warning>
-VectorLint requires a configured LLM provider to produce output. Installing the package alone is not enough — if you skip provider configuration, running `vectorlint` against a file will return no results and no error. Complete Step 2 before running a check.
+VectorLint requires a configured LLM provider to produce output. Installing the package alone is not enough — if you skip provider configuration, running `vectorlint` against a file will return no results and no error. Complete Step 2 before running a review.
 </Warning>
 
 ---
@@ -95,7 +95,7 @@ You don't need a comprehensive style guide to start. Add rules incrementally as 
 
 ---
 
-## Step 4: Run a check
+## Step 4: Run a review
 
 Point VectorLint at any Markdown file in your project:
 
