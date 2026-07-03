@@ -3,9 +3,69 @@ title: Troubleshooting
 description: Diagnose and fix common VectorLint issues with installation, configuration, API keys, and review output.
 ---
 
+This page covers common issues and the exact error messages VectorLint prints. If you hit an error, scan the [common error messages](#common-error-messages) below or the symptom sections that follow.
+
+## Common error messages
+
+These are the real strings VectorLint prints at v2.5.0, grouped by what triggers them.
+
+### `Invalid environment variables: LLM_PROVIDER is required and must be either ...`
+
+**Trigger:** `LLM_PROVIDER` is unset or set to a value the schema rejects.
+
 <Note>
-  VectorLint's exact error message strings are not yet documented here. If you see an error not covered on this page, check the [VectorLint GitHub issues](https://github.com/TRocket-Labs/vectorlint/issues) or open a new one.
+  The runtime message currently lists only `azure-openai`, `anthropic`, and `openai`. This is a known stale string — the schema actually accepts five providers. The complete, correct set is below.
 </Note>
+
+**Fix:** Set `LLM_PROVIDER` to one of the supported values: `openai`, `anthropic`, `azure-openai`, `gemini`, or `amazon-bedrock`. See [Environment variables](/env-variables).
+
+### `Missing required Azure OpenAI environment variables: ...`
+
+**Trigger:** `LLM_PROVIDER=azure-openai` but one or more required Azure variables are unset.
+
+**Fix:** Set all three: `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, and `AZURE_OPENAI_DEPLOYMENT_NAME`. (`AZURE_OPENAI_API_VERSION` is optional and defaults to `2024-02-15-preview`.)
+
+### `Missing required Anthropic environment variables: ANTHROPIC_API_KEY`
+
+**Trigger:** `LLM_PROVIDER=anthropic` but `ANTHROPIC_API_KEY` is unset.
+
+**Fix:** Set `ANTHROPIC_API_KEY`.
+
+### `Missing required OpenAI environment variables: OPENAI_API_KEY`
+
+**Trigger:** `LLM_PROVIDER=openai` but `OPENAI_API_KEY` is unset.
+
+**Fix:** Set `OPENAI_API_KEY`.
+
+### `AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must both be provided or both be omitted`
+
+**Trigger:** `LLM_PROVIDER=amazon-bedrock` and exactly one of the two AWS credentials is set.
+
+**Fix:** Set both `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, or omit both to fall back to an IAM role or an AWS credentials profile in `~/.aws/credentials`. `AWS_REGION` is required either way. See [LLM providers](/llm-providers).
+
+### `Error: Invalid output format '<value>'. Valid options: line, json, vale-json, rdjson`
+
+**Trigger:** `--output` was given a value outside the four supported formats.
+
+**Fix:** Use one of `line`, `json`, `vale-json`, or `rdjson`. See [Output formats](/cli-reference#output-formats).
+
+### `Error: no target files found to evaluate.`
+
+**Trigger:** The paths passed to VectorLint matched no files.
+
+**Fix:** Confirm the path or glob is correct and is passed correctly by your shell. Some CI shells don't expand globs the same way — quote the pattern or use `find ... | xargs vectorlint`.
+
+### `Error: rules path does not exist: <path>`
+
+**Trigger:** `RulesPath` in `.vectorlint.ini` (or `--config`) points at a directory that doesn't exist.
+
+**Fix:** Create the directory, or correct the `RulesPath` value.
+
+### `Error: The following files already exist:` (from `init`)
+
+**Trigger:** `vectorlint init` would overwrite an existing `.vectorlint.ini` or `VECTORLINT.md`.
+
+**Fix:** Re-run with `--force` to overwrite, or remove the existing files first.
 
 ## Installation issues
 
