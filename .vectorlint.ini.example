@@ -12,15 +12,13 @@ DefaultSeverity=warning
 [**/*.md]
 RunRules=Acme
 
-# Blog content with custom overrides
+# Blog content
 [content/blog/**/*.md]
 RunRules=Acme
-GrammarChecker.strictness=8
 
-# Technical documentation - higher strictness
+# Technical documentation
 [content/docs/**/*.md]
 RunRules=Acme
-GrammarChecker.strictness=9
 
 # Marketing content - use custom pack
 [content/marketing/**/*.md]
