@@ -1,0 +1,151 @@
+---
+title: Release notes
+description: VectorLint release history, generated from GitHub Releases.
+---
+
+These notes are mirrored from the [GitHub Releases](https://github.com/TRocket-Labs/vectorlint/releases) for the VectorLint package.
+
+## 2.5.0 - 2026-03-04
+
+### Features
+- **User-facing `message` field**: LLM violations now include a dedicated `message` field — under 15 words, written directly to the user, with no rule references. This replaces `analysis` as the string shown in the terminal.
+- **`analysis` in JSON output**: The `analysis` field (internal model reasoning) is now included in `--output=json` violation objects alongside `message`, giving consumers access to both.
+
+### Improvements
+- Directive guidance updated to explicitly distinguish `message` (user-facing) from `analysis` (internal reasoning not shown in UI)
+
+---
+
+## 2.4.0 - 2026-03-04
+
+### Features
+- **PAT (Pay A Tax) Evaluation Technique**: New gate-check evaluation method using structured output for more reliable LLM-based assessments
+- **Amazon Bedrock Provider**: Run VectorLint against AWS-hosted models via the Amazon Bedrock LLM provider
+- **Vercel AI SDK Integration**: Unified LLM provider interface via Vercel AI SDK, enabling consistent behavior across all providers
+- **PAT Confidence Tuning**: Expose confidence thresholds via CLI to tune PAT filter sensitivity
+- **File-Type Context**: Evaluations now receive file-type context to improve rule applicability
+
+### Improvements
+- Aligned CLI surfacing with PAT filters for consistent flag exposure
+- Tightened PAT confidence guidance for more predictable gate-check behavior
+
+---
+
+## 2.3.0 - 2026-02-11
+
+### Features
+- **Zero-Config Mode**: Run VectorLint without any config file by adding a `VECTORLINT.md` to your
+project root
+- **User Instructions Support**: Global user instructions now run alongside all rules (previously
+fallback-only)
+- **Fix Suggestions**: New `fix` field in violation output provides drop-in replacement suggestions for
+both Check and Judge evaluations
+- **Init Command Enhancements**: New `--quick` flag creates only `VECTORLINT.md`, `--full` flag creates
+both config and user instruction files
+- **Improved Evaluation Instructions**: Centralized directive with structured Role/Task/Instructions
+format
+
+### Improvements
+- Renamed internal terminology: "Style Guide" → "User Instructions" for clarity
+- Renamed evaluation types: `SubjectiveResult` → `JudgeResult`, `SemiObjectiveResult` → `CheckResult`
+- Removed redundant instruction sections from bundled preset prompts
+- Consolidated architectural documentation into CLAUDE.md
+
+**Full Changelog:** https://github.com/TRocket-Labs/vectorlint/compare/v2.2.0...v2.3.0
+
+---
+
+## 2.2.0 - 2026-01-02
+
+### Features
+- **Renamed Rule Types**: Rule types renamed for clarity — `semi-objective` → `check`, `subjective` → `judge`. Backward compatibility maintained via automatic mapping.
+- **Content Chunking**: Large documents are now automatically chunked for improved evaluation accuracy
+- **Bundled Rule Packs (Presets)**: Built-in rule packs now ship with VectorLint — no custom rules path required to get started
+- **Global Configuration**: New global config file for storing API keys and environment settings
+- **Init Command**: New `vectorlint init` command for easy project setup
+- **Token Usage Reporting**: CLI now displays input/output token counts after each evaluation
+- **Hidden Config Support**: Configuration can now be stored as a hidden file
+- **Disable Rules**: Support for disabling specific rules within a rule pack
+- **Improved Line Accuracy**: Better issue location with line numbering and fuzzy matching
+
+### Improvements
+- Refactored help output for clearer CLI usage
+- Updated documentation to reflect optional rules path
+- Improved Anthropic provider configuration and type safety
+- Simplified evaluator token usage tracking
+
+### Bug Fixes
+- Fix CLI to require explicit paths, preventing accidental directory scans
+- Fix path option description to indicate it's required
+
+**Full Changelog:** https://github.com/TRocket-Labs/vectorlint/compare/v2.1.1...v2.2.0
+
+---
+
+## 2.1.1 - 2025-12-12
+
+### Bug Fixes
+- **Fix Runtime Crash**: Resolved `Cannot find module` error in published package by inlining `package.json` version
+- Replaced relative runtime require with static import to prevent path resolution issues in `dist` artifacts
+
+---
+
+## 2.1.0 - 2025-12-12
+
+### Features
+- **Reviewdog Support**: Added `rdjson` (Reviewdog Diagnostic JSON Format) output capability
+- Enables automated code review comments and annotations in CI/CD pipelines
+- CLI now accepts `--output rdjson` flag
+
+**Full Changelog**: [v2.0.1...v2.1.0](https://github.com/TRocket-Labs/vectorlint/compare/v2.0.1...v2.1.0)
+
+---
+
+## 2.0.1 - 2025-12-09
+
+### Features
+- **Cascading Configuration**: Configuration now applies from general to specific patterns
+- Files can inherit rules from multiple matching patterns instead of just one
+- More specific patterns override settings from general patterns
+
+### Improvements
+- Updated documentation with configuration examples
+
+### Bug Fixes
+- Fix configuration resolution to properly handle multiple matching patterns
+
+**Full Changelog:** https://github.com/TRocket-Labs/vectorlint/compare/v2.0.0...v2.0.1
+
+
+---
+
+## 2.0.0 - 2025-12-05
+
+An LLM-based prose linter that catches subjective writing issues like clarity, tone, and technical accuracy. Think Vale, but powered by AI.
+
+## 🚀 Highlights
+
+- **Multiple LLM Providers**: OpenAI, Anthropic Claude, Azure OpenAI, Google Gemini
+- **Smart Scoring**: Density-based scoring (errors per 100 words) for fair evaluation
+- **Vale Integration**: Seamless integration with Vale CLI for combined analysis
+- **Technical Accuracy**: Hallucination detection with search provider support
+- **Flexible Config**: File-centric rule packs with glob-based targeting
+- **Multiple Outputs**: Native JSON and Vale-compatible JSON formats
+- **MDX Support**: Extended support for React-based documentation
+
+## 📦 Installation
+
+```bash
+npm install -g vectorlint
+```
+## Contributors
+* @ayo6706 made their first contribution in https://github.com/TRocket-Labs/vectorlint/pull/3
+* @oluwatooki-GA made their first contribution in https://github.com/TRocket-Labs/vectorlint/pull/10
+* @oshorefueled made their first contribution in https://github.com/TRocket-Labs/vectorlint/pull/11
+* @hurshore made their first contribution in https://github.com/TRocket-Labs/vectorlint/pull/23
+* @mtgr18977 made their first contribution in https://github.com/TRocket-Labs/vectorlint/pull/26
+
+**Full Changelog**: https://github.com/TRocket-Labs/vectorlint/commits/v2.0.0
+
+---
+

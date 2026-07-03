@@ -69,7 +69,8 @@
           "cli-reference",
           "env-variables",
           "rule-frontmatter",
-          "troubleshooting"
+          "troubleshooting",
+          "releases"
         ]
       }
     ]
