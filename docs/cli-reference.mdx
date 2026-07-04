@@ -1,23 +1,25 @@
 ---
 title: CLI reference
-description: Complete reference for the VectorLint command-line interface, including commands, flags, and exit codes.
+description: Complete reference for the VectorLint command-line interface, including commands, flags, output formats, and exit codes.
 ---
 
-VectorLint runs from the command line. You invoke it against one or more files and it prints findings to standard output. This page is the complete reference for all commands, flags, and exit behavior.
+VectorLint runs from the command line. This page is the complete reference for every command, flag, output format, and exit code.
 
 ## Basic usage
+
+The default command reviews one or more files and prints findings to standard output. You must pass at least one path; without one, VectorLint prints help.
 
 ```bash
 vectorlint [flags] <file> [files...]
 ```
 
-Run a review against one file:
+Review a single file:
 
 ```bash
 vectorlint doc.md
 ```
 
-Run against multiple files or a glob pattern:
+Review multiple files or a glob pattern:
 
 ```bash
 vectorlint content/docs/**/*.md
@@ -25,58 +27,155 @@ vectorlint content/docs/**/*.md
 
 ## Commands
 
+### `vectorlint <paths>`
+
+The default command. Reviews the given files against the rules that apply to them and prints findings. Accepts the [flags](#flags) below.
+
 ### `vectorlint init`
 
-Initializes VectorLint in your project. Generates configuration files based on the mode you choose.
+Generates configuration files for a project. The flags control which files are created; a global config is always ensured.
+
+| Flag | Effect |
+|------|--------|
+| _(none)_ | Creates `.vectorlint.ini` (project) and ensures `~/.vectorlint/config.toml` (global) |
+| `--quick` | Zero-config mode: creates only `VECTORLINT.md`. No `.vectorlint.ini` |
+| `--full` | Creates both `.vectorlint.ini` and `VECTORLINT.md`, and ensures the global config |
+| `--force` | Overwrite configuration files that already exist |
 
 ```bash
-vectorlint init
+vectorlint init          # project config + global config
+vectorlint init --quick  # VECTORLINT.md only (zero-config)
+vectorlint init --full   # project config + VECTORLINT.md + global config
 ```
 
-Creates two files:
+If a target file already exists, `init` exits with an error unless you pass `--force`.
 
-| File | Location | Purpose |
-|------|----------|---------|
-| `.vectorlint.ini` | Project root | File patterns and rule packs |
-| `config.toml` | `~/.vectorlint/` | LLM provider API keys |
+### `vectorlint validate`
 
-#### `--quick` flag
+Validates rule and prompt files **without running evaluations**. Checks YAML frontmatter structure, schema compliance, and prompt completeness, then prints a per-file report and a summary line.
 
 ```bash
-vectorlint init --quick
+vectorlint validate
 ```
 
-Zero-config mode. Creates only a `VECTORLINT.md` file in your project root. VectorLint detects it automatically and creates a "Style Guide Compliance" rule from its contents. No `.vectorlint.ini` required.
-
-### `vectorlint --help`
-
-Prints available commands and flags.
+By default, `validate` uses `RulesPath` from your project configuration. Override the rules directory:
 
 ```bash
-vectorlint --help
+vectorlint validate --rules .github/rules
+```
+
+Exits with code `1` if any validation errors are found; `0` otherwise. Use this to catch malformed rules before they reach a review.
+
+### `vectorlint --help` and `vectorlint --version`
+
+```bash
+vectorlint --help     # list commands and flags
+vectorlint --version  # print the installed version
 ```
 
 ## Flags
 
+The default command (`vectorlint <paths>`) accepts these flags:
+
 | Flag | Description |
 |------|-------------|
-| `--help` | Print help and exit |
-| `--version` | Print the installed VectorLint version and exit |
+| `-v`, `--verbose` | Enable verbose logging. Prints what VectorLint loads (directive, user instructions, rule packs) and extra detail during the review |
+| `--show-prompt` | Print the full prompt and injected content that is sent to the LLM |
+| `--show-prompt-trunc` | Print truncated prompt and content previews (first 500 characters). Useful for a quick check without the full payload |
+| `--debug-json` | Write a debug JSON artifact per evaluation under `.vectorlint/runs/` (see below) |
+| `--output <format>` | Output format. One of `line` (default), `json`, `vale-json`, `rdjson`. See [Output formats](#output-formats) |
+| `--config <path>` | Path to a custom `.vectorlint.ini` instead of the one in the project root |
 
-## Output
+### `--debug-json` artifacts
 
-VectorLint prints findings to standard output. Each finding includes the rule that triggered it, the location in the file, the specific violation, and a suggested fix.
+With `--debug-json`, VectorLint writes one JSON artifact per evaluation to `.vectorlint/runs/<model-tag>/<run-id>.json`. Each artifact contains:
 
-A file with no violations produces no output.
+- `raw_model_output`: exact JSON the model returned, including all evidence fields
+- `filter_decisions`: the deterministic surface/hide decision for each candidate, with reasons
+- `surfaced_violations`: the candidates that passed all confidence checks
+
+Use these to compare how different models respond to the same rules and content, or to tune `CONFIDENCE_THRESHOLD`. The `.vectorlint/runs/` directory is gitignored.
+
+## Output formats
+
+Control the output shape with `--output <format>`. The default `line` format is for humans; the others are for tooling and CI integration.
+
+### `line` (default)
+
+Human-readable terminal output. Each finding shows the rule, its location in the file, the violation, and a suggested fix. The run ends with a global summary and token usage. Findings are colored by severity.
+
+### `json`
+
+Native VectorLint JSON. Use this when you process VectorLint output yourself. The top-level object is:
+
+```json
+{
+  "files": {
+    "doc.md": {
+      "issues": [
+        {
+          "line": 12,
+          "column": 1,
+          "severity": "error",
+          "message": "Passive voice weakens the opening.",
+          "rule": "Acme.PassiveVoice",
+          "suggestion": "Rewrite in active voice."
+        }
+      ],
+      "evaluationScores": []
+    }
+  },
+  "summary": { "files": 1, "errors": 1, "warnings": 0 },
+  "metadata": { "version": "2.5.0", "timestamp": "2026-03-04T15:14:49Z" }
+}
+```
+
+Each issue includes `message` (the user-facing summary) and, when the model produced it, `analysis` (internal model reasoning). `evaluationScores` carries the per-rule score breakdown.
+
+### `vale-json`
+
+Compatible with tools that consume [Vale](https://vale.sh)'s JSON output. The shape is:
+
+```json
+{
+  "files": { "doc.md": [ /* ValeIssue[] */ ] },
+  "summary": { "files": 1, "errors": 1, "warnings": 0, "suggestions": 0 }
+}
+```
+
+Use this to plug VectorLint into an existing Vale-based pipeline.
+
+### `rdjson`
+
+[reviewdog](https://github.com/reviewdog/reviewdog)-compatible JSON (also used by GitHub Actions annotations). The shape is:
+
+```json
+{
+  "source": { "name": "vectorlint", "url": "..." },
+  "diagnostics": [
+    {
+      "message": "Passive voice weakens the opening.",
+      "location": { "path": "doc.md", "range": { "start": { "line": 12 } } },
+      "severity": "ERROR",
+      "code": { "value": "Acme.PassiveVoice" },
+      "suggestions": []
+    }
+  ]
+}
+```
+
+Use this when running VectorLint in reviewdog or a reviewdog-compatible CI setup.
 
 ## Exit codes
 
+The default command exits non-zero only when a finding surfaces at **`error`** severity, not for `warning`-severity findings. This lets warnings pass through CI while errors block a merge.
+
 | Code | Meaning |
 |------|---------|
-| `0` | No violations found. All files passed |
-| `1` | One or more violations found |
+| `0` | No `error`-severity findings. (`warning` findings may still be present) |
+| `1` | One or more `error`-severity findings, or an operational error (for example, a provider request failure or invalid configuration) |
 
-Exit codes make VectorLint suitable for CI pipelines. A non-zero exit blocks a merge when content fails quality checks. See [CI Integration](/ci-integration) for setup examples.
+A check rule surfaces at `error` severity when its density score is 1.0 or below, and at `warning` severity otherwise. A rule may also set `severity: error` in its frontmatter to force the `error` level. See [CI Integration](/ci-integration) for gating examples.
 
 ## Environment variables
 
@@ -89,15 +188,15 @@ VectorLint reads configuration from environment variables in addition to config 
 | `ANTHROPIC_API_KEY` | _(none)_ | API key for Anthropic |
 | `GEMINI_API_KEY` | _(none)_ | API key for Google Gemini |
 | `AZURE_OPENAI_API_KEY` | _(none)_ | API key for Azure OpenAI |
-| `SEARCH_PROVIDER` | _(none)_ | Search provider for `technical-accuracy` evaluator: `perplexity` |
+| `SEARCH_PROVIDER` | _(none)_ | Search provider for the `technical-accuracy` evaluator: `perplexity` |
 | `PERPLEXITY_API_KEY` | _(none)_ | API key for Perplexity search |
 | `CONFIDENCE_THRESHOLD` | `0.75` | Confidence gate. Lower surfaces more findings; higher surfaces fewer. |
 
-For the full environment variable reference see [Environment variables](/env-variables).
+For the full environment variable reference, including Azure OpenAI and Amazon Bedrock variables, see [Environment variables](/env-variables).
 
 ## Related
 
 - [Installation](/installation): install VectorLint globally or run with npx
 - [Configuration](/configuration): configure VectorLint for your project
 - [Handling false positives](/handling-false-positives): adjust `CONFIDENCE_THRESHOLD` and strictness
-- [CI Integration](/ci-integration): use exit codes to gate merges on content quality
+- [CI Integration](/ci-integration): use exit codes and output formats to gate merges
