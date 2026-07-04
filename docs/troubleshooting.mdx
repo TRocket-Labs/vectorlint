@@ -1,90 +1,76 @@
 ---
 title: Troubleshooting
-description: Diagnose and fix common VectorLint issues with installation, configuration, API keys, and review output.
+description: Fix common VectorLint errors with providers, configuration, and CI.
 ---
 
-If you're stuck, find what you're seeing in the table below and jump to the relevant section. Most problems fall into a handful of common causes that are quick to fix once you know where to look.
+This page covers runtime errors after VectorLint is installed. For setup, see [Installation](/installation). For config debugging, see [Project Configuration](/project-config).
 
-## Find your problem
+## Find your error
 
-| What you're seeing | Go to |
+| What you see | Go to |
 | --- | --- |
-| `vectorlint: command not found` after installing globally | [Command not found after install](#command-not-found-after-install) |
-| Install fails with a Node.js version error | [Unsupported Node version](#unsupported-node-version) |
-| `LLM_PROVIDER is required and must be either 'azure-openai', 'anthropic', or 'openai'` | [Provider not recognized](#provider-not-recognized) |
+| `vectorlint: command not found` | [Command not found](#command-not-found) |
+| `LLM_PROVIDER is required and must be either 'azure-openai', 'anthropic', or 'openai'. Received: ...` | [Provider not recognized](#provider-not-recognized) |
 | `AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must both be provided or both be omitted` | [Bedrock credential mismatch](#bedrock-credential-mismatch) |
-| Authentication or authorization error from your provider | [Authentication errors](#authentication-errors) |
-| The run completes but prints nothing | [No output from a run](#no-output-from-a-run) |
-| Rules you configured aren't running on a file | [Rules not running on a file](#rules-not-running-on-a-file) |
-| A warning that VECTORLINT.md exceeds 4,000 tokens | [VECTORLINT.md is too large](#vectorlintmd-is-too-large) |
-| CI fails without printing any findings | [CI fails with no findings](#ci-fails-with-no-findings) |
+| `Error: rules path does not exist: <path>` | [Rules path missing](#rules-not-running-on-a-file) |
+| Run completes but prints nothing | [No output from a run](#no-output-from-a-run) |
+| Rules you configured aren't firing | [Rules not running on a file](#rules-not-running-on-a-file) |
+| VECTORLINT.md token warning | [VECTORLINT.md too large](#vectorlintmd-is-too-large) |
+| CI exits non-zero with no findings | [CI fails with no findings](#ci-fails-with-no-findings) |
 
-For errors not listed here, check the [GitHub issues](https://github.com/TRocket-Labs/vectorlint/issues) or open a new one.
+## Installation
 
-## Installation issues
+### Command not found
 
-### Command not found after install
-
-If `npm install -g vectorlint` succeeds but running `vectorlint` reports `command not found`, the npm global bin directory isn't on your `PATH`. Your shell only runs programs found in the directories listed there.
-
-Find the directory and add it to your shell profile (`.zshrc`, `.bashrc`, or equivalent):
+The npm global bin directory isn't on your `PATH`. Add it:
 
 ```bash
-npm bin -g                              # prints the global bin directory
-export PATH="$PATH:$(npm bin -g)"       # add it for this session
+npm bin -g
+export PATH="$PATH:$(npm bin -g)"
 ```
 
-Restart your terminal and run `vectorlint --version` to confirm.
+Add the export to your shell profile (`.zshrc`, `.bashrc`) to persist it. VectorLint requires Node.js 18+.
 
-### Unsupported Node version
-
-VectorLint requires Node.js 18 or later. If npm rejects the install with a version error, check what you have:
-
-```bash
-node --version
-```
-
-If it's below 18, upgrade with [nvm](https://github.com/nvm-sh/nvm):
-
-```bash
-nvm install --lts
-nvm use --lts
-```
-
-## Provider and API key issues
+## Provider and API keys
 
 ### Provider not recognized
 
-You'll see this error when `LLM_PROVIDER` is unset or set to a value VectorLint doesn't accept:
+The full error:
 
 ```
-LLM_PROVIDER is required and must be either 'azure-openai', 'anthropic', or 'openai'
+LLM_PROVIDER is required and must be either 'azure-openai', 'anthropic', or 'openai'. Received: undefined
 ```
 
 <Note>
-  This message is out of date. It lists only three providers, but VectorLint accepts five: `openai`, `anthropic`, `azure-openai`, `gemini`, and `amazon-bedrock`. Set `LLM_PROVIDER` to one of these — `gemini` and `amazon-bedrock` are valid even though the message omits them.
+  This message is stale. It lists three providers, but VectorLint accepts five: `openai`, `anthropic`, `azure-openai`, `gemini`, and `amazon-bedrock`. The schema validates all five; only the error string is wrong.
 </Note>
 
-Set the provider in your `.env` file or `~/.vectorlint/config.toml`:
+Set `LLM_PROVIDER` in `.env` or `~/.vectorlint/config.toml`:
 
 ```toml
 [env]
 LLM_PROVIDER = "openai"
 ```
 
-See [Environment variables](/env-variables) for the full reference.
+See [Environment variables](/env-variables) for the full list.
+
+### Bedrock credential mismatch
+
+```
+AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must both be provided or both be omitted
+```
+
+AWS credentials are an all-or-nothing pair. Either set both `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, or omit both to fall back to an IAM role or `~/.aws/credentials` profile. `AWS_REGION` is always required. See [LLM providers](/llm-providers) for full Bedrock setup.
 
 ### Authentication errors
 
-A `401`, `Invalid API key`, or similar authentication error from your provider means the key is missing, incorrect, or not being read from where you think.
-
-First confirm the variable is actually set in your environment:
+A `401` or `Invalid API key` from your provider means the key is missing or `LLM_PROVIDER` doesn't match the key you set. Confirm the variable is present:
 
 ```bash
 echo $OPENAI_API_KEY
 ```
 
-If it's empty, set it in your project `.env` file (which takes precedence) or in `~/.vectorlint/config.toml`. Use the variable name that matches your provider exactly — `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `AZURE_OPENAI_API_KEY` — and make sure `LLM_PROVIDER` matches the key you've set:
+Set the key in `.env` or `~/.vectorlint/config.toml` using the exact variable name for your provider: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `AZURE_OPENAI_API_KEY`:
 
 ```toml
 [env]
@@ -92,19 +78,9 @@ LLM_PROVIDER = "anthropic"
 ANTHROPIC_API_KEY = "sk-ant-..."
 ```
 
-### Bedrock credential mismatch
-
-With `LLM_PROVIDER=amazon-bedrock`, VectorLint rejects a configuration where exactly one of the two AWS credentials is set:
-
-```
-AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must both be provided or both be omitted
-```
-
-AWS credentials are an all-or-nothing pair. Either set both `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, or omit both to fall back to an IAM role or an AWS credentials profile in `~/.aws/credentials`. `AWS_REGION` is required either way. See [LLM providers](/llm-providers) for the full Bedrock setup.
-
 ### No search provider for technical-accuracy rules
 
-Rules using `evaluator: technical-accuracy` need a search provider to verify claims against external sources. Without one they return reduced-confidence or no results. Add Perplexity:
+Rules using `evaluator: technical-accuracy` need a search provider. Without one they return reduced-confidence results. Add Perplexity:
 
 ```toml
 [env]
@@ -112,80 +88,76 @@ SEARCH_PROVIDER = "perplexity"
 PERPLEXITY_API_KEY = "pplx-..."
 ```
 
-## Configuration and scoring
+## Configuration
 
 ### No output from a run
 
-When a run finishes with no findings and no errors, it usually means one of three things.
+Three causes, in order of likelihood:
 
-The most common is a `CONFIDENCE_THRESHOLD` set too high, which filters out everything the model finds. Lower it temporarily to confirm:
+1. **Threshold too high.** `CONFIDENCE_THRESHOLD` filters everything. Test with a lower value:
 
-```bash
-CONFIDENCE_THRESHOLD=0.5 vectorlint doc.md
-```
+   ```bash
+   CONFIDENCE_THRESHOLD=0.5 vectorlint doc.md
+   ```
 
-If findings appear, your threshold is filtering too aggressively. See [Handling false positives](/handling-false-positives) to tune it.
+   If findings appear, tune the threshold. See [Handling false positives](/handling-false-positives).
 
-Second, the file may match a pattern with `RunRules=` (empty) — the intentional "skip drafts" behavior. Check your `.vectorlint.ini` for a pattern that matches the file and confirm it's the one you expect.
+2. **Empty RunRules.** The file matches a pattern with `RunRules=` (empty), the intentional "skip this file" syntax. Check `.vectorlint.ini`.
 
-Third, the content may simply pass. Test with a file you know has issues to confirm the rule is working.
+3. **Content passes.** Run against a file you know has issues to confirm the rule works.
 
 ### Rules not running on a file
 
-If a file you expect to be reviewed produces no output, work through the match chain in order.
+Work through the match chain:
 
-The glob pattern has to match the path. `**/*.md` matches any Markdown file anywhere; `content/docs/**/*.md` matches only files under `content/docs/`. A file at `docs/api.md` will not match `content/docs/**/*.md`.
+1. The glob must match the file path. `**/*.md` matches any Markdown file; `content/docs/**/*.md` does not match `docs/api.md`.
 
-If you use custom rule packs, `RulesPath` in `.vectorlint.ini` must point at the directory containing your pack subdirectories:
+2. `RulesPath` must point at the directory containing your pack subdirectories:
 
 ```ini
 RulesPath=.github/rules
 ```
 
-Finally, the pack name has to match the directory name exactly. `RunRules=Acme` looks for a subdirectory called `Acme` (case-sensitive) inside `RulesPath`. See [Project Configuration](/project-config) for the full reference.
+3. The pack name in `RunRules` must match the directory name exactly (case-sensitive). `RunRules=Acme` looks for an `Acme/` subdirectory inside `RulesPath`.
+
+See [Project Configuration](/project-config) for cascade semantics: multiple matching patterns accumulate, so a file can run packs from more than one section.
 
 ### VECTORLINT.md is too large
 
-VectorLint warns when `VECTORLINT.md` exceeds roughly 4,000 tokens. A file that large degrades LLM precision and raises API costs on every run, since it's prepended to every evaluation.
+VectorLint warns at ~4,000 tokens. A file that large degrades LLM precision and raises costs because it's prepended to every evaluation call.
 
-Target under 800 tokens. Move specific, detailed rules into dedicated rule pack files where they apply selectively instead of globally. [Defining your style rules](/style-guide) has an extraction prompt for turning a full style guide into a compact `VECTORLINT.md`.
+Target under 800 tokens. Move detailed rules into dedicated rule pack files. [Defining your style rules](/style-guide) has an extraction prompt for distilling a full style guide.
 
-### Cascading configuration surprises
-
-VectorLint applies every matching pattern from general to specific, and rule packs accumulate — a file can run rules from more than one pattern. For a file at `content/docs/api.md`, both `**/*.md` and `content/docs/**/*.md` match, so the file runs packs from both.
-
-If a file is running unexpected rules, trace which patterns match its path. See [Project Configuration](/project-config) for the cascade reference.
-
-## CI issues
+## CI
 
 ### CI fails with no findings
 
-When the VectorLint step exits non-zero but prints nothing, the run failed before it could surface findings. Check the usual culprits.
+The run failed before evaluation. Check:
 
-The API key secret may not be reaching the job. Confirm the secret is defined and referenced correctly:
+1. The API key secret isn't reaching the job:
 
-```yaml
-env:
-  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-```
+   ```yaml
+   env:
+     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+   ```
 
-The Node.js version in CI may be below 18. Add an explicit setup step:
+2. Node.js is below 18:
 
-```yaml
-- uses: actions/setup-node@v4
-  with:
-    node-version: lts/*
-```
+   ```yaml
+   - uses: actions/setup-node@v4
+     with:
+       node-version: lts/*
+   ```
 
-Finally, some CI shells don't expand globs the way your local shell does. If a glob matches nothing, quote it or resolve files explicitly:
+3. Globs aren't expanding. Some CI shells don't expand unquoted globs. Resolve files explicitly:
 
-```bash
-find content/docs -name "*.md" | xargs vectorlint
-```
+   ```bash
+   find content/docs -name "*.md" | xargs vectorlint
+   ```
 
 ## Getting more help
 
-- [VectorLint GitHub issues](https://github.com/TRocket-Labs/vectorlint/issues) — search existing issues or open a new one
-- [CLI reference](/cli-reference) — confirm command syntax, flags, and exit codes
-- [Environment variables](/env-variables) — verify variable names and precedence
-- [Project Configuration](/project-config) — debug `.vectorlint.ini` pattern matching
+- [GitHub issues](https://github.com/TRocket-Labs/vectorlint/issues)
+- [CLI reference](/cli-reference): flags and exit codes
+- [Environment variables](/env-variables): variable names and precedence
+- [Project Configuration](/project-config): `.vectorlint.ini` pattern matching
