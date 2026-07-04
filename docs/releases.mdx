@@ -1,11 +1,12 @@
 ---
-title: Release notes
-description: VectorLint release history, generated from GitHub Releases.
+title: "Release notes"
+description: "VectorLint release history, mirrored from GitHub Releases."
+rss: true
 ---
 
 These notes are mirrored from the [GitHub Releases](https://github.com/TRocket-Labs/vectorlint/releases) for the VectorLint package.
 
-## 2.5.0 - 2026-03-04
+<Update label="2026-03-04" description="v2.5.0" tags={["features", "improvements"]}>
 
 ### Features
 - **User-facing `message` field**: LLM violations now include a dedicated `message` field — under 15 words, written directly to the user, with no rule references. This replaces `analysis` as the string shown in the terminal.
@@ -14,9 +15,9 @@ These notes are mirrored from the [GitHub Releases](https://github.com/TRocket-L
 ### Improvements
 - Directive guidance updated to explicitly distinguish `message` (user-facing) from `analysis` (internal reasoning not shown in UI)
 
----
+</Update>
 
-## 2.4.0 - 2026-03-04
+<Update label="2026-03-04" description="v2.4.0" tags={["features", "improvements"]}>
 
 ### Features
 - **PAT (Pay A Tax) Evaluation Technique**: New gate-check evaluation method using structured output for more reliable LLM-based assessments
@@ -29,9 +30,9 @@ These notes are mirrored from the [GitHub Releases](https://github.com/TRocket-L
 - Aligned CLI surfacing with PAT filters for consistent flag exposure
 - Tightened PAT confidence guidance for more predictable gate-check behavior
 
----
+</Update>
 
-## 2.3.0 - 2026-02-11
+<Update label="2026-02-11" description="v2.3.0">
 
 ### Features
 - **Zero-Config Mode**: Run VectorLint without any config file by adding a `VECTORLINT.md` to your
@@ -53,9 +54,9 @@ format
 
 **Full Changelog:** https://github.com/TRocket-Labs/vectorlint/compare/v2.2.0...v2.3.0
 
----
+</Update>
 
-## 2.2.0 - 2026-01-02
+<Update label="2026-01-02" description="v2.2.0" tags={["bugfixes", "features", "improvements"]}>
 
 ### Features
 - **Renamed Rule Types**: Rule types renamed for clarity — `semi-objective` → `check`, `subjective` → `judge`. Backward compatibility maintained via automatic mapping.
@@ -80,17 +81,17 @@ format
 
 **Full Changelog:** https://github.com/TRocket-Labs/vectorlint/compare/v2.1.1...v2.2.0
 
----
+</Update>
 
-## 2.1.1 - 2025-12-12
+<Update label="2025-12-12" description="v2.1.1" tags={["bugfixes"]}>
 
 ### Bug Fixes
 - **Fix Runtime Crash**: Resolved `Cannot find module` error in published package by inlining `package.json` version
 - Replaced relative runtime require with static import to prevent path resolution issues in `dist` artifacts
 
----
+</Update>
 
-## 2.1.0 - 2025-12-12
+<Update label="2025-12-12" description="v2.1.0" tags={["features"]}>
 
 ### Features
 - **Reviewdog Support**: Added `rdjson` (Reviewdog Diagnostic JSON Format) output capability
@@ -99,9 +100,9 @@ format
 
 **Full Changelog**: [v2.0.1...v2.1.0](https://github.com/TRocket-Labs/vectorlint/compare/v2.0.1...v2.1.0)
 
----
+</Update>
 
-## 2.0.1 - 2025-12-09
+<Update label="2025-12-09" description="v2.0.1" tags={["bugfixes", "features", "improvements"]}>
 
 ### Features
 - **Cascading Configuration**: Configuration now applies from general to specific patterns
@@ -117,9 +118,9 @@ format
 **Full Changelog:** https://github.com/TRocket-Labs/vectorlint/compare/v2.0.0...v2.0.1
 
 
----
+</Update>
 
-## 2.0.0 - 2025-12-05
+<Update label="2025-12-05" description="v2.0.0">
 
 An LLM-based prose linter that catches subjective writing issues like clarity, tone, and technical accuracy. Think Vale, but powered by AI.
 
@@ -147,5 +148,5 @@ npm install -g vectorlint
 
 **Full Changelog**: https://github.com/TRocket-Labs/vectorlint/commits/v2.0.0
 
----
+</Update>
 
