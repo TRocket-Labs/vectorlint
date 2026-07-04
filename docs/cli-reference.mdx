@@ -7,7 +7,7 @@ VectorLint runs from the command line. This page is the complete reference for e
 
 ## Basic usage
 
-The default command reviews one or more files and prints findings to standard output. You must pass at least one path — without one, VectorLint prints help.
+The default command reviews one or more files and prints findings to standard output. You must pass at least one path; without one, VectorLint prints help.
 
 ```bash
 vectorlint [flags] <file> [files...]
@@ -90,9 +90,9 @@ The default command (`vectorlint <paths>`) accepts these flags:
 
 With `--debug-json`, VectorLint writes one JSON artifact per evaluation to `.vectorlint/runs/<model-tag>/<run-id>.json`. Each artifact contains:
 
-- `raw_model_output` — exact JSON the model returned, including all evidence fields
-- `filter_decisions` — the deterministic surface/hide decision for each candidate, with reasons
-- `surfaced_violations` — the candidates that passed all confidence checks
+- `raw_model_output`: exact JSON the model returned, including all evidence fields
+- `filter_decisions`: the deterministic surface/hide decision for each candidate, with reasons
+- `surfaced_violations`: the candidates that passed all confidence checks
 
 Use these to compare how different models respond to the same rules and content, or to tune `CONFIDENCE_THRESHOLD`. The `.vectorlint/runs/` directory is gitignored.
 
@@ -168,7 +168,7 @@ Use this when running VectorLint in reviewdog or a reviewdog-compatible CI setup
 
 ## Exit codes
 
-The default command exits non-zero only when a finding surfaces at **`error`** severity — not for `warning`-severity findings. This lets warnings pass through CI while errors block a merge.
+The default command exits non-zero only when a finding surfaces at **`error`** severity, not for `warning`-severity findings. This lets warnings pass through CI while errors block a merge.
 
 | Code | Meaning |
 |------|---------|
@@ -196,7 +196,7 @@ For the full environment variable reference, including Azure OpenAI and Amazon B
 
 ## Related
 
-- [Installation](/installation) — install VectorLint globally or run with npx
-- [Configuration](/configuration) — configure VectorLint for your project
-- [Handling false positives](/handling-false-positives) — adjust `CONFIDENCE_THRESHOLD` and strictness
-- [CI Integration](/ci-integration) — use exit codes and output formats to gate merges
+- [Installation](/installation): install VectorLint globally or run with npx
+- [Configuration](/configuration): configure VectorLint for your project
+- [Handling false positives](/handling-false-positives): adjust `CONFIDENCE_THRESHOLD` and strictness
+- [CI Integration](/ci-integration): use exit codes and output formats to gate merges
