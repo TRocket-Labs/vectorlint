@@ -12,7 +12,12 @@
     "light": "/logo/light.svg"
   },
   "favicon": "/favicon.svg",
-  "description": "An LLM-based prose linter that lets you enforce your style guide in one prompt.",
+  "description": "A programmable content review harness for AI agents.",
+  "seo": {
+    "metatags": {
+      "canonical": "https://docs.vectorlint.dev"
+    }
+  },
   "navigation": {
     "groups": [
       {
