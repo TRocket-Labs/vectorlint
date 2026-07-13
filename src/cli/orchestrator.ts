@@ -1194,7 +1194,7 @@ async function evaluateFilesInAgentMode(
     progressReporter,
     maxParallelToolCalls: 3,
     maxRetries: options.agentMaxRetries ?? 10,
-    userInstructions: options.userInstructionContent,
+    ...(options.userInstructionContent ? { userInstructions: options.userInstructionContent } : {}),
   });
 
   let totalErrors = 0;

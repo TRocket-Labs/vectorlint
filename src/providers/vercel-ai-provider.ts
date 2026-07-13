@@ -25,7 +25,7 @@ export class VercelAIProvider implements LLMProvider {
   private config: VercelAIConfig;
   private builder: RequestBuilder;
   private logger: Logger;
-  private observability?: AIObservability;
+  private observability?: AIObservability | undefined;
 
   constructor(config: VercelAIConfig, builder?: RequestBuilder) {
     this.config = {
@@ -73,12 +73,14 @@ export class VercelAIProvider implements LLMProvider {
     }
 
     try {
+      const evaluator = this.extractContextValue(context, 'evaluatorName', 'evaluator');
+      const rule = this.extractContextValue(context, 'ruleName', 'rule');
       const observabilityOptions = this.getObservabilityOptions({
         operation: 'structured-eval',
         provider: this.config.providerName ?? 'unknown',
         model: this.config.modelName ?? 'unknown',
-        evaluator: this.extractContextValue(context, 'evaluatorName', 'evaluator'),
-        rule: this.extractContextValue(context, 'ruleName', 'rule'),
+        ...(evaluator ? { evaluator } : {}),
+        ...(rule ? { rule } : {}),
       });
 
       const result = await generateText({
@@ -187,14 +189,14 @@ export class VercelAIProvider implements LLMProvider {
       }
     }
 
-    return {
-      usage: result.usage
-        ? {
-          inputTokens: result.usage.inputTokens ?? 0,
-          outputTokens: result.usage.outputTokens ?? 0,
+    return result.usage
+      ? {
+          usage: {
+            inputTokens: result.usage.inputTokens ?? 0,
+            outputTokens: result.usage.outputTokens ?? 0,
+          },
         }
-        : undefined,
-    };
+      : {};
   }
 
   private getObservabilityOptions(context: AIExecutionContext): Record<string, unknown> {
