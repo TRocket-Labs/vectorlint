@@ -1168,6 +1168,9 @@ async function buildAgentRuleScores(
   return results;
 }
 
+// Retained in quarantine: unreachable from the CLI after --mode agent was
+// deprecated (now falls back to standard evaluation). Removed in Phase 4.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- intentional quarantine
 async function evaluateFilesInAgentMode(
   targets: string[],
   options: EvaluationOptions,
@@ -1322,7 +1325,11 @@ export async function evaluateFiles(
   }
 
   if (mode === AGENT_REVIEW_MODE) {
-    return evaluateFilesInAgentMode(targets, options, outputFormat, jsonFormatter);
+    options.logger?.warn(
+      '--mode agent is deprecated and now falls back to standard mode. ' +
+        'See docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md.',
+    );
+    // Fall through to standard evaluation; do not call evaluateFilesInAgentMode.
   }
 
   for (const file of targets) {
