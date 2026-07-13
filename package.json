@@ -13,7 +13,8 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:ci": "vitest run --coverage"
+    "test:ci": "vitest run --coverage",
+    "verify": "npm run typecheck && npm run lint && npm run test:run"
   },
   "bin": {
     "vectorlint": "./dist/index.js",
