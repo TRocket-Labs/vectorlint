@@ -1168,8 +1168,8 @@ async function buildAgentRuleScores(
   return results;
 }
 
-// Retained in quarantine: unreachable from the CLI after --mode agent was
-// deprecated (now falls back to standard evaluation). Removed in Phase 4.
+// Retained in quarantine: the unreleased --mode agent path now falls back to
+// standard evaluation. Removed in Phase 4.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- intentional quarantine
 async function evaluateFilesInAgentMode(
   targets: string[],
@@ -1326,8 +1326,8 @@ export async function evaluateFiles(
 
   if (mode === AGENT_REVIEW_MODE) {
     options.logger?.warn(
-      '--mode agent is deprecated and now falls back to standard mode. ' +
-        'See docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md.',
+      '--mode agent is an unreleased internal path and now falls back to standard mode. ' +
+        'This internal path is being replaced by the bounded harness model.',
     );
     // Fall through to standard evaluation; do not call evaluateFilesInAgentMode.
   }
