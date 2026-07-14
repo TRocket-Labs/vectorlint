@@ -53,7 +53,7 @@ Good rules answer yes/no questions:
 - Does this claim omit required evidence?
 - Does this section repeat information already stated nearby?
 
-Future-facing rule authors should avoid subjective judge/rubric designs. Historical rubric-style language remains only where it describes removed behavior or migration guidance.
+Future-facing rule authors should avoid subjective judge/rubric designs. Historical rubric-style language remains only where it describes removed behavior.
 
 ## Model Calls
 
@@ -176,13 +176,13 @@ Formatters
   - rdjson
 ```
 
-## Removal Notes
+## Internal Implementation Notes
 
-Use `--model-call`, not `--mode agent`. The CLI still rejects `--mode` with a clear migration error so old integrations fail loudly.
+`--model-call` is the documented CLI surface. The internal `--mode` flag is rejected at the CLI boundary so unreleased agent-mode wiring cannot be used accidentally.
 
-Autonomous workspace-agent behavior is removed. If an integration needs project-wide exploration, it should do that before invoking VectorLint and pass the selected target content and review context explicitly.
+The unreleased autonomous workspace implementation path is removed. External callers that need project-wide exploration should gather context before invoking VectorLint and pass selected content explicitly.
 
-Subjective `judge`/rubric rules are removed from the future-facing architecture rather than migrated. New rules should be written as objective Via Negativa checks with observable violation conditions.
+Subjective `judge`/rubric rules are not part of the future-facing architecture. New rules should be written as objective Via Negativa checks with observable violation conditions.
 
 ## References
 

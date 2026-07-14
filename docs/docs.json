@@ -72,7 +72,6 @@
           "configuration-schema",
           "env-variables",
           "frontmatter-fields",
-          "migration-from-agent-mode",
           "troubleshooting"
         ]
       }

@@ -1,8 +1,10 @@
 # VectorLint Harness Architecture Audit
 
 > **HISTORICAL AUDIT.** This audit records the July 2026 decision that led to
-> the bounded harness refactor. Some "current state" observations below
-> describe the pre-refactor code. For the shipped architecture, see
+> the bounded harness refactor. Agent mode was an unreleased internal
+> implementation path with no public users; this audit records the decision to
+> remove it before shipping it as a public contract. Some "current state"
+> observations below describe the pre-refactor code. For the shipped architecture, see
 > [`../specs/2026-07-10-harness-architecture.md`](../specs/2026-07-10-harness-architecture.md).
 
 Date: 2026-07-10
@@ -380,6 +382,6 @@ Phase 1 of the recommended refactor sequence ("Stop The Bleeding") landed on bra
 - `docs/research/**` excluded from linting.
 - `.github/workflows/typecheck.yml` and `.github/workflows/test.yml` aligned to Node 20.
 
-**Current state.** `npm run verify`, `npm run build`, and built-CLI standard review smoke runs are green. Per Finding 1, the autonomous workspace-agent surface is deprecated at the CLI boundary: `--mode agent` emits a deprecation warning and falls back to standard evaluation. `src/agent/*` and the agent-mode helpers are retained as compile-only quarantine, unreachable from the CLI, pending removal in Phase 4. The deprecation notice and pointer to this audit live in the README `## Agent Mode` section and the `--mode` help text.
+**Current state at audit time.** `npm run verify`, `npm run build`, and built-CLI standard review smoke runs are green. Per Finding 1, the unreleased autonomous workspace-agent surface is quarantined at the CLI boundary: `--mode` is blocked so internal agent-mode wiring cannot be reached from the CLI. `src/agent/*` and the agent-mode helpers are retained as compile-only quarantine, unreachable from the CLI, pending removal in Phase 4. A pointer to this audit lives in the README `## Agent Mode` section and the `--mode` help text.
 
 This appendix records completion only. Findings 2–9 and the proposed core contract remain owned by Phases 2–5; no spec or architecture document is superseded here.
