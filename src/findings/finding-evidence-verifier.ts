@@ -44,8 +44,8 @@ export interface FindingEvidenceVerification {
  * matching. On a successful anchor it returns a verified finding with the
  * located line/column/match. When the quoted text cannot be anchored it
  * returns a `finding-evidence-not-locatable` warn diagnostic and NO finding —
- * it never falls back to a model-provided line number the way the old agent
- * path did.
+ * it never falls back to a model-provided line number the way the unreleased
+ * internal agent implementation did.
  */
 export function verifyFindingEvidence(
   content: string,

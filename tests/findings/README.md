@@ -56,7 +56,7 @@ These are **not** behavior-preservation targets for this phase and are
 intentionally left untouched:
 
 - `tests/agent/*`, the orchestrator test covering legacy agent output, and
-  `tests/providers/*agent-loop*.test.ts` — the old autonomous agent surface.
+  `tests/providers/*agent-loop*.test.ts` — the unreleased internal autonomous agent implementation.
   Phase 4 deletes or replaces these with agent-model-call executor tests.
 - `BaseEvaluator`'s internal judge mode (`runJudgeEvaluation`),
   `buildJudgeLLMSchema` (`src/prompts/schema.ts`), the judge scoring helpers in
@@ -65,7 +65,7 @@ intentionally left untouched:
   from the CLI** (judge prompts fail to load) but are scheduled for deletion in
   Phase 4 (executors / provider interface / agent deletion).
 
-Phase 3 added **no** compatibility code for the legacy agent surface — no
+Phase 3 added **no** compatibility code for the unreleased/internal agent implementation — no
 agent tool-loop wiring, no review-instruction handler, and no agent result
 projection — to `src/findings/`.
 

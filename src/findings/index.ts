@@ -6,8 +6,8 @@
  * count/density scoring, severity resolution, and diagnostics.
  *
  * This module is independent of model call (`single` | `agent`) and contains
- * no legacy `judge`, `evaluator`, rubric, or autonomous-loop output
- * compatibility code. See
+ * no `judge`, `evaluator`, rubric, or autonomous-loop output
+ * adapter code. See
  * docs/plans/2026-07-10-phase-3-share-result-projection.md.
  */
 export {

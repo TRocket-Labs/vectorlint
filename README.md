@@ -144,16 +144,11 @@ Notes:
 - Prompts and outputs are recorded when Langfuse observability is enabled.
 - Do not send secrets, credentials, or PII unless your policy explicitly allows observability tooling to access that data.
 
-## Agent Mode (under review)
+## Internal Agent-Mode Implementation
 
-The `--mode agent` flag is under active rework. It currently enables an
-autonomous cross-file review mode that is being **removed** in favor of a
-bounded harness model. See
-[`docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md`](docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md)
-for the decision and the refactor plan.
+The `--mode agent` flag is an unreleased internal implementation path retained only while the harness refactor lands. It now falls back to standard evaluation and reports an internal-status warning so the old autonomous workspace implementation is not used.
 
-Until the refactor lands, `--mode agent` prints a deprecation warning and
-falls back to standard mode. Do not build integrations against it.
+This path has no public compatibility contract; do not build integrations against it.
 
 ## Contributing
 

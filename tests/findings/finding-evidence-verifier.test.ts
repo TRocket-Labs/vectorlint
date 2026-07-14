@@ -34,8 +34,9 @@ describe('verifyFindingEvidence', () => {
   });
 
   it('never returns a finding whose line came from the model when the quote did not anchor', () => {
-    // The old agent path fell back to the model-provided line (here 1) and
-    // surfaced the raw quoted_text as a verified match. Assert we do not.
+    // The unreleased internal agent implementation fell back to the
+    // model-provided line (here 1) and surfaced the raw quoted_text as a
+    // verified match. Assert we do not.
     // (Use a lexically distant quote that locateQuotedText cannot anchor.)
     const result = verifyFindingEvidence(CONTENT, {
       quoted_text: 'definitely not present xyzzy',
