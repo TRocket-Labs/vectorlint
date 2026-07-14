@@ -261,7 +261,7 @@ Future contributors will optimize toward the wrong architecture and trust contra
 
 Recommendation:
 
-Mark the agentic spec superseded. Replace it with a harness architecture spec that defines the review request, context boundary, executor interface, output contract, and migration plan.
+Mark the agentic spec superseded. Replace it with a harness architecture spec that defines the review request, context boundary, executor interface, output contract, and internal removal plan for unreleased agent-mode paths.
 
 ### 9. Secrets And Sensitive Content Need Better Handling
 
@@ -338,7 +338,7 @@ Results:
 1. Mark the agentic capabilities spec superseded.
 2. Write a new harness architecture spec.
 3. Update README and CLI docs.
-4. Document migration from autonomous workspace-agent mode to direct/reader/auto execution.
+4. Document the bounded harness architecture that replaces the unreleased autonomous workspace-agent implementation path.
 
 ## Suggested Target Architecture
 
