@@ -104,9 +104,6 @@ describe('agent mode fallback', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('unreleased internal path'),
     );
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md'),
-    );
     // Standard evaluation ran; the autonomous executor did not.
     expect(runAgentToolLoop).not.toHaveBeenCalled();
     expect(runPromptStructured).toHaveBeenCalled();

@@ -7,8 +7,7 @@
  *
  * This module is independent of model call (`single` | `agent`) and contains
  * no `judge`, `evaluator`, rubric, or autonomous-loop output
- * adapter code. See
- * docs/plans/2026-07-10-phase-3-share-result-projection.md.
+ * adapter code.
  */
 export {
   FINDING_EVIDENCE_NOT_LOCATABLE,

@@ -816,8 +816,7 @@ export async function evaluateFiles(
 
   if (mode === AGENT_REVIEW_MODE) {
     options.logger?.warn(
-      '--mode agent is an unreleased internal path and now falls back to standard mode. ' +
-        'See docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md.',
+      '--mode agent is an unreleased internal path and now falls back to standard mode.',
     );
     // Fall through to standard evaluation; do not call evaluateFilesInAgentMode.
   }
