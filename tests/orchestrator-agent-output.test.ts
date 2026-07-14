@@ -54,11 +54,11 @@ function makeStandardProvider(): StandardProviderSpies {
   return { provider, runPromptStructured, runAgentToolLoop };
 }
 
-// `--mode agent` is deprecated. These tests prove the CLI/evaluateFiles path no
+// `--mode agent` is an internal fallback. These tests prove the CLI/evaluateFiles path no
 // longer reaches the autonomous agent executor: it warns through the injected
 // logger and falls back to standard evaluation. The retained agent executor
 // code is covered directly by tests/agent/* and removed in Phase 4.
-describe('agent mode deprecation', () => {
+describe('agent mode internal fallback', () => {
   const tempRepos: string[] = [];
 
   function createTempRepo(): string {
@@ -80,7 +80,7 @@ describe('agent mode deprecation', () => {
     }
   });
 
-  it('emits a deprecation warning through the injected logger and falls back to standard evaluation', async () => {
+  it('emits an internal-rework notice through the injected logger and falls back to standard evaluation', async () => {
     const repo = createTempRepo();
     const file = path.join(repo, 'doc.md');
     writeFileSync(file, 'bad phrase\n', 'utf8');
@@ -102,10 +102,10 @@ describe('agent mode deprecation', () => {
     });
 
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('deprecated'),
+      expect.stringContaining('unreleased internal path'),
     );
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md'),
+      expect.stringContaining('bounded harness model'),
     );
     // Standard evaluation ran; the autonomous executor did not.
     expect(runAgentToolLoop).not.toHaveBeenCalled();
@@ -134,7 +134,7 @@ describe('agent mode deprecation', () => {
       logger,
     });
 
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('deprecated'));
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('unreleased internal path'));
     expect(runAgentToolLoop).not.toHaveBeenCalled();
     expect(runPromptStructured).toHaveBeenCalled();
   });
@@ -158,7 +158,7 @@ describe('agent mode deprecation', () => {
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     });
 
-    // No deprecation warning and no executor invocation in standard mode.
+    // No internal-rework notice and no executor invocation in standard mode.
     expect(runAgentToolLoop).not.toHaveBeenCalled();
     expect(result.totalFiles).toBe(1);
   });
