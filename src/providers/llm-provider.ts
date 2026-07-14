@@ -1,10 +1,12 @@
 import type { TokenUsage } from './token-usage';
-import type { EvalContext } from './request-builder';
+import type { StructuredModelClient } from './structured-model-client';
 
-export interface LLMResult<T> {
-  data: T;
-  usage?: TokenUsage;
-}
+/**
+ * `LLMResult` now lives on the permanent structured-output capability. It is
+ * re-exported here so existing deep imports (`from './llm-provider'`) keep
+ * compiling until the legacy provider surface is removed in a later task.
+ */
+export type { LLMResult } from './structured-model-client';
 
 export interface AgentToolDefinition {
   description: string;
@@ -25,7 +27,14 @@ export interface AgentToolLoopResult {
   usage?: TokenUsage;
 }
 
-export interface LLMProvider {
-  runPromptStructured<T = unknown>(content: string, promptText: string, schema: { name: string; schema: Record<string, unknown> }, context?: EvalContext): Promise<LLMResult<T>>;
+/**
+ * Temporary compile bridge, preserved only until later tasks remove the
+ * autonomous agent surface. It extends the permanent
+ * {@link StructuredModelClient} (single structured output) with the legacy
+ * `runAgentToolLoop` method still consumed by `src/agent/`. Do not expand this
+ * surface; `runAgentToolLoop` and the `Agent*` types above are deleted once the
+ * agent tree is removed (audit Finding #2; Product Decision).
+ */
+export interface LLMProvider extends StructuredModelClient {
   runAgentToolLoop(params: AgentToolLoopParams): Promise<AgentToolLoopResult>;
 }

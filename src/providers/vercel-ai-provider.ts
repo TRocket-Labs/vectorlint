@@ -3,10 +3,19 @@ import type { LanguageModel } from 'ai';
 import { z } from 'zod';
 import pLimit from 'p-limit';
 import { AgentToolLoopParams, AgentToolLoopResult, LLMProvider, LLMResult } from './llm-provider';
+import type { ToolCallDefinition, ToolCallRunOptions, ToolCallingModelClient } from './tool-calling-model-client';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import { createNoopLogger, type Logger } from '../logging/logger';
 import type { AIExecutionContext, AIObservability } from '../observability/ai-observability';
 import { handleUnknownError } from '../errors';
+
+/**
+ * Conservative default step cap for a single bounded tool-calling run when the
+ * caller does not supply one. Executors should pass an explicit `maxSteps`
+ * derived from the review budget (audit Finding #7) rather than relying on
+ * this default.
+ */
+const DEFAULT_TOOL_CALLING_MAX_STEPS = 10;
 
 export interface VercelAIConfig {
   model: LanguageModel;
@@ -21,7 +30,7 @@ export interface VercelAIConfig {
   observability?: AIObservability;
 }
 
-export class VercelAIProvider implements LLMProvider {
+export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
   private config: VercelAIConfig;
   private builder: RequestBuilder;
   private logger: Logger;
@@ -132,6 +141,114 @@ export class VercelAIProvider implements LLMProvider {
       }
       const err = e instanceof Error ? e : new Error(String(e));
       throw new Error(`Vercel AI SDK call failed: ${err.message}`);
+    }
+  }
+
+  /**
+   * Bounded tool-calling transport (audit Finding #2). Performs a single
+   * bounded generation that may execute caller-supplied tools and then emits
+   * structured output. The tool map, step budget, and schema are all
+   * executor-owned; the provider defines no product tools and runs no
+   * autonomous product loop (audit Product Decision).
+   */
+  async runWithTools<T = unknown>(params: {
+    systemPrompt: string;
+    prompt: string;
+    tools: Record<string, ToolCallDefinition>;
+    schema: { name: string; schema: Record<string, unknown> };
+    options?: ToolCallRunOptions;
+  }): Promise<LLMResult<T>> {
+    const options = params.options ?? {};
+    const maxParallel = options.maxParallelToolCalls ?? 1;
+    const limit = pLimit(maxParallel);
+
+    const zodSchema = this.jsonSchemaToZod(params.schema);
+
+    const mappedTools = Object.fromEntries(
+      Object.entries(params.tools).map(([name, definition]) => [
+        name,
+        tool({
+          description: definition.description,
+          inputSchema: definition.parameters,
+          execute: (input: unknown) => limit(() => definition.execute(input)),
+        }),
+      ]),
+    );
+
+    if (this.config.debug) {
+      this.logger.debug('[vectorlint] Sending tool-calling request via Vercel AI SDK', {
+        model: this.config.model,
+        toolNames: Object.keys(params.tools),
+        maxSteps: options.maxSteps ?? DEFAULT_TOOL_CALLING_MAX_STEPS,
+      });
+    }
+
+    try {
+      const result = await generateText({
+        model: this.config.model,
+        system: params.systemPrompt,
+        prompt: params.prompt,
+        ...(this.config.temperature !== undefined && { temperature: this.config.temperature }),
+        ...(this.config.maxTokens !== undefined && { maxTokens: this.config.maxTokens }),
+        ...(options.maxRetries !== undefined ? { maxRetries: options.maxRetries } : {}),
+        ...(options.signal !== undefined ? { abortSignal: options.signal } : {}),
+        ...this.getObservabilityOptions({
+          operation: 'tool-calling',
+          provider: this.config.providerName ?? 'unknown',
+          model: this.config.modelName ?? 'unknown',
+        }),
+        stopWhen: stepCountIs(options.maxSteps ?? DEFAULT_TOOL_CALLING_MAX_STEPS),
+        providerOptions: {
+          openai: {
+            parallelToolCalls: maxParallel > 1,
+          },
+        },
+        tools: mappedTools,
+        output: Output.object({
+          schema: zodSchema,
+        }),
+      });
+
+      if (this.config.debug && result.usage) {
+        this.logger.debug('[vectorlint] tool-calling LLM response meta', {
+          usage: {
+            input_tokens: result.usage.inputTokens,
+            output_tokens: result.usage.outputTokens,
+            total_tokens: result.usage.totalTokens,
+          },
+          finish_reason: result.finishReason,
+          steps: result.steps.length,
+        });
+      }
+
+      const usage = result.usage
+        ? {
+            inputTokens: result.usage.inputTokens ?? 0,
+            outputTokens: result.usage.outputTokens ?? 0,
+          }
+        : undefined;
+
+      const output: unknown = result.output;
+      if (output === undefined || output === null) {
+        throw new Error(
+          `LLM returned no structured output. Raw text: ${result.text?.slice(0, 500) ?? '(empty)'}`
+        );
+      }
+
+      const llmResult: LLMResult<T> = { data: output as T };
+      if (usage) {
+        llmResult.usage = usage;
+      }
+      return llmResult;
+    } catch (e: unknown) {
+      if (NoObjectGeneratedError.isInstance(e)) {
+        const rawText = e instanceof Error && 'text' in e ? String(e.text) : 'unknown';
+        throw new Error(
+          `LLM failed to generate valid structured output. Raw text: ${rawText}`
+        );
+      }
+      const err = e instanceof Error ? e : new Error(String(e));
+      throw new Error(`Vercel AI SDK tool-calling call failed: ${err.message}`);
     }
   }
 
