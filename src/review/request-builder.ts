@@ -63,8 +63,8 @@ function toReviewRule(prompt: PromptFile): ReviewRule {
 
 /**
  * Builds a {@link ReviewRequest} from existing {@link PromptFile}s plus a
- * target. This is the conservative bridge Phase 4 uses to convert the current
- * prompt pipeline into the review contract without changing how prompts load.
+ * target. Callers can use this bridge to convert the current prompt pipeline
+ * into the review contract without changing how prompts load.
  * Throws a {@link ValidationError} when no prompts are supplied.
  */
 export function buildReviewRequest(params: BuildReviewRequestParams): ReviewRequest {

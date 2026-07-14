@@ -15,7 +15,7 @@ export const REVIEW_MODEL_CALLS = ['single', 'agent', 'auto'] as const satisfies
 
 /**
  * The stable domain-level interface every executor implements. Single and
- * agent executors are implementations behind this contract (audit Finding #2).
+ * agent executors are implementations behind this contract.
  * A headless/autonomous workspace executor is explicitly NOT part of this
  * contract.
  */
@@ -25,7 +25,7 @@ export interface ReviewExecutor {
 
 /**
  * Agent-call capability: a bounded way to page through target content for
- * context management. NOT a workspace tool (audit Product Decision). An agent
+ * context management. NOT a workspace tool. An agent
  * executor receives this capability scoped to the target only.
  */
 export interface ReviewTargetReadCapability {

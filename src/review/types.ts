@@ -5,8 +5,6 @@
  * source-backed rules flows through this module. Callers build a
  * {@link ReviewRequest} and executors return a {@link ReviewResult}.
  *
- * See docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md.
- *
  * This module is implementation-neutral: it deliberately exposes no legacy
  * scoring-mode, rubric, or model-authored rule-override surface. `modelCall`
  * selects how the reviewer model is invoked, not how rules are scored.
@@ -22,8 +20,8 @@ export interface ReviewViolationCondition {
 }
 
 /**
- * Target content under review. The on-page boundary (audit Finding #5) is
- * enforced against this: executors may only read sections of `content`.
+ * Target content under review. The on-page boundary is enforced against this:
+ * executors may only read sections of `content`.
  */
 export interface ReviewTarget {
   /** Stable absolute URI (file:// or virtual scheme for in-memory content). */
@@ -38,7 +36,7 @@ export interface ReviewTarget {
 
 /**
  * A source-backed, caller-authored rule. Model-authored rule overrides are
- * explicitly disallowed (audit Finding #1, #5).
+ * explicitly disallowed.
  */
 export interface ReviewRule {
   /** Stable id, formatted Pack.Rule[.Criterion] in output. */
@@ -56,7 +54,7 @@ export interface ReviewRule {
 }
 
 /**
- * Caller-supplied context. Explicitly in scope (audit boundary rule):
+ * Caller-supplied context. Explicitly in scope:
  * VectorLint does NOT discover workspace files as context on its own; the
  * caller owns exploration and context gathering.
  */
@@ -82,7 +80,7 @@ export interface ReviewScope {
 }
 
 /**
- * Hard bounds on a single review (audit Finding #7). These limit work, not
+ * Hard bounds on a single review. These limit work, not
  * output. Executors MUST check these and surface a ReviewDiagnostic (or fail
  * the run) when exceeded.
  */
@@ -97,9 +95,8 @@ export interface ReviewBudget {
 
 /**
  * Controls optional output/telemetry behavior. Diagnostics are always part of
- * ReviewResult; this policy does not hide operational warnings. Audit
- * Finding #9: payload telemetry must be a separate opt-in from metadata
- * telemetry.
+ * ReviewResult; this policy does not hide operational warnings. Payload
+ * telemetry is a separate opt-in from metadata telemetry.
  */
 export interface ReviewOutputPolicy {
   /** Include usage/cost in the result. */

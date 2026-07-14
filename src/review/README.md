@@ -19,7 +19,7 @@ A caller builds a `ReviewRequest`; an executor returns a `ReviewResult`.
 - `request-builder.ts` — `buildReviewRequest()` bridging `PromptFile` to
   `ReviewRequest`.
 
-## On-page boundary (audit Finding #5)
+## On-page boundary
 
 - Target content is always in scope.
 - Caller-supplied context is in scope.
@@ -36,7 +36,6 @@ picks `single` for normal-sized inputs and `agent` for large ones.
 
 ## Wiring status
 
-Phase 2 (this module) is purely additive and is **not** wired into the CLI.
-Phase 3 emits `ReviewResult` via shared finding processing; Phase 4 implements
-executors behind `ReviewExecutor` and removes the old agent loop. See
-`docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md`.
+This module is additive and is **not** wired into the CLI yet. Future CLI
+wiring can emit `ReviewResult` through shared finding processing and implement
+executors behind `ReviewExecutor`.
