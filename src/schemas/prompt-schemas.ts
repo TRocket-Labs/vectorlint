@@ -27,12 +27,15 @@ export const PROMPT_CRITERION_SCHEMA = z.object({
  * - 'technical-accuracy': specialized evaluator with claim extraction + search
  *
  * Evaluation type:
- * - 'judge': 1-4 scores per criterion, normalized to 1-10
  * - 'check': density-based scoring (errors per 100 words)
+ * - 'semi-objective': deprecated alias for 'check'
  *
- * Deprecated aliases (still supported):
- * - 'subjective' → 'judge'
- * - 'semi-objective' → 'check'
+ * 'judge' and its deprecated alias 'subjective' are no longer supported
+ * (Phase 3): subjective rubric scoring is not a future-facing review type.
+ * The enum still admits them so the Zod error is descriptive and the inferred
+ * type stays compatible with the legacy BaseEvaluator until Phase 4 deletes
+ * that path; a superRefine rejects them at this boundary so judge-typed prompts
+ * fail to load.
  *
  * Strictness factor for check scoring:
  * - Determines penalty weight per 1% error density.
@@ -44,10 +47,23 @@ export const PROMPT_META_SCHEMA = z.object({
   type: z
     .enum(["judge", "check", "subjective", "semi-objective"])
     .transform((val) => {
-      // Map deprecated values to new canonical values
+      // Map deprecated values to their canonical forms.
       if (val === "subjective") return "judge" as const;
       if (val === "semi-objective") return "check" as const;
       return val;
+    })
+    .superRefine((val, ctx) => {
+      // Judge/rubric reviews are not a future-facing review type (Phase 3).
+      // superRefine (not refine) so the inferred union still includes 'judge'
+      // and stays compatible with the legacy BaseEvaluator until Phase 4 deletes
+      // that path; the value is rejected at this boundary regardless.
+      if (val === "judge") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "judge evaluation is no longer supported; use check (Via Negativa) rules",
+        });
+      }
     })
     .optional(),
   id: z.string(),

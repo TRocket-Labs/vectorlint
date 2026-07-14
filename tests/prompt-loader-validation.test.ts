@@ -130,4 +130,55 @@ Check content.`);
             expect(warnings[0]).toContain('test.md');
         });
     });
+
+    describe('Judge boundary rejection (Phase 3)', () => {
+        it('rejects judge-typed prompts at the loader boundary', () => {
+            createPrompt('judge.md', `---
+evaluator: base
+id: Judge
+name: Judge Prompt
+type: judge
+criteria:
+  - name: Clarity
+    id: Clarity
+---
+Judge content.`);
+
+            const { prompts, warnings } = loadRules(tmpDir);
+            expect(prompts).toHaveLength(0);
+            expect(warnings.length).toBeGreaterThan(0);
+            expect(warnings[0]).toContain('judge.md');
+            expect(warnings[0]).toMatch(/judge/i);
+        });
+
+        it('rejects subjective-typed prompts (deprecated judge alias)', () => {
+            createPrompt('subjective.md', `---
+evaluator: base
+id: Subjective
+name: Subjective Prompt
+type: subjective
+---
+Subjective content.`);
+
+            const { prompts, warnings } = loadRules(tmpDir);
+            expect(prompts).toHaveLength(0);
+            expect(warnings.length).toBeGreaterThan(0);
+            expect(warnings[0]).toContain('subjective.md');
+        });
+
+        it('still loads check-typed prompts', () => {
+            createPrompt('check.md', `---
+evaluator: base
+id: Check
+name: Check Prompt
+type: check
+---
+Check content.`);
+
+            const { prompts, warnings } = loadRules(tmpDir);
+            expect(warnings).toHaveLength(0);
+            expect(prompts).toHaveLength(1);
+            expect(prompts[0].meta.type).toBe('check');
+        });
+    });
 });
