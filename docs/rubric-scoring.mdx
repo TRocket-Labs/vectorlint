@@ -1,8 +1,21 @@
 ---
-title: Rubric Scoring
-description: This page is coming soon.
+title: Rubric scoring
+description: Historical note about removed rubric-style judge rules.
 ---
 
-<Note>
-  This page is coming soon. Check back for updates, or follow the [VectorLint GitHub repository](https://github.com/TRocket-Labs/vectorlint) for the latest news.
-</Note>
+Rubric-style `judge` rules are no longer part of VectorLint's current rule model. VectorLint now uses objective violation checks: rules describe observable conditions, and scoring is based on verified finding count and density.
+
+## What to use instead
+
+Write rules as Via Negativa checks. Describe what counts as a violation, require exact evidence from the target content, and provide concrete fix guidance.
+
+```markdown
+Flag a section when it:
+1. Makes a factual claim without a source
+2. Uses a deprecated command name
+3. Repeats the same setup step already shown earlier
+```
+
+## Migration
+
+If you have old rubric-style rules, rewrite each criterion as one or more observable violation conditions. See [Migration from agent mode](/migration-from-agent-mode) for related removed-surface guidance and [Defining your style rules](/style-guide) for current rule syntax.

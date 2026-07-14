@@ -1,6 +1,6 @@
 # VectorLint: Prompt it, Lint it! [![npm version](https://img.shields.io/npm/v/vectorlint.svg)](https://www.npmjs.com/package/vectorlint) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-VectorLint is a command-line tool that evaluates and scores content using LLMs. It uses [LLM-as-a-Judge](https://en.wikipedia.org/wiki/LLM-as-a-Judge) to catch terminology, technical accuracy, and style issues that require contextual understanding.
+VectorLint is a command-line content review harness that uses LLMs to find observable terminology, technical accuracy, and style violations that require contextual understanding.
 
 ![VectorLint Screenshot](./assets/VectorLint_screenshot.jpeg)
 
@@ -144,16 +144,32 @@ Notes:
 - Prompts and outputs are recorded when Langfuse observability is enabled.
 - Do not send secrets, credentials, or PII unless your policy explicitly allows observability tooling to access that data.
 
-## Agent Mode (under review)
+## How VectorLint Runs Reviews
 
-The `--mode agent` flag is under active rework. It currently enables an
-autonomous cross-file review mode that is being **removed** in favor of a
-bounded harness model. See
-[`docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md`](docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md)
-for the decision and the refactor plan.
+VectorLint is a bounded review harness, not a workspace agent. Callers choose
+the target content and any review context; VectorLint reviews that supplied
+content against source-backed rules and returns findings, scores, diagnostics,
+and usage metadata.
 
-Until the refactor lands, `--mode agent` prints a deprecation warning and
-falls back to standard mode. Do not build integrations against it.
+Use `--model-call` to choose how the reviewer model is invoked:
+
+```bash
+vectorlint doc.md --model-call single
+vectorlint doc.md --model-call agent
+vectorlint doc.md --model-call auto
+```
+
+- `single` runs structured model calls without tools. This is best for normal
+  documents and straightforward rule checks.
+- `agent` runs a bounded target-only model call that can page through the
+  current target with `read_target_section`. It cannot search the workspace,
+  read arbitrary files, or override rules.
+- `auto` is the default. VectorLint chooses `single` for normal inputs and
+  `agent` for large or multi-rule reviews that benefit from target paging.
+
+See the current
+[`docs/specs/2026-07-10-harness-architecture.md`](docs/specs/2026-07-10-harness-architecture.md)
+for the contract and boundary details.
 
 ## Contributing
 

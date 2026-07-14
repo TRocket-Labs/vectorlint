@@ -1,0 +1,75 @@
+---
+title: Model calls
+description: Choose single, agent, or auto model calls for VectorLint reviews.
+---
+
+VectorLint uses a model-call strategy to decide how the reviewer model sees target content. The strategy changes the invocation shape, not the rule semantics.
+
+## Choose a strategy
+
+| Value | Best for | What happens |
+| --- | --- | --- |
+| `single` | Normal documents and straightforward checks | VectorLint sends structured model calls without tools |
+| `agent` | Large or context-heavy targets | VectorLint gives the model one target-only paging tool |
+| `auto` | Default CLI behavior | VectorLint chooses `single` or `agent` from target size and rule count |
+
+Run with the default:
+
+```bash
+vectorlint doc.md
+```
+
+Force structured calls:
+
+```bash
+vectorlint doc.md --model-call single
+```
+
+Force target paging:
+
+```bash
+vectorlint doc.md --model-call agent
+```
+
+## `single`
+
+`single` is the simplest model call. VectorLint supplies the rule prompt and target content, receives structured candidate findings, and sends them through shared finding processing.
+
+For large targets, the single path chunks content and merges candidate violations before verification and scoring.
+
+## `agent`
+
+`agent` is bounded target paging. The model can call `read_target_section` to read 1-based line ranges from the current target content.
+
+The agent model call cannot:
+
+- search the workspace
+- read arbitrary files
+- read files by URI
+- modify content
+- override rules
+- report findings outside the target
+
+Use `agent` when a target is large enough that paging through sections helps the reviewer preserve context.
+
+## `auto`
+
+`auto` is the CLI default. VectorLint chooses `agent` when the target is larger than `600_000` bytes or when more than five rules apply. Otherwise, it chooses `single`.
+
+## Boundary
+
+VectorLint reviews only supplied target content and explicit review context. If an external agent or script wants VectorLint to consider other files, that caller must gather the relevant content and pass it as review context. VectorLint does not discover workspace context on its own.
+
+## Output
+
+All model-call strategies return the same review result shape: findings, scores, diagnostics, and usage metadata. Output format selection is separate:
+
+```bash
+vectorlint doc.md --model-call agent --output json
+```
+
+## Related
+
+- [How it works](/how-it-works)
+- [CLI reference](/cli-reference)
+- [Migration from agent mode](/migration-from-agent-mode)

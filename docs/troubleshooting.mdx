@@ -156,6 +156,24 @@ Without a search provider, `technical-accuracy` evaluators cannot verify facts a
 
 ---
 
+### `--mode agent` no longer works
+
+**Symptom:** VectorLint exits with an error that `--mode` is no longer supported.
+
+**Cause:** Autonomous agent mode was removed. VectorLint now uses `--model-call` to choose how the reviewer model is invoked.
+
+**Fix:** Replace the removed flag with one of the supported model-call values:
+
+```bash
+vectorlint doc.md --model-call single
+vectorlint doc.md --model-call agent
+vectorlint doc.md --model-call auto
+```
+
+Use `agent` only when target-section paging helps with large or context-heavy content. It is bounded to the current target and cannot search the workspace. See [Migration from agent mode](/migration-from-agent-mode) for integration guidance.
+
+---
+
 ## CI issues
 
 ### CI pipeline fails immediately with no findings output

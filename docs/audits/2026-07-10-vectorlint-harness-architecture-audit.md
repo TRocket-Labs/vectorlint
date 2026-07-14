@@ -1,5 +1,10 @@
 # VectorLint Harness Architecture Audit
 
+> **HISTORICAL AUDIT.** This audit records the July 2026 decision that led to
+> the bounded harness refactor. Some "current state" observations below
+> describe the pre-refactor code. For the shipped architecture, see
+> [`../specs/2026-07-10-harness-architecture.md`](../specs/2026-07-10-harness-architecture.md).
+
 Date: 2026-07-10
 
 Status: Objective system audit plus product-direction audit. Request changes before shipping the current autonomous workspace-agent surface as a public contract.

@@ -1,5 +1,13 @@
 # Execution Log
 
+> **SUPERSEDED (2026-07-10).** This log describes the removed autonomous
+> agent-mode implementation. VectorLint is now a bounded review harness with
+> `single`/`agent`/`auto` model calls. See
+> [`../specs/2026-07-10-harness-architecture.md`](../specs/2026-07-10-harness-architecture.md)
+> for the current architecture and
+> [`../migration-from-agent-mode.mdx`](../migration-from-agent-mode.mdx)
+> for migration guidance. The details below are historical only.
+
 - **Plan**: `docs/plans/2026-03-31-agent-mode-implementation-plan.md`
 - **Issue**: Not provided (executed from user directive in this session)
 - **Started**: 2026-03-31

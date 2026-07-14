@@ -1,6 +1,46 @@
 # Repository Guidelines
 
-This repository implements VectorLint — a prompt‑driven, structured‑output content evaluator. Use this guide to navigate the codebase, run it locally, and contribute safely.
+This repository implements VectorLint — a prompt‑driven, structured‑output content review harness. Use this guide to navigate the codebase, run it locally, and contribute safely.
+
+Use [`CONTEXT.md`](./CONTEXT.md) as the shared VectorLint domain language across code, docs, tests, and agent work. Prefer its terms when naming modules, writing tests, drafting docs, and describing architecture.
+
+## Agent Behavior Guidelines
+
+These guidelines reduce common LLM coding mistakes. They bias toward caution over speed; use judgment for trivial tasks.
+
+### Think Before Coding
+
+- State assumptions explicitly before implementing.
+- If multiple interpretations exist, present them instead of picking silently.
+- If a simpler approach exists, say so and push back when warranted.
+- If something is unclear, stop, name the confusion, and ask.
+
+### Simplicity First
+
+- Write the minimum code that solves the problem.
+- Do not add features beyond what was asked.
+- Do not introduce abstractions for single-use code.
+- Do not add flexibility or configurability that was not requested.
+- Do not add error handling for impossible scenarios.
+- If a change becomes larger than needed, simplify before finishing.
+
+### Surgical Changes
+
+- Touch only the files and lines required by the request.
+- Do not improve adjacent code, comments, or formatting unless required.
+- Match existing style, even when another style is tempting.
+- If you notice unrelated dead code, mention it instead of deleting it.
+- Remove imports, variables, functions, or files made unused by your own changes.
+- Do not remove pre-existing dead code unless asked.
+
+### Goal-Driven Execution
+
+- Turn requests into verifiable goals before implementing.
+- For bug fixes, write or identify a reproduction, then make it pass.
+- For validation changes, cover invalid inputs, then make the checks pass.
+- For refactors, verify behavior before and after the change.
+- For multi-step tasks, state a brief plan with verification for each step.
+- Loop until the success criteria are verified or a blocker is clear.
 
 ## Project Structure & Module Organization
 
@@ -15,9 +55,12 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
   - `output/` — TTY formatting (reporter, evidence location, line numbering)
   - `prompts/` — YAML frontmatter parsing, schema validation, directive loading
   - `providers/` — LLM abstractions (OpenAI, Anthropic, Azure, Gemini), request builder, provider factory
+  - `review/` — neutral review contract, boundary, budget, schemas, and model-call selection
+  - `executors/` — bounded `single` and `agent` model-call executors behind `ReviewExecutor`
+  - `findings/` — shared finding verification, filtering, scoring, diagnostics, and result assembly
   - `scan/` — file discovery (fast‑glob) honoring config and exclusions
   - `schemas/` — Zod schemas for all external data (API responses, config, CLI, env)
-  - `scoring/` — score calculation (density-based for check, rubric-based for judge)
+  - `scoring/` — score calculation for objective violation checks
   - `types/` — TypeScript type definitions
 - `presets/` — bundled rule packs (e.g., `VectorLint/`)
 - `tests/` — Vitest specs for config, scanning, evaluation, providers
@@ -126,12 +169,14 @@ For documents >600 words, VectorLint automatically chunks content:
 ## Architecture & Principles
 
 - Boundary validation: all external data (files, CLI, env, APIs) validated at system boundaries using Zod schemas
+- Bounded harness model: callers own exploration and context gathering; VectorLint owns constrained review through `single`/`agent`/`auto` model calls behind the `ReviewExecutor` contract
+- On-page boundary: executors review target content plus explicit review context only; do not add workspace search, arbitrary file reads, model-authored rule overrides, or autonomous agent behavior
 - Type safety: strict TypeScript with no `any`; use `unknown` + schema validation for external data
-- Dependency inversion: depend on `LLMProvider` and `SearchProvider` interfaces; keep providers thin (transport only)
+- Dependency inversion: depend on `StructuredModelClient`, `ToolCallingModelClient`, and `SearchProvider` interfaces; keep providers thin (transport only)
 - Dependency injection: inject `RequestBuilder` via provider constructor to avoid coupling
-- Separation of concerns: rules define rubric; schemas enforce structure; CLI orchestrates; evaluators process; reporters format
+- Separation of concerns: rules define observable violation checks; schemas enforce structure; CLI orchestrates; executors run model calls; findings process results; reporters format output
 - Separation of concerns: when a file starts combining contracts, orchestration, and utility logic, extract shared helpers and types into focused modules
-- Extensibility: add providers by implementing `LLMProvider` or `SearchProvider`; add evaluators via registry pattern
+- Extensibility: add model providers by implementing the structured/tool-calling model client interfaces or search by implementing `SearchProvider`
 - Error handling: prefer the repository's custom error hierarchy over native `Error`; catch blocks use `unknown` type and extend existing custom error types before introducing raw exceptions
 - Shared domain constants: avoid magic strings for core runtime concepts; define shared constants, enums, or types and import them where needed
 - Naming: choose domain-accurate names that reflect the real abstraction level; avoid use-case-specific terminology in shared runtime code

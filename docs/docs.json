@@ -20,7 +20,8 @@
         "pages": [
           "introduction",
           "use-cases",
-          "how-it-works"
+          "how-it-works",
+          "model-calls"
         ]
       },
       {
@@ -71,6 +72,7 @@
           "configuration-schema",
           "env-variables",
           "frontmatter-fields",
+          "migration-from-agent-mode",
           "troubleshooting"
         ]
       }

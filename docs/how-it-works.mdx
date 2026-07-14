@@ -1,65 +1,83 @@
 ---
 title: How it works
-description: How VectorLint evaluates content using LLM-as-a-Judge, filtering, and two scoring methods.
+description: How VectorLint reviews supplied content through a bounded harness.
 ---
 
-VectorLint evaluates your content by sending it to a large language model (LLM) along with a structured prompt that defines your quality criteria. The LLM acts as a judge — reading your content, applying the criteria, and returning findings. VectorLint then filters those findings through a deterministic pipeline before surfacing violations in the CLI.
+VectorLint is a content review harness. You give it target content, source-backed rules, provider credentials, and optional review context. VectorLint runs a bounded review and returns verified findings, scores, diagnostics, and usage metadata.
 
-If you haven't run your first check yet, start with the [Quickstart](/quickstart). This page is for understanding the architecture behind what you're running.
+If you haven't run your first check yet, start with the [Quickstart](/quickstart). This page explains the architecture behind that command.
 
-## The evaluation pipeline
+## The review pipeline
 
-Every time you run `vectorlint doc.md`, three things happen in sequence.
+Every time you run `vectorlint doc.md`, VectorLint follows the same high-level path.
 
-### 1. Rule resolution
+### 1. Resolve targets and rules
 
-VectorLint reads your `.vectorlint.ini` to determine which rule packs apply to the file. It loads those rule files, prepends the contents of `VECTORLINT.md` (if present) to each rule's system prompt, and assembles the evaluation context.
+VectorLint reads your project configuration to determine which rule packs apply to each target file. It loads rule files, applies `VECTORLINT.md` as global review context when present, and builds source-backed rules.
 
-If no `.vectorlint.ini` exists, VectorLint detects `VECTORLINT.md` and creates a synthetic "Style Guide Compliance" rule automatically. This is the zero-config path — the fastest way to get from nothing to a working evaluation without writing any rule pack files.
+If no `.vectorlint.ini` exists, VectorLint detects `VECTORLINT.md` and creates a synthetic style-guide rule automatically. This is the zero-config path.
 
-### 2. LLM evaluation
+### 2. Build a review request
 
-VectorLint sends your content to the configured LLM provider with each rule's prompt. Depending on the rule type, the model returns either:
+The CLI builds a `ReviewRequest` with:
 
-- **A list of specific violations** (check rules) — for countable errors like grammar mistakes or banned terms
-- **A scored rubric** (judge rules) — for quality dimensions like tone, clarity, or technical accuracy rated on a 1–4 scale
+- target URI, content, content type, and byte length
+- source-backed rules
+- optional caller-supplied review context
+- review budget
+- output policy
+- model-call strategy
 
-Rules run concurrently up to the `Concurrency` limit set in `.vectorlint.ini`.
+The review contract is intentionally neutral. It does not include workspace exploration tools, model-authored rule overrides, or subjective rubric scoring.
 
-### 3. Filtering
+### 3. Select a model call
 
-Raw model output contains noise — potential violations that don't hold up under scrutiny. VectorLint reduces false positives through a two-phase filtering process:
+VectorLint supports three model-call values:
 
-1. **Candidate generation** — the model returns all potential violations, each tagged with required fields: rule support, exact evidence, context support, plausible non-violation, and fix quality.
-2. **Deterministic surfacing** — VectorLint applies a strict filter and only surfaces violations that pass all required gates.
+| Model call | Use it for |
+| --- | --- |
+| `single` | Normal reviews using structured model calls without tools |
+| `agent` | Large or context-heavy reviews where the model needs target-section paging |
+| `auto` | Default behavior; VectorLint chooses based on target size and rule count |
 
-The CLI output is intentionally stricter than raw model candidates with fewer results and higher confidence.
+`agent` is bounded to the current target. The only tool it can use is `read_target_section`, which reads line ranges from the target content already supplied to VectorLint.
 
-You can tune how aggressively the filter operates with `CONFIDENCE_THRESHOLD` (default: `0.75`). Lower values surface more findings with higher recall; higher values surface fewer findings with higher precision. See [Configuring LLM providers](/llm-providers) for details.
+See [Model calls](/model-calls) for CLI examples and selection details.
 
-## Scoring
+### 4. Process findings
 
-VectorLint uses two scoring methods depending on the rule type.
+Both model-call paths send raw candidate findings through the same finding-processing pipeline:
 
-**Density-based scoring** (check rules) calculates error density, violations per 100 words. VectorLint weights a single error in a short document more heavily than the same error in a long one. This normalizes quality assessment across documents of any length.
+1. filter candidates through the evidence gate
+2. verify finding evidence against target content
+3. deduplicate verified findings
+4. score by verified finding count and density
+5. resolve severity
+6. assemble findings, scores, diagnostics, and usage metadata
 
-**Rubric-based scoring** (judge rules) normalizes the LLM's 1–4 rating to a 1–10 scale and computes a weighted average across all criteria. Criteria weights reflect your real-world priorities — technical accuracy might carry a weight of 40 while SEO carries a weight of 10.
+Unlocatable quoted evidence becomes a diagnostic and does not become a finding.
 
-See [Quality scoring](/quality-scoring) for the full scoring reference.
+### 5. Format output
 
-## Two ways to define quality
+The final `ReviewResult` is routed to the requested output format:
 
-VectorLint gives you two complementary tools for expressing your content standards:
+- `line` for human-readable terminal output
+- `json` for VectorLint's native machine-readable output
+- `vale-json` for Vale-compatible integrations
+- `rdjson` for reviewdog-compatible integrations
 
-- **`VECTORLINT.md`** — plain-language style instructions that apply globally to every evaluation. The fastest path to useful output: no rule files, no configuration syntax, just plain English instructions that the LLM uses as context for every check.
-- **Rule pack files** — structured LLM prompts for specific, measurable checks with weighted scoring criteria. Use these when you need reproducible, auditable results on a particular dimension of quality.
+## Boundaries
 
-The two work together: `VECTORLINT.md` sets the baseline context, and rule pack files enforce specific criteria on top of it.
+VectorLint reviews only the target content and explicit review context supplied to it. It does not search your workspace, read arbitrary files, or expand scope on its own.
 
-See [Defining your style rules](/style-guide) for how to create both.
+This makes VectorLint safe to call from external agents and CI systems: the caller owns exploration, and VectorLint owns constrained review.
+
+## More detail
+
+Read the current [harness architecture spec](https://github.com/TRocket-Labs/vectorlint/blob/main/docs/specs/2026-07-10-harness-architecture.md) for the code-level contract and removed surfaces.
 
 ## Next steps
 
-- [Quickstart](/quickstart) — run your first evaluation in minutes
-- [Defining your style rules](/style-guide) — create VECTORLINT.md and write custom rules
-- [Configuring a project](/project-config) — map files to rule packs
+- [Model calls](/model-calls) — choose `single`, `agent`, or `auto`
+- [Defining your style rules](/style-guide) — create `VECTORLINT.md` and custom rules
+- [CLI reference](/cli-reference) — confirm command syntax and flags

@@ -51,23 +51,19 @@ LLMs evaluate content relative to an implied standard. Make that standard explic
 
 A grammar rule without context produces generic grammar findings. The same rule with a developer audience context produces findings calibrated to technical writing conventions.
 
-## Use weights that reflect real priorities
+## Write observable violation conditions
 
-In judge rules, weights are the single most important configuration decision. They determine which criteria actually control the final score. Treat them as a statement of your content team's values — not arbitrary numbers.
+VectorLint works best when each rule names what counts as a violation. Treat a rule as a checklist of conditions the reviewer can confirm from target evidence.
 
-```yaml
-criteria:
-  - name: Technical Accuracy
-    weight: 40    # Factual errors erode user trust — this matters most
-  - name: Clarity
-    weight: 30    # Unclear docs generate support tickets
-  - name: Tone
-    weight: 20    # Important but recoverable in editing
-  - name: SEO
-    weight: 10    # Nice to have, never at the expense of the above
+```markdown
+Flag a headline when it:
+1. Omits the product or feature being discussed
+2. Promises a benefit that the article does not support
+3. Uses vague value words such as "seamless", "powerful", or "robust"
+4. Exceeds 70 characters
 ```
 
-If everything has the same weight, nothing is prioritized.
+Observable conditions make findings easier to verify and reduce subjective disagreements during review.
 
 ## Tier strictness by content type
 

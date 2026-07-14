@@ -1,0 +1,51 @@
+---
+title: Migration from agent mode
+description: Move integrations from the removed autonomous agent mode to bounded model calls.
+---
+
+VectorLint no longer supports autonomous workspace-agent mode. The current product is a bounded review harness: callers supply the target and any review context, and VectorLint reviews that supplied content against source-backed rules.
+
+## What changed
+
+- `--mode agent` was removed. Use `--model-call single`, `--model-call agent`, or `--model-call auto`.
+- Workspace exploration moved out of VectorLint. External agents or scripts gather context before invoking VectorLint.
+- Provider-level agent loops were removed. Providers expose structured-output and bounded tool-calling capabilities.
+- Model-authored review instructions were removed. Rules remain source-backed.
+
+## Mapping
+
+| Before | After |
+| --- | --- |
+| `vectorlint doc.md --mode agent` | `vectorlint doc.md --model-call agent` for target paging, or `--model-call single` for structured calls |
+| `--mode agent --output json` | `--model-call agent --output json` |
+| `report_finding` for workspace findings | Move workspace-level findings to the caller; VectorLint reports target findings only |
+| `search_content` or `read_file` workspace tools | Caller gathers context and passes it as review context |
+| Model-supplied `reviewInstruction` | Edit the source-backed rule file |
+| `runAgentToolLoop` on a provider | Implement `ReviewExecutor`, or use `StructuredModelClient` / `ToolCallingModelClient` behind an executor |
+
+## Why it changed
+
+The old direction mixed two ownership models: VectorLint as a linter and VectorLint as an autonomous workspace agent. That duplicated result contracts, weakened scope boundaries, and made findings less consistent across output formats.
+
+The harness model keeps responsibilities clear. The caller owns exploration. VectorLint owns bounded review.
+
+## What you get
+
+- Explicit budgets for target size, review context size, chunks per rule, model calls, and elapsed time.
+- One finding-processing path for filtering, evidence verification, scoring, diagnostics, and formatting.
+- The same result shape across `single`, `agent`, and `auto`.
+- A stable contract external agents can call without granting VectorLint workspace exploration authority.
+
+## Migration steps
+
+1. Replace `--mode agent` with `--model-call agent` only when target paging is still useful.
+2. Use `--model-call single` for normal reviews that do not need target-section paging.
+3. Move workspace search, file selection, and context gathering into the caller.
+4. Pass any needed context explicitly as review context when calling the review contract.
+5. Rewrite subjective rubric rules as objective Via Negativa violation checks.
+
+## Related
+
+- [Model calls](/model-calls)
+- [How it works](/how-it-works)
+- [CLI reference](/cli-reference)
