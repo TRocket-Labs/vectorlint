@@ -42,6 +42,14 @@ These guidelines reduce common LLM coding mistakes. They bias toward caution ove
 - For multi-step tasks, state a brief plan with verification for each step.
 - Loop until the success criteria are verified or a blocker is clear.
 
+### Documentation Artifact Boundaries
+
+- Do not commit raw planning or investigation artifacts to the product codebase.
+- Keep audits, plans, specs, run notes, and similar coordination artifacts out of tracked repo paths such as `docs/audits/`, `docs/plans/`, `docs/specs/`, `audits/`, `plans/`, and `specs/`.
+- Store coordination artifacts in `.agent-runs/` or another ignored workspace location.
+- If a durable architectural decision must be committed, write it as an ADR. ADRs are the only allowed committed decision/planning artifacts.
+- Product documentation may describe shipped behavior, configuration, and usage, but it must not preserve internal audit/plan/spec documents as reviewed product docs.
+
 ## Project Structure & Module Organization
 
 - `src/`

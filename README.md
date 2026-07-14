@@ -167,9 +167,7 @@ vectorlint doc.md --model-call auto
 - `auto` is the default. VectorLint chooses `single` for normal inputs and
   `agent` for large or multi-rule reviews that benefit from target paging.
 
-See the current
-[`docs/specs/2026-07-10-harness-architecture.md`](docs/specs/2026-07-10-harness-architecture.md)
-for the contract and boundary details.
+See [Model calls](docs/model-calls.mdx) for more details.
 
 ## Contributing
 
