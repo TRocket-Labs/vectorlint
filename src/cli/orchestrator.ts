@@ -206,7 +206,11 @@ function routePromptResult(
       promptMeta: {
         ...(meta.severity !== undefined ? { severity: meta.severity } : {}),
         ...(meta.strictness !== undefined ? { strictness: meta.strictness } : {}),
-        ...(meta.criteria ? { criteria: meta.criteria } : {}),
+        // Sanitize to the findings contract ({ id, name }): meta.criteria is
+        // PromptCriterionSpec[], which can carry legacy rubric weight/target.
+        ...(meta.criteria
+          ? { criteria: meta.criteria.map((c) => ({ id: c.id, name: c.name })) }
+          : {}),
       },
       targetContent: content,
     });
