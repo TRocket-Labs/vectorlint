@@ -1,5 +1,5 @@
 export interface AIExecutionContext {
-  operation: 'structured-eval' | 'tool-calling' | 'agent-tool-loop';
+  operation: 'structured-eval' | 'tool-calling';
   provider: string;
   model: string;
   evaluator?: string;
