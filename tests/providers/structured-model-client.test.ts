@@ -45,13 +45,11 @@ describe('StructuredModelClient contract', () => {
     const onlyRunPromptStructured: StructuredKeys extends 'runPromptStructured' ? true : false = true;
     expect(onlyRunPromptStructured).toBe(true);
 
-    // Runtime guard: a minimal implementation exposes only runPromptStructured.
+    // Runtime guard: a minimal implementation exposes exactly one capability.
     const client: StructuredModelClient = {
       runPromptStructured: () => Promise.resolve({ data: null }),
     };
-    expect(
-      (client as unknown as Record<string, unknown>).runAgentToolLoop,
-    ).toBeUndefined();
+    expect(Object.keys(client)).toEqual(['runPromptStructured']);
   });
 
   it('is satisfied by VercelAIProvider', () => {

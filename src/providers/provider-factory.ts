@@ -4,7 +4,8 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import type { LanguageModel } from 'ai';
-import { LLMProvider } from './llm-provider';
+import type { StructuredModelClient } from './structured-model-client';
+import type { ToolCallingModelClient } from './tool-calling-model-client';
 import { VercelAIProvider, type VercelAIConfig } from './vercel-ai-provider';
 import { RequestBuilder } from './request-builder';
 import type { EnvConfig } from '../schemas/env-schemas';
@@ -38,7 +39,7 @@ export function createProvider(
   envConfig: EnvConfig,
   options: ProviderOptions = {},
   builder?: RequestBuilder
-): LLMProvider {
+): StructuredModelClient & ToolCallingModelClient {
   let model: LanguageModel;
   let modelName: string;
   let temperature = 0.2;

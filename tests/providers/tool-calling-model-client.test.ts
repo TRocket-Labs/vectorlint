@@ -66,8 +66,6 @@ describe('ToolCallingModelClient contract', () => {
       'read_file',
       'search_content',
       'report_finding',
-      'reviewInstruction',
-      'runAgentToolLoop',
     ];
     for (const concept of forbidden) {
       expect(keys).not.toContain(concept);

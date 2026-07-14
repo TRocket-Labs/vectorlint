@@ -18,7 +18,7 @@ import { resolveTargets } from '../scan/file-resolver';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
 import { evaluateFiles } from './orchestrator';
-import { DEFAULT_REVIEW_MODE, OUTPUT_FORMATS, OutputFormat } from './types';
+import { DEFAULT_REVIEW_MODEL_CALL, OUTPUT_FORMATS, OutputFormat } from './types';
 import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { createWinstonLogger } from '../logging/winston-logger';
 import { createNoopLogger } from '../logging/logger';
@@ -82,8 +82,8 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
     .option('--output <format>', `Output format: ${OUTPUT_FORMATS.join(', ')}`, OUTPUT_FORMATS[0])
-    .option('--mode <mode>', 'Execution mode: standard (default). "agent" is deprecated and falls back to standard.', DEFAULT_REVIEW_MODE)
-    .option('-p, --print', 'Suppress interactive progress output in agent mode')
+    .option('--model-call <modelCall>', 'Model call strategy: single (one structured call per rule), agent (bounded target-only paging), or auto (default)', DEFAULT_REVIEW_MODEL_CALL)
+    .option('--mode <mode>', 'Removed: use --model-call instead')
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
     .action(async (paths: string[] = []) => {
@@ -92,6 +92,15 @@ export function registerMainCommand(program: Command): void {
       if (paths.length === 0) {
         program.help();
         return;
+      }
+
+      // --mode is removed (audit Product Decision): the autonomous workspace-agent
+      // surface is gone. Fail clearly and point users at the replacement rather
+      // than silently mapping it onto --model-call.
+      const rawCliOpts = program.opts() as { mode?: unknown };
+      if (rawCliOpts.mode !== undefined) {
+        console.error('Error: --mode is no longer supported. Use --model-call single|agent|auto instead.');
+        process.exit(1);
       }
 
       // Parse and validate CLI options
@@ -192,6 +201,7 @@ export function registerMainCommand(program: Command): void {
       try {
         observability = await initializeObservability(env, runtimeLogger);
 
+        const requestBuilder = new DefaultRequestBuilder(directive, userInstructions.content || undefined);
         const provider = createProvider(
           env,
           {
@@ -201,7 +211,7 @@ export function registerMainCommand(program: Command): void {
             logger: runtimeLogger,
             observability,
           },
-          new DefaultRequestBuilder(directive, userInstructions.content || undefined)
+          requestBuilder
         );
 
         // Create search provider if API key is available
@@ -214,14 +224,14 @@ export function registerMainCommand(program: Command): void {
           prompts,
           rulesPath,
           provider,
+          requestBuilder,
           ...(searchProvider ? { searchProvider } : {}),
           concurrency: config.concurrency,
           verbose: cliOptions.verbose,
           logger: runtimeLogger,
           debugJson: cliOptions.debugJson,
           outputFormat: cliOptions.output,
-          mode: cliOptions.mode,
-          printMode: cliOptions.print,
+          modelCall: cliOptions.modelCall,
           scanPaths: config.scanPaths,
           pricing: {
             inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,

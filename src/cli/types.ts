@@ -1,15 +1,20 @@
 import type { PromptFile } from '../prompts/prompt-loader';
-import type { LLMProvider } from '../providers/llm-provider';
+import type { StructuredModelClient } from '../providers/structured-model-client';
+import type { ToolCallingModelClient } from '../providers/tool-calling-model-client';
 import type { SearchProvider } from '../providers/search-provider';
+import type { RequestBuilder } from '../providers/request-builder';
 import type { FilePatternConfig } from '../boundaries/file-section-parser';
 import type { EvaluationSummary } from '../output/reporter';
 import { ValeJsonFormatter } from '../output/vale-json-formatter';
 import { JsonFormatter } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
-import type { PromptEvaluationResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
 import type { TokenUsageStats, PricingConfig } from '../providers/token-usage';
 import type { Logger } from '../logging/logger';
+import type { ReviewModelCall } from '../review/types';
+
+export { REVIEW_MODEL_CALLS } from '../review/executor';
+export type { ReviewModelCall } from '../review/types';
 
 export enum OutputFormat {
     Line = "line",
@@ -27,25 +32,26 @@ export const OUTPUT_FORMATS = [
 
 export const DEFAULT_OUTPUT_FORMAT = OUTPUT_FORMATS[0];
 
-export const REVIEW_MODES = ['standard', 'agent'] as const;
-export const DEFAULT_REVIEW_MODE = REVIEW_MODES[0];
-export const AGENT_REVIEW_MODE = REVIEW_MODES[1];
-
-export type ReviewMode = (typeof REVIEW_MODES)[number];
+/**
+ * How the reviewer model is invoked for a review (audit Product Decision;
+ * Finding #2). `single` is one structured call per rule/chunk; `agent` is a
+ * bounded target-only paging run; `auto` resolves via `chooseModelCall`.
+ */
+export const DEFAULT_REVIEW_MODEL_CALL: ReviewModelCall = 'auto';
 
 export interface EvaluationOptions {
     prompts: PromptFile[];
     rulesPath: string | undefined;
-    provider: LLMProvider;
+    provider: StructuredModelClient & ToolCallingModelClient;
+    /** Retained for the search-provider capability; the executor path reviews structured output. */
     searchProvider?: SearchProvider;
+    requestBuilder: RequestBuilder;
     concurrency: number;
     verbose: boolean;
     debugJson?: boolean;
     scanPaths: FilePatternConfig[];
     outputFormat?: OutputFormat;
-    mode?: ReviewMode;
-    printMode?: boolean;
-    agentMaxRetries?: number;
+    modelCall: ReviewModelCall;
     pricing?: PricingConfig;
     userInstructionContent?: string;
     logger?: Logger;
@@ -69,15 +75,6 @@ export interface ErrorTrackingResult {
     scoreEntries?: EvaluationSummary[];
 }
 
-export interface EvaluationContext {
-    content: string;
-    relFile: string;
-    outputFormat: OutputFormat;
-    jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
-    verbose?: boolean;
-    debugJson?: boolean;
-}
-
 export interface ReportIssueParams {
     file: string;
     line: number;
@@ -92,34 +89,6 @@ export interface ReportIssueParams {
     fix?: string;
     scoreText?: string;
     match?: string;
-}
-
-export interface ProcessPromptResultParams extends EvaluationContext {
-    promptFile: PromptFile;
-    result: PromptEvaluationResult;
-}
-
-export interface RunPromptEvaluationParams {
-    promptFile: PromptFile;
-    relFile: string;
-    content: string;
-    provider: LLMProvider;
-    searchProvider?: SearchProvider;
-}
-
-export interface RunPromptEvaluationResultSuccess {
-    ok: true;
-    result: PromptEvaluationResult;
-}
-
-export type RunPromptEvaluationResult =
-    | RunPromptEvaluationResultSuccess
-    | { ok: false; error: Error };
-
-export interface EvaluateFileParams {
-    file: string;
-    options: EvaluationOptions;
-    jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter;
 }
 
 export interface EvaluateFileResult extends ErrorTrackingResult {

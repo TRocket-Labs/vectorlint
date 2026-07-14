@@ -2,7 +2,8 @@ import { generateText, Output, NoObjectGeneratedError, stepCountIs, tool } from 
 import type { LanguageModel } from 'ai';
 import { z } from 'zod';
 import pLimit from 'p-limit';
-import { AgentToolLoopParams, AgentToolLoopResult, LLMProvider, LLMResult } from './llm-provider';
+import type { LLMProvider } from './llm-provider';
+import type { LLMResult } from './structured-model-client';
 import type { ToolCallDefinition, ToolCallRunOptions, ToolCallingModelClient } from './tool-calling-model-client';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import { createNoopLogger, type Logger } from '../logging/logger';
@@ -250,70 +251,6 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
       const err = e instanceof Error ? e : new Error(String(e));
       throw new Error(`Vercel AI SDK tool-calling call failed: ${err.message}`);
     }
-  }
-
-  runAgentToolLoop = async (params: AgentToolLoopParams): Promise<AgentToolLoopResult> => {
-    const maxParallel = params.maxParallelToolCalls ?? 1;
-    const limit = pLimit(maxParallel);
-
-    const mappedTools = Object.fromEntries(
-      Object.entries(params.tools).map(([name, definition]) => [
-        name,
-        tool({
-          description: definition.description,
-          inputSchema: definition.inputSchema as z.ZodType,
-          execute: (input: unknown) => limit(() => definition.execute(input)),
-        }),
-      ])
-    );
-
-    const result = await generateText({
-      model: this.config.model,
-      system: params.systemPrompt,
-      prompt: params.prompt,
-      ...(params.maxRetries !== undefined ? { maxRetries: params.maxRetries } : {}),
-      ...this.getObservabilityOptions({
-        operation: 'agent-tool-loop',
-        provider: this.config.providerName ?? 'unknown',
-        model: this.config.modelName ?? 'unknown',
-      }),
-      stopWhen: stepCountIs(params.maxSteps ?? 1000),
-      providerOptions: {
-        openai: {
-          parallelToolCalls: maxParallel > 1,
-        },
-      },
-      tools: mappedTools,
-    });
-
-    if (this.config.debug) {
-      for (const [i, step] of result.steps.entries()) {
-        const toolNames = step.toolCalls.map((c) => c.toolName).join(', ') || '(none)';
-        this.logger.debug(
-          `[agent] step ${i + 1}: finishReason=${step.finishReason} tools=[${toolNames}]`
-        );
-        if (step.text) {
-          this.logger.debug(
-            `[agent] step ${i + 1} text: ${step.text.slice(0, 500)}${step.text.length > 500 ? '...' : ''}`
-          );
-        }
-      }
-      this.logger.debug(`[agent] final finishReason=${result.finishReason} steps=${result.steps.length}`);
-      if (result.text) {
-        this.logger.debug(
-          `[agent] final text: ${result.text.slice(0, 500)}${result.text.length > 500 ? '...' : ''}`
-        );
-      }
-    }
-
-    return result.usage
-      ? {
-          usage: {
-            inputTokens: result.usage.inputTokens ?? 0,
-            outputTokens: result.usage.outputTokens ?? 0,
-          },
-        }
-      : {};
   }
 
   private getObservabilityOptions(context: AIExecutionContext): Record<string, unknown> {
