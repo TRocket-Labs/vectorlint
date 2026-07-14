@@ -12,6 +12,7 @@ import { printFileHeader, printIssueRow, printEvaluationSummaries, type Evaluati
 import { checkTarget } from '../prompts/target';
 import { isJudgeResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
+import { processFindings } from '../findings';
 import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
@@ -616,79 +617,72 @@ function routePromptResult(
   let promptErrors = 0;
   let promptWarnings = 0;
 
-  // Handle Check Result
+  // Handle Check Result — routed through the shared finding processor
+  // (Phase 3, audit Findings #4 and #6). The processor verifies evidence,
+  // filters, deduplicates, scores, and resolves severity; the orchestrator
+  // only feeds the returned ReviewResult to the existing formatter sinks.
   if (!isJudgeResult(result)) {
-    const { decisions, surfacedViolations } = getViolationFilterResults(
-      result.violations
-    );
+    const reviewResult = processFindings({
+      pack: promptFile.pack,
+      ruleId: promptId,
+      ruleSource: promptFile.fullPath,
+      candidateFindings: result.violations,
+      wordCount: result.word_count,
+      promptMeta: {
+        ...(meta.severity !== undefined ? { severity: meta.severity } : {}),
+        ...(meta.strictness !== undefined ? { strictness: meta.strictness } : {}),
+        ...(meta.criteria ? { criteria: meta.criteria } : {}),
+      },
+      targetContent: content,
+    });
 
-    // Score calculated from surfaced violations only — matches what user sees
-    const scored = calculateCheckScore(
-      surfacedViolations,
-      result.word_count,
-      {
-        strictness: promptFile.meta.strictness,
-        promptSeverity: promptFile.meta.severity,
-      }
-    );
-    const severity = scored.severity;
-    // Group violations by criterionName
-    const violationsByCriterion = new Map<
-      string | undefined,
-      typeof surfacedViolations
-    >();
-    for (const v of surfacedViolations) {
-      const criterionName = v.criterionName;
-      if (!violationsByCriterion.has(criterionName)) {
-        violationsByCriterion.set(criterionName, []);
-      }
-      violationsByCriterion.get(criterionName)!.push(v);
+    // processFindings always returns exactly one score entry (processor contract).
+    const ruleScore = reviewResult.scores[0]!;
+    const severity =
+      ruleScore.severity === 'error' ? Severity.ERROR : Severity.WARNING;
+
+    // Report only verified findings through the existing line/json/rdjson/vale sink.
+    for (const finding of reviewResult.findings) {
+      reportIssue({
+        file: relFile,
+        line: finding.line,
+        column: finding.column,
+        severity,
+        summary: finding.message,
+        ruleName: finding.ruleId,
+        outputFormat,
+        jsonFormatter,
+        ...(finding.analysis !== undefined ? { analysis: finding.analysis } : {}),
+        ...(finding.suggestion !== undefined ? { suggestion: finding.suggestion } : {}),
+        ...(finding.fix !== undefined ? { fix: finding.fix } : {}),
+        match: finding.match,
+      });
     }
 
-    // Report violations grouped by criterion
-    let totalErrors = 0;
-    let totalWarnings = 0;
-
-    for (const [criterionName, violations] of violationsByCriterion) {
-      // Find criterion ID from meta
-      let criterionId: string | undefined;
-      if (criterionName && meta.criteria) {
-        const criterion = meta.criteria.find(c => c.name === criterionName);
-        criterionId = criterion?.id;
-      }
-
-      const ruleName = buildRuleName(promptFile.pack, promptId, criterionId);
-
-      if (violations.length > 0) {
-        const violationResult = locateAndReportViolations({
-          violations,
-          content,
-          relFile,
-          severity,
-          ruleName,
-          scoreText: '',
-          outputFormat,
-          jsonFormatter,
-          verbose: !!verbose,
-        });
-        hadOperationalErrors = hadOperationalErrors || violationResult.hadOperationalErrors;
-
-        if (severity === Severity.ERROR) {
-          totalErrors += violations.length;
-        } else {
-          totalWarnings += violations.length;
-        }
+    // Diagnostics (e.g. finding-evidence-not-locatable) surface in verbose mode,
+    // consistent with prior operational reporting. They are warn-level and do not
+    // flag the run as operationally failed (audit Finding #6).
+    if (verbose) {
+      for (const diagnostic of reviewResult.diagnostics) {
+        console.warn(`[vectorlint] ${diagnostic.message}`);
       }
     }
 
-    // Create scoreEntry for Quality Scores display
+    // Verified finding count drives the counts (audit Finding #6).
+    const findingCount = reviewResult.findings.length;
+    const totalErrors = severity === Severity.ERROR ? findingCount : 0;
+    const totalWarnings = severity === Severity.ERROR ? 0 : findingCount;
+
     const scoreEntry: EvaluationSummary = {
-      id: buildRuleName(promptFile.pack, promptId, undefined),
-      scoreText: `${scored.final_score.toFixed(1)}/10`,
-      score: scored.final_score,
+      id: ruleScore.ruleId,
+      scoreText: ruleScore.scoreText,
+      score: ruleScore.score,
     };
 
     if (debugJson) {
+      const { decisions, surfacedViolations } = getViolationFilterResults(
+        result.violations
+      );
       const runId = randomUUID();
       const model = getModelInfoFromEnv();
 
@@ -721,7 +715,7 @@ function routePromptResult(
     return {
       errors: totalErrors,
       warnings: totalWarnings,
-      hadOperationalErrors,
+      hadOperationalErrors: reviewResult.hadOperationalErrors ?? false,
       hadSeverityErrors: severity === Severity.ERROR && totalErrors > 0,
       scoreEntries: [scoreEntry],
     };
