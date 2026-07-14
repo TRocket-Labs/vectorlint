@@ -391,6 +391,7 @@ describe('VercelAIProvider', () => {
           }) as Record<string, unknown>,
         })
       );
+      expect(logger.debug).not.toHaveBeenCalledWith('Test content');
     });
 
     it('does not log when debug is disabled', async () => {

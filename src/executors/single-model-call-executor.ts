@@ -50,7 +50,10 @@ export class SingleModelCallExecutor implements ReviewExecutor {
 
   async run(request: ReviewRequest): Promise<ReviewResult> {
     const schema = buildCheckLLMSchema();
-    const context = buildEvalContext(request.target.uri);
+    const context = {
+      ...buildEvalContext(request.target.uri),
+      recordPayloadTelemetry: request.outputPolicy.recordPayloadTelemetry,
+    };
 
     const findings: ReviewFinding[] = [];
     const scores: ReviewScore[] = [];

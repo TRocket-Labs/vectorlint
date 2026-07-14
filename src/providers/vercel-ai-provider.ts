@@ -91,6 +91,9 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
         model: this.config.modelName ?? 'unknown',
         ...(evaluator ? { evaluator } : {}),
         ...(rule ? { rule } : {}),
+        ...(context?.recordPayloadTelemetry !== undefined
+          ? { recordPayloadTelemetry: context.recordPayloadTelemetry }
+          : {}),
       });
 
       const result = await generateText({
@@ -197,6 +200,9 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
           operation: 'tool-calling',
           provider: this.config.providerName ?? 'unknown',
           model: this.config.modelName ?? 'unknown',
+          ...(options.recordPayloadTelemetry !== undefined
+            ? { recordPayloadTelemetry: options.recordPayloadTelemetry }
+            : {}),
         }),
         stopWhen: stepCountIs(options.maxSteps ?? DEFAULT_TOOL_CALLING_MAX_STEPS),
         providerOptions: {

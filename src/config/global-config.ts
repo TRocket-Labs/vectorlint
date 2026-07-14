@@ -74,11 +74,11 @@ export function ensureGlobalConfig(): string {
     const configDir = path.dirname(configPath);
 
     if (!existsSync(configDir)) {
-        mkdirSync(configDir, { recursive: true });
+        mkdirSync(configDir, { recursive: true, mode: 0o700 });
     }
 
     if (!existsSync(configPath)) {
-        writeFileSync(configPath, DEFAULT_GLOBAL_CONFIG_TEMPLATE, 'utf-8');
+        writeFileSync(configPath, DEFAULT_GLOBAL_CONFIG_TEMPLATE, { encoding: 'utf-8', mode: 0o600 });
     }
 
     return configPath;

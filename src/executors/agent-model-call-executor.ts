@@ -50,7 +50,10 @@ export class AgentModelCallExecutor implements ReviewExecutor {
     const capability = new TargetReadCapability(request.target.content);
     // Exactly one executor-owned tool is exposed: target-section paging.
     const tools = buildReadTargetSectionTool(capability);
-    const context = buildEvalContext(request.target.uri);
+    const context = {
+      ...buildEvalContext(request.target.uri),
+      recordPayloadTelemetry: request.outputPolicy.recordPayloadTelemetry,
+    };
 
     const findings: ReviewFinding[] = [];
     const scores: ReviewScore[] = [];
@@ -136,6 +139,7 @@ export class AgentModelCallExecutor implements ReviewExecutor {
         // emitting its structured finding set.
         maxSteps: request.budget.maxChunksPerRule,
         maxParallelToolCalls: 1,
+        recordPayloadTelemetry: request.outputPolicy.recordPayloadTelemetry,
       },
     });
 

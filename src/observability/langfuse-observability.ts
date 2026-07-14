@@ -63,8 +63,8 @@ export class LangfuseObservability implements AIObservability {
           ...(context.evaluator ? { evaluator: context.evaluator } : {}),
           ...(context.rule ? { rule: context.rule } : {}),
         },
-        recordInputs: true,
-        recordOutputs: true,
+        recordInputs: context.recordPayloadTelemetry === true,
+        recordOutputs: context.recordPayloadTelemetry === true,
       },
     };
   }

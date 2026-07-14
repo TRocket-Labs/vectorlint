@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { loadGlobalConfig } from '../src/config/global-config';
+import { ensureGlobalConfig, loadGlobalConfig } from '../src/config/global-config';
 import { GLOBAL_CONFIG_DIR, GLOBAL_CONFIG_FILE } from '../src/config/constants';
 
 // Mock fs and os
@@ -47,6 +47,21 @@ BOOL_KEY = true
         expect(process.env.NUMBER_KEY).toBe('123');
         expect(process.env.BOOL_KEY).toBe('true');
         expect(fs.readFileSync).toHaveBeenCalledWith(mockConfigPath, 'utf-8');
+    });
+
+    it('creates the global config directory and file with restrictive modes', () => {
+        vi.mocked(fs.existsSync).mockReturnValue(false);
+
+        expect(ensureGlobalConfig()).toBe(mockConfigPath);
+        expect(fs.mkdirSync).toHaveBeenCalledWith(
+            path.dirname(mockConfigPath),
+            { recursive: true, mode: 0o700 },
+        );
+        expect(fs.writeFileSync).toHaveBeenCalledWith(
+            mockConfigPath,
+            expect.any(String),
+            { encoding: 'utf-8', mode: 0o600 },
+        );
     });
 
     it('should NOT overwrite existing env vars', () => {

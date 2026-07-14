@@ -21,6 +21,8 @@ export interface ToolCallDefinition {
  * transport honors them. It does not invent its own product-level loop.
  */
 export interface ToolCallRunOptions {
+  /** Opt in to recording prompt and generated payloads in telemetry. */
+  recordPayloadTelemetry?: boolean;
   /** Maximum number of model steps (tool-call rounds) before the run stops. */
   maxSteps?: number;
   /** Provider retry budget for transient failures. */

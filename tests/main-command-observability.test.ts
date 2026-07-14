@@ -97,7 +97,7 @@ describe('Main command observability lifecycle', () => {
       showPromptTrunc: false,
       debugJson: false,
       output: 'line',
-      modelCall: 'auto',
+      modelCall: 'single',
       config: undefined,
     });
     MOCK_PARSE_ENVIRONMENT.mockReturnValue(env);
@@ -141,7 +141,7 @@ describe('Main command observability lifecycle', () => {
       showPromptTrunc: false,
       debugJson: false,
       output: 'line',
-      modelCall: 'auto',
+      modelCall: 'single',
       config: undefined,
     });
     const observability = {

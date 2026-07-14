@@ -2,6 +2,7 @@
 
 export interface EvalContext {
   fileType?: string;
+  recordPayloadTelemetry?: boolean;
 }
 
 export interface RequestBuilder {

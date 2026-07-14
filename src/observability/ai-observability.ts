@@ -4,6 +4,7 @@ export interface AIExecutionContext {
   model: string;
   evaluator?: string;
   rule?: string;
+  recordPayloadTelemetry?: boolean;
 }
 
 export interface AIObservability {
