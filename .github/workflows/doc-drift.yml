@@ -8,10 +8,11 @@ jobs:
   authorize:
     name: Check authorization
     runs-on: ubuntu-latest
-    # Only run on PR comments that start with /check-docs
+    # Only run on PR comments that start with /check-docs (skip bots)
     if: |
       github.event.issue.pull_request != null &&
-      startsWith(github.event.comment.body, '/check-docs')
+      startsWith(github.event.comment.body, '/check-docs') &&
+      !contains(github.event.comment.user.login, '[bot]')
 
     permissions:
       issues: write
@@ -22,18 +23,25 @@ jobs:
       authorized: ${{ steps.auth.outputs.authorized }}
 
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - name: Check authorization
         id: auth
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const association = context.payload.comment.author_association;
-            if (association !== 'OWNER') {
+            if (!['OWNER', 'MEMBER'].includes(association)) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
-                body: `@${context.payload.comment.user.login} Only the repo owner can trigger doc drift checks.`
+                body: `@${context.payload.comment.user.login} Only repo owners or members can trigger doc drift checks.`
               });
               core.setOutput('authorized', 'false');
             } else {
@@ -52,10 +60,16 @@ jobs:
       contents: read
 
     steps:
-
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - name: React to comment
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
             await github.rest.reactions.createForIssueComment({
               owner: context.repo.owner,
@@ -68,6 +82,7 @@ jobs:
         id: pr
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const pr = await github.rest.pulls.get({
               owner: context.repo.owner,
@@ -103,7 +118,7 @@ jobs:
 
       - name: Fetch PR diff
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           DIFF_PATH="$GITHUB_WORKSPACE/pr/.doc-drift-input.diff"
           gh pr diff ${{ github.event.issue.number }} > "$DIFF_PATH"
@@ -130,7 +145,7 @@ jobs:
 
       - name: Post report comments
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           REPORT_FILES=$(ls "$GITHUB_WORKSPACE"/pr/.doc-drift-*.md 2>/dev/null | sort -V)
           if [ -z "$REPORT_FILES" ]; then
@@ -145,7 +160,7 @@ jobs:
       - name: Post failure comment
         if: failure()
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           gh pr comment ${{ github.event.issue.number }} \
             --body "Doc drift check failed. Check the [Actions log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
