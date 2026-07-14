@@ -6,10 +6,9 @@ import * as os from 'os';
 import type { PromptFile } from '../prompts/prompt-loader';
 import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
-import { JsonFormatter, type Issue, type ScoreComponent } from '../output/json-formatter';
+import { JsonFormatter, type Issue } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
 import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
-import { checkTarget } from '../prompts/target';
 import { isJudgeResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { processFindings } from '../findings';
@@ -21,8 +20,7 @@ import { runAgentExecutor, type AgentExecutorResult, type AgentFinding } from '.
 import { AgentProgressReporter, shouldEmitAgentProgress } from '../agent/progress';
 import type {
   EvaluationOptions, EvaluationResult, ErrorTrackingResult,
-  ReportIssueParams, ProcessViolationsParams,
-  ProcessCriterionParams, ProcessCriterionResult, ValidationParams, ProcessPromptResultParams,
+  ReportIssueParams, ProcessPromptResultParams,
   RunPromptEvaluationParams, RunPromptEvaluationResult, EvaluateFileParams, EvaluateFileResult,
   RunPromptEvaluationResultSuccess
 } from './types';
@@ -33,7 +31,6 @@ import {
 import { calculateCheckScore } from '../scoring';
 import { countWords } from '../chunking/utils';
 import { buildRuleId, normalizeRuleSource } from '../agent/rule-id';
-import { locateQuotedText } from "../output/location";
 import {
   computeFilterDecision,
   type FilterDecision,
@@ -63,23 +60,6 @@ function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string
   return { ...(provider && { provider }), ...(name && { name }), ...(tag && { tag }) };
 }
 
-
-/*
- * Constructs a hierarchical rule name following the pattern:
- * - With criterion: PackName.RuleId.CriterionId
- * - Without criterion: PackName.RuleId
- */
-function buildRuleName(
-  packName: string,
-  ruleId: string,
-  criterionId: string | undefined
-): string {
-  const parts = [packName, ruleId];
-  if (criterionId) {
-    parts.push(criterionId);
-  }
-  return parts.join('.');
-}
 
 /*
  * Generic concurrency runner that executes workers in parallel up to a specified limit.
@@ -174,119 +154,6 @@ function reportIssue(params: ReportIssueParams): void {
   }
 }
 
-/*
- * Locates and reports each violation using pre/post evidence markers.
- * If location matching fails (missing markers, content mismatch), logs warning
- * and continues processing. Returns hadOperationalErrors=true if any violations
- * couldn't be located, signaling text matching issues vs. content quality issues.
- */
-function locateAndReportViolations(params: ProcessViolationsParams): {
-  hadOperationalErrors: boolean;
-} {
-  const {
-    violations,
-    content,
-    relFile,
-    severity,
-    ruleName,
-    scoreText,
-    outputFormat,
-    jsonFormatter,
-    verbose,
-  } = params;
-
-  let hadOperationalErrors = false;
-
-  // Locate all violations and filter out those that can't be verified
-  // Then de-duplicate by (quoted_text, line)
-  const seen = new Set<string>();
-  const verifiedViolations: Array<{
-    v: (typeof violations)[0];
-    line: number;
-    column: number;
-    matchedText: string;
-    rowSummary: string;
-  }> = [];
-
-  for (const v of violations) {
-    if (!v) continue;
-
-    const rowSummary = (v.message || "").trim();
-
-    try {
-      const locWithMatch = locateQuotedText(
-        content,
-        {
-          quoted_text: v.quoted_text || "",
-          context_before: v.context_before || "",
-          context_after: v.context_after || "",
-        },
-        80,
-        v.line
-      );
-
-      if (!locWithMatch) {
-        // Can't verify this quote exists - skip it entirely
-        if (verbose) {
-          console.warn(
-            `[vectorlint] Skipping unverifiable quote: "${v.quoted_text}"`
-          );
-        }
-        hadOperationalErrors = true;
-        continue;
-      }
-
-      const line = locWithMatch.line;
-      const column = locWithMatch.column;
-      const matchedText = locWithMatch.match || "";
-
-      // De-duplicate by (quoted_text, line) - skip if quoted_text is empty
-      const dedupeKey = v.quoted_text ? `${v.quoted_text}:${line}` : null;
-      if (dedupeKey && seen.has(dedupeKey)) {
-        continue; // Skip duplicate
-      }
-      if (dedupeKey) {
-        seen.add(dedupeKey);
-      }
-
-      verifiedViolations.push({ v, line, column, matchedText, rowSummary });
-    } catch (e: unknown) {
-      const err = handleUnknownError(e, "Locating evidence");
-      if (verbose) {
-        console.warn(`[vectorlint] Error locating evidence: ${err.message}`);
-      }
-      hadOperationalErrors = true;
-    }
-  }
-
-  // Report only verified, unique violations
-  for (const {
-    v,
-    line,
-    column,
-    matchedText,
-    rowSummary,
-  } of verifiedViolations) {
-    reportIssue({
-      file: relFile,
-      line,
-      column,
-      severity,
-      summary: rowSummary,
-      ruleName,
-      outputFormat,
-      jsonFormatter,
-      ...(v.analysis !== undefined && { analysis: v.analysis }),
-      ...(v.suggestion !== undefined && { suggestion: v.suggestion }),
-      ...(v.fix !== undefined && { fix: v.fix }),
-      scoreText,
-      match: matchedText,
-    });
-  }
-
-  return { hadOperationalErrors };
-}
-
 function getViolationFilterResults<
   TViolation extends Parameters<typeof computeFilterDecision>[0]
 >(
@@ -304,297 +171,10 @@ function getViolationFilterResults<
 }
 
 /*
- * Extracts pre-calculated scores from a subjective evaluation criterion and reports surfaced violations.
- * Violations that do not pass computeFilterDecision are not reported.
- * Returns error/warning counts, score entry for Quality Scores, and score components for JSON.
- */
-function extractAndReportCriterion(
-  params: ProcessCriterionParams
-): ProcessCriterionResult {
-  const {
-    exp,
-    result,
-    content,
-    relFile,
-    packName,
-    promptId,
-    meta,
-    outputFormat,
-    jsonFormatter,
-    verbose,
-  } = params;
-  let hadOperationalErrors = false;
-  let hadSeverityErrors = false;
-
-  const nameKey = String(exp.name || exp.id || "");
-  const criterionId = exp.id
-    ? String(exp.id)
-    : exp.name
-      ? String(exp.name)
-        .replace(/[^A-Za-z0-9]+/g, " ")
-        .split(" ")
-        .filter(Boolean)
-        .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-        .join("")
-      : "";
-  const ruleName = buildRuleName(packName, promptId, criterionId);
-
-  const weightNum = exp.weight || 1;
-  const maxScore = weightNum;
-
-  // Target gating (deterministic precheck)
-  const metaTargetSpec = meta.target;
-  const expTargetSpec = exp.target;
-  const targetCheck = checkTarget(content, metaTargetSpec, expTargetSpec);
-  const missingTarget = targetCheck.missing;
-
-  if (missingTarget) {
-    hadSeverityErrors = true;
-    const summary = "target not found";
-    const suggestion =
-      targetCheck.suggestion ||
-      expTargetSpec?.suggestion ||
-      metaTargetSpec?.suggestion ||
-      "Add the required target section.";
-    reportIssue({
-      file: relFile,
-      line: 1,
-      column: 1,
-      severity: Severity.ERROR,
-      summary,
-      ruleName,
-      outputFormat,
-      jsonFormatter,
-      suggestion,
-      scoreText: "nil",
-      match: "",
-    });
-    return {
-      errors: 1,
-      warnings: 0,
-      userScore: 0,
-      maxScore,
-      hadOperationalErrors,
-      hadSeverityErrors,
-      scoreEntry: { id: ruleName, scoreText: "0.0/10", score: 0.0 },
-      scoreComponent: {
-        criterion: nameKey,
-        rawScore: 0,
-        maxScore: 4,
-        weightedScore: 0,
-        weightedMaxScore: weightNum,
-        normalizedScore: 0,
-        normalizedMaxScore: 10,
-      },
-    };
-  }
-
-  const got = result.criteria.find(
-    (c) => c.name === nameKey || c.name.toLowerCase() === nameKey.toLowerCase()
-  );
-  if (!got) {
-    return {
-      errors: 0,
-      warnings: 0,
-      userScore: 0,
-      maxScore,
-      hadOperationalErrors,
-      hadSeverityErrors,
-      scoreEntry: { id: ruleName, scoreText: "-", score: 0.0 },
-      scoreComponent: {
-        criterion: nameKey,
-        rawScore: 0,
-        maxScore: 4,
-        weightedScore: 0,
-        weightedMaxScore: weightNum,
-        normalizedScore: 0,
-        normalizedMaxScore: 10,
-      },
-    };
-  }
-
-  const score = Number(got.score);
-
-  // Use pre-calculated values from evaluator
-  const rawWeighted = got.weighted_points;
-  const normalizedScore = got.normalized_score;
-  const userScore = rawWeighted;
-  const violations = got.violations;
-  const { surfacedViolations } = getViolationFilterResults(violations);
-
-  // Display normalized score (1-10) in CLI output
-  const scoreText = `${normalizedScore.toFixed(1)}/10`;
-
-  // Determine severity based on violations
-  // If there are violations, use evaluator's scoring to determine severity
-  // Score <= 1 = error, score = 2 = warning, score > 2 = no severity needed (but we still create scoreEntry)
-  let errors = 0;
-  let warnings = 0;
-  let severity: Severity | undefined;
-
-  if (surfacedViolations.length > 0) {
-    // Determine severity from score for violations
-    if (score <= 1) {
-      severity = Severity.ERROR;
-      hadSeverityErrors = true;
-      errors = surfacedViolations.length;
-    } else if (score === 2) {
-      severity = Severity.WARNING;
-      warnings = surfacedViolations.length;
-    } else {
-      // Score > 2 but has violations - this is informational
-      // Use WARNING as default for informational violations
-      severity = Severity.WARNING;
-      warnings = surfacedViolations.length;
-    }
-
-    // Report surfaced violations only
-    const violationResult = locateAndReportViolations({
-      violations: surfacedViolations as Array<{
-        line?: number;
-        quoted_text?: string;
-        context_before?: string;
-        context_after?: string;
-        analysis?: string;
-        suggestion?: string;
-      }>,
-      content,
-      relFile,
-      severity,
-      ruleName,
-      scoreText,
-      outputFormat,
-      jsonFormatter,
-      verbose: !!verbose,
-    });
-    hadOperationalErrors =
-      hadOperationalErrors || violationResult.hadOperationalErrors;
-  } else if (score <= 2) {
-    // No violations but low score - report with summary
-    severity = score <= 1 ? Severity.ERROR : Severity.WARNING;
-    if (severity === Severity.ERROR) {
-      hadSeverityErrors = true;
-      errors = 1;
-    } else {
-      warnings = 1;
-    }
-
-    const sum = got.summary.trim();
-    const words = sum.split(/\s+/).filter(Boolean);
-    const limited = words.slice(0, 15).join(" ");
-    const summaryText = limited || "No findings";
-    reportIssue({
-      file: relFile,
-      line: 1,
-      column: 1,
-      severity,
-      summary: summaryText,
-      ruleName,
-      outputFormat,
-      jsonFormatter,
-      scoreText,
-      match: "",
-    });
-  }
-
-  return {
-    errors,
-    warnings,
-    userScore,
-    maxScore,
-    hadOperationalErrors,
-    hadSeverityErrors,
-    scoreEntry: { id: ruleName, scoreText, score: normalizedScore },
-    scoreComponent: {
-      criterion: nameKey,
-      rawScore: score,
-      maxScore: 4,
-      weightedScore: rawWeighted,
-      weightedMaxScore: weightNum,
-      normalizedScore: normalizedScore,
-      normalizedMaxScore: 10,
-    },
-  };
-}
-
-/*
- * Validates that all expected criteria are present in the result.
- */
-function validateCriteriaCompleteness(params: ValidationParams): boolean {
-  const { meta, result } = params;
-  let hadErrors = false;
-
-  const expectedNames = new Set<string>(
-    (meta.criteria || []).map((c) => String(c.name || c.id || ""))
-  );
-  const returnedNames = new Set(
-    result.criteria.map((c: { name: string }) => c.name)
-  );
-
-  // Create normalized maps for case-insensitive lookup
-  const expectedNormalized = new Set<string>();
-  const expectedOriginalMap = new Map<string, string>();
-  for (const name of expectedNames) {
-    const norm = name.toLowerCase();
-    expectedNormalized.add(norm);
-    expectedOriginalMap.set(norm, name);
-  }
-
-  const returnedNormalized = new Set<string>();
-  for (const name of returnedNames) {
-    returnedNormalized.add(name.toLowerCase());
-  }
-
-  for (const norm of expectedNormalized) {
-    if (!returnedNormalized.has(norm)) {
-      console.error(
-        `Missing criterion in model output: ${expectedOriginalMap.get(norm)}`
-      );
-      hadErrors = true;
-    }
-  }
-
-  for (const name of returnedNames) {
-    if (!expectedNormalized.has(name.toLowerCase())) {
-      console.warn(
-        `[vectorlint] Extra criterion returned by model (ignored): ${name}`
-      );
-    }
-  }
-
-  return hadErrors;
-}
-
-/*
- * Validates that all criterion scores are within valid range.
- */
-function validateScores(params: ValidationParams): boolean {
-  const { meta, result } = params;
-  let hadErrors = false;
-
-  for (const exp of meta.criteria || []) {
-    const nameKey = String(exp.name || exp.id || "");
-    const got = result.criteria.find(
-      (c) =>
-        c.name === nameKey || c.name.toLowerCase() === nameKey.toLowerCase()
-    );
-    if (!got) continue;
-
-    const score = Number(got.score);
-    if (!Number.isFinite(score) || score < 0 || score > 4) {
-      console.error(`Invalid score for ${nameKey}: ${score}`);
-      hadErrors = true;
-    }
-  }
-
-  return hadErrors;
-}
-
-/*
- * Routes evaluation results through check or judge processing paths.
- * Check: Reports violations, creates scoreEntry using final_score.
- * Judge: Iterates through criteria, validates scores, creates scoreEntry per criterion.
- * Both paths generate scoreEntries for Quality Scores display.
+ * Routes an evaluation result through the shared finding processor.
+ * Check results are verified, filtered, scored, and reported; judge/rubric
+ * results are rejected (Phase 3) because subjective scoring is not a
+ * future-facing review type.
  */
 function routePromptResult(
   params: ProcessPromptResultParams
@@ -611,11 +191,6 @@ function routePromptResult(
   } = params;
   const meta = promptFile.meta;
   const promptId = (meta.id || "").toString();
-
-  let hadOperationalErrors = false;
-  let hadSeverityErrors = false;
-  let promptErrors = 0;
-  let promptWarnings = 0;
 
   // Handle Check Result — routed through the shared finding processor
   // (Phase 3, audit Findings #4 and #6). The processor verifies evidence,
@@ -721,105 +296,21 @@ function routePromptResult(
     };
   }
 
-  // Handle Judge Result
-  // Validate criterion completeness and scores
-  hadOperationalErrors =
-    validateCriteriaCompleteness({ meta, result }) || hadOperationalErrors;
-  hadOperationalErrors =
-    validateScores({ meta, result }) || hadOperationalErrors;
-
-  // Reset promptErrors and promptWarnings for subjective results
-  promptErrors = 0;
-  promptWarnings = 0;
-  const criterionScores: EvaluationSummary[] = [];
-  const scoreComponents: ScoreComponent[] = [];
-
-  // Iterate through each criterion
-  for (const exp of meta.criteria || []) {
-    const criterionResult = extractAndReportCriterion({
-      exp,
-      result,
-      content,
-      relFile,
-      packName: promptFile.pack,
-      promptId,
-      promptFilename: promptFile.filename,
-      meta,
-      outputFormat,
-      jsonFormatter,
-      verbose: !!verbose,
-    });
-
-    promptErrors += criterionResult.errors;
-    promptWarnings += criterionResult.warnings;
-    hadOperationalErrors =
-      hadOperationalErrors || criterionResult.hadOperationalErrors;
-    hadSeverityErrors = hadSeverityErrors || criterionResult.hadSeverityErrors;
-    criterionScores.push(criterionResult.scoreEntry);
-
-    if (criterionResult.scoreComponent) {
-      scoreComponents.push(criterionResult.scoreComponent);
-    }
-  }
-
-  if (outputFormat === OutputFormat.Json && scoreComponents.length > 0) {
-    (jsonFormatter as JsonFormatter | RdJsonFormatter).addEvaluationScore(
-      relFile,
-      {
-        id: promptId || promptFile.filename.replace(/\.md$/, ""),
-        scores: scoreComponents,
-      }
+  // Judge/rubric reviews are not a future-facing review type (Phase 3). The
+  // prompt-meta boundary rejects `type: judge`, so a JudgeResult here means a
+  // caller bypassed that boundary. Refuse it explicitly rather than
+  // misprojecting it as a check result. No adapter is added for judge metadata.
+  if (verbose) {
+    console.warn(
+      '[vectorlint] Judge/rubric review results are no longer supported; skipping prompt.'
     );
   }
-
-  if (debugJson) {
-    const runId = randomUUID();
-    const flat = result.criteria.flatMap((c) =>
-      (c.violations || []).map((v, i) => ({
-        criterion: c.name,
-        index: i,
-        violation: v,
-        decision: computeFilterDecision(v),
-      }))
-    );
-    const model = getModelInfoFromEnv();
-
-    try {
-      const filePath = writeDebugRunArtifact(process.cwd(), runId, {
-        file: relFile,
-        ...(Object.keys(model).length > 0 ? { model } : {}),
-        ...(model.tag !== undefined ? { subdir: model.tag } : {}),
-        prompt: {
-          pack: promptFile.pack,
-          id: promptId,
-          filename: promptFile.filename,
-          evaluation_type: "judge",
-        },
-        raw_model_output: (result as { raw_model_output?: unknown }).raw_model_output ?? null,
-        filter_decisions: flat.map((x) => ({
-          criterion: x.criterion,
-          index: x.index,
-          surface: x.decision.surface,
-          reasons: x.decision.reasons,
-        })),
-        surfaced_violations: flat.filter((x) => x.decision.surface).map((x) => ({
-          criterion: x.criterion,
-          violation: x.violation,
-        })),
-      });
-      console.warn(`[vectorlint] Debug JSON written: ${filePath}`);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn(`[vectorlint] Debug JSON write failed: ${message}`);
-    }
-  }
-
   return {
-    errors: promptErrors,
-    warnings: promptWarnings,
-    hadOperationalErrors,
-    hadSeverityErrors,
-    scoreEntries: criterionScores,
+    errors: 0,
+    warnings: 0,
+    hadOperationalErrors: true,
+    hadSeverityErrors: false,
+    scoreEntries: [],
   };
 }
 

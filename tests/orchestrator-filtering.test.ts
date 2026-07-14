@@ -307,7 +307,11 @@ describe("CLI violation filtering", () => {
     expect(scoreLine).not.toContain("8.0/10");
   });
 
-  it("filters low-confidence judge violations from CLI counts by default", async () => {
+  it("rejects judge/rubric results instead of projecting them as check findings", async () => {
+    // Judge/rubric reviews are not a future-facing review type (Phase 3). The
+    // orchestrator refuses a JudgeResult rather than running the old criterion
+    // extraction/reporting path: no findings are projected and the run is
+    // flagged with an operational error.
     const targetFile = createTempFile("Alpha text\nBeta text\n");
     const prompt = createPrompt({
       id: "JudgePrompt",
@@ -323,42 +327,17 @@ describe("CLI violation filtering", () => {
         makeJudgeViolation({
           line: 2,
           quoted_text: "Beta text",
-          description: "Issue 2",
-          analysis: "Issue 2",
-          suggestion: "Suggestion 2",
-          fix: "Fix 2",
           confidence: 0.2,
         }),
       ])
     );
 
-    const defaultRun = await evaluateFiles(
-      [targetFile],
-      createBaseOptions([prompt])
-    );
-    expect(defaultRun.totalWarnings).toBe(1);
+    const run = await evaluateFiles([targetFile], createBaseOptions([prompt]));
 
-    process.env.CONFIDENCE_THRESHOLD = "0.0";
-    EVALUATE_MOCK.mockResolvedValue(
-      makeJudgeResult([
-        makeJudgeViolation(),
-        makeJudgeViolation({
-          line: 2,
-          quoted_text: "Beta text",
-          description: "Issue 2",
-          analysis: "Issue 2",
-          suggestion: "Suggestion 2",
-          fix: "Fix 2",
-          confidence: 0.2,
-        }),
-      ])
-    );
-
-    const zeroThresholdRun = await evaluateFiles(
-      [targetFile],
-      createBaseOptions([prompt])
-    );
-    expect(zeroThresholdRun.totalWarnings).toBe(2);
+    expect(run.totalErrors).toBe(0);
+    expect(run.totalWarnings).toBe(0);
+    expect(run.hadOperationalErrors).toBe(true);
+    expect(run.hadSeverityErrors).toBe(false);
   });
 
   it("does not emit dummy issues in JSON output when no violations are surfaced", async () => {
