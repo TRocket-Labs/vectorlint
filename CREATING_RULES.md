@@ -8,7 +8,6 @@ A comprehensive guide to creating powerful, reusable content evaluations using V
 - [Rule Anatomy](#rule-anatomy)
 - [Evaluation Modes](#evaluation-modes)
 - [Check Rules](#check-rules)
-- [Judge Rules](#judge-rules)
 - [Target Specification](#target-specification)
 - [Configuration Reference](#configuration-reference)
 - [Best Practices](#best-practices)
@@ -25,7 +24,7 @@ VectorLint rules are Markdown files with YAML frontmatter that define how your c
 - **Rule = Prompt file** (`.md` file organized in rule packs)
 - **Pack** = Subdirectory containing related rules (typically named after a company/style guide)
 - **Criteria** = Individual quality checks within a rule
-- **Score** = LLM-assigned rating (1-4 scale for judge, density-based for check)
+- **Score** = Density-based quality score derived from violation count
 
 - **Severity** = How failures are reported (`error` or `warning`)
 
@@ -74,26 +73,19 @@ project/
 
 ## Evaluation Modes
 
-VectorLint uses a single **Base Evaluator** (`evaluator: base`) that operates in two distinct modes, determined by the `type` field:
+VectorLint uses a single **Base Evaluator** (`evaluator: base`) that operates in one mode, determined by the `type` field:
 
 | Mode       | `type`  | Use Case                              | Scoring                     | Output                  |
 | ---------- | ------- | ------------------------------------- | --------------------------- | ----------------------- |
 | **Check**  | `check` | Pass/fail checks, counting violations | 10 points - 1 per violation | List of specific issues |
-| **Judge**  | `judge` | Multi-dimensional quality scoring     | 0-4 scale per criterion     | Weighted average score  |
 
-### When to Use Each
+The deprecated `type: judge` (alias `subjective`) is no longer supported; a rule using it is rejected at load.
 
-**Use Check when:**
+### When to Use Check
 
 - You need to find specific errors (e.g., "Find all grammar mistakes")
 - The check is binary (Pass/Fail) for each item
 - You want a list of specific violations to fix
-
-**Use Judge when:**
-
-- You're measuring quality on a spectrum (e.g., "How engaging is this?")
-- You have multiple dimensions (Clarity, Tone, Depth)
-- You need weighted importance (some criteria matter more)
 
 ---
 
@@ -141,71 +133,6 @@ Check this content for grammar issues, spelling errors, and punctuation mistakes
 
 ---
 
-## Judge Rules
-
-Judge rules use weighted criteria and a 1-4 rubric for sophisticated quality measurement.
-
-### Structure
-
-```markdown
----
-specVersion: 1.0.0
-evaluator: base
-type: judge
-id: HeadlineEvaluator
-name: Headline Evaluator
-
-severity: error
-criteria:
-  - name: Value Communication
-    id: ValueCommunication
-    weight: 12
-  - name: Curiosity Gap
-    id: CuriosityGap
-    weight: 2
----
-
-You are a headline evaluator... [Your detailed instructions]
-
-## RUBRIC
-
-# Value Communication <weight=12>
-
-### Excellent <score=4>
-
-Specific, immediately appealing benefit
-
-### Good <score=3>
-
-Clear benefit but less specific impact
-
-...
-```
-
-### The 1-4 Scoring Scale
-
-VectorLint uses a **1-4 scale** for all judge criteria, which is then normalized to a 1-10 scale:
-
-| LLM Rating | Meaning   | Normalized Score |
-| :--------- | :-------- | :--------------- |
-| **4**      | Excellent | **10.0**         |
-| **3**      | Good      | **7.0**          |
-| **2**      | Fair      | **4.0**          |
-| **1**      | Poor      | **1.0**          |
-
-### Score Calculation
-
-1.  **Normalization**: We map the 1-4 rating to a 1-10 score using the formula: `1 + ((Rating - 1) / 3) * 9`.
-2.  **Weighted Average**: The final score is the weighted average of all normalized criterion scores.
-
-**Example:**
-
-- Criterion: "Value Communication" (weight=12)
-- Rating: 3 (Good) -> Normalized: 7.0
-- Weighted Points: 7.0 \* 12 = 84 points
-
----
-
 ## Target Specification
 
 The `target` field allows you to:
@@ -243,27 +170,17 @@ target:
 
 ### Frontmatter Fields
 
-| Field         | Type          | Required | Description                                                        |
-| ------------- | ------------- | -------- | ------------------------------------------------------------------ |
-| `specVersion` | string/number | No       | Rule specification version (use `1.0.0`)                           |
-| `evaluator`   | string        | No       | Evaluator type: `base`, `technical-accuracy` (default: `base`)     |
-| `type`        | string        | No       | Mode: `judge` or `check` (default: `check`) |
-| `id`          | string        | **Yes**  | Unique identifier (used in error reporting)                        |
-| `name`        | string        | **Yes**  | Human-readable name                                                |
+| Field         | Type          | Required | Description                                                    |
+| ------------- | ------------- | -------- | -------------------------------------------------------------- |
+| `specVersion` | string/number | No       | Rule specification version (use `1.0.0`)                       |
+| `evaluator`   | string        | No       | Evaluator type: `base`, `technical-accuracy` (default: `base`) |
+| `type`        | string        | No       | Mode: `check` (default: `check`). `judge`/`subjective` rejected at load |
+| `id`          | string        | **Yes**  | Unique identifier (used in error reporting)                    |
+| `name`        | string        | **Yes**  | Human-readable name                                            |
 
 | `severity` | string | No | `error` or `warning` (default: `warning`) |
 | `evaluateAs` | string | No | `document` or `chunk` - whether to evaluate content as a whole or in chunks (default: `chunk`) |
 | `target` | object | No | Content matching specification |
-| `criteria` | array | **Yes\*** | List of evaluation criteria (\*required for judge) |
-
-### Criterion Fields
-
-| Field    | Type   | Required | Description                                |
-| -------- | ------ | -------- | ------------------------------------------ |
-| `name`   | string | **Yes**  | Human-readable criterion name              |
-| `id`     | string | **Yes**  | Unique identifier (PascalCase recommended) |
-| `weight` | number | No       | Importance weight (default: 1)             |
-| `target` | object | No       | Criterion-specific content matching        |
 
 ---
 
@@ -288,25 +205,10 @@ You are a headline evaluator for developer blog posts. Assess whether the headli
 2. Uses natural, conversational language (avoid buzzwords)
 3. Creates curiosity without being clickbait
 
-For each criterion, provide a score (0-4) and specific examples from the text.
+For each violation, quote the exact text and suggest a concrete fix.
 ```
 
-### 2. **Use Meaningful Weights (Subjective)**
-
-Scale weights to reflect real-world importance:
-
-```yaml
-criteria:
-  # Technical accuracy is critical
-  - name: Technical Accuracy
-    weight: 40
-
-  # Readability is important
-  - name: Readability
-    weight: 30
-```
-
-### 3. **Provide Context in Prompts**
+### 2. **Provide Context in Prompts**
 
 Help the LLM understand your domain:
 
@@ -336,79 +238,6 @@ severity: error
 
 Check this content for grammar issues, spelling errors, and punctuation mistakes.
 Report any errors found with specific examples.
-```
-
-### Example 2: Headline Evaluator (Judge)
-
-```markdown
----
-specVersion: 1.0.0
-evaluator: base
-type: judge
-id: Headline
-name: Headline Evaluator
-
-severity: error
-target:
-  regex: '^#\s+(.+)$'
-  flags: "mu"
-  group: 1
-  required: true
-  suggestion: Add an H1 headline for the article.
-criteria:
-  - name: Value Communication
-    id: ValueCommunication
-    weight: 10
-  - name: Language Authenticity
-    id: LanguageAuthenticity
-    weight: 5
----
-
-You are a headline evaluator. Assess the H1 headline for:
-
-1. **Value Communication** (10 points): Does it clearly state what the reader gains?
-2. **Language Authenticity** (5 points): Does it use natural, conversational language?
-
-## RUBRIC
-
-# Value Communication <weight=10>
-
-### Excellent <score=4>
-
-Specific, immediately appealing benefit clearly stated
-
-...
-```
-
-### Example 3: AI Pattern Detector (Judge)
-
-```markdown
----
-specVersion: 1.0.0
-evaluator: base
-type: judge
-id: AIPatterns
-name: AI Pattern Detector
-
-severity: warning
-criteria:
-  - name: Language Authenticity
-    id: LanguageAuthenticity
-    weight: 40
-  - name: Structural Naturalness
-    id: StructuralNaturalness
-    weight: 30
----
-
-Detect AI-generated writing patterns in this content.
-
-## INSTRUCTION
-
-Scan for common AI patterns:
-
-1. **Buzzwords**: leverage, synergy, elevate
-2. **Formulaic transitions**: Moreover, Furthermore
-   ...
 ```
 
 ## Resources
