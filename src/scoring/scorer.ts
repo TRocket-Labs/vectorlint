@@ -48,7 +48,10 @@ export function calculateCheckScore(
 ): CheckResult {
   const strictness = resolveStrictness(options.strictness);
 
-  const mappedViolations = violations.map((item) => ({ ...item, criterionName: item.description }));
+  const mappedViolations = violations.map((item) => ({
+    ...item,
+    ...(item.description !== undefined ? { criterionName: item.description } : {}),
+  }));
 
   // Density Calculation: Violations per 100 words
   const density = (mappedViolations.length / wordCount) * 100;

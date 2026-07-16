@@ -10,6 +10,7 @@ import { RdJsonFormatter } from '../output/rdjson-formatter';
 import type { PromptEvaluationResult, JudgeResult } from '../prompts/schema';
 import { Severity } from '../evaluators/types';
 import type { TokenUsageStats, PricingConfig } from '../providers/token-usage';
+import type { Logger } from '../logging/logger';
 
 export enum OutputFormat {
     Line = "line",
@@ -48,6 +49,7 @@ export interface EvaluationOptions {
     agentMaxRetries?: number;
     pricing?: PricingConfig;
     userInstructionContent?: string;
+    logger?: Logger;
 }
 
 export interface EvaluationResult {

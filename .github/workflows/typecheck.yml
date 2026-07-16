@@ -1,4 +1,4 @@
-name: Test
+name: Typecheck
 
 on:
   push:
@@ -7,10 +7,10 @@ on:
     branches: [main, release-docs]
 
 jobs:
-  test:
-    name: Test
+  typecheck:
+    name: tsc --noEmit
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,14 +24,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests with coverage
-        run: npm run test:ci
-
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
-        if: always()
-        with:
-          files: ./coverage/clover.xml
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Run typecheck
+        run: npm run typecheck

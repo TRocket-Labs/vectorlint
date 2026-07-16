@@ -10,7 +10,7 @@ import unicorn from "eslint-plugin-unicorn";
 
 export default defineConfig([
     // Ignored + housekeeping
-    { ignores: ["node_modules", "coverage", "dist", "build"] },
+    { ignores: ["node_modules", "coverage", "dist", "build", "docs/research/**"] },
     { linterOptions: { reportUnusedDisableDirectives: true } },
 
     // Make resolver settings global

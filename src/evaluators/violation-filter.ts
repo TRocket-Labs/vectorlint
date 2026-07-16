@@ -56,8 +56,8 @@ export function computeFilterDecision(v: GateViolationLike): FilterDecision {
 
   const hasFix = (v.fix ?? "").trim() !== "";
 
-  const hasConfidence = typeof v.confidence === "number";
-  const passesConfidence = hasConfidence && v.confidence >= confidenceThreshold;
+  const confidence = typeof v.confidence === "number" ? v.confidence : undefined;
+  const passesConfidence = confidence !== undefined && confidence >= confidenceThreshold;
   if (!passesConfidence) reasons.push(`confidence<${confidenceThreshold}`);
 
   const surface =

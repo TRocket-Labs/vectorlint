@@ -337,8 +337,8 @@ export type JudgeResult = {
 };
 
 export type CheckItem = {
-  line: number;
-  description: string;
+  line?: number;
+  description?: string;
   analysis: string;
   message?: string;
   suggestion?: string;

@@ -15,7 +15,7 @@ import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
-import { AGENT_REVIEW_MODE, DEFAULT_REVIEW_MODE, OutputFormat } from './types';
+import { OutputFormat } from './types';
 import { runAgentExecutor, type AgentExecutorResult, type AgentFinding } from '../agent/executor';
 import { AgentProgressReporter, shouldEmitAgentProgress } from '../agent/progress';
 import type {
@@ -1168,6 +1168,7 @@ async function buildAgentRuleScores(
   return results;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function evaluateFilesInAgentMode(
   targets: string[],
   options: EvaluationOptions,
@@ -1194,7 +1195,7 @@ async function evaluateFilesInAgentMode(
     progressReporter,
     maxParallelToolCalls: 3,
     maxRetries: options.agentMaxRetries ?? 10,
-    userInstructions: options.userInstructionContent,
+    ...(options.userInstructionContent ? { userInstructions: options.userInstructionContent } : {}),
   });
 
   let totalErrors = 0;
@@ -1301,7 +1302,7 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  const { outputFormat = OutputFormat.Line, mode = DEFAULT_REVIEW_MODE } = options;
+  const { outputFormat = OutputFormat.Line } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -1319,10 +1320,6 @@ export async function evaluateFiles(
     jsonFormatter = new RdJsonFormatter();
   } else {
     jsonFormatter = new ValeJsonFormatter();
-  }
-
-  if (mode === AGENT_REVIEW_MODE) {
-    return evaluateFilesInAgentMode(targets, options, outputFormat, jsonFormatter);
   }
 
   for (const file of targets) {

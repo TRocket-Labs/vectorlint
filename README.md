@@ -145,30 +145,6 @@ Notes:
 - Prompts and outputs are recorded when Langfuse observability is enabled.
 - Do not send secrets, credentials, or PII unless your policy explicitly allows observability tooling to access that data.
 
-## Agent Mode
-
-Agent mode is for reviews that need context from several files such as
-documentation drift and cross-file accuracy.
-
-Run VectorLint in autonomous agent mode:
-
-```bash
-vectorlint doc.md --mode agent
-```
-
-For machine-parseable output:
-
-```bash
-vectorlint doc.md --mode agent --output json
-```
-
-To suppress interactive progress in line output:
-
-```bash
-vectorlint doc.md --mode agent --print
-```
-
-
 ## Contributing
 
 We welcome your contributions! Whether it's adding new rules, fixing bugs, or improving documentation, please check out our [Contributing Guidelines](.github/CONTRIBUTING.md) to get started.

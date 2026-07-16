@@ -12,8 +12,8 @@ export interface LangfuseObservabilityConfig {
 }
 
 export class LangfuseObservability implements AIObservability {
-  private sdk?: NodeSDK;
-  private initPromise?: Promise<void>;
+  private sdk?: NodeSDK | undefined;
+  private initPromise?: Promise<void> | undefined;
   private readonly logger: Logger;
 
   constructor(private readonly config: LangfuseObservabilityConfig) {

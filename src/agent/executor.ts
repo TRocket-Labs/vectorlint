@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'fs/promises';
 import * as os from 'os';
 import fg from 'fast-glob';
-import { buildCheckLLMSchema, isJudgeResult, type PromptEvaluationResult } from '../prompts/schema';
+import { buildCheckLLMSchema, isJudgeResult, type GateChecks, type PromptEvaluationResult } from '../prompts/schema';
 import type { PromptFile } from '../prompts/prompt-loader';
 import { Type, Severity } from '../evaluators/types';
 import { computeFilterDecision } from '../evaluators/violation-filter';
@@ -14,6 +14,7 @@ import { createReviewSessionStore } from './review-session-store';
 import { buildAgentSystemPrompt } from './prompt-builder';
 import { AgentToolError } from '../errors';
 import { ScanPathResolver } from '../boundaries/scan-path-resolver';
+import type { FilePatternConfig } from '../boundaries/file-section-parser';
 import {
   createAgentTools,
   listAvailableTools,
@@ -53,7 +54,7 @@ export interface RunAgentExecutorParams {
   prompts: PromptFile[];
   provider: LLMProvider;
   workspaceRoot: string;
-  scanPaths: Array<{ pattern: string; runRules: string[]; overrides: Record<string, string> }>;
+  scanPaths: FilePatternConfig[];
   outputFormat: OutputFormat;
   printMode: boolean;
   sessionHomeDir?: string;
@@ -174,11 +175,10 @@ function findingsFromEvents(events: SessionEvent[]): AgentFinding[] {
   return findings;
 }
 
-// Build the concrete matched file-to-rule pairs that the agent should review for this run.
 function buildFileRuleMatches(
   relativeTargets: string[],
   prompts: PromptFile[],
-  scanPaths: Array<{ pattern: string; runRules: string[]; overrides: Record<string, string> }>
+  scanPaths: FilePatternConfig[]
 ): Array<{ file: string; ruleSource: string }> {
   const resolver = new ScanPathResolver();
   const availablePacks = Array.from(new Set(prompts.map((p) => p.pack).filter((p): p is string => !!p)));
@@ -301,12 +301,13 @@ function resolveVisibleToolContext(params: {
       }
       const resolvedPath = tryResolveRelativePath(workspaceRoot, parsed.data.path);
       const path = resolvedPath ?? parsed.data.path;
+      const progressFile = resolvedPath && targetFiles.has(resolvedPath)
+        ? resolvedPath
+        : (currentProgressFile ?? defaultProgressFile);
       return {
         toolName: 'read_file',
         path,
-        progressFile: resolvedPath && targetFiles.has(resolvedPath)
-          ? resolvedPath
-          : (currentProgressFile ?? defaultProgressFile),
+        ...(progressFile ? { progressFile } : {}),
         signature: `read_file:${path}`,
       };
     }
@@ -317,10 +318,11 @@ function resolveVisibleToolContext(params: {
       }
       const resolvedPath = tryResolveRelativePath(workspaceRoot, parsed.data.path);
       const path = resolvedPath ?? parsed.data.path;
+      const progressFile = currentProgressFile ?? defaultProgressFile;
       return {
         toolName: 'list_directory',
         path,
-        progressFile: currentProgressFile ?? defaultProgressFile,
+        ...(progressFile ? { progressFile } : {}),
         signature: `list_directory:${path}`,
       };
     }
@@ -333,14 +335,15 @@ function resolveVisibleToolContext(params: {
       const resolvedPath = tryResolveRelativePath(workspaceRoot, parsed.data.file);
       const path = resolvedPath ?? parsed.data.file;
       const ruleText = parsed.data.reviewInstruction?.trim() || prompt?.body || '';
+      const progressFile = resolvedPath && targetFiles.has(resolvedPath)
+        ? resolvedPath
+        : (currentProgressFile ?? defaultProgressFile);
       return {
         toolName: 'lint',
         path,
         ruleName: String(prompt?.meta.name || prompt?.meta.id || 'Rule'),
         ruleText,
-        progressFile: resolvedPath && targetFiles.has(resolvedPath)
-          ? resolvedPath
-          : (currentProgressFile ?? defaultProgressFile),
+        ...(progressFile ? { progressFile } : {}),
         signature: `lint:${path}:${normalizeRuleSource(parsed.data.ruleSource)}:${ruleText}`,
       };
     }
@@ -390,11 +393,7 @@ type FindingLikeViolation = {
   suggestion?: string;
   fix?: string;
   confidence?: number;
-  checks?: {
-    plausible_non_violation?: boolean;
-    context_supports_violation?: boolean;
-    rule_supports_claim?: boolean;
-  };
+  checks?: GateChecks;
 };
 
 async function appendInlineFinding(params: {
@@ -516,8 +515,8 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
       workspaceRoot,
       promptBySource,
       targetFiles,
-      currentProgressFile,
-      defaultProgressFile: relativeTargets[0],
+      ...(currentProgressFile ? { currentProgressFile } : {}),
+      ...(relativeTargets[0] ? { defaultProgressFile: relativeTargets[0] } : {}),
     });
 
     if (visibleToolContext?.progressFile) {
@@ -798,7 +797,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
         workspaceRoot,
         fileRuleMatches,
         availableTools,
-        userInstructions,
+        ...(userInstructions ? { userInstructions } : {}),
       }),
       prompt: [
         `Workspace root: ${workspaceRoot}`,

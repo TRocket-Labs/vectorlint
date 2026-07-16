@@ -1,4 +1,5 @@
 import { generateText } from 'ai';
+import type { LanguageModel } from 'ai';
 import { z } from 'zod';
 import { createPerplexity } from '@ai-sdk/perplexity';
 import type { SearchProvider } from './search-provider';
@@ -46,7 +47,11 @@ export class PerplexitySearchProvider implements SearchProvider {
 
     try {
       const result = await generateText({
-        model: this.client('sonar-pro'),
+        // @ai-sdk/perplexity@1 exposes LanguageModelV1 models, while ai@6's
+        // generateText types require a LanguageModel (V2/V3). This is a
+        // third-party SDK version skew, not a repo type hole; resolve by
+        // upgrading @ai-sdk/perplexity to a V2 release in a follow-up.
+        model: this.client('sonar-pro') as unknown as LanguageModel,
         prompt: query,
       });
 

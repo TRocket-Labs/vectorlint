@@ -19,6 +19,6 @@ export function createObservability(env: EnvConfig, logger?: Logger): AIObservab
     publicKey: env.LANGFUSE_PUBLIC_KEY,
     secretKey: env.LANGFUSE_SECRET_KEY,
     ...(env.LANGFUSE_BASE_URL ? { baseUrl: env.LANGFUSE_BASE_URL } : {}),
-    logger,
+    ...(logger ? { logger } : {}),
   });
 }
