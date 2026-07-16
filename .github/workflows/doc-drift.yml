@@ -108,7 +108,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install Pi
         run: npm install -g @earendil-works/pi-coding-agent@0.79.6
@@ -121,7 +121,7 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           DIFF_PATH="$GITHUB_WORKSPACE/pr/.doc-drift-input.diff"
-          gh pr diff ${{ github.event.issue.number }} > "$DIFF_PATH"
+          gh pr diff --repo ${{ github.repository }} ${{ github.event.issue.number }} > "$DIFF_PATH"
           echo "Diff size: $(wc -l < "$DIFF_PATH") lines"
 
       - name: Build agent message
@@ -168,11 +168,11 @@ jobs:
         run: |
           REPORT_FILES=$(ls "$GITHUB_WORKSPACE"/pr/.doc-drift-*.md 2>/dev/null | sort -V)
           if [ -z "$REPORT_FILES" ]; then
-            gh pr comment ${{ github.event.issue.number }} \
+            gh pr comment --repo ${{ github.repository }} ${{ github.event.issue.number }} \
               --body "Doc drift check completed but produced no output. Check the [Actions log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
           else
             for file in $REPORT_FILES; do
-              gh pr comment ${{ github.event.issue.number }} --body-file "$file"
+              gh pr comment --repo ${{ github.repository }} ${{ github.event.issue.number }} --body-file "$file"
             done
           fi
 
@@ -181,5 +181,5 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          gh pr comment ${{ github.event.issue.number }} \
+          gh pr comment --repo ${{ github.repository }} ${{ github.event.issue.number }} \
             --body "Doc drift check failed. Check the [Actions log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
