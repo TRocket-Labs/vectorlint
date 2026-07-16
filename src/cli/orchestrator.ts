@@ -15,7 +15,7 @@ import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
-import { AGENT_REVIEW_MODE, DEFAULT_REVIEW_MODE, OutputFormat } from './types';
+import { OutputFormat } from './types';
 import { runAgentExecutor, type AgentExecutorResult, type AgentFinding } from '../agent/executor';
 import { AgentProgressReporter, shouldEmitAgentProgress } from '../agent/progress';
 import type {
@@ -1168,9 +1168,7 @@ async function buildAgentRuleScores(
   return results;
 }
 
-// Retained in quarantine: the unreleased --mode agent path now falls back to
-// standard evaluation. Removed in Phase 4.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- intentional quarantine
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function evaluateFilesInAgentMode(
   targets: string[],
   options: EvaluationOptions,
@@ -1304,7 +1302,7 @@ export async function evaluateFiles(
   targets: string[],
   options: EvaluationOptions
 ): Promise<EvaluationResult> {
-  const { outputFormat = OutputFormat.Line, mode = DEFAULT_REVIEW_MODE } = options;
+  const { outputFormat = OutputFormat.Line } = options;
 
   let hadOperationalErrors = false;
   let hadSeverityErrors = false;
@@ -1322,14 +1320,6 @@ export async function evaluateFiles(
     jsonFormatter = new RdJsonFormatter();
   } else {
     jsonFormatter = new ValeJsonFormatter();
-  }
-
-  if (mode === AGENT_REVIEW_MODE) {
-    options.logger?.warn(
-      '--mode agent is an unreleased internal path and now falls back to standard mode. ' +
-        'This internal path is being replaced by the bounded harness model.',
-    );
-    // Fall through to standard evaluation; do not call evaluateFilesInAgentMode.
   }
 
   for (const file of targets) {

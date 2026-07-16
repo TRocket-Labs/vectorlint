@@ -145,14 +145,6 @@ Notes:
 - Prompts and outputs are recorded when Langfuse observability is enabled.
 - Do not send secrets, credentials, or PII unless your policy explicitly allows observability tooling to access that data.
 
-## Agent Mode (internal rework)
-
-The `--mode agent` flag was an unreleased internal implementation path. It is
-being replaced by a bounded harness model in this refactor.
-
-While the refactor lands, `--mode agent` prints an internal-rework notice and
-falls back to standard mode. Do not treat it as a public integration surface.
-
 ## Contributing
 
 We welcome your contributions! Whether it's adding new rules, fixing bugs, or improving documentation, please check out our [Contributing Guidelines](.github/CONTRIBUTING.md) to get started.

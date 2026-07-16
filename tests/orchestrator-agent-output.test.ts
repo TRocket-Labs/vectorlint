@@ -5,7 +5,6 @@ import { evaluateFiles } from '../src/cli/orchestrator';
 import { AGENT_REVIEW_MODE, DEFAULT_REVIEW_MODE, OutputFormat } from '../src/cli/types';
 import type { PromptFile } from '../src/prompts/prompt-loader';
 import type { LLMProvider } from '../src/providers/llm-provider';
-import type { Logger } from '../src/logging/logger';
 import { Severity } from '../src/evaluators/types';
 
 function makePrompt(): PromptFile {
@@ -26,17 +25,6 @@ function makePrompt(): PromptFile {
   };
 }
 
-type LoggerSpy = Logger & { warn: ReturnType<typeof vi.fn> };
-
-function makeLogger(): LoggerSpy {
-  return {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  } as unknown as LoggerSpy;
-}
-
 interface StandardProviderSpies {
   provider: LLMProvider;
   runPromptStructured: ReturnType<typeof vi.fn>;
@@ -54,11 +42,7 @@ function makeStandardProvider(): StandardProviderSpies {
   return { provider, runPromptStructured, runAgentToolLoop };
 }
 
-// `--mode agent` is an internal fallback. These tests prove the CLI/evaluateFiles path no
-// longer reaches the autonomous agent executor: it warns through the injected
-// logger and falls back to standard evaluation. The retained agent executor
-// code is covered directly by tests/agent/* and removed in Phase 4.
-describe('agent mode internal fallback', () => {
+describe('review mode fallback', () => {
   const tempRepos: string[] = [];
 
   function createTempRepo(): string {
@@ -80,14 +64,12 @@ describe('agent mode internal fallback', () => {
     }
   });
 
-  it('emits an internal-rework notice through the injected logger and falls back to standard evaluation', async () => {
+  it('falls back to standard evaluation', async () => {
     const repo = createTempRepo();
     const file = path.join(repo, 'doc.md');
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     const { provider, runPromptStructured, runAgentToolLoop } = makeStandardProvider();
-    const logger = makeLogger();
-
     const result = await evaluateFiles([file], {
       prompts: [makePrompt()],
       rulesPath: undefined,
@@ -98,16 +80,8 @@ describe('agent mode internal fallback', () => {
       mode: AGENT_REVIEW_MODE,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
-      logger,
     });
 
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('unreleased internal path'),
-    );
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('bounded harness model'),
-    );
-    // Standard evaluation ran; the autonomous executor did not.
     expect(runAgentToolLoop).not.toHaveBeenCalled();
     expect(runPromptStructured).toHaveBeenCalled();
     expect(result.totalFiles).toBe(1);
@@ -119,8 +93,6 @@ describe('agent mode internal fallback', () => {
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     const { provider, runPromptStructured, runAgentToolLoop } = makeStandardProvider();
-    const logger = makeLogger();
-
     await evaluateFiles([file], {
       prompts: [makePrompt()],
       rulesPath: undefined,
@@ -131,10 +103,8 @@ describe('agent mode internal fallback', () => {
       mode: AGENT_REVIEW_MODE,
       printMode: false,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
-      logger,
     });
 
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('unreleased internal path'));
     expect(runAgentToolLoop).not.toHaveBeenCalled();
     expect(runPromptStructured).toHaveBeenCalled();
   });
@@ -158,7 +128,6 @@ describe('agent mode internal fallback', () => {
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     });
 
-    // No internal-rework notice and no executor invocation in standard mode.
     expect(runAgentToolLoop).not.toHaveBeenCalled();
     expect(result.totalFiles).toBe(1);
   });
