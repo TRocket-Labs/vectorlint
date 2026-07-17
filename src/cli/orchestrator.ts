@@ -15,7 +15,7 @@ import { processFindings } from '../findings';
 import { createEvaluator } from '../evaluators/index';
 import { Type, Severity } from '../evaluators/types';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
-import { AGENT_REVIEW_MODE, DEFAULT_REVIEW_MODE, OutputFormat } from './types';
+import { OutputFormat, DEFAULT_REVIEW_MODE, AGENT_REVIEW_MODE } from './types';
 import { runAgentExecutor, type AgentExecutorResult, type AgentFinding } from '../agent/executor';
 import { AgentProgressReporter, shouldEmitAgentProgress } from '../agent/progress';
 import type {
@@ -657,10 +657,7 @@ async function buildAgentRuleScores(
   return results;
 }
 
-// Retained in quarantine: the unreleased internal agent-mode implementation is
-// unreachable from the CLI because --mode agent falls back to standard evaluation.
-// Removed in Phase 4.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- intentional quarantine
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function evaluateFilesInAgentMode(
   targets: string[],
   options: EvaluationOptions,

@@ -82,8 +82,8 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
     .option('--output <format>', `Output format: ${OUTPUT_FORMATS.join(', ')}`, OUTPUT_FORMATS[0])
-    .option('--mode <mode>', 'Execution mode: standard (default). "agent" is an unreleased internal path and falls back to standard.', DEFAULT_REVIEW_MODE)
-    .option('-p, --print', 'Suppress interactive progress output in agent mode')
+    .option('--mode <mode>', 'Execution mode: standard (default).', DEFAULT_REVIEW_MODE)
+    .option('-p, --print', 'Suppress interactive progress output')
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
     .action(async (paths: string[] = []) => {

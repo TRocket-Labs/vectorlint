@@ -5,7 +5,7 @@
  * source-backed rules flows through this module. The CLI, headless adapters,
  * and external callers all build a ReviewRequest and receive a ReviewResult.
  *
- * See docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md.
+ * See README.md for the contract overview.
  */
 export * from './types';
 export * from './schemas';

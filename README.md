@@ -144,12 +144,6 @@ Notes:
 - Prompts and outputs are recorded when Langfuse observability is enabled.
 - Do not send secrets, credentials, or PII unless your policy explicitly allows observability tooling to access that data.
 
-## Internal Agent-Mode Implementation
-
-The `--mode agent` flag is an unreleased internal implementation path retained only while the harness refactor lands. It now falls back to standard evaluation and reports an internal-status warning so the old autonomous workspace implementation is not used.
-
-This path has no public compatibility contract; do not build integrations against it.
-
 ## Contributing
 
 We welcome your contributions! Whether it's adding new rules, fixing bugs, or improving documentation, please check out our [Contributing Guidelines](.github/CONTRIBUTING.md) to get started.

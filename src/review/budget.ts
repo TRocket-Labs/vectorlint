@@ -3,7 +3,7 @@ import type { ReviewBudget } from './types';
 import { VectorlintError } from '../errors';
 
 /**
- * Sensible default bounds for a single review (audit Finding #7). Frozen so a
+ * Sensible default bounds for a single review. Frozen so a
  * shared default object cannot be accidentally mutated by a caller.
  *
  * Note: there is intentionally no finding cap (`maxFindingsPerRule`) —
