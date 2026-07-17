@@ -175,7 +175,6 @@ function findingsFromEvents(events: SessionEvent[]): AgentFinding[] {
   return findings;
 }
 
-// Build the concrete matched file-to-rule pairs that the agent should review for this run.
 function buildFileRuleMatches(
   relativeTargets: string[],
   prompts: PromptFile[],
