@@ -1,6 +1,5 @@
 ---
 evaluator: base
-type: check
 id: Wordiness
 name: Wordiness
 severity: warning

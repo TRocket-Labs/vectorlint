@@ -1,6 +1,5 @@
 ---
 evaluator: base
-type: check
 id: UnsupportedClaims
 name: Unsupported Claims
 severity: warning

@@ -61,7 +61,6 @@ export const REVIEW_SCORE_COMPONENT_SCHEMA = z
     id: z.string().min(1),
     scoreText: z.string(),
     score: z.number(),
-    weight: z.number().optional(),
   })
   .strict();
 

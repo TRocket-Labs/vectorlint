@@ -43,7 +43,7 @@ describe('ReviewRule schema', () => {
       REVIEW_RULE_SCHEMA.parse({
         id: 'Tone',
         source: 'VectorLint/tone.md',
-        body: 'Judge whether the tone is good.',
+        body: 'Determine whether the tone is good.',
         unexpected: true,
       }),
     ).toThrow();

@@ -60,28 +60,11 @@ describe('RAW_VIOLATION_SCHEMA', () => {
 });
 
 describe('PROMPT_META_FOR_FINDINGS_SCHEMA', () => {
-  it('rejects legacy evaluator/type/evaluateAs/target fields', () => {
+  it('rejects unknown fields', () => {
     expect(() =>
       PROMPT_META_FOR_FINDINGS_SCHEMA.parse({
         severity: 'warning',
-        evaluator: 'base',
-      }),
-    ).toThrow();
-    expect(() =>
-      PROMPT_META_FOR_FINDINGS_SCHEMA.parse({ type: 'judge' }),
-    ).toThrow();
-    expect(() =>
-      PROMPT_META_FOR_FINDINGS_SCHEMA.parse({ evaluateAs: 'document' }),
-    ).toThrow();
-    expect(() =>
-      PROMPT_META_FOR_FINDINGS_SCHEMA.parse({ target: { regex: 'x' } }),
-    ).toThrow();
-  });
-
-  it('rejects rubric weight on criteria', () => {
-    expect(() =>
-      PROMPT_META_FOR_FINDINGS_SCHEMA.parse({
-        criteria: [{ id: 'Hedging', name: 'Hedge words', weight: 2 }],
+        unexpected: true,
       }),
     ).toThrow();
   });
@@ -95,39 +78,6 @@ describe('FINDING_PROCESSING_INPUT_SCHEMA', () => {
     expect(parsed.promptMeta.criteria?.[0]?.id).toBe('Hedging');
   });
 
-  it('has no modelCall/mode/agent field and rejects them', () => {
-    for (const legacyKey of ['modelCall', 'mode', 'agent'] as const) {
-      expect(() =>
-        FINDING_PROCESSING_INPUT_SCHEMA.parse({ ...validInput(), [legacyKey]: 'agent' }),
-      ).toThrow();
-    }
-  });
-
-  it('rejects legacy judge/evaluator/rubric-shaped top-level input', () => {
-    // Legacy judge result shape: criteria array with scores at the top level.
-    expect(() =>
-      FINDING_PROCESSING_INPUT_SCHEMA.parse({
-        pack: 'VectorLint',
-        ruleId: 'Tone',
-        ruleSource: '/x.md',
-        wordCount: 100,
-        targetContent: 'x',
-        promptMeta: {},
-        evaluator: 'judge',
-        criteria: [{ name: 'Tone', score: 2, violations: [] }],
-      }),
-    ).toThrow();
-  });
-
-  it('rejects a legacy evaluator field nested under promptMeta', () => {
-    expect(() =>
-      FINDING_PROCESSING_INPUT_SCHEMA.parse({
-        ...validInput(),
-        promptMeta: { ...validInput().promptMeta, evaluator: 'base' },
-      }),
-    ).toThrow();
-  });
-
   it('rejects malformed candidate findings', () => {
     expect(() =>
       FINDING_PROCESSING_INPUT_SCHEMA.parse({
@@ -139,7 +89,7 @@ describe('FINDING_PROCESSING_INPUT_SCHEMA', () => {
 
   it('rejects an unknown top-level key', () => {
     expect(() =>
-      FINDING_PROCESSING_INPUT_SCHEMA.parse({ ...validInput(), judge: true }),
+      FINDING_PROCESSING_INPUT_SCHEMA.parse({ ...validInput(), unexpected: true }),
     ).toThrow();
   });
 });

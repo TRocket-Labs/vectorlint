@@ -17,7 +17,7 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
   - `providers/` — LLM abstractions (OpenAI, Anthropic, Azure, Gemini), request builder, provider factory
   - `scan/` — file discovery (fast‑glob) honoring config and exclusions
   - `schemas/` — Zod schemas for all external data (API responses, config, CLI, env)
-  - `scoring/` — score calculation (density-based for check, rubric-based for judge)
+  - `scoring/` — density-based score calculation
   - `types/` — TypeScript type definitions
 - `presets/` — bundled rule packs (e.g., `VectorLint/`)
 - `tests/` — Vitest specs for config, scanning, evaluation, providers
@@ -182,7 +182,7 @@ For documents >600 words, VectorLint automatically chunks content:
 - Type safety: strict TypeScript with no `any`; use `unknown` + schema validation for external data
 - Dependency inversion: depend on `LLMProvider` and `SearchProvider` interfaces; keep providers thin (transport only)
 - Dependency injection: inject `RequestBuilder` via provider constructor to avoid coupling
-- Separation of concerns: rules define rubric; schemas enforce structure; CLI orchestrates; evaluators process; reporters format
+- Separation of concerns: rules define criteria; schemas enforce structure; CLI orchestrates; evaluators process; reporters format
 - Separation of concerns: when a file starts combining contracts, orchestration, and utility logic, extract shared helpers and types into focused modules
 - Extensibility: add providers by implementing `LLMProvider` or `SearchProvider`; add evaluators via registry pattern
 - Shared domain constants: avoid magic strings for core runtime concepts; define shared constants, enums, or types and import them where needed

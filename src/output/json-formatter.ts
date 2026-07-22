@@ -4,8 +4,6 @@ export interface ScoreComponent {
   criterion?: string;
   rawScore: number;
   maxScore: number;
-  weightedScore: number;
-  weightedMaxScore: number;
   normalizedScore: number;
   normalizedMaxScore: number;
 }

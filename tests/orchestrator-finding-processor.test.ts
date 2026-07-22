@@ -4,17 +4,17 @@ import { tmpdir } from "os";
 import path from "path";
 import { evaluateFiles } from "../src/cli/orchestrator";
 import { OutputFormat, type EvaluationOptions } from "../src/cli/types";
-import { EvaluationType, Severity } from "../src/evaluators/types";
+import { Severity } from "../src/evaluators/types";
 import type { Result } from "../src/output/json-formatter";
 import type { ValeOutput } from "../src/schemas/vale-responses";
 import type { PromptFile } from "../src/prompts/prompt-loader";
-import type { RawCheckResult } from "../src/prompts/schema";
+import type { PromptEvaluationResult } from "../src/prompts/schema";
 
 const { EVALUATE_MOCK } = vi.hoisted(() => ({
   EVALUATE_MOCK: vi.fn(),
 }));
 
-type CheckViolation = RawCheckResult["violations"][number];
+type Violation = PromptEvaluationResult["violations"][number];
 
 vi.mock("../src/evaluators/index", () => ({
   createEvaluator: vi.fn(() => ({
@@ -56,20 +56,15 @@ function createBaseOptions(prompts: PromptFile[]): EvaluationOptions {
 }
 
 function createTempFile(content: string): string {
-  const dir = mkdtempSync(path.join(tmpdir(), "vectorlint-check-proc-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "vectorlint-finding-proc-"));
   const filePath = path.join(dir, "input.md");
   writeFileSync(filePath, content);
   return filePath;
 }
 
-/**
- * Builds a check violation that passes the confidence gate by default. Real
- * model output always carries `message`; the helper sets it explicitly so the
- * test reflects production behavior rather than the analysis fallback.
- */
-function makeCheckViolation(
-  overrides: Partial<CheckViolation> = {}
-): CheckViolation {
+function makeViolation(
+  overrides: Partial<Violation> = {}
+): Violation {
   return {
     line: 1,
     analysis: "Issue 1",
@@ -86,18 +81,17 @@ function makeCheckViolation(
   };
 }
 
-function makeCheckResult(params: {
-  violations: CheckViolation[];
+function makeResult(params: {
+  violations: Violation[];
   wordCount?: number;
-}): RawCheckResult {
+}): PromptEvaluationResult {
   return {
-    type: EvaluationType.CHECK,
     violations: params.violations,
     word_count: params.wordCount ?? 100,
   };
 }
 
-describe("standard check evaluation via the shared finding processor", () => {
+describe("evaluation via the shared finding processor", () => {
   const originalThreshold = process.env.CONFIDENCE_THRESHOLD;
 
   beforeEach(() => {
@@ -120,17 +114,16 @@ describe("standard check evaluation via the shared finding processor", () => {
   it("reports fully locatable findings, score, and counts unchanged", async () => {
     const targetFile = createTempFile("Alpha text\nBeta text\n");
     const prompt = createPrompt({
-      id: "CheckPrompt",
-      name: "Check Prompt",
-      type: "check",
+      id: "RulePrompt",
+      name: "Rule Prompt",
       severity: Severity.WARNING,
     });
 
     EVALUATE_MOCK.mockResolvedValue(
-      makeCheckResult({
+      makeResult({
         violations: [
-          makeCheckViolation({ message: "First issue", analysis: "First issue" }),
-          makeCheckViolation({
+          makeViolation({ message: "First issue", analysis: "First issue" }),
+          makeViolation({
             line: 2,
             quoted_text: "Beta text",
             message: "Second issue",
@@ -150,7 +143,6 @@ describe("standard check evaluation via the shared finding processor", () => {
 
     const run = await evaluateFiles([targetFile], createBaseOptions([prompt]));
 
-    // Both quotes anchor: 2 verified findings over 100 words -> 8.0/10.
     expect(run.totalWarnings).toBe(2);
     expect(run.totalErrors).toBe(0);
     expect(run.hadOperationalErrors).toBe(false);
@@ -158,26 +150,22 @@ describe("standard check evaluation via the shared finding processor", () => {
     const scoreLine = logCalls.find((l) => l.includes("/10"));
     expect(scoreLine).toBeDefined();
     expect(scoreLine).toContain("8.0/10");
-    // The line summary prints the last segment of the Pack.Rule score id.
-    expect(scoreLine).toContain("CheckPrompt");
+    expect(scoreLine).toContain("RulePrompt");
   });
 
   it("counts only verified findings and excludes unanchored quotes from the score", async () => {
-    // One anchored + one unanchored quote. Both pass the confidence gate, so
-    // only the verifier distinguishes them. Verified count = 1 -> 9.0/10.
     const targetFile = createTempFile("Alpha text\n");
     const prompt = createPrompt({
       id: "CountingFixPrompt",
       name: "Counting Fix Prompt",
-      type: "check",
       severity: Severity.WARNING,
     });
 
     EVALUATE_MOCK.mockResolvedValue(
-      makeCheckResult({
+      makeResult({
         violations: [
-          makeCheckViolation({ quoted_text: "Alpha text" }),
-          makeCheckViolation({
+          makeViolation({ quoted_text: "Alpha text" }),
+          makeViolation({
             line: 9,
             quoted_text: "this quote is not anywhere in the content",
             message: "Ghost issue",
@@ -195,8 +183,6 @@ describe("standard check evaluation via the shared finding processor", () => {
 
     const run = await evaluateFiles([targetFile], createBaseOptions([prompt]));
 
-    // Intentional Phase 3 fix: the unanchored quote is a diagnostic, not a
-    // finding; it contributes neither to the count nor the score.
     expect(run.totalWarnings).toBe(1);
     expect(run.hadOperationalErrors).toBe(false);
 
@@ -206,20 +192,17 @@ describe("standard check evaluation via the shared finding processor", () => {
   });
 
   it("does not flag severity errors when no finding can be verified", async () => {
-    // severity=error, but the only quote cannot anchor -> 0 verified findings ->
-    // perfect 10.0/10 -> severity resolves to warning -> no error exit signal.
     const targetFile = createTempFile("Alpha text\n");
     const prompt = createPrompt({
       id: "ErrorNoVerifiedPrompt",
       name: "Error No Verified Prompt",
-      type: "check",
       severity: Severity.ERROR,
     });
 
     EVALUATE_MOCK.mockResolvedValue(
-      makeCheckResult({
+      makeResult({
         violations: [
-          makeCheckViolation({
+          makeViolation({
             line: 9,
             quoted_text: "nowhere to be found",
             message: "Ghost",
@@ -238,19 +221,16 @@ describe("standard check evaluation via the shared finding processor", () => {
   });
 
   it("flags severity errors when verified error-severity findings exist", async () => {
-    // 1 verified finding over 10 words -> density 10 -> score 0.0 < 10 ->
-    // prompt severity error applies.
     const targetFile = createTempFile("Alpha text\n");
     const prompt = createPrompt({
       id: "ErrorVerifiedPrompt",
       name: "Error Verified Prompt",
-      type: "check",
       severity: Severity.ERROR,
     });
 
     EVALUATE_MOCK.mockResolvedValue(
-      makeCheckResult({
-        violations: [makeCheckViolation({ quoted_text: "Alpha text" })],
+      makeResult({
+        violations: [makeViolation({ quoted_text: "Alpha text" })],
         wordCount: 10,
       })
     );
@@ -266,15 +246,14 @@ describe("standard check evaluation via the shared finding processor", () => {
     const prompt = createPrompt({
       id: "CheckJsonPrompt",
       name: "Check JSON Prompt",
-      type: "check",
       severity: Severity.WARNING,
     });
 
     EVALUATE_MOCK.mockResolvedValue(
-      makeCheckResult({
+      makeResult({
         violations: [
-          makeCheckViolation({ message: "First", analysis: "First" }),
-          makeCheckViolation({
+          makeViolation({ message: "First", analysis: "First" }),
+          makeViolation({
             line: 2,
             quoted_text: "Beta text",
             message: "Second",
@@ -316,15 +295,14 @@ describe("standard check evaluation via the shared finding processor", () => {
     const prompt = createPrompt({
       id: "CheckValePrompt",
       name: "Check Vale Prompt",
-      type: "check",
       severity: Severity.WARNING,
     });
 
     EVALUATE_MOCK.mockResolvedValue(
-      makeCheckResult({
+      makeResult({
         violations: [
-          makeCheckViolation({ quoted_text: "Alpha text" }),
-          makeCheckViolation({
+          makeViolation({ quoted_text: "Alpha text" }),
+          makeViolation({
             line: 9,
             quoted_text: "missing quote",
             message: "Ghost",

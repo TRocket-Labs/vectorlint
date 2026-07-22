@@ -60,7 +60,6 @@ Each rule file has two parts: YAML frontmatter that configures how VectorLint ha
 id: MyEval
 name: My Content Evaluator
 evaluator: base
-type: check
 severity: error
 ---
 
@@ -79,28 +78,18 @@ Your detailed instructions for the LLM go here.
 | Field | Default | Description |
 |-------|---------|-------------|
 | `evaluator` | `base` | Evaluator type. Use `base` for most rules; `technical-accuracy` for fact-checking rules that need search. |
-| `type` | `check` | Evaluation mode. `check` finds specific, countable violations. `judge` (and its `subjective` alias) is no longer supported and is rejected at load. |
 | `severity` | `warning` | How failures are reported: `error` or `warning`. |
 | `evaluateAs` | `chunk` | Whether to evaluate content as a whole (`document`) or in sections (`chunk`). |
 | `target` | _(none)_ | Regex to target a specific part of the content (e.g., only the H1 headline). |
 | `specVersion` | _(none)_ | Rule spec version. Use `1.0.0`. |
 
-## Evaluation Modes
-
-VectorLint uses a single evaluation mode, set with the `type` field.
-
-| Mode | `type` value | Best for |
-|------|-------------|----------|
-| Check | `check` | Finding specific, countable violations (grammar errors, banned terms) |
-
-### Check rules
+## Finding and scoring violations
 
 The LLM returns a list of specific violations. VectorLint scores the result using **error density** (violations per 100 words), so a single error in a short document weighs more than the same error in a long one.
 
 ```markdown
 ---
 evaluator: base
-type: check
 id: GrammarChecker
 name: Grammar Checker
 severity: error
@@ -162,12 +151,11 @@ RunRules=Acme
 
 ## Examples
 
-### AI Pattern Detector (Check)
+### AI Pattern Detector
 
 ```markdown
 ---
 evaluator: base
-type: check
 id: AIPatterns
 name: AI Pattern Detector
 severity: warning

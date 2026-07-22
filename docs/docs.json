@@ -46,8 +46,7 @@
         "group": "Quality scoring",
         "pages": [
           "quality-scoring",
-          "density-scoring",
-          "rubric-scoring"
+          "density-scoring"
         ]
       },
       {

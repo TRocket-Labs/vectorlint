@@ -20,7 +20,7 @@ export const ALLOWED_EXTS = new Set(EXTENSIONS.map(ext => `.${ext}`));
 export const DEFAULT_CONCURRENCY = 4;
 export const DEFAULT_SCAN_PATTERN = `**/*.{${EXTENSIONS.join(',')}}`;
 
-export const CLI_DESCRIPTION = `VectorLint is a command-line tool that evaluates and scores content using LLMs. It uses LLM-as-a-Judge to catch terminology, technical accuracy, and style issues that require contextual understanding.
+export const CLI_DESCRIPTION = `VectorLint is a command-line tool that uses LLMs to find and score terminology, technical accuracy, and style issues that require contextual understanding.
 
 To get started, run 'vectorlint init' to create your configuration files.
 

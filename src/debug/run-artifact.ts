@@ -14,7 +14,6 @@ export type DebugRunArtifact = {
     pack?: string;
     id?: string;
     filename?: string;
-    evaluation_type?: string;
   };
   raw_model_output: unknown;
   filter_decisions: unknown;

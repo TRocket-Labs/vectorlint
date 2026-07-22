@@ -1,14 +1,4 @@
-/**
- * Shared finding-processing layer (Phase 3).
- *
- * Transforms raw candidate violation findings into a formatter-ready
- * `ReviewResult` through one pipeline: evidence verification, filtering,
- * count/density scoring, severity resolution, and diagnostics.
- *
- * This module is independent of model call (`single` | `agent`) and contains
- * no `judge`, `evaluator`, rubric, or autonomous-loop output
- * adapter code.
- */
+/** Shared candidate-to-finding processing pipeline. */
 export {
   FINDING_EVIDENCE_NOT_LOCATABLE,
   verifyFindingEvidence,
@@ -25,7 +15,7 @@ export {
   type SeverityInput,
 } from './severity';
 
-export { scoreCheck, type ScoreCheckOptions, type ScoredCheck } from './scorer';
+export { scoreFindings, type ScoreOptions, type ScoredFindings } from './scorer';
 
 export {
   processFindings,

@@ -18,7 +18,6 @@ function makePrompt(overrides: Partial<PromptFile> = {}): PromptFile {
       id: 'PseudoAdvice',
       name: 'Pseudo Advice',
       severity: Severity.WARNING,
-      type: 'check',
       criteria: [{ id: 'Vague', name: 'Vague advice' }],
     },
     body: 'Check for pseudo advice.',

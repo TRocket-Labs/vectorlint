@@ -128,7 +128,7 @@ CONFIDENCE_THRESHOLD=0.75
 ```
 
 - Default: `0.75`
-- Applies to surfaced violations in check and judge evaluations
+- Applies to surfaced violations
 - Invalid values gracefully fall back to the default
 
 ---

@@ -20,7 +20,6 @@ function makePrompt(): PromptFile {
     meta: {
       id: name,
       name,
-      type: 'check',
       severity: Severity.WARNING,
     },
   };
@@ -54,10 +53,6 @@ function makeStandardProvider(): StandardProviderSpies {
   return { provider, runPromptStructured, runAgentToolLoop };
 }
 
-// `--mode agent` is an unreleased internal path. These tests prove the CLI/evaluateFiles path no
-// longer reaches the autonomous agent executor: it warns through the injected
-// logger and falls back to standard evaluation. The retained agent executor
-// code is covered directly by tests/agent/* and removed in Phase 4.
 describe('agent mode fallback', () => {
   const tempRepos: string[] = [];
 
@@ -80,7 +75,7 @@ describe('agent mode fallback', () => {
     }
   });
 
-  it('emits an internal-status warning through the injected logger and falls back to standard evaluation', async () => {
+  it('warns through the injected logger and falls back to standard evaluation', async () => {
     const repo = createTempRepo();
     const file = path.join(repo, 'doc.md');
     writeFileSync(file, 'bad phrase\n', 'utf8');
@@ -102,9 +97,8 @@ describe('agent mode fallback', () => {
     });
 
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('unreleased internal path'),
+      expect.stringContaining('falls back to standard evaluation'),
     );
-    // Standard evaluation ran; the autonomous executor did not.
     expect(runAgentToolLoop).not.toHaveBeenCalled();
     expect(runPromptStructured).toHaveBeenCalled();
     expect(result.totalFiles).toBe(1);
@@ -131,7 +125,7 @@ describe('agent mode fallback', () => {
       logger,
     });
 
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('unreleased internal path'));
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('falls back to standard evaluation'));
     expect(runAgentToolLoop).not.toHaveBeenCalled();
     expect(runPromptStructured).toHaveBeenCalled();
   });
@@ -155,7 +149,6 @@ describe('agent mode fallback', () => {
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
     });
 
-    // No fallback warning and no executor invocation in standard mode.
     expect(runAgentToolLoop).not.toHaveBeenCalled();
     expect(result.totalFiles).toBe(1);
   });

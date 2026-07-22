@@ -1,6 +1,5 @@
 ---
 evaluator: base
-type: check
 id: Readability
 name: Readability
 severity: warning

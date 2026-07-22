@@ -4,12 +4,11 @@ import {
   resolveCriterionId,
   resolveSeverity,
 } from '../../src/findings/severity';
-import { EvaluationType, Severity } from '../../src/evaluators/types';
-import type { CheckResult } from '../../src/prompts/schema';
+import { Severity } from '../../src/evaluators/types';
+import type { ScoredEvaluation } from '../../src/prompts/schema';
 
-function makeCheckResult(severity: Severity): CheckResult {
+function makeScoredEvaluation(severity: Severity): ScoredEvaluation {
   return {
-    type: EvaluationType.CHECK,
     final_score: 5,
     percentage: 50,
     violation_count: 1,
@@ -21,11 +20,11 @@ function makeCheckResult(severity: Severity): CheckResult {
 }
 
 describe('resolveSeverity', () => {
-  it('returns the density-derived severity from the check score result', () => {
-    expect(resolveSeverity({ scored: makeCheckResult(Severity.WARNING) })).toBe(
+  it('returns the density-derived severity from the scored evaluation', () => {
+    expect(resolveSeverity({ scored: makeScoredEvaluation(Severity.WARNING) })).toBe(
       Severity.WARNING,
     );
-    expect(resolveSeverity({ scored: makeCheckResult(Severity.ERROR) })).toBe(
+    expect(resolveSeverity({ scored: makeScoredEvaluation(Severity.ERROR) })).toBe(
       Severity.ERROR,
     );
   });

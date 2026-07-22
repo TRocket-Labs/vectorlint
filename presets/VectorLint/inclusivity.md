@@ -1,7 +1,6 @@
 ---
 specVersion: 1.0.0
 evaluator: base
-type: check
 id: Inclusivity
 name: Inclusivity
 severity: warning

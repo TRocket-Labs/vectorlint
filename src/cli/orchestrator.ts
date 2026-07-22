@@ -9,7 +9,6 @@ import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter
 import { JsonFormatter, type Issue } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
 import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
-import { isJudgeResult } from '../prompts/schema';
 import { handleUnknownError, MissingDependencyError } from '../errors/index';
 import { processFindings } from '../findings';
 import { createEvaluator } from '../evaluators/index';
@@ -28,7 +27,7 @@ import {
   calculateCost,
   TokenUsageStats
 } from '../providers/token-usage';
-import { calculateCheckScore } from '../scoring';
+import { calculateScore } from '../scoring';
 import { countWords } from '../chunking/utils';
 import { buildRuleId, normalizeRuleSource } from '../agent/rule-id';
 import {
@@ -170,12 +169,7 @@ function getViolationFilterResults<
   return { decisions, surfacedViolations };
 }
 
-/*
- * Routes an evaluation result through the shared finding processor.
- * Check results are verified, filtered, scored, and reported; judge/rubric
- * results are rejected (Phase 3) because subjective scoring is not a
- * future-facing review type.
- */
+/** Routes an evaluation result through the shared finding processor. */
 function routePromptResult(
   params: ProcessPromptResultParams
 ): ErrorTrackingResult {
@@ -192,138 +186,101 @@ function routePromptResult(
   const meta = promptFile.meta;
   const promptId = (meta.id || "").toString();
 
-  // Handle Check Result — routed through the shared finding processor
-  // (Phase 3, audit Findings #4 and #6). The processor verifies evidence,
-  // filters, deduplicates, scores, and resolves severity; the orchestrator
-  // only feeds the returned ReviewResult to the existing formatter sinks.
-  if (!isJudgeResult(result)) {
-    const reviewResult = processFindings({
-      pack: promptFile.pack,
-      ruleId: promptId,
-      ruleSource: promptFile.fullPath,
-      candidateFindings: result.violations,
-      wordCount: result.word_count,
-      promptMeta: {
-        ...(meta.severity !== undefined ? { severity: meta.severity } : {}),
-        ...(meta.strictness !== undefined ? { strictness: meta.strictness } : {}),
-        // Sanitize to the findings contract ({ id, name }): meta.criteria is
-        // PromptCriterionSpec[], which can carry legacy rubric weight/target.
-        ...(meta.criteria
-          ? { criteria: meta.criteria.map((c) => ({ id: c.id, name: c.name })) }
-          : {}),
-      },
-      targetContent: content,
+  const reviewResult = processFindings({
+    pack: promptFile.pack,
+    ruleId: promptId,
+    ruleSource: promptFile.fullPath,
+    candidateFindings: result.violations,
+    wordCount: result.word_count,
+    promptMeta: {
+      ...(meta.severity !== undefined ? { severity: meta.severity } : {}),
+      ...(meta.strictness !== undefined ? { strictness: meta.strictness } : {}),
+      ...(meta.criteria
+        ? { criteria: meta.criteria.map((c) => ({ id: c.id, name: c.name })) }
+        : {}),
+    },
+    targetContent: content,
+  });
+
+  const ruleScore = reviewResult.scores[0]!;
+  const severity =
+    ruleScore.severity === 'error' ? Severity.ERROR : Severity.WARNING;
+
+  for (const finding of reviewResult.findings) {
+    reportIssue({
+      file: relFile,
+      line: finding.line,
+      column: finding.column,
+      severity,
+      summary: finding.message,
+      ruleName: finding.ruleId,
+      outputFormat,
+      jsonFormatter,
+      ...(finding.analysis !== undefined ? { analysis: finding.analysis } : {}),
+      ...(finding.suggestion !== undefined ? { suggestion: finding.suggestion } : {}),
+      ...(finding.fix !== undefined ? { fix: finding.fix } : {}),
+      match: finding.match,
     });
-
-    // processFindings always returns exactly one score entry (processor contract).
-    const ruleScore = reviewResult.scores[0]!;
-    const severity =
-      ruleScore.severity === 'error' ? Severity.ERROR : Severity.WARNING;
-
-    // Report only verified findings through the existing line/json/rdjson/vale sink.
-    for (const finding of reviewResult.findings) {
-      reportIssue({
-        file: relFile,
-        line: finding.line,
-        column: finding.column,
-        severity,
-        summary: finding.message,
-        ruleName: finding.ruleId,
-        outputFormat,
-        jsonFormatter,
-        ...(finding.analysis !== undefined ? { analysis: finding.analysis } : {}),
-        ...(finding.suggestion !== undefined ? { suggestion: finding.suggestion } : {}),
-        ...(finding.fix !== undefined ? { fix: finding.fix } : {}),
-        match: finding.match,
-      });
-    }
-
-    // Diagnostics (e.g. finding-evidence-not-locatable) surface in verbose mode,
-    // consistent with prior operational reporting. They are warn-level and do not
-    // flag the run as operationally failed (audit Finding #6).
-    if (verbose) {
-      for (const diagnostic of reviewResult.diagnostics) {
-        console.warn(`[vectorlint] ${diagnostic.message}`);
-      }
-    }
-
-    // Verified finding count drives the counts (audit Finding #6).
-    const findingCount = reviewResult.findings.length;
-    const totalErrors = severity === Severity.ERROR ? findingCount : 0;
-    const totalWarnings = severity === Severity.ERROR ? 0 : findingCount;
-
-    const scoreEntry: EvaluationSummary = {
-      id: ruleScore.ruleId,
-      scoreText: ruleScore.scoreText,
-      score: ruleScore.score,
-    };
-
-    if (debugJson) {
-      const { decisions, surfacedViolations } = getViolationFilterResults(
-        result.violations
-      );
-      const runId = randomUUID();
-      const model = getModelInfoFromEnv();
-
-      try {
-        const filePath = writeDebugRunArtifact(process.cwd(), runId, {
-          file: relFile,
-          ...(Object.keys(model).length > 0 ? { model } : {}),
-          ...(model.tag !== undefined ? { subdir: model.tag } : {}),
-          prompt: {
-            pack: promptFile.pack,
-            id: promptId,
-            filename: promptFile.filename,
-            evaluation_type: "check",
-          },
-          raw_model_output: (result as { raw_model_output?: unknown }).raw_model_output ?? null,
-          filter_decisions: decisions.map((d, i) => ({
-            index: i,
-            surface: d.surface,
-            reasons: d.reasons,
-          })),
-          surfaced_violations: surfacedViolations,
-        });
-        console.warn(`[vectorlint] Debug JSON written: ${filePath}`);
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.warn(`[vectorlint] Debug JSON write failed: ${message}`);
-      }
-    }
-
-    return {
-      errors: totalErrors,
-      warnings: totalWarnings,
-      hadOperationalErrors: reviewResult.hadOperationalErrors ?? false,
-      hadSeverityErrors: severity === Severity.ERROR && totalErrors > 0,
-      scoreEntries: [scoreEntry],
-    };
   }
 
-  // Judge/rubric reviews are not a future-facing review type (Phase 3). The
-  // prompt-meta boundary rejects `type: judge`, so a JudgeResult here means a
-  // caller bypassed that boundary. Refuse it explicitly rather than
-  // misprojecting it as a check result. No adapter is added for judge metadata.
   if (verbose) {
-    console.warn(
-      '[vectorlint] Judge/rubric review results are no longer supported; skipping prompt.'
-    );
+    for (const diagnostic of reviewResult.diagnostics) {
+      console.warn(`[vectorlint] ${diagnostic.message}`);
+    }
   }
+
+  const findingCount = reviewResult.findings.length;
+  const totalErrors = severity === Severity.ERROR ? findingCount : 0;
+  const totalWarnings = severity === Severity.ERROR ? 0 : findingCount;
+
+  const scoreEntry: EvaluationSummary = {
+    id: ruleScore.ruleId,
+    scoreText: ruleScore.scoreText,
+    score: ruleScore.score,
+  };
+
+  if (debugJson) {
+    const { decisions, surfacedViolations } = getViolationFilterResults(
+      result.violations
+    );
+    const runId = randomUUID();
+    const model = getModelInfoFromEnv();
+
+    try {
+      const filePath = writeDebugRunArtifact(process.cwd(), runId, {
+        file: relFile,
+        ...(Object.keys(model).length > 0 ? { model } : {}),
+        ...(model.tag !== undefined ? { subdir: model.tag } : {}),
+        prompt: {
+          pack: promptFile.pack,
+          id: promptId,
+          filename: promptFile.filename,
+        },
+        raw_model_output: (result as { raw_model_output?: unknown }).raw_model_output ?? null,
+        filter_decisions: decisions.map((d, i) => ({
+          index: i,
+          surface: d.surface,
+          reasons: d.reasons,
+        })),
+        surfaced_violations: surfacedViolations,
+      });
+      console.warn(`[vectorlint] Debug JSON written: ${filePath}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[vectorlint] Debug JSON write failed: ${message}`);
+    }
+  }
+
   return {
-    errors: 0,
-    warnings: 0,
-    hadOperationalErrors: true,
-    hadSeverityErrors: false,
-    scoreEntries: [],
+    errors: totalErrors,
+    warnings: totalWarnings,
+    hadOperationalErrors: reviewResult.hadOperationalErrors ?? false,
+    hadSeverityErrors: severity === Severity.ERROR && totalErrors > 0,
+    scoreEntries: [scoreEntry],
   };
 }
 
-/*
- * Runs a single prompt evaluation.
- * BaseEvaluator auto-detects mode from criteria presence:
- * - criteria defined → scored mode
- * - no criteria → basic mode
- */
+/** Runs a single prompt evaluation. */
 async function runPromptEvaluation(
   params: RunPromptEvaluationParams
 ): Promise<RunPromptEvaluationResult> {
@@ -335,8 +292,7 @@ async function runPromptEvaluation(
     const evaluatorType = String(meta.evaluator || Type.BASE);
     const baseEvaluatorType = String(Type.BASE);
 
-    // Specialized evaluators (e.g., technical-accuracy) require criteria
-    // BaseEvaluator handles both modes: scored (with criteria) and basic (without)
+    // Specialized evaluators (e.g., technical-accuracy) require criteria.
     if (evaluatorType !== baseEvaluatorType) {
       if (
         !meta ||
@@ -639,7 +595,7 @@ async function buildAgentRuleScores(
       analysis: 'Agent finding',
     }));
 
-    const scored = calculateCheckScore(
+    const scored = calculateScore(
       syntheticViolations,
       Math.max(1, totalWords),
       {
@@ -813,9 +769,8 @@ export async function evaluateFiles(
 
   if (mode === AGENT_REVIEW_MODE) {
     options.logger?.warn(
-      '--mode agent is an unreleased internal path and now falls back to standard mode.',
+      '--mode agent falls back to standard evaluation.',
     );
-    // Fall through to standard evaluation; do not call evaluateFilesInAgentMode.
   }
 
   for (const file of targets) {
