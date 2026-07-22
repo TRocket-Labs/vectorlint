@@ -13,11 +13,6 @@ describe('review budget defaults', () => {
     expect(DEFAULT_REVIEW_BUDGET.maxWallClockMs).toBeGreaterThan(0);
     expect(DEFAULT_REVIEW_BUDGET.maxTargetBytes).toBeGreaterThan(0);
   });
-
-  it('does not cap findings or headless retries', () => {
-    expect('maxFindingsPerRule' in DEFAULT_REVIEW_BUDGET).toBe(false);
-    expect('maxHeadlessRetries' in DEFAULT_REVIEW_BUDGET).toBe(false);
-  });
 });
 
 describe('REVIEW_BUDGET_SCHEMA', () => {

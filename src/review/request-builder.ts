@@ -39,11 +39,7 @@ function toReviewRuleId(prompt: PromptFile): string {
   return `${pack}.${prompt.meta.id}`;
 }
 
-/**
- * Converts a single PromptFile into a source-backed ReviewRule, mapping only
- * fields that belong in the neutral contract. Legacy `meta.type`, `evaluator`,
- * `criteria`, and judge/rubric fields are intentionally NOT copied.
- */
+/** Converts a single PromptFile into a source-backed ReviewRule. */
 function toReviewRule(prompt: PromptFile): ReviewRule {
   const rule: ReviewRule = {
     id: toReviewRuleId(prompt),

@@ -16,8 +16,6 @@ export const REVIEW_MODEL_CALLS = ['single', 'agent', 'auto'] as const satisfies
 /**
  * The stable domain-level interface every executor implements. Single and
  * agent executors are implementations behind this contract.
- * A headless/autonomous workspace executor is explicitly NOT part of this
- * contract.
  */
 export interface ReviewExecutor {
   run(request: ReviewRequest): Promise<ReviewResult>;

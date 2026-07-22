@@ -6,9 +6,7 @@ import { REVIEW_BUDGET_SCHEMA } from './budget';
  *
  * Every external review-domain shape has a paired schema here so callers and
  * external adapters can validate untrusted input at the system boundary.
- * Schemas are intentionally strict: unknown keys are
- * rejected so legacy scoring-mode, rubric, and model-authored rule-override
- * fields cannot leak into the new contract.
+ * Schemas reject unknown keys.
  */
 
 export const REVIEW_SEVERITY_SCHEMA = z.enum(['error', 'warning']);

@@ -38,14 +38,13 @@ describe('ReviewRule schema', () => {
     expect(rule.violationConditions?.[0]?.id).toBe('Contradiction');
   });
 
-  it('rejects legacy evaluator and judge criteria fields', () => {
+  it('rejects unknown fields', () => {
     expect(() =>
       REVIEW_RULE_SCHEMA.parse({
         id: 'Tone',
         source: 'VectorLint/tone.md',
         body: 'Judge whether the tone is good.',
-        evaluator: 'judge',
-        criteria: [{ id: 'Tone', name: 'Tone quality' }],
+        unexpected: true,
       }),
     ).toThrow();
   });

@@ -47,17 +47,7 @@ describe('buildReviewRequest', () => {
     expect(rule?.body).toBe('Check for pseudo advice.');
     expect(rule?.severity).toBe('warning');
     expect(rule?.name).toBe('Pseudo Advice');
-    // Strict parse proves no legacy evaluator/criteria/type fields leaked.
     expect(() => REVIEW_RULE_SCHEMA.parse(rule)).not.toThrow();
-  });
-
-  it('does not copy legacy meta.type, evaluator, or criteria fields', () => {
-    const request = buildReviewRequest({ target, prompts: [makePrompt()] });
-    const rule = request.rules[0];
-    expect(rule).toBeDefined();
-    expect(rule && 'type' in rule).toBe(false);
-    expect(rule && 'evaluator' in rule).toBe(false);
-    expect(rule && 'criteria' in rule).toBe(false);
   });
 
   it('throws a ValidationError when no prompts are supplied', () => {
