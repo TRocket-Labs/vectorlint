@@ -4,10 +4,8 @@
  * Everything an executor needs to review target content against
  * source-backed rules flows through this module. Callers build a
  * {@link ReviewRequest} and executors return a {@link ReviewResult}.
- *
- * This module is implementation-neutral: it deliberately exposes no legacy
- * scoring-mode, rubric, or model-authored rule-override surface. `modelCall`
- * selects how the reviewer model is invoked, not how rules are scored.
+ * `modelCall` selects how the reviewer model is invoked, not how rules are
+ * scored.
  */
 
 /** Finding/Rule severity. */

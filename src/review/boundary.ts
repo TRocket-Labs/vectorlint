@@ -7,9 +7,9 @@ const FILE_URI_RE = /^file:\/\/(?<authority>[^/]*)(?<path>\/.*)?$/;
  * filesystem reads. The helper is kept local so src/review/ has no agent
  * import and no filesystem access.
  *
- * Symlink canonicalization is intentionally NOT performed inside the contract:
- * callers are responsible for canonicalizing real files into target/context
- * URIs before building a ReviewRequest.
+ * The contract does not perform symlink canonicalization. Callers must
+ * canonicalize real files into target/context URIs before building a
+ * ReviewRequest.
  */
 function resolveDotSegments(input: string): string {
   const segments: string[] = [];

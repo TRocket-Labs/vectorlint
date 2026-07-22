@@ -22,6 +22,59 @@ This repository implements VectorLint — a prompt‑driven, structured‑output
 - `presets/` — bundled rule packs (e.g., `VectorLint/`)
 - `tests/` — Vitest specs for config, scanning, evaluation, providers
 
+## Agent Behavior Guidelines
+
+These guidelines reduce common LLM coding mistakes. They bias toward caution over speed; use judgment for trivial tasks.
+
+### Think Before Coding
+
+- State assumptions explicitly before implementing.
+- If multiple interpretations exist, present them instead of picking silently.
+- If a simpler approach exists, say so and push back when warranted.
+- If something is unclear, stop, name the confusion, and ask.
+
+### Simplicity First
+
+- Write the minimum code that solves the problem.
+- Do not add features beyond what was asked.
+- Do not introduce abstractions for single-use code.
+- Do not add flexibility or configurability that was not requested.
+- Do not add error handling for impossible scenarios.
+- If a change becomes larger than needed, simplify before finishing.
+
+### Surgical Changes
+
+- Touch only the files and lines required by the request.
+- Do not improve adjacent code, comments, or formatting unless required.
+- Match existing style, even when another style is tempting.
+- If you notice unrelated dead code, mention it instead of deleting it.
+- Remove imports, variables, functions, or files made unused by your own changes.
+- Do not remove pre-existing dead code unless asked.
+
+### Goal-Driven Execution
+
+- Turn requests into verifiable goals before implementing.
+- For bug fixes, write or identify a reproduction, then make it pass.
+- For validation changes, cover invalid inputs, then make the checks pass.
+- For refactors, verify behavior before and after the change.
+- For multi-step tasks, state a brief plan with verification for each step.
+- Loop until the success criteria are verified or a blocker is clear.
+
+### Error Organization
+
+- Put domain error classes in focused error files and import them into the modules that throw them.
+- Reuse the repository's custom error hierarchy instead of throwing native `Error` directly.
+- Catch errors as `unknown`; narrow or convert them with the existing error utilities.
+- Introduce error handling only for real failure modes, not speculative or impossible scenarios.
+
+### Comments
+
+- Write comments only when they explain non-obvious current behavior, invariants, or constraints.
+- Do not preserve planning discussions, rejected alternatives, absent fields, or speculative future architecture in production comments.
+- Do not use comments to restate code that is already clear from names and types.
+- Keep security and scope-boundary comments when they explain constraints that the implementation must preserve.
+- Test supported behavior and current invariants; do not add negative tests solely to memorialize rejected designs.
+
 ## Configuration System
 
 ### Quick Start
@@ -132,7 +185,6 @@ For documents >600 words, VectorLint automatically chunks content:
 - Separation of concerns: rules define rubric; schemas enforce structure; CLI orchestrates; evaluators process; reporters format
 - Separation of concerns: when a file starts combining contracts, orchestration, and utility logic, extract shared helpers and types into focused modules
 - Extensibility: add providers by implementing `LLMProvider` or `SearchProvider`; add evaluators via registry pattern
-- Error handling: prefer the repository's custom error hierarchy over native `Error`; catch blocks use `unknown` type and extend existing custom error types before introducing raw exceptions
 - Shared domain constants: avoid magic strings for core runtime concepts; define shared constants, enums, or types and import them where needed
 - Naming: choose domain-accurate names that reflect the real abstraction level; avoid use-case-specific terminology in shared runtime code
 - Logging: route runtime logging through an injected logger interface; keep concrete logger implementations behind the abstraction
