@@ -51,24 +51,6 @@ LLMs evaluate content relative to an implied standard. Make that standard explic
 
 A grammar rule without context produces generic grammar findings. The same rule with a developer audience context produces findings calibrated to technical writing conventions.
 
-## Use weights that reflect real priorities
-
-In judge rules, weights are the single most important configuration decision. They determine which criteria actually control the final score. Treat them as a statement of your content team's values — not arbitrary numbers.
-
-```yaml
-criteria:
-  - name: Technical Accuracy
-    weight: 40    # Factual errors erode user trust — this matters most
-  - name: Clarity
-    weight: 30    # Unclear docs generate support tickets
-  - name: Tone
-    weight: 20    # Important but recoverable in editing
-  - name: SEO
-    weight: 10    # Nice to have, never at the expense of the above
-```
-
-If everything has the same weight, nothing is prioritized.
-
 ## Tier strictness by content type
 
 Not all content deserves the same quality bar. Apply strictness in proportion to how much a failure costs — measured in user trust, support load, or brand impact.

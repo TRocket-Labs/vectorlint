@@ -5,6 +5,7 @@ import { evaluateFiles } from '../src/cli/orchestrator';
 import { AGENT_REVIEW_MODE, DEFAULT_REVIEW_MODE, OutputFormat } from '../src/cli/types';
 import type { PromptFile } from '../src/prompts/prompt-loader';
 import type { LLMProvider } from '../src/providers/llm-provider';
+import type { Logger } from '../src/logging/logger';
 import { Severity } from '../src/evaluators/types';
 
 function makePrompt(): PromptFile {
@@ -19,10 +20,20 @@ function makePrompt(): PromptFile {
     meta: {
       id: name,
       name,
-      type: 'check',
       severity: Severity.WARNING,
     },
   };
+}
+
+type LoggerSpy = Logger & { warn: ReturnType<typeof vi.fn> };
+
+function makeLogger(): LoggerSpy {
+  return {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  } as unknown as LoggerSpy;
 }
 
 interface StandardProviderSpies {
@@ -42,7 +53,7 @@ function makeStandardProvider(): StandardProviderSpies {
   return { provider, runPromptStructured, runAgentToolLoop };
 }
 
-describe('review mode fallback', () => {
+describe('agent mode fallback', () => {
   const tempRepos: string[] = [];
 
   function createTempRepo(): string {
@@ -64,12 +75,14 @@ describe('review mode fallback', () => {
     }
   });
 
-  it('falls back to standard evaluation', async () => {
+  it('warns through the injected logger and falls back to standard evaluation', async () => {
     const repo = createTempRepo();
     const file = path.join(repo, 'doc.md');
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     const { provider, runPromptStructured, runAgentToolLoop } = makeStandardProvider();
+    const logger = makeLogger();
+
     const result = await evaluateFiles([file], {
       prompts: [makePrompt()],
       rulesPath: undefined,
@@ -80,8 +93,12 @@ describe('review mode fallback', () => {
       mode: AGENT_REVIEW_MODE,
       printMode: true,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      logger,
     });
 
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('falls back to standard evaluation'),
+    );
     expect(runAgentToolLoop).not.toHaveBeenCalled();
     expect(runPromptStructured).toHaveBeenCalled();
     expect(result.totalFiles).toBe(1);
@@ -93,6 +110,8 @@ describe('review mode fallback', () => {
     writeFileSync(file, 'bad phrase\n', 'utf8');
 
     const { provider, runPromptStructured, runAgentToolLoop } = makeStandardProvider();
+    const logger = makeLogger();
+
     await evaluateFiles([file], {
       prompts: [makePrompt()],
       rulesPath: undefined,
@@ -103,8 +122,10 @@ describe('review mode fallback', () => {
       mode: AGENT_REVIEW_MODE,
       printMode: false,
       scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
+      logger,
     });
 
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('falls back to standard evaluation'));
     expect(runAgentToolLoop).not.toHaveBeenCalled();
     expect(runPromptStructured).toHaveBeenCalled();
   });

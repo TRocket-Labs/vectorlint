@@ -136,7 +136,6 @@ export interface ReviewScoreComponent {
   id: string;
   scoreText: string;
   score: number;
-  weight?: number;
 }
 
 export type ReviewDiagnosticLevel = 'info' | 'warn' | 'error';

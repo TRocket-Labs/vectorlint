@@ -28,7 +28,6 @@ Create a new file at `.github/rules/MyTeam/grammar-checker.md`:
 id: GrammarChecker
 name: Grammar Checker
 evaluator: base
-type: check
 severity: error
 ---
 
@@ -102,23 +101,8 @@ You are a headline evaluator for developer blog posts. Assess whether the headli
 - Direct answers over lengthy preambles
 ```
 
-**Use meaningful weights** to reflect real-world importance. Scale them to signal what actually matters in your content workflow:
-
-```yaml
-criteria:
-  - name: Technical Accuracy
-    id: TechnicalAccuracy
-    weight: 40       # Critical — factual errors erode trust
-  - name: Readability
-    id: Readability
-    weight: 30       # Important — but recoverable in editing
-  - name: SEO
-    id: SEO
-    weight: 10       # Nice to have
-```
-
 ## Next steps
 
-- [Defining your style rules](/style-guide) — full reference for rule anatomy, evaluation modes, targeting, and examples
+- [Defining your style rules](/style-guide) — full reference for rule anatomy, targeting, and examples
 - [Project Configuration](/project-config) — control which rules run on which files
 - [LLM Providers](/llm-providers) — switch providers or tune false-positive filtering

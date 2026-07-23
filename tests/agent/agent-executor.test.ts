@@ -19,7 +19,6 @@ function makePrompt(): PromptFile {
     meta: {
       id: 'Consistency',
       name: 'Consistency',
-      type: 'check',
       severity: Severity.WARNING,
     },
   };
@@ -664,103 +663,6 @@ describe('agent executor', () => {
     expect(result.hadOperationalErrors).toBe(false);
     expect(promptBodies.length).toBeGreaterThan(0);
     expect(promptBodies[0]).toBe('Find inconsistent wording.');
-  });
-
-  it('records judge-style violations as inline findings in agent mode', async () => {
-    const { runAgentExecutor } = await import('../../src/agent/executor');
-
-    const repo = createTempRepo();
-    writeFileSync(path.join(repo, 'doc.md'), 'bad phrase\n', 'utf8');
-
-    const basePrompt = makePrompt();
-    const judgePrompt: PromptFile = {
-      ...basePrompt,
-      body: 'Judge the document for clarity.',
-      meta: {
-        ...basePrompt.meta,
-        type: 'judge',
-        criteria: [{ id: 'Clarity', name: 'Clarity', weight: 1 }],
-      },
-    };
-
-    const provider: LLMProvider = {
-      runPromptStructured() {
-        return Promise.resolve({
-          data: {
-            criteria: [
-              {
-                name: 'Clarity',
-                score: 2,
-                summary: 'Needs work',
-                reasoning: 'The wording is unclear.',
-                violations: [
-                  {
-                    line: 1,
-                    quoted_text: 'bad phrase',
-                    context_before: '',
-                    context_after: '',
-                    description: 'Unclear wording',
-                    analysis: 'This phrase is vague.',
-                    message: 'Use clearer wording',
-                    suggestion: 'Replace the vague phrase',
-                    fix: 'better phrase',
-                    rule_quote: 'Prefer precise language',
-                    checks: {
-                      rule_supports_claim: true,
-                      evidence_exact: true,
-                      context_supports_violation: true,
-                      plausible_non_violation: false,
-                      fix_is_drop_in: true,
-                      fix_preserves_meaning: true,
-                    },
-                    check_notes: {
-                      rule_supports_claim: 'clear',
-                      evidence_exact: 'exact',
-                      context_supports_violation: 'yes',
-                      plausible_non_violation: 'none',
-                      fix_is_drop_in: 'yes',
-                      fix_preserves_meaning: 'yes',
-                    },
-                    confidence: 0.95,
-                  },
-                ],
-              },
-            ],
-          },
-        });
-      },
-      runAgentToolLoop: async (params: Record<string, unknown>) => {
-        const tools = params.tools as Record<string, { execute: (input: unknown) => Promise<unknown> }>;
-        await tools.lint.execute({
-          file: 'doc.md',
-          ruleSource: 'packs/default/consistency.md',
-        });
-        await tools.finalize_review.execute({});
-        return { usage: { inputTokens: 1, outputTokens: 1 } };
-      },
-    } as unknown as LLMProvider;
-
-    const result = await runAgentExecutor({
-      targets: [path.join(repo, 'doc.md')],
-      prompts: [judgePrompt],
-      provider,
-      workspaceRoot: repo,
-      scanPaths: [{ pattern: '**/*.md', runRules: ['Default'], overrides: {} }],
-      outputFormat: OutputFormat.Json,
-      printMode: true,
-      sessionHomeDir: repo,
-    });
-
-    expect(result.hadOperationalErrors).toBe(false);
-    expect(result.findings).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          file: 'doc.md',
-          ruleId: 'Default.Consistency',
-          message: 'Use clearer wording',
-        }),
-      ])
-    );
   });
 
   it('redacts raw read_file content from persisted tool_call_finished events', async () => {

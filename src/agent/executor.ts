@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'fs/promises';
 import * as os from 'os';
 import fg from 'fast-glob';
-import { buildCheckLLMSchema, isJudgeResult, type GateChecks, type PromptEvaluationResult } from '../prompts/schema';
+import { buildEvaluationLLMSchema, type GateChecks, type PromptEvaluationResult } from '../prompts/schema';
 import type { PromptFile } from '../prompts/prompt-loader';
 import { Type, Severity } from '../evaluators/types';
 import { computeFilterDecision } from '../evaluators/violation-filter';
@@ -99,7 +99,7 @@ function buildUnknownRuleSourceError(ruleSource: string, validSources: string[])
 }
 
 function fallbackMessage(result: PromptEvaluationResult): string {
-  if (!isJudgeResult(result) && result.reasoning) {
+  if (result.reasoning) {
     return result.reasoning;
   }
   return 'Potential issue detected';
@@ -594,9 +594,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     nestedToolUsage = mergeTokenUsage(nestedToolUsage, result.usage);
 
     let findingsRecorded = 0;
-    const violations = isJudgeResult(result)
-      ? result.criteria.flatMap((criterion) => criterion.violations)
-      : result.violations;
+    const violations = result.violations;
     for (const violation of violations) {
       const wasRecorded = await appendInlineFinding({
         violation,
@@ -616,7 +614,7 @@ export async function runAgentExecutor(params: RunAgentExecutorParams): Promise<
     return {
       ok: true,
       findingsRecorded,
-      schema: buildCheckLLMSchema().name,
+      schema: buildEvaluationLLMSchema().name,
     };
   }
 

@@ -1,6 +1,5 @@
 ---
 evaluator: base
-type: check
 id: Consistency
 name: Consistency
 severity: warning

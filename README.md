@@ -1,6 +1,6 @@
 # VectorLint: Prompt it, Lint it! [![npm version](https://img.shields.io/npm/v/vectorlint.svg)](https://www.npmjs.com/package/vectorlint) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-VectorLint is a command-line tool that evaluates and scores content using LLMs. It uses [LLM-as-a-Judge](https://en.wikipedia.org/wiki/LLM-as-a-Judge) to catch terminology, technical accuracy, and style issues that require contextual understanding.
+VectorLint is a command-line tool that uses LLMs to find and score terminology, technical accuracy, and style issues that require contextual understanding.
 
 ![VectorLint Screenshot](./assets/VectorLint_screenshot.jpeg)
 
@@ -45,10 +45,9 @@ If you can write a prompt for it, you can lint it with VectorLint.
 
 ## Quality Scores
 
-VectorLint scores your content using error density and a rubric-based system, enabling you to measure quality across documentation. This gives your team a shared understanding of which content needs attention and helps track improvements over time.
+VectorLint scores your content using error density, enabling you to measure quality across documentation. This gives your team a shared understanding of which content needs attention and helps track improvements over time.
 
 - **Density-Based Scoring:** For errors that can be counted, scores are calculated based on **error density (errors per 100 words)**, making quality assessment fair across documents of any length.
-- **Rubric-Based Scoring:** For more nuanced quality standards, like flow and completeness, scores are graded on a 1-4 rubric system and then normalized to a **1-10 scale**.
 
 ## How VectorLint Reduces False Positives
 

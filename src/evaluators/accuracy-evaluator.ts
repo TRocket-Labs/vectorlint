@@ -3,12 +3,12 @@ import { registerEvaluator } from "./evaluator-registry";
 import type { LLMProvider } from "../providers/llm-provider";
 import type { SearchProvider } from "../providers/search-provider";
 import type { PromptFile } from "../schemas/prompt-schemas";
-import type { PromptEvaluationResult, RawCheckResult } from "../prompts/schema";
+import type { PromptEvaluationResult } from "../prompts/schema";
 import type { TokenUsage } from "../providers/token-usage";
 import { renderTemplate } from "../prompts/template-renderer";
 import { getPrompt } from "./prompt-loader";
 import { z } from "zod";
-import { Type, EvaluationType, type Severity } from "./types";
+import { Type, type Severity } from "./types";
 import { MissingDependencyError } from "../errors/index";
 import { countWords } from "../chunking";
 
@@ -64,8 +64,7 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     // Use the scoring module to calculate result
     if (claims.length === 0) {
       const wordCount = countWords(content) || 1;
-      const raw: RawCheckResult = {
-        type: EvaluationType.CHECK,
+      const raw: PromptEvaluationResult = {
         violations: [],
         word_count: wordCount,
         ...(claimUsage && { usage: claimUsage }),
@@ -87,7 +86,6 @@ export class TechnicalAccuracyEvaluator extends BaseEvaluator {
     const renderedPrompt = renderTemplate(this.getPromptBody(), templateVars);
 
     // Step 5: Create enriched prompt with rendered body
-    // We do NOT override the type here; we respect the prompt's configuration
     const enrichedPrompt: PromptFile = {
       ...this.prompt,
       body: renderedPrompt,

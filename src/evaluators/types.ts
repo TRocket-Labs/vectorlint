@@ -10,8 +10,3 @@ export enum Severity {
     ERROR = 'error',
     WARNING = 'warning',
 }
-
-export enum EvaluationType {
-    JUDGE = 'judge',
-    CHECK = 'check',
-}
