@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import * as path from 'path';
-import { evaluateFiles } from '../src/cli/orchestrator';
-import { OutputFormat, type EvaluationOptions } from '../src/cli/types';
-import { Severity } from '../src/evaluators/types';
+import { reviewFiles } from '../src/cli/orchestrator';
+import { OutputFormat, type ReviewOptions } from '../src/cli/types';
+import { Severity } from '../src/review/severity';
 import type { PromptFile } from '../src/prompts/prompt-loader';
 import type { ReviewRequest, ReviewResult } from '../src/review/types';
 
@@ -31,7 +31,7 @@ function makePrompt(id: string): PromptFile {
   };
 }
 
-function makeOptions(prompts: PromptFile[], overrides: Partial<EvaluationOptions> = {}): EvaluationOptions {
+function makeOptions(prompts: PromptFile[], overrides: Partial<ReviewOptions> = {}): ReviewOptions {
   return {
     prompts,
     rulesPath: undefined,
@@ -101,7 +101,7 @@ describe('orchestrator executor dispatch', () => {
 
   it('resolves auto to single for a normal-sized target and routes findings to JSON output', async () => {
     const file = createTempFile('vague text here\n');
-    const run = await evaluateFiles([file], makeOptions([makePrompt('CheckPrompt')]));
+    const run = await reviewFiles([file], makeOptions([makePrompt('CheckPrompt')]));
 
     // auto + small target + one rule resolves to the single executor.
     expect(EXECUTOR_FOR_MOCK).toHaveBeenCalledTimes(1);
@@ -129,7 +129,7 @@ describe('orchestrator executor dispatch', () => {
 
   it('resolves auto to agent for a large target', async () => {
     const file = createTempFile(`${'x'.repeat(650_000)}\n`);
-    await evaluateFiles([file], makeOptions([makePrompt('BigPrompt')]));
+    await reviewFiles([file], makeOptions([makePrompt('BigPrompt')]));
 
     expect(EXECUTOR_FOR_MOCK).toHaveBeenCalledTimes(1);
     expect(EXECUTOR_FOR_MOCK.mock.calls[0]![0]).toBe('agent');
@@ -137,21 +137,21 @@ describe('orchestrator executor dispatch', () => {
 
   it('honors an explicit single modelCall even for a large target', async () => {
     const file = createTempFile(`${'x'.repeat(650_000)}\n`);
-    await evaluateFiles([file], makeOptions([makePrompt('ForcedSingle')], { modelCall: 'single' }));
+    await reviewFiles([file], makeOptions([makePrompt('ForcedSingle')], { modelCall: 'single' }));
 
     expect(EXECUTOR_FOR_MOCK.mock.calls[0]![0]).toBe('single');
   });
 
   it('honors an explicit agent modelCall even for a small target', async () => {
     const file = createTempFile('small\n');
-    await evaluateFiles([file], makeOptions([makePrompt('ForcedAgent')], { modelCall: 'agent' }));
+    await reviewFiles([file], makeOptions([makePrompt('ForcedAgent')], { modelCall: 'agent' }));
 
     expect(EXECUTOR_FOR_MOCK.mock.calls[0]![0]).toBe('agent');
   });
 
   it('forwards the built ReviewRequest (target + rules + modelCall) to the executor', async () => {
     const file = createTempFile('target content line one\n');
-    await evaluateFiles([file], makeOptions([makePrompt('FwdPrompt')], { modelCall: 'agent' }));
+    await reviewFiles([file], makeOptions([makePrompt('FwdPrompt')], { modelCall: 'agent' }));
 
     expect(FAKE_EXECUTOR_RUN).toHaveBeenCalledTimes(1);
     const request = FAKE_EXECUTOR_RUN.mock.calls[0]![0] as ReviewRequest;
@@ -182,7 +182,7 @@ describe('orchestrator executor dispatch', () => {
     );
     const file = createTempFile('vague text\n');
 
-    const run = await evaluateFiles([file], makeOptions([makePrompt('ErrorPrompt')]));
+    const run = await reviewFiles([file], makeOptions([makePrompt('ErrorPrompt')]));
 
     expect(run.totalErrors).toBe(1);
     expect(run.hadSeverityErrors).toBe(true);
@@ -197,7 +197,7 @@ describe('orchestrator executor dispatch', () => {
     );
     const file = createTempFile('vague text\n');
 
-    await evaluateFiles([file], makeOptions([makePrompt('DiagPrompt')], { verbose: true }));
+    await reviewFiles([file], makeOptions([makePrompt('DiagPrompt')], { verbose: true }));
 
     expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
       expect.stringContaining('could not anchor quote'),
@@ -206,7 +206,7 @@ describe('orchestrator executor dispatch', () => {
 
   it('aggregates token usage from the ReviewResult', async () => {
     const file = createTempFile('vague text\n');
-    const run = await evaluateFiles([file], makeOptions([makePrompt('UsagePrompt')]));
+    const run = await reviewFiles([file], makeOptions([makePrompt('UsagePrompt')]));
 
     expect(run.tokenUsage?.totalInputTokens).toBe(10);
     expect(run.tokenUsage?.totalOutputTokens).toBe(5);
@@ -215,7 +215,7 @@ describe('orchestrator executor dispatch', () => {
   it('skips the executor when no prompts apply', async () => {
     const file = createTempFile('content\n');
     // A scan-path config that runs a pack none of the prompts belong to.
-    const run = await evaluateFiles(
+    const run = await reviewFiles(
       [file],
       makeOptions([makePrompt('OrphanPrompt')], {
         scanPaths: [{ pattern: '**/*.md', runRules: ['OtherPack'], overrides: {} }],

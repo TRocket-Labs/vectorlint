@@ -1,26 +1,28 @@
 # Repository Guidelines
 
-This repository implements VectorLint — a prompt‑driven, structured‑output content evaluator. Use this guide to navigate the codebase, run it locally, and contribute safely.
+This repository implements VectorLint — a prompt‑driven, structured‑output content reviewer. Use this guide to navigate the codebase, run it locally, and contribute safely.
 
 ## Project Structure & Module Organization
 
 - `src/`
-  - `index.ts` — CLI entry; orchestrates config, discovery, evaluation, reporting
+  - `index.ts` — CLI entry; orchestrates config, discovery, review, reporting
   - `boundaries/` — external data validation (config, CLI args, env vars, YAML, API responses)
   - `chunking/` — content chunking for large documents (recursive chunker, merger, utilities)
   - `cli/` — command definitions and CLI orchestration
   - `config/` — configuration loading and management
   - `errors/` — custom error types and validation errors
-  - `evaluators/` — evaluation logic (base evaluator, registry, specific evaluators)
+  - `executors/` — bounded single-call and target-paging review strategies
+  - `findings/` — finding verification, filtering, severity, and scoring
   - `output/` — TTY formatting (reporter, evidence location, line numbering)
   - `prompts/` — YAML frontmatter parsing, schema validation, directive loading
   - `providers/` — LLM abstractions (OpenAI, Anthropic, Azure, Gemini), request builder, provider factory
   - `scan/` — file discovery (fast‑glob) honoring config and exclusions
+  - `review/` — shared review contracts, budgets, boundaries, and request building
   - `schemas/` — Zod schemas for all external data (API responses, config, CLI, env)
   - `scoring/` — density-based score calculation
   - `types/` — TypeScript type definitions
 - `presets/` — bundled rule packs (e.g., `VectorLint/`)
-- `tests/` — Vitest specs for config, scanning, evaluation, providers
+- `tests/` — Vitest specs for config, scanning, review, providers
 
 ## Agent Behavior Guidelines
 
@@ -112,7 +114,7 @@ Rules must be organized into subdirectories (packs) within `RulesPath`.
 
 ### Zero-Config Mode
 
-If you just want to evaluate against a user instruction guide without specific rules:
+If you just want to review against a user instruction guide without specific rules:
 1. Create a `VECTORLINT.md` file with your user instruction content
 2. Run `vectorlint doc.md` — VectorLint creates a synthetic rule from your user instructions
 
@@ -131,19 +133,18 @@ If you just want to evaluate against a user instruction guide without specific r
 
 VectorLint assembles prompts in this order:
 
-1. **Directive** (`src/prompts/directive-loader.ts`) — Role definition, task, and evaluation instructions
+1. **Directive** (`src/prompts/directive-loader.ts`) — Role definition, task, and review instructions
 2. **User Instructions** (`VECTORLINT.md`) — Optional global style context
-3. **Rule** (the prompt body from the rule file) — Specific evaluation criteria
+3. **Rule** (the prompt body from the rule file) — Specific review criteria
 
-The content to evaluate is sent as a **user message** with line numbers prepended.
+The content to review is sent as a **user message** with line numbers prepended.
 
 ### Chunking
 
 For documents >600 words, VectorLint automatically chunks content:
 - Uses recursive splitting (paragraphs → lines → sentences → words)
-- Each chunk is evaluated separately
+- Each chunk is reviewed separately
 - Results are merged and deduplicated
-- Disable with `evaluateAs: document` in rule frontmatter
 
 ## Coding Style & Naming Conventions
 
@@ -180,11 +181,11 @@ For documents >600 words, VectorLint automatically chunks content:
 
 - Boundary validation: all external data (files, CLI, env, APIs) validated at system boundaries using Zod schemas
 - Type safety: strict TypeScript with no `any`; use `unknown` + schema validation for external data
-- Dependency inversion: depend on `LLMProvider` and `SearchProvider` interfaces; keep providers thin (transport only)
+- Dependency inversion: depend on `StructuredModelClient` and `ToolCallingModelClient`; keep providers thin (transport only)
 - Dependency injection: inject `RequestBuilder` via provider constructor to avoid coupling
-- Separation of concerns: rules define criteria; schemas enforce structure; CLI orchestrates; evaluators process; reporters format
+- Separation of concerns: rules define criteria; schemas enforce structure; CLI orchestrates; executors review; finding processors verify; reporters format
 - Separation of concerns: when a file starts combining contracts, orchestration, and utility logic, extract shared helpers and types into focused modules
-- Extensibility: add providers by implementing `LLMProvider` or `SearchProvider`; add evaluators via registry pattern
+- Extensibility: add providers by implementing the model-client contracts; add review strategies behind `ReviewExecutor`
 - Shared domain constants: avoid magic strings for core runtime concepts; define shared constants, enums, or types and import them where needed
 - Naming: choose domain-accurate names that reflect the real abstraction level; avoid use-case-specific terminology in shared runtime code
 - Logging: route runtime logging through an injected logger interface; keep concrete logger implementations behind the abstraction
@@ -206,7 +207,3 @@ VectorLint supports multiple output formats via the `--output` flag:
 - Anthropic: Claude models (Opus, Sonnet, Haiku)
 - Azure OpenAI: Azure-hosted OpenAI models
 - Google Gemini: Gemini Pro and other Gemini models
-
-### Search Providers
-
-- Perplexity: Sonar models with web search capabilities (used by technical-accuracy evaluator)

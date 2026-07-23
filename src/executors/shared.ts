@@ -1,10 +1,11 @@
 import path from 'path';
 
-import { Severity } from '../evaluators/types';
-import type { EvalContext } from '../providers/request-builder';
+import { Severity } from '../review/severity';
+import type { ReviewCallContext } from '../providers/request-builder';
 import { BudgetExceededError } from '../review/errors';
 import type {
   ReviewDiagnostic,
+  ReviewContext,
   ReviewRequest,
   ReviewSeverity,
   ReviewUsage,
@@ -41,13 +42,43 @@ export function splitRuleId(id: string): { pack: string; ruleId: string } {
 }
 
 /**
- * Builds the provider {@link EvalContext} (file-type hint) for a target URI.
+ * Builds the provider {@link ReviewCallContext} (file-type hint) for a target URI.
  * Shared by both executors so structured and tool-calling calls receive the
  * same file-type context for directive substitution.
  */
-export function buildEvalContext(uri: string): EvalContext {
+export function buildReviewCallContext(uri: string): ReviewCallContext {
   const ext = path.extname(uri);
   return ext ? { fileType: ext } : {};
+}
+
+/** Adds caller-supplied reference context to a source-backed rule prompt. */
+export function buildReviewPrompt(
+  ruleBody: string,
+  context: readonly ReviewContext[] | undefined,
+): string {
+  if (!context || context.length === 0) {
+    return ruleBody;
+  }
+
+  const contextSections = context.map((item) => {
+    const metadata = [
+      item.relation ? `Relation: ${item.relation}` : undefined,
+      item.uri ? `Source: ${item.uri}` : undefined,
+    ].filter((value): value is string => value !== undefined);
+
+    return [
+      `### ${item.label}`,
+      ...metadata,
+      item.content,
+    ].join('\n');
+  });
+
+  return [
+    ruleBody,
+    '',
+    '## Caller-supplied context',
+    ...contextSections,
+  ].join('\n');
 }
 
 /**

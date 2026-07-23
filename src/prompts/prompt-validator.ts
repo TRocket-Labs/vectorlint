@@ -1,5 +1,5 @@
 import { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
-import { Severity } from '../evaluators/types';
+import { Severity } from '../review/severity';
 import { DEFAULT_TARGET_FLAGS } from './target';
 
 export type ValidationLevel = Severity;

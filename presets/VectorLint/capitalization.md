@@ -1,10 +1,8 @@
 ---
 specVersion: 1.0.0
-evaluator: base
 id: Capitalization
 name: Capitalization
 severity: warning
-evaluateAs: document
 ---
 
 # Capitalization

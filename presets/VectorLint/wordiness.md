@@ -1,10 +1,8 @@
 ---
 specVersion: 1.0.0
-evaluator: base
 id: Wordiness
 name: Wordiness
 severity: warning
-evaluateAs: document
 ---
 
 # Wordiness

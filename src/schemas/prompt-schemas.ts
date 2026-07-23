@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Severity } from "../evaluators/types";
+import { Severity } from "../review/severity";
 
 // Target specification schema for regex matching
 export const TARGET_SPEC_SCHEMA = z
@@ -21,7 +21,6 @@ export const PROMPT_CRITERION_SCHEMA = z.object({
 // Prompt metadata schema for YAML frontmatter.
 export const PROMPT_META_SCHEMA = z.object({
   specVersion: z.union([z.string(), z.number()]).optional(),
-  evaluator: z.enum(["base", "technical-accuracy"]).optional(),
   id: z.string(),
   name: z.string(),
   severity: z.nativeEnum(Severity).optional(),
@@ -30,7 +29,6 @@ export const PROMPT_META_SCHEMA = z.object({
     .optional(),
   target: TARGET_SPEC_SCHEMA.optional(),
   criteria: z.array(PROMPT_CRITERION_SCHEMA).optional(),
-  evaluateAs: z.enum(["document", "chunk"]).optional(),
 });
 
 

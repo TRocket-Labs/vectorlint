@@ -1,9 +1,7 @@
 ---
-evaluator: base
 id: Wordiness
 name: Wordiness
 severity: warning
-evaluateAs: document
 ---
 
 Flag wordy or redundant phrases in the content:

@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
 import YAML from 'yaml';
 import { PROMPT_META_SCHEMA, type PromptFile, type PromptMeta } from '../schemas/prompt-schemas';
-import { Severity } from '../evaluators/types';
+import { Severity } from '../review/severity';
 
 // Re-export types for backward compatibility
 export type { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';

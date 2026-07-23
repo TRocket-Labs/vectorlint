@@ -51,7 +51,7 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
     content: string,
     promptText: string,
     schema: { name: string; schema: Record<string, unknown> },
-    context?: import('./request-builder').EvalContext
+    context?: import('./request-builder').ReviewCallContext
   ): Promise<LLMResult<T>> {
     const systemPrompt = this.builder.buildPromptBodyForStructured(promptText, context);
 
@@ -82,13 +82,13 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
     }
 
     try {
-      const evaluator = this.extractContextValue(context, 'evaluatorName', 'evaluator');
+      const reviewer = this.extractContextValue(context, 'reviewerName', 'reviewer');
       const rule = this.extractContextValue(context, 'ruleName', 'rule');
       const observabilityOptions = this.getObservabilityOptions({
-        operation: 'structured-eval',
+        operation: 'structured-review',
         provider: this.config.providerName ?? 'unknown',
         model: this.config.modelName ?? 'unknown',
-        ...(evaluator ? { evaluator } : {}),
+        ...(reviewer ? { reviewer } : {}),
         ...(rule ? { rule } : {}),
         ...(context?.recordPayloadTelemetry !== undefined
           ? { recordPayloadTelemetry: context.recordPayloadTelemetry }
@@ -270,7 +270,7 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
   }
 
   private extractContextValue(
-    context: import('./request-builder').EvalContext | undefined,
+    context: import('./request-builder').ReviewCallContext | undefined,
     ...keys: string[]
   ): string | undefined {
     if (!context) {

@@ -1,9 +1,7 @@
 ---
-evaluator: base
 id: Capitalization
 name: Capitalization
 severity: warning
-evaluateAs: document
 ---
 
 # Capitalization

@@ -1,9 +1,7 @@
 ---
-evaluator: base
 id: PassiveVoice
 name: Passive Voice
 severity: warning
-evaluateAs: document
 ---
 
 Identify passive voice constructions in the content:

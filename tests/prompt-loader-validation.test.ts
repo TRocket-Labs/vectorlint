@@ -22,12 +22,11 @@ describe('Prompt Loader Validation', () => {
         }
     });
 
-    describe('Base Evaluator', () => {
-        it('should load base prompt with criteria', () => {
+    describe('rule frontmatter', () => {
+        it('should load a rule with criteria', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
-name: Test Evaluator
+name: Test Rule
 criteria:
   - name: Quality
     id: QualityCheck
@@ -37,15 +36,13 @@ Check content.`);
             const { prompts, warnings } = loadRules(tmpDir);
             expect(warnings).toHaveLength(0);
             expect(prompts).toHaveLength(1);
-            expect(prompts[0].meta.evaluator).toBe('base');
             expect(prompts[0].meta.criteria).toHaveLength(1);
         });
 
-        it('should load base prompt without criteria', () => {
+        it('should load a rule without criteria', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
-name: Test Evaluator
+name: Test Rule
 ---
 Check content.`);
 
@@ -54,10 +51,9 @@ Check content.`);
             expect(prompts).toHaveLength(1);
         });
 
-        it('should reject base prompt missing id', () => {
+        it('should reject a rule missing id', () => {
             createPrompt('test.md', `---
-evaluator: base
-name: Test Evaluator
+name: Test Rule
 ---
 Check content.`);
 
@@ -67,9 +63,8 @@ Check content.`);
             expect(warnings[0]).toContain('test.md');
         });
 
-        it('should reject base prompt missing name', () => {
+        it('should reject a rule missing name', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 ---
 Check content.`);
@@ -80,11 +75,10 @@ Check content.`);
             expect(warnings[0]).toContain('test.md');
         });
 
-        it('should reject base prompt with criterion missing id', () => {
+        it('should reject a rule with criterion missing id', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
-name: Test Evaluator
+name: Test Rule
 criteria:
   - name: Quality
 ---
@@ -96,11 +90,10 @@ Check content.`);
             expect(warnings[0]).toContain('test.md');
         });
 
-        it('should reject base prompt with criterion missing name', () => {
+        it('should reject a rule with criterion missing name', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
-name: Test Evaluator
+name: Test Rule
 criteria:
   - id: QualityCheck
 ---
@@ -116,7 +109,6 @@ Check content.`);
     describe('ignored frontmatter', () => {
         it('ignores a supplied type field', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 name: Test Prompt
 type: unused

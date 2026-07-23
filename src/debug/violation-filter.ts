@@ -1,4 +1,4 @@
 export {
   computeFilterDecision,
   type FilterDecision,
-} from "../evaluators/violation-filter";
+} from "../findings/filter-decision";

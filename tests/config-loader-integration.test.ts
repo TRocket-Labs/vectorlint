@@ -24,7 +24,7 @@ RulesPath = ./prompts
 
 [docs/**/*.md]
 RunRules = VectorLint
-technical-accuracy.strictness = 9
+clarity.strictness = 9
 
 [blog/**/*.md]
 RunRules = BlogPack, SEOPack
@@ -41,7 +41,7 @@ readability.severity = error
         expect(config.scanPaths[0]!.pattern).toBe('docs/**/*.md');
         expect(config.scanPaths[0]!.runRules).toEqual(['VectorLint']);
         expect(config.scanPaths[0]!.overrides).toEqual({
-            'technical-accuracy.strictness': '9'
+            'clarity.strictness': '9'
         });
 
         // Second section
@@ -63,7 +63,7 @@ strictness = 7
 [content/api/**/*.md]
 RunRules = APIPack
 strictness = 9
-technical-accuracy.depth = high
+clarity.depth = high
 
 [content/archived/**/*.md]
 RunRules = 

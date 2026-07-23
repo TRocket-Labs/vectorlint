@@ -1,9 +1,7 @@
 ---
-evaluator: base
 id: Clarity
 name: Clarity
 severity: warning
-evaluateAs: document
 ---
 
 Identify unclear or ambiguous statements in the content:

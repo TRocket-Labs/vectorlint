@@ -1,9 +1,7 @@
 ---
-evaluator: base
 id: Consistency
 name: Consistency
 severity: warning
-evaluateAs: document
 ---
 
 Check for terminology consistency across the document:

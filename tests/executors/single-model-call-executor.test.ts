@@ -9,7 +9,7 @@ import type {
 } from '../../src/review';
 import type { LLMResult, StructuredModelClient } from '../../src/providers/structured-model-client';
 import type { TokenUsage } from '../../src/providers/token-usage';
-import type { EvaluationLLMResult } from '../../src/prompts/schema';
+import type { ReviewLLMResult } from '../../src/prompts/schema';
 
 const SUPPORTED_CHECKS = {
   rule_supports_claim: true,
@@ -29,7 +29,7 @@ const SUPPORTED_NOTES = {
   fix_preserves_meaning: 'yes',
 };
 
-type ModelViolation = EvaluationLLMResult['violations'][number];
+type ModelViolation = ReviewLLMResult['violations'][number];
 
 function modelViolation(overrides: Partial<ModelViolation> = {}): ModelViolation {
   return {
@@ -58,7 +58,7 @@ type FakeStructuredClient = StructuredModelClient & {
 };
 
 function makeFakeClient(
-  respond: (content: string, promptText: string) => { data: EvaluationLLMResult; usage?: TokenUsage },
+  respond: (content: string, promptText: string) => { data: ReviewLLMResult; usage?: TokenUsage },
 ): FakeStructuredClient {
   const client = {
     structuredCalls: 0,
@@ -141,6 +141,26 @@ describe('SingleModelCallExecutor', () => {
     expect(result.scores[0]?.findingCount).toBe(1);
 
     expect(result.usage?.modelCalls).toBe(1);
+  });
+
+  it('includes caller-supplied context in the review prompt', async () => {
+    const client = makeFakeClient(() => ({
+      data: { reasoning: 'r', violations: [] },
+    }));
+    const executor = new SingleModelCallExecutor(client);
+
+    await executor.run(makeRequest([makeRule()], {
+      context: [{
+        label: 'Current API contract',
+        relation: 'reference',
+        uri: 'file:///repo/openapi.md',
+        content: 'The endpoint returns HTTP 202.',
+      }],
+    }));
+
+    expect(client.lastPromptText).toContain('## Caller-supplied context');
+    expect(client.lastPromptText).toContain('### Current API contract');
+    expect(client.lastPromptText).toContain('The endpoint returns HTTP 202.');
   });
 
   it('routes unanchored evidence to a warn diagnostic without emitting a finding', async () => {

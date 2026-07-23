@@ -1,10 +1,8 @@
 ---
 specVersion: 1.0.0
-evaluator: base
 id: Inclusivity
 name: Inclusivity
 severity: warning
-evaluateAs: document
 ---
 
 # Inclusivity

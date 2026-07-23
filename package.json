@@ -61,7 +61,6 @@
     "@ai-sdk/azure": "^3.0.34",
     "@ai-sdk/google": "^3.0.31",
     "@ai-sdk/openai": "^3.0.33",
-    "@ai-sdk/perplexity": "^1.0.0",
     "@langfuse/otel": "^5.1.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/sdk-node": "^0.214.0",

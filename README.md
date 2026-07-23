@@ -1,6 +1,6 @@
 # VectorLint: Prompt it, Lint it! [![npm version](https://img.shields.io/npm/v/vectorlint.svg)](https://www.npmjs.com/package/vectorlint) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-VectorLint is a command-line tool that uses LLMs to find and score terminology, technical accuracy, and style issues that require contextual understanding.
+VectorLint is a command-line tool that uses LLMs to find and score terminology, consistency, and style issues that require contextual understanding.
 
 ![VectorLint Screenshot](./assets/VectorLint_screenshot.jpeg)
 
@@ -51,7 +51,7 @@ VectorLint scores your content using error density, enabling you to measure qual
 
 ## How VectorLint Reduces False Positives
 
-VectorLint uses a PAT (Pay A Tax) evaluation approach:
+VectorLint uses a PAT (Pay A Tax) review approach:
 
 1. **Candidate generation:** the model returns all potential violations with required gate-check fields (rule support, exact evidence, context support, plausible non-violation, and fix quality).
 2. **Deterministic surfacing:** VectorLint applies a strict filter and only surfaces violations that pass all required gates.

@@ -56,13 +56,6 @@ const DEFAULT_GLOBAL_CONFIG_TEMPLATE = `# VectorLint Environment Configuration
 # BEDROCK_MODEL = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
 # BEDROCK_TEMPERATURE = "0.2"
 
-# ============================================
-# Search Provider Configuration (Optional)
-# Enables technical accuracy verification
-# ============================================
-
-# SEARCH_PROVIDER = "perplexity"
-# PERPLEXITY_API_KEY = "pplx-0000000000000000"
 `;
 
 /**

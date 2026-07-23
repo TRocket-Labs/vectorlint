@@ -1,4 +1,4 @@
-import { Severity } from '../evaluators/types';
+import { Severity } from '../review/severity';
 import { CLI_VERSION } from '../config/constants';
 export interface ScoreComponent {
   criterion?: string;
@@ -8,7 +8,7 @@ export interface ScoreComponent {
   normalizedMaxScore: number;
 }
 
-export interface EvaluationScore {
+export interface ReviewScoreOutput {
   id: string;
   scores: ScoreComponent[];
 }
@@ -28,7 +28,7 @@ export interface Issue {
 
 export interface FileResult {
   issues: Issue[];
-  evaluationScores: EvaluationScore[];
+  reviewScores: ReviewScoreOutput[];
 }
 
 export interface Result {
@@ -51,7 +51,7 @@ export class JsonFormatter {
 
   addIssue(file: string, issue: Issue): void {
     if (!this.files[file]) {
-      this.files[file] = { issues: [], evaluationScores: [] };
+      this.files[file] = { issues: [], reviewScores: [] };
     }
     this.files[file].issues.push(issue);
 
@@ -62,11 +62,11 @@ export class JsonFormatter {
     }
   }
 
-  addEvaluationScore(file: string, score: EvaluationScore): void {
+  addReviewScore(file: string, score: ReviewScoreOutput): void {
     if (!this.files[file]) {
-      this.files[file] = { issues: [], evaluationScores: [] };
+      this.files[file] = { issues: [], reviewScores: [] };
     }
-    this.files[file].evaluationScores.push(score);
+    this.files[file].reviewScores.push(score);
   }
 
   toJson(): string {

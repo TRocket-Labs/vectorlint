@@ -4,7 +4,7 @@ import type {
   ReviewResult,
   ReviewScore,
 } from '../review/types';
-import { computeFilterDecision } from '../evaluators/violation-filter';
+import { computeFilterDecision } from '../findings/filter-decision';
 import {
   verifyFindingEvidence,
   FINDING_EVIDENCE_NOT_LOCATABLE,

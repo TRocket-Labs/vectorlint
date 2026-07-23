@@ -1,8 +1,8 @@
 export interface AIExecutionContext {
-  operation: 'structured-eval' | 'tool-calling';
+  operation: 'structured-review' | 'tool-calling';
   provider: string;
   model: string;
-  evaluator?: string;
+  reviewer?: string;
   rule?: string;
   recordPayloadTelemetry?: boolean;
 }

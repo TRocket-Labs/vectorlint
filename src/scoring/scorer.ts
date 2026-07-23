@@ -1,5 +1,5 @@
-import type { EvaluationItem, ScoredEvaluation } from "../prompts/schema";
-import { Severity } from "../evaluators/types";
+import type { ReviewItem, ScoredReview } from "../prompts/schema";
+import { Severity } from "../review/severity";
 
 export interface ScoringOptions {
   strictness?: number | "lenient" | "strict" | "standard" | undefined;
@@ -30,10 +30,10 @@ function resolveStrictness(
  * Formula: Score = (100 - (violations/wordCount * 100 * strictness)) / 10
  */
 export function calculateScore(
-  violations: EvaluationItem[],
+  violations: ReviewItem[],
   wordCount: number,
   options: ScoringOptions = {}
-): ScoredEvaluation {
+): ScoredReview {
   const strictness = resolveStrictness(options.strictness);
   const mappedViolations = violations.map((item) => ({
     ...item,

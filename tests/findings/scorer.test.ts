@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculateScore } from '../../src/scoring';
-import { Severity } from '../../src/evaluators/types';
+import { Severity } from '../../src/review/severity';
 import { scoreFindings } from '../../src/findings/scorer';
 import type { RawViolation } from '../../src/findings/types';
 

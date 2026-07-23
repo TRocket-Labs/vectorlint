@@ -34,19 +34,19 @@ describe('LangfuseObservability', () => {
     });
 
     expect(subject.decorateCall({
-      operation: 'structured-eval',
+      operation: 'structured-review',
       provider: 'openai',
       model: 'gpt-4o',
-      evaluator: 'clarity',
+      reviewer: 'clarity',
       rule: 'no-fluff',
     })).toEqual({
       experimental_telemetry: {
         isEnabled: true,
-        functionId: 'vectorlint.structured-eval',
+        functionId: 'vectorlint.structured-review',
         metadata: {
           provider: 'openai',
           model: 'gpt-4o',
-          evaluator: 'clarity',
+          reviewer: 'clarity',
           rule: 'no-fluff',
         },
         recordInputs: false,
@@ -62,7 +62,7 @@ describe('LangfuseObservability', () => {
     });
 
     expect(subject.decorateCall({
-      operation: 'structured-eval',
+      operation: 'structured-review',
       provider: 'openai',
       model: 'gpt-4o',
       recordPayloadTelemetry: true,

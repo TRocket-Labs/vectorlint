@@ -1,5 +1,5 @@
 import { calculateScore, type ScoringOptions } from '../scoring';
-import type { ScoredEvaluation } from '../prompts/schema';
+import type { ScoredReview } from '../prompts/schema';
 import { resolveSeverity } from './severity';
 import type { RawViolation, RuleSeverity } from './types';
 
@@ -13,7 +13,7 @@ export interface ScoredFindings {
   scoreText: string;
   severity: RuleSeverity;
   findingCount: number;
-  scored: ScoredEvaluation;
+  scored: ScoredReview;
 }
 
 /** Scores verified findings using violation density. */

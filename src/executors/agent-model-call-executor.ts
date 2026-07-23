@@ -1,8 +1,8 @@
 import type { ToolCallDefinition, ToolCallingModelClient } from '../providers/tool-calling-model-client';
-import type { EvalContext, RequestBuilder } from '../providers/request-builder';
+import type { ReviewCallContext, RequestBuilder } from '../providers/request-builder';
 import {
-  buildEvaluationLLMSchema,
-  type EvaluationLLMResult,
+  buildReviewLLMSchema,
+  type ReviewLLMResult,
 } from '../prompts/schema';
 import { countWords } from '../chunking';
 import { processFindings } from '../findings';
@@ -19,7 +19,8 @@ import type { ReviewExecutor } from '../review/executor';
 import { TargetReadCapability, buildReadTargetSectionTool } from './target-read-capability-adapter';
 import {
   budgetExceededDiagnostic,
-  buildEvalContext,
+  buildReviewCallContext,
+  buildReviewPrompt,
   buildReviewUsage,
   splitRuleId,
   toFindingSeverity,
@@ -48,12 +49,12 @@ export class AgentModelCallExecutor implements ReviewExecutor {
   ) {}
 
   async run(request: ReviewRequest): Promise<ReviewResult> {
-    const schema = buildEvaluationLLMSchema();
+    const schema = buildReviewLLMSchema();
     const capability = new TargetReadCapability(request.target.content);
     // Exactly one executor-owned tool is exposed: target-section paging.
     const tools = buildReadTargetSectionTool(capability);
     const context = {
-      ...buildEvalContext(request.target.uri),
+      ...buildReviewCallContext(request.target.uri),
       recordPayloadTelemetry: request.outputPolicy.recordPayloadTelemetry,
     };
 
@@ -68,7 +69,7 @@ export class AgentModelCallExecutor implements ReviewExecutor {
 
     try {
       for (const rule of request.rules) {
-        const ruleResult = await this.reviewRule(
+        const contentReview = await this.reviewTargetWithRule(
           request,
           rule,
           schema,
@@ -78,10 +79,10 @@ export class AgentModelCallExecutor implements ReviewExecutor {
           counters,
           elapsedMs,
         );
-        findings.push(...ruleResult.findings);
-        scores.push(...ruleResult.scores);
-        diagnostics.push(...ruleResult.diagnostics);
-        if (ruleResult.hadOperationalErrors) {
+        findings.push(...contentReview.findings);
+        scores.push(...contentReview.scores);
+        diagnostics.push(...contentReview.diagnostics);
+        if (contentReview.hadOperationalErrors) {
           hadOperationalErrors = true;
         }
       }
@@ -109,12 +110,12 @@ export class AgentModelCallExecutor implements ReviewExecutor {
    * model page through the target via `read_target_section`, then projects the
    * returned violations through {@link processFindings}.
    */
-  private async reviewRule(
+  private async reviewTargetWithRule(
     request: ReviewRequest,
     rule: ReviewRule,
-    schema: ReturnType<typeof buildEvaluationLLMSchema>,
+    schema: ReturnType<typeof buildReviewLLMSchema>,
     tools: Record<string, ToolCallDefinition>,
-    context: EvalContext,
+    context: ReviewCallContext,
     targetLineCount: number,
     counters: RunCounters,
     elapsedMs: () => number,
@@ -127,11 +128,14 @@ export class AgentModelCallExecutor implements ReviewExecutor {
       elapsedMs: elapsedMs(),
     });
 
-    const { data, usage } = await this.client.runWithTools<EvaluationLLMResult>({
+    const { data, usage } = await this.client.runWithTools<ReviewLLMResult>({
       // The source-backed rule body, wrapped with the directive/user
       // instructions exactly as the single-call path does. No model-supplied
       // rule override is introduced.
-      systemPrompt: this.builder.buildPromptBodyForStructured(rule.body, context),
+      systemPrompt: this.builder.buildPromptBodyForStructured(
+        buildReviewPrompt(rule.body, request.context),
+        context,
+      ),
       prompt: this.buildTargetPrompt(request.target.uri, targetLineCount),
       tools,
       schema,

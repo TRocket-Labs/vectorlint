@@ -1,9 +1,7 @@
 ---
-evaluator: base
 id: UnsupportedClaims
 name: Unsupported Claims
 severity: warning
-evaluateAs: document
 ---
 
 # Unsupported Claims

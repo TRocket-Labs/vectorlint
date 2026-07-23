@@ -1,5 +1,5 @@
 import type { TokenUsage } from './token-usage';
-import type { EvalContext } from './request-builder';
+import type { ReviewCallContext } from './request-builder';
 
 /**
  * Result of a structured model call: validated output plus optional usage.
@@ -15,6 +15,6 @@ export interface StructuredModelClient {
     content: string,
     promptText: string,
     schema: { name: string; schema: Record<string, unknown> },
-    context?: EvalContext,
+    context?: ReviewCallContext,
   ): Promise<LLMResult<T>>;
 }

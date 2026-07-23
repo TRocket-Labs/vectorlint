@@ -6,7 +6,7 @@ describe('NoopObservability', () => {
 
   it('returns an empty option object for any AI execution context', () => {
     expect(subject.decorateCall({
-      operation: 'structured-eval',
+      operation: 'structured-review',
       provider: 'openai',
       model: 'gpt-4o',
     })).toEqual({});

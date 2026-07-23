@@ -1,9 +1,7 @@
 ---
-evaluator: base
 id: Repetition
 name: Repetition
 severity: warning
-evaluateAs: document
 ---
 
 # Repetition
