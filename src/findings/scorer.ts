@@ -25,7 +25,7 @@ export function scoreFindings(params: {
 }): ScoredFindings {
   const scored = calculateScore(
     params.verifiedViolations,
-    params.wordCount,
+    Math.max(1, params.wordCount),
     {
       ...(params.strictness !== undefined ? { strictness: params.strictness } : {}),
       ...(params.promptSeverity !== undefined

@@ -52,4 +52,25 @@ describe('PromptValidator', () => {
     expect(res.errors.some(e => /Invalid regex flags/i.test(e.message))).toBe(true);
     expect(res.errors.some(e => /Invalid global target\.regex/i.test(e.message))).toBe(true);
   });
+
+  it('validates regex with the default execution flags', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'vlint-'));
+    const promptsDir = path.join(root, 'prompts');
+    mkdirSync(promptsDir, { recursive: true });
+    const yaml = [
+      'id: TestPrompt',
+      'name: Test Prompt',
+      'target:',
+      "  regex: '\\a'",
+      'criteria:',
+      '  - name: A',
+      '    id: A',
+    ].join('\n');
+    writePrompt(promptsDir, 'bad-default-flags.md', yaml);
+
+    const { prompts } = loadRules(promptsDir);
+    const res = validateAll(prompts);
+
+    expect(res.errors.some(e => /Invalid global target\.regex/i.test(e.message))).toBe(true);
+  });
 });

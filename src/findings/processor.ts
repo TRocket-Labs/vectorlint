@@ -94,8 +94,8 @@ function filterCandidates(candidates: readonly RawViolation[]): RawViolation[] {
 
 /**
  * Verifies each surfaced finding's evidence and deduplicates verified findings
- * by `(quoted_text, line)`. Unanchored findings become warn diagnostics and are
- * not emitted.
+ * by their anchored coordinates. Unanchored findings become warn diagnostics
+ * and are not emitted.
  */
 function verifyAndDedupe(
   surfaced: readonly RawViolation[],
@@ -129,15 +129,11 @@ function verifyAndDedupe(
     }
 
     const coords = verification.finding;
-    const dedupeKey = candidate.quoted_text
-      ? `${candidate.quoted_text}:${coords.line}`
-      : null;
-    if (dedupeKey) {
-      if (seen.has(dedupeKey)) {
-        continue;
-      }
-      seen.add(dedupeKey);
+    const dedupeKey = `${coords.line}:${coords.column}:${coords.match}`;
+    if (seen.has(dedupeKey)) {
+      continue;
     }
+    seen.add(dedupeKey);
 
     verified.push({ raw: candidate, coords });
   }

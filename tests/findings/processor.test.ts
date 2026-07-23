@@ -167,12 +167,19 @@ describe('processFindings', () => {
       expect(result.hadOperationalErrors).toBe(false);
     });
 
-    it('deduplicates verified findings by quoted_text and line', () => {
+    it('deduplicates candidates that resolve to the same verified anchor', () => {
       const result = processFindings(
-        baseInput([
-          violation({ quoted_text: 'Alpha text', line: 1 }),
-          violation({ quoted_text: 'Alpha text', line: 1, message: 'dup' }),
-        ]),
+        baseInput(
+          [
+            violation({ quoted_text: 'Alpha text Beta', line: 1 }),
+            violation({
+              quoted_text: 'Alpha text Beta extra',
+              line: 1,
+              message: 'duplicate anchor',
+            }),
+          ],
+          { targetContent: 'Alpha text Beta\n' },
+        ),
       );
 
       expect(result.findings).toHaveLength(1);

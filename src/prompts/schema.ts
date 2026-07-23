@@ -175,22 +175,7 @@ export type ScoredEvaluation = {
   severity: typeof Severity.WARNING | typeof Severity.ERROR;
   message: string;
   reasoning?: string;
-  violations: Array<{
-    line?: number;
-    analysis: string;
-    message?: string;
-    suggestion?: string;
-    fix?: string;
-    quoted_text?: string;
-    context_before?: string;
-    context_after?: string;
-    criterionName?: string;
-    description?: string;
-    rule_quote?: string;
-    checks?: GateChecks;
-    check_notes?: GateCheckNotes;
-    confidence?: number;
-  }>;
+  violations: Array<EvaluationItem & { criterionName?: string }>;
   usage?: TokenUsage;
   raw_model_output?: unknown;
 };
@@ -202,4 +187,3 @@ export type PromptEvaluationResult = {
   usage?: TokenUsage;
   raw_model_output?: unknown;
 };
-

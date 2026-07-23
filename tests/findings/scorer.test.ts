@@ -86,4 +86,15 @@ describe('scoreFindings', () => {
     const direct = calculateScore(verified, 100, { strictness: 'strict' });
     expect(result.score).toBe(direct.final_score);
   });
+
+  it('returns a perfect score for an empty zero-word target', () => {
+    const result = scoreFindings({
+      verifiedViolations: [],
+      wordCount: 0,
+    });
+
+    expect(result.score).toBe(10);
+    expect(result.scoreText).toBe('10.0/10');
+    expect(result.findingCount).toBe(0);
+  });
 });

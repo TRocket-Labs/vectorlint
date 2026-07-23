@@ -1,5 +1,6 @@
 import { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
 import { Severity } from '../evaluators/types';
+import { DEFAULT_TARGET_FLAGS } from './target';
 
 export type ValidationLevel = Severity;
 export interface Validation {
@@ -55,7 +56,7 @@ export function validatePrompt(p: PromptFile): Validation[] {
       out.push({ file: p.filename, level: Severity.ERROR, message: 'Invalid global target.group' });
     }
     if (meta.target.regex) {
-      try { new RegExp(meta.target.regex, meta.target.flags || ''); } catch {
+      try { new RegExp(meta.target.regex, meta.target.flags || DEFAULT_TARGET_FLAGS); } catch {
         out.push({ file: p.filename, level: Severity.ERROR, message: 'Invalid global target.regex' });
       }
     }

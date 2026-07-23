@@ -3,6 +3,8 @@ export type { TargetSpec } from '../schemas/prompt-schemas';
 
 import type { TargetSpec } from '../schemas/prompt-schemas';
 
+export const DEFAULT_TARGET_FLAGS = 'mu';
+
 export function checkTarget(
   content: string,
   target?: TargetSpec,
@@ -10,7 +12,7 @@ export function checkTarget(
   if (!target || !target.regex) return { missing: false };
   let match: RegExpExecArray | null = null;
   try {
-    const flags = target.flags || 'mu';
+    const flags = target.flags || DEFAULT_TARGET_FLAGS;
     const re = new RegExp(target.regex, flags);
     match = re.exec(content);
   } catch {

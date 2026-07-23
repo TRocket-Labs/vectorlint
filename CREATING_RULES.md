@@ -156,10 +156,10 @@ target:
 | `evaluator`   | string        | No       | Evaluator type: `base`, `technical-accuracy` (default: `base`) |
 | `id`          | string        | **Yes**  | Unique identifier (used in error reporting)                    |
 | `name`        | string        | **Yes**  | Human-readable name                                            |
-
-| `severity` | string | No | `error` or `warning` (default: `warning`) |
-| `evaluateAs` | string | No | `document` or `chunk` - whether to evaluate content as a whole or in chunks (default: `chunk`) |
-| `target` | object | No | Content matching specification |
+| `severity`    | string        | No       | `error` or `warning` (default: `warning`)                      |
+| `strictness`  | number/string | No       | Density penalty: a positive number, `lenient`, `standard`, or `strict` |
+| `evaluateAs`  | string        | No       | `document` or `chunk` (default: `chunk`)                       |
+| `target`      | object        | No       | Content matching specification                                 |
 
 ---
 

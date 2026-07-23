@@ -5,6 +5,24 @@ import type { PromptFile } from "../src/schemas/prompt-schemas";
 import type { EvaluationLLMResult } from "../src/prompts/schema";
 import type { SearchProvider } from "../src/providers/search-provider";
 
+const FULLY_SUPPORTED_CHECKS = {
+  rule_supports_claim: true,
+  evidence_exact: true,
+  context_supports_violation: true,
+  plausible_non_violation: false,
+  fix_is_drop_in: true,
+  fix_preserves_meaning: true,
+};
+
+const CHECK_NOTES = {
+  rule_supports_claim: "Supported",
+  evidence_exact: "Exact",
+  context_supports_violation: "Supported",
+  plausible_non_violation: "None",
+  fix_is_drop_in: "Drop-in",
+  fix_preserves_meaning: "Preserved",
+};
+
 describe("Scoring Types", () => {
   const mockLlmProvider = {
     runPromptStructured: vi.fn(),
@@ -29,22 +47,37 @@ describe("Scoring Types", () => {
       // Mock LLM returning violations only wrapped in LLMResult
       const mockLlmResponse: LLMResult<EvaluationLLMResult> = {
         data: {
+          reasoning: "Two issues found",
           violations: [
             {
+              line: 1,
               description: "Issue 1",
               analysis: "First issue found",
+              message: "First issue",
               suggestion: "",
+              fix: "",
               quoted_text: "",
               context_before: "",
               context_after: "",
+              rule_quote: "",
+              checks: FULLY_SUPPORTED_CHECKS,
+              check_notes: CHECK_NOTES,
+              confidence: 0.9,
             },
             {
+              line: 2,
               description: "Issue 2",
               analysis: "Second issue found",
+              message: "Second issue",
               suggestion: "",
+              fix: "",
               quoted_text: "",
               context_before: "",
               context_after: "",
+              rule_quote: "",
+              checks: FULLY_SUPPORTED_CHECKS,
+              check_notes: CHECK_NOTES,
+              confidence: 0.9,
             },
           ],
         },
@@ -66,6 +99,7 @@ describe("Scoring Types", () => {
 
       const mockLlmResponse: LLMResult<EvaluationLLMResult> = {
         data: {
+          reasoning: "No issues found",
           violations: [],
         },
       };
