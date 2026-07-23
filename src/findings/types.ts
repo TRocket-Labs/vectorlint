@@ -1,29 +1,10 @@
 import { z } from 'zod';
 import { Severity } from '../evaluators/types';
 
-/**
- * Input contract for shared finding processing (Phase 3, audit Finding #6).
- *
- * This module is the boundary between "what a model returned" (raw candidate
- * violations) and "what the formatters receive" (`ReviewResult`). It is
- * intentionally independent of model call (`single` | `agent`): there is no
- * `modelCall`, `mode`, `agent`, `evaluator`, `judge`, or rubric field here.
- *
- * Following the `src/review/` pattern, the domain types below are explicit
- * interfaces (so their optional properties stay assignable under
- * `exactOptionalPropertyTypes` to `CheckItem`/`GateViolationLike`), and the
- * Zod schemas mirror them for boundary validation. The schemas are strict so
- * legacy `evaluator`/`judge`/`modelCall`/`mode`/`agent`/rubric payloads are
- * rejected.
- */
-
-/**
- * The two severity levels objective violation checks can resolve to. Mirrors
- * `ReviewSeverity`; values are identical (`'error'` | `'warning'`).
- */
+/** Severity assigned to a rule and its findings. */
 export type RuleSeverity = typeof Severity.ERROR | typeof Severity.WARNING;
 
-/** Optional strictness knob for check density scoring. */
+/** Optional strictness knob for density scoring. */
 export type Strictness = number | 'lenient' | 'standard' | 'strict';
 
 /**
@@ -62,33 +43,20 @@ export interface RawViolation {
   checks?: GateChecks;
 }
 
-/**
- * Criterion metadata used ONLY to name output rule ids
- * (`Pack.Rule.Criterion`). Weight and target are judge/rubric concerns and are
- * deliberately absent so the finding-processing contract cannot leak them.
- */
+/** Criterion metadata used to name `Pack.Rule.Criterion` output ids. */
 export interface FindingsCriterion {
   id: string;
   name: string;
 }
 
-/**
- * The narrow slice of prompt metadata that finding processing needs: severity
- * for scoring, strictness for density, and criteria for rule-id naming. It
- * excludes `evaluator`, `type`, `evaluateAs`, `target`, and other legacy
- * fields that do not affect objective violation-check processing.
- */
+/** Prompt metadata used by finding processing. */
 export interface PromptMetaForFindings {
   severity?: RuleSeverity;
   strictness?: Strictness;
   criteria?: FindingsCriterion[];
 }
 
-/**
- * The full finding-processing input. There is deliberately no `outputFormat`:
- * the processor emits a format-agnostic `ReviewResult`; the caller routes it
- * to a formatter.
- */
+/** Format-independent input for finding processing. */
 export interface FindingProcessingInput {
   pack: string;
   ruleId: string;
@@ -98,8 +66,6 @@ export interface FindingProcessingInput {
   promptMeta: PromptMetaForFindings;
   targetContent: string;
 }
-
-// --- Boundary validation schemas (mirror the interfaces above) ---------------
 
 export const GATE_CHECKS_SCHEMA = z
   .object({

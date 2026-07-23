@@ -5,10 +5,8 @@ import { REVIEW_BUDGET_SCHEMA } from './budget';
  * Zod schemas mirroring src/review/types.ts (boundary validation).
  *
  * Every external review-domain shape has a paired schema here so callers and
- * external adapters can validate untrusted input at the system boundary
- * (audit Finding #3). Schemas are intentionally strict: unknown keys are
- * rejected so legacy scoring-mode, rubric, and model-authored rule-override
- * fields cannot leak into the new contract.
+ * external adapters can validate untrusted input at the system boundary.
+ * Schemas reject unknown keys.
  */
 
 export const REVIEW_SEVERITY_SCHEMA = z.enum(['error', 'warning']);
@@ -63,7 +61,6 @@ export const REVIEW_SCORE_COMPONENT_SCHEMA = z
     id: z.string().min(1),
     scoreText: z.string(),
     score: z.number(),
-    weight: z.number().optional(),
   })
   .strict();
 

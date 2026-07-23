@@ -5,7 +5,7 @@ description: "VectorLint is a large language model (LLM)-based prose linter that
 
 ## What is VectorLint?
 
-VectorLint is a command-line tool that evaluates and scores documentation using large language models (LLMs). Instead of regex patterns that can only catch surface-level issues, VectorLint uses an [LLM-as-a-Judge](https://en.wikipedia.org/wiki/LLM-as-a-Judge) approach to catch terminology misuse, technical inaccuracies, and style inconsistencies that require contextual understanding to detect.
+VectorLint is a command-line tool that evaluates and scores documentation using large language models (LLMs). Unlike regex patterns that catch only surface-level issues, VectorLint can find terminology misuse, technical inaccuracies, and style inconsistencies that require contextual understanding.
 
 If you can write a prompt for it, you can lint it with VectorLint.
 
@@ -36,11 +36,7 @@ This gives documentation teams something they haven't had before: a **shared, me
 
 ## How scoring works
 
-VectorLint uses two scoring methods depending on the rule type:
-
-**Density-based scoring** is used for rules that count discrete violations (like a grammar checker). VectorLint calculates scores based on error density — errors per 100 words — so results are comparable across documents of any length.
-
-**Rubric-based scoring** is used for rules that measure quality on a spectrum (like tone or completeness). The LLM scores each criterion on a 1–4 scale, which VectorLint normalizes to a 1–10 scale for consistent reporting.
+VectorLint calculates scores from error density—verified violations per 100 words—so results are comparable across documents of different lengths.
 
 ## How false positives are reduced
 

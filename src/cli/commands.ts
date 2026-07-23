@@ -94,9 +94,6 @@ export function registerMainCommand(program: Command): void {
         return;
       }
 
-      // --mode is removed (audit Product Decision): the autonomous workspace-agent
-      // surface is gone. Fail clearly and point users at the replacement rather
-      // than silently mapping it onto --model-call.
       if (program.opts().mode !== undefined) {
         console.error('Error: --mode is no longer supported. Use --model-call single|agent|auto instead.');
         process.exit(1);

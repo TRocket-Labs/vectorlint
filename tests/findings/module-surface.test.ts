@@ -8,7 +8,7 @@ describe('src/findings public surface', () => {
     expect(typeof findings.resolveSeverity).toBe('function');
     expect(typeof findings.buildRuleId).toBe('function');
     expect(typeof findings.resolveCriterionId).toBe('function');
-    expect(typeof findings.scoreCheck).toBe('function');
+    expect(typeof findings.scoreFindings).toBe('function');
   });
 
   it('exports the stable diagnostic code constant', () => {

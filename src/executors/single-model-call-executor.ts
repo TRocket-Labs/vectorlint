@@ -10,7 +10,10 @@ import type {
 } from '../review/types';
 import type { EvalContext } from '../providers/request-builder';
 import type { StructuredModelClient } from '../providers/structured-model-client';
-import { buildCheckLLMSchema, type CheckLLMResult } from '../prompts/schema';
+import {
+  buildEvaluationLLMSchema,
+  type EvaluationLLMResult,
+} from '../prompts/schema';
 import { countWords, mergeViolations, RecursiveChunker, type Chunk } from '../chunking';
 import { prependLineNumbers } from '../output/line-numbering';
 import { processFindings } from '../findings';
@@ -33,7 +36,7 @@ const CHUNKING_WORD_THRESHOLD = 600;
 const MAX_CHUNK_WORDS = 500;
 
 /**
- * The single modelCall {@link ReviewExecutor} (audit Finding #2).
+ * The single modelCall {@link ReviewExecutor}.
  *
  * Reviews target content against source-backed rules with one structured model
  * call per (rule, chunk) through an injected {@link StructuredModelClient}. It
@@ -49,7 +52,7 @@ export class SingleModelCallExecutor implements ReviewExecutor {
   constructor(private readonly client: StructuredModelClient) {}
 
   async run(request: ReviewRequest): Promise<ReviewResult> {
-    const schema = buildCheckLLMSchema();
+    const schema = buildEvaluationLLMSchema();
     const context = {
       ...buildEvalContext(request.target.uri),
       recordPayloadTelemetry: request.outputPolicy.recordPayloadTelemetry,
@@ -111,7 +114,7 @@ export class SingleModelCallExecutor implements ReviewExecutor {
   private async reviewRule(
     request: ReviewRequest,
     rule: ReviewRule,
-    schema: ReturnType<typeof buildCheckLLMSchema>,
+    schema: ReturnType<typeof buildEvaluationLLMSchema>,
     context: EvalContext,
     counters: RunCounters,
     elapsedMs: () => number,
@@ -120,7 +123,7 @@ export class SingleModelCallExecutor implements ReviewExecutor {
     const wordCount = countWords(request.target.content) || 1;
     const chunks = this.chunkTarget(numberedContent, wordCount, request.budget.maxChunksPerRule);
 
-    const chunkViolations: CheckLLMResult['violations'][] = [];
+    const chunkViolations: EvaluationLLMResult['violations'][] = [];
     for (const chunk of chunks) {
       // Enforce the model-call budget before committing to another call. The
       // prospective count (calls made so far plus this one) lets enforceBudget
@@ -130,7 +133,7 @@ export class SingleModelCallExecutor implements ReviewExecutor {
         elapsedMs: elapsedMs(),
       });
 
-      const { data, usage } = await this.client.runPromptStructured<CheckLLMResult>(
+      const { data, usage } = await this.client.runPromptStructured<EvaluationLLMResult>(
         chunk.content,
         rule.body,
         schema,

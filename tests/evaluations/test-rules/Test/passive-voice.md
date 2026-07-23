@@ -1,6 +1,5 @@
 ---
 evaluator: base
-type: check
 id: PassiveVoice
 name: Passive Voice
 severity: warning

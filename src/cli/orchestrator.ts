@@ -140,9 +140,7 @@ function writeReviewDebugArtifact(relFile: string, result: ReviewResult): void {
       file: relFile,
       ...(Object.keys(model).length > 0 ? { model } : {}),
       ...(model.tag !== undefined ? { subdir: model.tag } : {}),
-      prompt: {
-        evaluation_type: 'check',
-      },
+      prompt: {},
       raw_model_output: null,
       filter_decisions: [],
       surfaced_violations: result.findings,
@@ -266,8 +264,6 @@ async function evaluateFile(
     };
   }
 
-  // Build the review request and dispatch through the executor selected by the
-  // resolved model-call strategy (audit Product Decision; Finding #2).
   const target: ReviewTarget = {
     uri: pathToFileURL(path.resolve(file)).href,
     content,

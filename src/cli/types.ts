@@ -32,11 +32,7 @@ export const OUTPUT_FORMATS = [
 
 export const DEFAULT_OUTPUT_FORMAT = OUTPUT_FORMATS[0];
 
-/**
- * How the reviewer model is invoked for a review (audit Product Decision;
- * Finding #2). `single` is one structured call per rule/chunk; `agent` is a
- * bounded target-only paging run; `auto` resolves via `chooseModelCall`.
- */
+/** Default reviewer model-call strategy. */
 export const DEFAULT_REVIEW_MODEL_CALL: ReviewModelCall = 'auto';
 
 export interface EvaluationOptions {

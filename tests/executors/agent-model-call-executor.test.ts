@@ -7,7 +7,7 @@ import { DefaultRequestBuilder } from '../../src/providers/request-builder';
 import type { ToolCallDefinition, ToolCallingModelClient, ToolCallRunOptions } from '../../src/providers/tool-calling-model-client';
 import type { LLMResult } from '../../src/providers/structured-model-client';
 import type { TokenUsage } from '../../src/providers/token-usage';
-import type { CheckLLMResult } from '../../src/prompts/schema';
+import type { EvaluationLLMResult } from '../../src/prompts/schema';
 import type { TargetSectionErrorResult, TargetSectionResult } from '../../src/executors/target-read-capability-adapter';
 
 const SUPPORTED_CHECKS = {
@@ -28,7 +28,7 @@ const SUPPORTED_NOTES = {
   fix_preserves_meaning: 'yes',
 };
 
-type ModelViolation = CheckLLMResult['violations'][number];
+type ModelViolation = EvaluationLLMResult['violations'][number];
 
 function modelViolation(overrides: Partial<ModelViolation> = {}): ModelViolation {
   return {
@@ -62,7 +62,7 @@ interface FakeToolClient extends ToolCallingModelClient {
 }
 
 function makeFakeClient(
-  respond: () => { data: CheckLLMResult; usage?: TokenUsage },
+  respond: () => { data: EvaluationLLMResult; usage?: TokenUsage },
 ): FakeToolClient {
   const fake = {
     calls: 0,

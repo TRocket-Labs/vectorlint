@@ -9,15 +9,7 @@ export interface LLMResult<T> {
   usage?: TokenUsage;
 }
 
-/**
- * Permanent structured-output model capability (audit Finding #2).
- *
- * A {@link StructuredModelClient} makes a single structured model call and
- * returns validated output. It owns no tool surface and no autonomous agent
- * loop; that product-level autonomy is removed from the provider surface
- * (audit Product Decision). The single structured-call executor builds on this
- * capability.
- */
+/** Makes one structured model call and returns validated output. */
 export interface StructuredModelClient {
   runPromptStructured<T = unknown>(
     content: string,

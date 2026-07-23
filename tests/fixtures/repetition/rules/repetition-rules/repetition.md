@@ -1,6 +1,5 @@
 ---
 evaluator: base
-type: check
 id: Repetition
 name: Repetition
 severity: warning

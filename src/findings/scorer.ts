@@ -1,47 +1,31 @@
-import { calculateCheckScore, type CheckScoringOptions } from '../scoring';
-import type { CheckResult } from '../prompts/schema';
+import { calculateScore, type ScoringOptions } from '../scoring';
+import type { ScoredEvaluation } from '../prompts/schema';
 import { resolveSeverity } from './severity';
 import type { RawViolation, RuleSeverity } from './types';
 
-/** Optional scoring knobs mirroring {@link CheckScoringOptions}. */
-export interface ScoreCheckOptions {
-  strictness?: CheckScoringOptions['strictness'];
+export interface ScoreOptions {
+  strictness?: ScoringOptions['strictness'];
   promptSeverity?: RuleSeverity;
 }
 
-/**
- * The count/density score result for a rule's verified findings. Mirrors the
- * fields the processor needs to assemble a `ReviewScore`. The numeric values
- * come straight from {@link calculateCheckScore}; this layer never
- * reimplements the scoring math (audit Finding #4).
- */
-export interface ScoredCheck {
+export interface ScoredFindings {
   score: number;
   scoreText: string;
   severity: RuleSeverity;
-  /** Count of verified findings that drove the score. */
   findingCount: number;
-  /** The raw check result, used to resolve severity. */
-  scored: CheckResult;
+  scored: ScoredEvaluation;
 }
 
-/**
- * Scores a rule's verified findings using the existing check density formula.
- *
- * The score is driven by the **verified** finding count, not the raw candidate
- * count (audit Finding #6): callers must pass only findings whose evidence has
- * been anchored. This is a thin adapter over {@link calculateCheckScore}; it
- * only normalizes the result into the shared score shape.
- */
-export function scoreCheck(params: {
+/** Scores verified findings using violation density. */
+export function scoreFindings(params: {
   verifiedViolations: RawViolation[];
   wordCount: number;
-  strictness?: CheckScoringOptions['strictness'];
+  strictness?: ScoringOptions['strictness'];
   promptSeverity?: RuleSeverity;
-}): ScoredCheck {
-  const scored = calculateCheckScore(
+}): ScoredFindings {
+  const scored = calculateScore(
     params.verifiedViolations,
-    params.wordCount,
+    Math.max(1, params.wordCount),
     {
       ...(params.strictness !== undefined ? { strictness: params.strictness } : {}),
       ...(params.promptSeverity !== undefined

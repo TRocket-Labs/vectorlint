@@ -9,7 +9,7 @@ import type {
 } from '../../src/review';
 import type { LLMResult, StructuredModelClient } from '../../src/providers/structured-model-client';
 import type { TokenUsage } from '../../src/providers/token-usage';
-import type { CheckLLMResult } from '../../src/prompts/schema';
+import type { EvaluationLLMResult } from '../../src/prompts/schema';
 
 const SUPPORTED_CHECKS = {
   rule_supports_claim: true,
@@ -29,7 +29,7 @@ const SUPPORTED_NOTES = {
   fix_preserves_meaning: 'yes',
 };
 
-type ModelViolation = CheckLLMResult['violations'][number];
+type ModelViolation = EvaluationLLMResult['violations'][number];
 
 function modelViolation(overrides: Partial<ModelViolation> = {}): ModelViolation {
   return {
@@ -58,7 +58,7 @@ type FakeStructuredClient = StructuredModelClient & {
 };
 
 function makeFakeClient(
-  respond: (content: string, promptText: string) => { data: CheckLLMResult; usage?: TokenUsage },
+  respond: (content: string, promptText: string) => { data: EvaluationLLMResult; usage?: TokenUsage },
 ): FakeStructuredClient {
   const client = {
     structuredCalls: 0,

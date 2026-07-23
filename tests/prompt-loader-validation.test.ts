@@ -23,7 +23,7 @@ describe('Prompt Loader Validation', () => {
     });
 
     describe('Base Evaluator', () => {
-        it('should load base prompt with criteria (optional weight)', () => {
+        it('should load base prompt with criteria', () => {
             createPrompt('test.md', `---
 evaluator: base
 id: Test
@@ -52,24 +52,6 @@ Check content.`);
             const { prompts, warnings } = loadRules(tmpDir);
             expect(warnings).toHaveLength(0);
             expect(prompts).toHaveLength(1);
-        });
-
-        it('should load base prompt with weight in criteria', () => {
-            createPrompt('test.md', `---
-evaluator: base
-id: Test
-name: Test Evaluator
-criteria:
-  - name: Quality
-    id: QualityCheck
-    weight: 1
----
-Check content.`);
-
-            const { prompts, warnings } = loadRules(tmpDir);
-            expect(warnings).toHaveLength(0);
-            expect(prompts).toHaveLength(1);
-            expect(prompts[0].meta.criteria![0].weight).toBe(1);
         });
 
         it('should reject base prompt missing id', () => {
@@ -131,54 +113,20 @@ Check content.`);
         });
     });
 
-    describe('Judge boundary rejection (Phase 3)', () => {
-        it('rejects judge-typed prompts at the loader boundary', () => {
-            createPrompt('judge.md', `---
+    describe('ignored frontmatter', () => {
+        it('ignores a supplied type field', () => {
+            createPrompt('test.md', `---
 evaluator: base
-id: Judge
-name: Judge Prompt
-type: judge
-criteria:
-  - name: Clarity
-    id: Clarity
----
-Judge content.`);
-
-            const { prompts, warnings } = loadRules(tmpDir);
-            expect(prompts).toHaveLength(0);
-            expect(warnings.length).toBeGreaterThan(0);
-            expect(warnings[0]).toContain('judge.md');
-            expect(warnings[0]).toMatch(/judge/i);
-        });
-
-        it('rejects subjective-typed prompts (deprecated judge alias)', () => {
-            createPrompt('subjective.md', `---
-evaluator: base
-id: Subjective
-name: Subjective Prompt
-type: subjective
----
-Subjective content.`);
-
-            const { prompts, warnings } = loadRules(tmpDir);
-            expect(prompts).toHaveLength(0);
-            expect(warnings.length).toBeGreaterThan(0);
-            expect(warnings[0]).toContain('subjective.md');
-        });
-
-        it('still loads check-typed prompts', () => {
-            createPrompt('check.md', `---
-evaluator: base
-id: Check
-name: Check Prompt
-type: check
+id: Test
+name: Test Prompt
+type: unused
 ---
 Check content.`);
 
             const { prompts, warnings } = loadRules(tmpDir);
             expect(warnings).toHaveLength(0);
             expect(prompts).toHaveLength(1);
-            expect(prompts[0].meta.type).toBe('check');
+            expect(prompts[0].meta).not.toHaveProperty('type');
         });
     });
 });

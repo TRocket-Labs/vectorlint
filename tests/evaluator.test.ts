@@ -21,11 +21,11 @@ function setupEnv() {
   // Two prompts with minimal frontmatter criteria
   writeFileSync(
     path.join(promptsDir, 'p1.md'),
-    `---\nid: P1\nname: Prompt 1\ncriteria:\n  - name: A\n    id: A\n    weight: 1\n---\nBody 1\n`
+    `---\nid: P1\nname: Prompt 1\ncriteria:\n  - name: A\n    id: A\n---\nBody 1\n`
   );
   writeFileSync(
     path.join(promptsDir, 'p2.md'),
-    `---\nid: P2\nname: Prompt 2\ncriteria:\n  - name: B\n    id: B\n    weight: 1\n---\nBody 2\n`
+    `---\nid: P2\nname: Prompt 2\ncriteria:\n  - name: B\n    id: B\n---\nBody 2\n`
   );
   const files = [
     path.join(root, 'a.md'),

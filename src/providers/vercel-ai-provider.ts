@@ -13,8 +13,7 @@ import { handleUnknownError } from '../errors';
 /**
  * Conservative default step cap for a single bounded tool-calling run when the
  * caller does not supply one. Executors should pass an explicit `maxSteps`
- * derived from the review budget (audit Finding #7) rather than relying on
- * this default.
+ * derived from the review budget.
  */
 const DEFAULT_TOOL_CALLING_MAX_STEPS = 10;
 
@@ -148,13 +147,7 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
     }
   }
 
-  /**
-   * Bounded tool-calling transport (audit Finding #2). Performs a single
-   * bounded generation that may execute caller-supplied tools and then emits
-   * structured output. The tool map, step budget, and schema are all
-   * executor-owned; the provider defines no product tools and runs no
-   * autonomous product loop (audit Product Decision).
-   */
+  /** Runs bounded tool calling with executor-owned tools and output schema. */
   async runWithTools<T = unknown>(params: {
     systemPrompt: string;
     prompt: string;

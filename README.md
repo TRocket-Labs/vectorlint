@@ -1,6 +1,6 @@
 # VectorLint: Prompt it, Lint it! [![npm version](https://img.shields.io/npm/v/vectorlint.svg)](https://www.npmjs.com/package/vectorlint) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-VectorLint is a command-line tool that evaluates and scores content using LLMs. It uses [LLM-as-a-Judge](https://en.wikipedia.org/wiki/LLM-as-a-Judge) to catch terminology, technical accuracy, and style issues that require contextual understanding.
+VectorLint is a command-line tool that uses LLMs to find and score terminology, technical accuracy, and style issues that require contextual understanding.
 
 ![VectorLint Screenshot](./assets/VectorLint_screenshot.jpeg)
 
@@ -143,17 +143,6 @@ Notes:
 - Observability is non-blocking. If Langfuse setup fails, VectorLint continues without telemetry.
 - Prompts and outputs are recorded when Langfuse observability is enabled.
 - Do not send secrets, credentials, or PII unless your policy explicitly allows observability tooling to access that data.
-
-## Agent Mode (under review)
-
-The `--mode agent` flag is under active rework. It currently enables an
-autonomous cross-file review mode that is being **removed** in favor of a
-bounded harness model. See
-[`docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md`](docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md)
-for the decision and the refactor plan.
-
-Until the refactor lands, `--mode agent` prints a deprecation warning and
-falls back to standard mode. Do not build integrations against it.
 
 ## Contributing
 

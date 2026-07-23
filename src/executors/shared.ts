@@ -2,7 +2,7 @@ import path from 'path';
 
 import { Severity } from '../evaluators/types';
 import type { EvalContext } from '../providers/request-builder';
-import { BudgetExceededError } from '../review/budget';
+import { BudgetExceededError } from '../review/errors';
 import type {
   ReviewDiagnostic,
   ReviewRequest,

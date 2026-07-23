@@ -1,6 +1,9 @@
 import type { ToolCallDefinition, ToolCallingModelClient } from '../providers/tool-calling-model-client';
 import type { EvalContext, RequestBuilder } from '../providers/request-builder';
-import { buildCheckLLMSchema, type CheckLLMResult } from '../prompts/schema';
+import {
+  buildEvaluationLLMSchema,
+  type EvaluationLLMResult,
+} from '../prompts/schema';
 import { countWords } from '../chunking';
 import { processFindings } from '../findings';
 import { enforceBudget } from '../review/budget';
@@ -24,13 +27,12 @@ import {
 } from './shared';
 
 /**
- * The agent `modelCall` {@link ReviewExecutor} (audit Product Decision; Finding #2).
+ * The agent `modelCall` {@link ReviewExecutor}.
  *
  * Reviews target content against source-backed rules through a single bounded
  * tool-calling run per rule via an injected {@link ToolCallingModelClient}. The
  * only executor-owned tool exposed to the model is `read_target_section`,
- * which pages through the in-memory `request.target.content` (the on-page
- * boundary, audit Finding #5). Rule prompts come verbatim from
+ * which pages through the in-memory `request.target.content`. Rule prompts come verbatim from
  * {@link ReviewRule.body} — no model-supplied rule override is introduced —
  * candidate findings flow through the shared {@link processFindings} pipeline,
  * and the model-call budget is enforced via the review budget module before
@@ -46,7 +48,7 @@ export class AgentModelCallExecutor implements ReviewExecutor {
   ) {}
 
   async run(request: ReviewRequest): Promise<ReviewResult> {
-    const schema = buildCheckLLMSchema();
+    const schema = buildEvaluationLLMSchema();
     const capability = new TargetReadCapability(request.target.content);
     // Exactly one executor-owned tool is exposed: target-section paging.
     const tools = buildReadTargetSectionTool(capability);
@@ -110,7 +112,7 @@ export class AgentModelCallExecutor implements ReviewExecutor {
   private async reviewRule(
     request: ReviewRequest,
     rule: ReviewRule,
-    schema: ReturnType<typeof buildCheckLLMSchema>,
+    schema: ReturnType<typeof buildEvaluationLLMSchema>,
     tools: Record<string, ToolCallDefinition>,
     context: EvalContext,
     targetLineCount: number,
@@ -125,7 +127,7 @@ export class AgentModelCallExecutor implements ReviewExecutor {
       elapsedMs: elapsedMs(),
     });
 
-    const { data, usage } = await this.client.runWithTools<CheckLLMResult>({
+    const { data, usage } = await this.client.runWithTools<EvaluationLLMResult>({
       // The source-backed rule body, wrapped with the directive/user
       // instructions exactly as the single-call path does. No model-supplied
       // rule override is introduced.

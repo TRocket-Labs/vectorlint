@@ -9,7 +9,6 @@ Every VectorLint rule file begins with a YAML frontmatter block that controls ho
 ---
 id: MyRule
 name: My Rule
-type: check
 severity: error
 ---
 
@@ -29,7 +28,6 @@ Your LLM prompt goes here.
 |---|---|---|
 | `specVersion` | _(none)_ | Rule spec version. Use `1.0.0`. |
 | `evaluator` | `base` | Evaluator type. Use `base` for standard rules. Use `technical-accuracy` for rules that verify factual claims against live web search (requires a search provider). |
-| `type` | `check` | Evaluation mode. `check` finds specific, countable violations and scores them by error density. `judge` (and its deprecated `subjective` alias) is no longer supported — a rule with `type: judge` or `type: subjective` is rejected at load. |
 | `severity` | `warning` | How a failing result is reported. `error` causes a non-zero exit code; `warning` reports the issue without failing the run. |
 | `evaluateAs` | `chunk` | Whether to evaluate content in sections (`chunk`) or as a single unit (`document`). Chunking is applied automatically to documents over 600 words. Set to `document` to disable chunking for a specific rule. |
 | `target` | _(none)_ | Regex specification to extract and evaluate a specific portion of the content, such as the H1 headline. See [Target fields](#target-fields) below. |
@@ -63,7 +61,6 @@ The following rule uses the most commonly-used fields. It targets the H1 headlin
 ```markdown
 ---
 evaluator: base
-type: check
 id: HeadlineQuality
 name: Headline Quality
 severity: error

@@ -6,8 +6,7 @@ A comprehensive guide to creating powerful, reusable content evaluations using V
 
 - [Overview](#overview)
 - [Rule Anatomy](#rule-anatomy)
-- [Evaluation Modes](#evaluation-modes)
-- [Check Rules](#check-rules)
+- [How Rules Work](#how-rules-work)
 - [Target Specification](#target-specification)
 - [Configuration Reference](#configuration-reference)
 - [Best Practices](#best-practices)
@@ -40,7 +39,6 @@ Every rule is a Markdown file with two parts:
 id: MyEval
 name: My Content Evaluator
 evaluator: base
-type: check
 severity: error
 ---
 
@@ -71,34 +69,16 @@ project/
 
 ---
 
-## Evaluation Modes
+## How Rules Work
 
-VectorLint uses a single **Base Evaluator** (`evaluator: base`) that operates in one mode, determined by the `type` field:
-
-| Mode       | `type`  | Use Case                              | Scoring                     | Output                  |
-| ---------- | ------- | ------------------------------------- | --------------------------- | ----------------------- |
-| **Check**  | `check` | Pass/fail checks, counting violations | 10 points - 1 per violation | List of specific issues |
-
-The deprecated `type: judge` (alias `subjective`) is no longer supported; a rule using it is rejected at load.
-
-### When to Use Check
-
-- You need to find specific errors (e.g., "Find all grammar mistakes")
-- The check is binary (Pass/Fail) for each item
-- You want a list of specific violations to fix
-
----
-
-## Check Rules
-
-Check rules are perfect for finding specific issues. The LLM lists violations, and the score is calculated based on the count of violations.
+The LLM lists specific violations, and VectorLint calculates a density-based
+score from the verified findings.
 
 ### Minimal Example
 
 ```markdown
 ---
 evaluator: base
-type: check
 id: GrammarChecker
 name: Grammar Checker
 severity: error
@@ -174,13 +154,12 @@ target:
 | ------------- | ------------- | -------- | -------------------------------------------------------------- |
 | `specVersion` | string/number | No       | Rule specification version (use `1.0.0`)                       |
 | `evaluator`   | string        | No       | Evaluator type: `base`, `technical-accuracy` (default: `base`) |
-| `type`        | string        | No       | Mode: `check` (default: `check`). `judge`/`subjective` rejected at load |
 | `id`          | string        | **Yes**  | Unique identifier (used in error reporting)                    |
 | `name`        | string        | **Yes**  | Human-readable name                                            |
-
-| `severity` | string | No | `error` or `warning` (default: `warning`) |
-| `evaluateAs` | string | No | `document` or `chunk` - whether to evaluate content as a whole or in chunks (default: `chunk`) |
-| `target` | object | No | Content matching specification |
+| `severity`    | string        | No       | `error` or `warning` (default: `warning`)                      |
+| `strictness`  | number/string | No       | Density penalty: a positive number, `lenient`, `standard`, or `strict` |
+| `evaluateAs`  | string        | No       | `document` or `chunk` (default: `chunk`)                       |
+| `target`      | object        | No       | Content matching specification                                 |
 
 ---
 
@@ -225,12 +204,11 @@ Help the LLM understand your domain:
 
 ## Examples
 
-### Example 1: Simple Grammar Check (Check)
+### Example 1: Simple Grammar Rule
 
 ```markdown
 ---
 evaluator: base
-type: check
 id: GrammarChecker
 name: Grammar Checker
 severity: error

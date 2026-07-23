@@ -20,7 +20,7 @@ describe('verifyFindingEvidence', () => {
     expect(result.diagnostic).toBeUndefined();
   });
 
-  it('returns a warn diagnostic (not a fallback finding) when evidence cannot be located', () => {
+  it('returns a warn diagnostic when evidence cannot be located', () => {
     const result = verifyFindingEvidence(CONTENT, {
       quoted_text: 'this does not exist anywhere',
       context_before: '',
@@ -31,20 +31,6 @@ describe('verifyFindingEvidence', () => {
     expect(result.finding).toBeUndefined();
     expect(result.diagnostic?.code).toBe(FINDING_EVIDENCE_NOT_LOCATABLE);
     expect(result.diagnostic?.level).toBe('warn');
-  });
-
-  it('never returns a finding whose line came from the model when the quote did not anchor', () => {
-    // The old agent path fell back to the model-provided line (here 1) and
-    // surfaced the raw quoted_text as a verified match. Assert we do not.
-    // (Use a lexically distant quote that locateQuotedText cannot anchor.)
-    const result = verifyFindingEvidence(CONTENT, {
-      quoted_text: 'definitely not present xyzzy',
-      context_before: '',
-      context_after: '',
-      line: 1,
-    });
-    expect(result.verified).toBe(false);
-    expect(result.finding).toBeUndefined();
   });
 
   it('still anchors a quote when no line hint is provided', () => {
@@ -63,7 +49,6 @@ describe('verifyFindingEvidence', () => {
     });
     expect(result.verified).toBe(false);
     expect(result.diagnostic?.message).toContain('x'.repeat(60));
-    // Truncated, not the full 120 chars.
     expect(result.diagnostic?.message).not.toContain('x'.repeat(61));
   });
 });

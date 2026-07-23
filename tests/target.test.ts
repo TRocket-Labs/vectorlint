@@ -30,13 +30,10 @@ describe('Target gating (regex)', () => {
       "criteria:",
       "  - name: A",
       "    id: A",
-      "    weight: 1",
     ].join('\n');
     const { prompt } = setupPrompt(yaml);
     const content = 'No heading here';
-    const c = prompt.meta.criteria?.[0];
-    if (!c) throw new Error("No criteria");
-    const res = checkTarget(content, prompt.meta.target, c.target);
+    const res = checkTarget(content, prompt.meta.target);
     expect(res.missing).toBe(true);
     expect(res.suggestion).toMatch(/H1/);
   });
@@ -52,41 +49,11 @@ describe('Target gating (regex)', () => {
       "criteria:",
       "  - name: A",
       "    id: A",
-      "    weight: 1",
     ].join('\n');
     const { prompt } = setupPrompt(yaml);
     const content = '# Title\n\nBody';
-    const c = prompt.meta.criteria?.[0];
-    if (!c) throw new Error("No criteria");
-    const res = checkTarget(content, prompt.meta.target, c.target);
+    const res = checkTarget(content, prompt.meta.target);
     expect(res.missing).toBe(false);
-  });
-
-  it('criterion target overrides global target', () => {
-    const yaml = [
-      "id: TestPrompt",
-      "name: Test Prompt",
-      "target:",
-      "  regex: '^#\\s+(.+)$'",
-      "  flags: 'mu'",
-      "  required: true",
-      "criteria:",
-      "  - name: A",
-      "    id: A",
-      "    weight: 1",
-      "    target:",
-      "      regex: '^##\\s+(.+)$'",
-      "      flags: 'mu'",
-      "      required: true",
-      "      suggestion: Add an H2.",
-    ].join('\n');
-    const { prompt } = setupPrompt(yaml);
-    const content = '# H1 only';
-    const c = prompt.meta.criteria?.[0];
-    if (!c) throw new Error("No criteria");
-    const res = checkTarget(content, prompt.meta.target, c.target);
-    expect(res.missing).toBe(true);
-    expect(res.suggestion).toMatch(/H2/);
   });
 
   it('invalid regex with required=true yields missing', () => {
@@ -100,13 +67,10 @@ describe('Target gating (regex)', () => {
       "criteria:",
       "  - name: A",
       "    id: A",
-      "    weight: 1",
     ].join('\n');
     const { prompt } = setupPrompt(yaml);
     const content = '# Title';
-    const c = prompt.meta.criteria?.[0];
-    if (!c) throw new Error("No criteria");
-    const res = checkTarget(content, prompt.meta.target, c.target);
+    const res = checkTarget(content, prompt.meta.target);
     expect(res.missing).toBe(true);
   });
 });

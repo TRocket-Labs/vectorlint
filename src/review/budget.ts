@@ -1,15 +1,10 @@
 import { z } from 'zod';
 import type { ReviewBudget } from './types';
-import { VectorlintError } from '../errors';
+import { BudgetExceededError } from './errors';
 
 /**
- * Sensible default bounds for a single review (audit Finding #7). Frozen so a
+ * Sensible default bounds for a single review. Frozen so a
  * shared default object cannot be accidentally mutated by a caller.
- *
- * Note: there is intentionally no finding cap (`maxFindingsPerRule`) —
- * VectorLint reports every verified issue it finds — and no headless retry
- * budget (`maxHeadlessRetries`) because the decided architecture has no
- * headless executor.
  */
 export const DEFAULT_REVIEW_BUDGET: Readonly<ReviewBudget> = Object.freeze({
   maxTargetBytes: 1_000_000,
@@ -42,21 +37,6 @@ export const REVIEW_BUDGET_SCHEMA = z
 export interface BudgetUsage {
   modelCalls: number;
   elapsedMs: number;
-}
-
-/**
- * Thrown by {@link enforceBudget} when current usage violates a hard limit.
- * Extends the repository's canonical error base (VectorlintError).
- */
-export class BudgetExceededError extends VectorlintError {
-  constructor(
-    message: string,
-    public readonly limit: keyof ReviewBudget,
-    public readonly actual: number,
-  ) {
-    super(message, 'BUDGET_EXCEEDED');
-    this.name = 'BudgetExceededError';
-  }
 }
 
 /**
