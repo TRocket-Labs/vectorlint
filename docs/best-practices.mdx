@@ -51,6 +51,20 @@ LLMs review content relative to an implied standard. Make that standard explicit
 
 A grammar rule without context produces generic grammar findings. The same rule with a developer audience context produces findings calibrated to technical writing conventions.
 
+## Write observable violation conditions
+
+VectorLint works best when each rule names what counts as a violation. Treat a rule as a checklist of conditions the reviewer can confirm from target evidence.
+
+```markdown
+Flag a headline when it:
+1. Omits the product or feature being discussed
+2. Promises a benefit that the article does not support
+3. Uses vague value words such as "seamless", "powerful", or "robust"
+4. Exceeds 70 characters
+```
+
+Observable conditions make findings easier to verify and reduce subjective disagreements during review.
+
 ## Tier strictness by content type
 
 Not all content deserves the same quality bar. Apply strictness in proportion to how much a failure costs — measured in user trust, support load, or brand impact.

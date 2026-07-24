@@ -1,0 +1,53 @@
+---
+title: Model calls
+description: Choose single, agent, or auto model calls for VectorLint reviews.
+---
+
+VectorLint supports three review strategies through `--model-call`. Leave the default, `auto`, enabled for most reviews. Override it when the size or structure of a particular document calls for a different strategy.
+
+## Choose a strategy
+
+| Value | Use it for |
+| --- | --- |
+| `auto` | Most reviews. VectorLint selects a strategy for the current document. |
+| `single` | Normal, self-contained documents and focused rules. |
+| `agent` | Large documents or reviews that need to compare context across multiple sections. |
+
+## Use the default
+
+```bash
+vectorlint doc.md
+```
+
+This is equivalent to:
+
+```bash
+vectorlint doc.md --model-call auto
+```
+
+## Override the default
+
+Choose `single` for a normal, self-contained document:
+
+```bash
+vectorlint doc.md --model-call single
+```
+
+Choose `agent` for a large document or when a rule needs context from sections that are far apart:
+
+```bash
+vectorlint doc.md --model-call agent
+```
+
+Changing `--model-call` does not change which rules run, how findings are scored, or which output formats are available.
+
+## Combine with an output format
+
+```bash
+vectorlint doc.md --model-call agent --output json
+```
+
+## Related
+
+- [How it works](/how-it-works)
+- [CLI reference](/cli-reference)

@@ -67,6 +67,7 @@
         "group": "Reference",
         "pages": [
           "cli-reference",
+          "model-calls",
           "configuration-schema",
           "env-variables",
           "frontmatter-fields",

@@ -1,58 +1,49 @@
 ---
 title: How it works
-description: How VectorLint reviews content, filters findings, and calculates scores.
+description: How VectorLint applies rules, verifies findings, and reports results.
 ---
 
-VectorLint sends your content to a large language model (LLM) with a structured prompt that defines your quality criteria. The model returns candidate findings, which VectorLint filters through a deterministic pipeline before surfacing violations in the CLI.
+VectorLint reviews target files against your content rules and reports specific, evidence-backed findings.
 
-If you haven't run your first check yet, start with the [Quickstart](/quickstart). This page is for understanding the architecture behind what you're running.
+If you haven't run your first review yet, start with the [Quickstart](/quickstart). This page explains what happens when you run that command.
 
 ## The review pipeline
 
-Every time you run `vectorlint doc.md`, three things happen in sequence.
+Every time you run `vectorlint doc.md`, VectorLint follows the same high-level path.
 
-### 1. Rule resolution
+### 1. Resolve targets and rules
 
-VectorLint reads your `.vectorlint.ini` to determine which rule packs apply to the file. It loads those rule files, prepends the contents of `VECTORLINT.md` (if present) to each rule's system prompt, and assembles the review context.
+VectorLint reads your project configuration to determine which rule packs apply to each target file. It loads rule files, applies `VECTORLINT.md` as global review context when present, and builds source-backed rules.
 
-If no `.vectorlint.ini` exists, VectorLint detects `VECTORLINT.md` and creates a synthetic "Style Guide Compliance" rule automatically. This is the zero-config path — the fastest way to get from nothing to a working review without writing any rule pack files.
+If no `.vectorlint.ini` exists, VectorLint detects `VECTORLINT.md` and creates a synthetic style-guide rule automatically. This is the zero-config path.
 
-### 2. LLM review
+### 2. Choose a review strategy
 
-VectorLint sends your content to the configured LLM provider with each rule's prompt. The model returns a list of specific violations with supporting evidence.
+VectorLint uses `auto` by default and selects a strategy based on the content being reviewed. You can override the default with `--model-call` when a particular document needs a different strategy.
 
-Rules run concurrently up to the `Concurrency` limit set in `.vectorlint.ini`.
+See [Model calls](/model-calls) for selection guidance and CLI examples.
 
-### 3. Filtering
+### 3. Review the content
 
-Raw model output contains noise — potential violations that don't hold up under scrutiny. VectorLint reduces false positives through a two-phase filtering process:
+VectorLint reviews the target against each applicable rule. For long documents, it divides the content into manageable sections and combines the results.
 
-1. **Candidate generation** — the model returns all potential violations, each tagged with required fields: rule support, exact evidence, context support, plausible non-violation, and fix quality.
-2. **Deterministic surfacing** — VectorLint applies a strict filter and only surfaces violations that pass all required gates.
+### 4. Validate and score findings
 
-The CLI output is intentionally stricter than raw model candidates with fewer results and higher confidence.
+Before reporting a finding, VectorLint confirms that its quoted evidence appears in the target content. It removes duplicate findings and calculates a score from the verified violations.
 
-You can tune how aggressively the filter operates with `CONFIDENCE_THRESHOLD` (default: `0.75`). Lower values surface more findings with higher recall; higher values surface fewer findings with higher precision. See [Configuring LLM providers](/llm-providers) for details.
+Findings without locatable evidence are omitted from the reported violations.
 
-## Scoring
+### 5. Present the results
 
-VectorLint calculates error density from verified violations per 100 words. A single error in a short document weighs more heavily than the same error in a long one, which normalizes quality assessment across documents of different lengths.
+VectorLint presents the verified findings using the requested output format:
 
-See [Quality scoring](/quality-scoring) for the full scoring reference.
-
-## Two ways to define quality
-
-VectorLint gives you two complementary tools for expressing your content standards:
-
-- **`VECTORLINT.md`** — plain-language style instructions that apply globally to every review. The fastest path to useful output: no rule files, no configuration syntax, just plain English instructions that the LLM uses as context for every check.
-- **Rule pack files** — structured LLM prompts for specific, measurable standards. Use these when you need reproducible, auditable results on a particular dimension of quality.
-
-The two work together: `VECTORLINT.md` sets the baseline context, and rule pack files enforce specific criteria on top of it.
-
-See [Defining your style rules](/style-guide) for how to create both.
+- `line` for human-readable terminal output
+- `json` for VectorLint's native machine-readable output
+- `vale-json` for Vale-compatible integrations
+- `rdjson` for reviewdog-compatible integrations
 
 ## Next steps
 
-- [Quickstart](/quickstart) — run your first review in minutes
-- [Defining your style rules](/style-guide) — create VECTORLINT.md and write custom rules
-- [Configuring a project](/project-config) — map files to rule packs
+- [Model calls](/model-calls) — choose `single`, `agent`, or `auto`
+- [Defining your style rules](/style-guide) — create `VECTORLINT.md` and custom rules
+- [CLI reference](/cli-reference) — confirm command syntax and flags
