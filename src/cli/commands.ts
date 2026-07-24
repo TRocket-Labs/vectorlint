@@ -4,8 +4,6 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createProvider } from '../providers/provider-factory';
-import { PerplexitySearchProvider } from '../providers/perplexity-provider';
-import type { SearchProvider } from '../providers/search-provider';
 import { loadConfig } from '../boundaries/config-loader';
 import { loadUserInstructions } from '../boundaries/user-instruction-loader';
 import { loadRuleFile, type PromptFile } from '../prompts/prompt-loader';
@@ -17,8 +15,8 @@ import { loadDirective } from '../prompts/directive-loader';
 import { resolveTargets } from '../scan/file-resolver';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
-import { evaluateFiles } from './orchestrator';
-import { DEFAULT_REVIEW_MODE, OUTPUT_FORMATS, OutputFormat } from './types';
+import { reviewFiles } from './orchestrator';
+import { DEFAULT_REVIEW_MODEL_CALL, OUTPUT_FORMATS, OutputFormat } from './types';
 import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { createWinstonLogger } from '../logging/winston-logger';
 import { createNoopLogger } from '../logging/logger';
@@ -71,10 +69,7 @@ async function runOrExit<T>(
   }
 }
 
-/*
- * Registers the main evaluation command with Commander.
- * This is the default command that runs content evaluations against target files.
- */
+/** Registers the main content-review command with Commander. */
 export function registerMainCommand(program: Command): void {
   program
     .option('-v, --verbose', 'Enable verbose logging')
@@ -82,8 +77,8 @@ export function registerMainCommand(program: Command): void {
     .option('--show-prompt-trunc', 'Print truncated prompt/content previews (500 chars)')
     .option('--debug-json', 'Write debug JSON artifacts (raw model output + filter decisions)')
     .option('--output <format>', `Output format: ${OUTPUT_FORMATS.join(', ')}`, OUTPUT_FORMATS[0])
-    .option('--mode <mode>', 'Execution mode: standard (default).', DEFAULT_REVIEW_MODE)
-    .option('-p, --print', 'Suppress interactive progress output')
+    .option('--model-call <modelCall>', 'Model call strategy: single (one structured call per rule), agent (bounded target-only paging), or auto (default)', DEFAULT_REVIEW_MODEL_CALL)
+    .option('--mode <mode>', 'Removed: use --model-call instead')
     .option('--config <path>', `Path to custom ${DEFAULT_CONFIG_FILENAME} config file`)
     .argument('[paths...]', 'files or directories to check (required)')
     .action(async (paths: string[] = []) => {
@@ -92,6 +87,11 @@ export function registerMainCommand(program: Command): void {
       if (paths.length === 0) {
         program.help();
         return;
+      }
+
+      if (program.opts().mode !== undefined) {
+        console.error('Error: --mode is no longer supported. Use --model-call single|agent|auto instead.');
+        process.exit(1);
       }
 
       // Parse and validate CLI options
@@ -177,7 +177,7 @@ export function registerMainCommand(program: Command): void {
       }
 
       if (targets.length === 0) {
-        console.error('Error: no target files found to evaluate.');
+        console.error('Error: no target files found to review.');
         process.exit(1);
       }
 
@@ -192,6 +192,7 @@ export function registerMainCommand(program: Command): void {
       try {
         observability = await initializeObservability(env, runtimeLogger);
 
+        const requestBuilder = new DefaultRequestBuilder(directive, userInstructions.content || undefined);
         const provider = createProvider(
           env,
           {
@@ -201,27 +202,21 @@ export function registerMainCommand(program: Command): void {
             logger: runtimeLogger,
             observability,
           },
-          new DefaultRequestBuilder(directive, userInstructions.content || undefined)
+          requestBuilder
         );
 
-        // Create search provider if API key is available
-        const searchProvider: SearchProvider | undefined = process.env.PERPLEXITY_API_KEY
-          ? new PerplexitySearchProvider({ logger: runtimeLogger })
-          : undefined;
-
-        // Run evaluations via orchestrator
-        const result = await evaluateFiles(targets, {
+        // Run reviews via the orchestrator.
+        const result = await reviewFiles(targets, {
           prompts,
           rulesPath,
           provider,
-          ...(searchProvider ? { searchProvider } : {}),
+          requestBuilder,
           concurrency: config.concurrency,
           verbose: cliOptions.verbose,
           logger: runtimeLogger,
           debugJson: cliOptions.debugJson,
           outputFormat: cliOptions.output,
-          mode: cliOptions.mode,
-          printMode: cliOptions.print,
+          modelCall: cliOptions.modelCall,
           scanPaths: config.scanPaths,
           pricing: {
             inputPricePerMillion: env.INPUT_PRICE_PER_MILLION,

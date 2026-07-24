@@ -3,7 +3,7 @@ title: Configuring LLM providers
 description: Connect VectorLint to OpenAI, Anthropic, Azure OpenAI, Google Gemini, or Amazon Bedrock.
 ---
 
-VectorLint sends your content to an LLM (Large Language Model) for evaluation. Configure a provider and supply credentials before running your first check.
+VectorLint sends your content to an LLM (Large Language Model) for review. Configure a provider and supply credentials before running your first check.
 
 ## Supported providers
 
@@ -198,27 +198,6 @@ export AWS_SECRET_ACCESS_KEY=...
 <Note>
 If your environment already provides AWS credentials through an IAM role or `~/.aws/credentials`, you can omit AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.
 </Note>
-
-## Search provider (optional)
-
-The `technical-accuracy` evaluator verifies factual claims against live web search. You need a separate search provider credential. VectorLint currently supports [Perplexity](https://www.perplexity.ai/) for this purpose.
-
-**Global config** (`~/.vectorlint/config.toml`)
-
-```toml
-[env]
-SEARCH_PROVIDER = "perplexity"
-PERPLEXITY_API_KEY = "pplx-..."
-```
-
-**Project `.env` file**
-
-```bash
-SEARCH_PROVIDER=perplexity
-PERPLEXITY_API_KEY=pplx-...
-```
-
-You don't need a search provider for standard `base` evaluator rules.
 
 ## Tracking LLM costs
 

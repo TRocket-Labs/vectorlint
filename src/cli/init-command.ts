@@ -20,7 +20,7 @@ RunRules=VectorLint
 const USER_INSTRUCTION_TEMPLATE = `# User Instructions
 
 <!--
-VectorLint will use these instructions when evaluating your content.
+VectorLint will use these instructions when reviewing your content.
 Add your style preferences, terminology guidelines, tone requirements, etc.
 -->
 
@@ -117,7 +117,7 @@ export function registerInitCommand(program: Command): void {
             console.log(`Next steps:`);
             console.log(`  1. Open ${getGlobalConfigPath()} and configure your API keys (e.g., OPENAI_API_KEY)`);
             if (createUserInstructions) {
-                console.log(`  2. Edit ${USER_INSTRUCTION_FILENAME} to define your instructions for content evaluation`);
+                console.log(`  2. Edit ${USER_INSTRUCTION_FILENAME} to define your content-review instructions`);
             }
             console.log(`  ${createUserInstructions ? '3' : '2'}. Run 'vectorlint <file.md>' to start linting your content`);
             if (createConfig) {

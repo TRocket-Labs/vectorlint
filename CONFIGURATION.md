@@ -15,7 +15,7 @@ VectorLint is configured via a `.vectorlint.ini` file in the root of your projec
 # Optional: Path to custom rules directory
 # If omitted, only preset rules (from RunRules) are used
 # RulesPath=.github/rules
-# Number of concurrent evaluations (Default: 4)
+# Number of concurrent reviews (Default: 4)
 Concurrency=4
 # Default severity for violations (Default: warning)
 DefaultSeverity=warning
@@ -34,8 +34,6 @@ GrammarChecker.strictness=7
 RunRules=Acme
 # Higher strictness for docs
 GrammarChecker.strictness=9
-# Require a higher score for technical accuracy
-TechnicalAccuracy.threshold=8.0
 
 # Marketing content - run "TechCorp" pack
 [content/marketing/**/*.md]
@@ -56,7 +54,7 @@ These settings control the application's core behavior.
 | Setting           | Type    | Default      | Description                                                        |
 | ----------------- | ------- | ------------ | ------------------------------------------------------------------ |
 | `RulesPath`       | string  | (none)       | Root directory for custom rule packs. If omitted, only presets are used. |
-| `Concurrency`     | integer | `4`          | Number of concurrent evaluations to run.                           |
+| `Concurrency`     | integer | `4`          | Number of concurrent reviews to run.                           |
 | `DefaultSeverity` | string  | `warning`    | Default severity level (`warning` or `error`) for reported issues. |
 
 ---
@@ -69,35 +67,22 @@ You can place a `VECTORLINT.md` file in your project root to define global style
 If no `.vectorlint.ini` exists, VectorLint will automatically:
 1. Detect `VECTORLINT.md`
 2. Create a synthetic "Style Guide Compliance" rule
-3. Evaluate your contents against it
+3. Review your contents against it
 
 ### Combined Mode
-If you have configured rules (via `.vectorlint.ini`), the content of `VECTORLINT.md` is **prepended** to the system prompt for every evaluation. This ensures your global style preferences (tone, terminology) are respected across all specific rules.
+If you have configured rules (via `.vectorlint.ini`), the content of `VECTORLINT.md` is **prepended** to the system prompt for every review. This ensures your global style preferences (tone, terminology) are respected across all specific rules.
 
 > **Note:** Keep `VECTORLINT.md` concise. VectorLint will emit a warning if the file exceeds ~4,000 tokens, as very large contexts can degrade performance and increase costs.
 
 ---
 
-## LLM & Search Providers
+## LLM Providers
 
-VectorLint relies on LLM and Search providers. These are configured globally in `~/.vectorlint/config.toml`, or project scope using a `.env` file (which takes precedence).
+VectorLint relies on an LLM provider. Configure it globally in `~/.vectorlint/config.toml`, or at project scope using a `.env` file (which takes precedence).
 
 You can generate these files using the `vectorlint init` command.
 
-### LLM Providers
-
 VectorLint supports multiple LLM providers. Set `LLM_PROVIDER` to your desired provider (e.g., `openai`, `anthropic`, `gemini`) and provide the corresponding API key.
-
-### Search Provider
-
-Some evaluators, such as **TechnicalAccuracy**, require access to current external knowledge to verify facts. VectorLint supports search providers to fetch this information.
-
-**Example configuration for Perplexity:**
-
-```bash
-SEARCH_PROVIDER=perplexity
-PERPLEXITY_API_KEY=pplx-...
-```
 
 ### Observability
 
@@ -224,7 +209,7 @@ You can use named levels or direct numeric multipliers:
 [content/docs/**/*.md]
 RunRules=Acme
 GrammarChecker.strictness=strict
-TechnicalAccuracy.strictness=20
+Terminology.strictness=20
 ```
 
 ---

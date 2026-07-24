@@ -64,9 +64,9 @@ export class RulePackLoader {
     }
 
     /**
-     * Recursively finds all evaluation files in a pack directory.
-     * @param packRoot The root directory of the eval pack
-     * @returns A list of absolute file paths to evaluation files
+     * Recursively finds all rule files in a pack directory.
+     * @param packRoot The root directory of the rule pack
+     * @returns A list of absolute file paths to rule files
      */
     async findRuleFiles(packPath: string): Promise<string[]> {
         const rules: string[] = [];

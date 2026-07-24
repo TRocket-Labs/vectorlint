@@ -1,10 +1,8 @@
 ---
 specVersion: 2.0.0
-evaluator: base
 id: Repetition
 name: Repetition
 severity: warning
-evaluateAs: document
 ---
 
 # Repetition

@@ -1,12 +1,12 @@
-import type { ScoredEvaluation } from '../prompts/schema';
+import type { ScoredReview } from '../prompts/schema';
 import type { FindingsCriterion, RuleSeverity } from './types';
 
 /** Input to {@link resolveSeverity}. */
 export interface SeverityInput {
-  scored: ScoredEvaluation;
+  scored: ScoredReview;
 }
 
-/** Resolves severity from a scored evaluation. */
+/** Resolves severity from a scored review. */
 export function resolveSeverity(input: SeverityInput): RuleSeverity {
   return input.scored.severity;
 }

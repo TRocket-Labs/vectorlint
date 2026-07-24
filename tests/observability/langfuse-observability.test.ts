@@ -26,7 +26,7 @@ describe('LangfuseObservability', () => {
     SHUTDOWN_MOCK.mockResolvedValue(undefined);
   });
 
-  it('returns AI SDK telemetry options with full payload recording enabled', () => {
+  it('does not record payloads by default', () => {
     const subject = new LangfuseObservability({
       publicKey: 'pk-lf-test',
       secretKey: 'sk-lf-test',
@@ -34,21 +34,40 @@ describe('LangfuseObservability', () => {
     });
 
     expect(subject.decorateCall({
-      operation: 'structured-eval',
+      operation: 'structured-review',
       provider: 'openai',
       model: 'gpt-4o',
-      evaluator: 'clarity',
+      reviewer: 'clarity',
       rule: 'no-fluff',
     })).toEqual({
       experimental_telemetry: {
         isEnabled: true,
-        functionId: 'vectorlint.structured-eval',
+        functionId: 'vectorlint.structured-review',
         metadata: {
           provider: 'openai',
           model: 'gpt-4o',
-          evaluator: 'clarity',
+          reviewer: 'clarity',
           rule: 'no-fluff',
         },
+        recordInputs: false,
+        recordOutputs: false,
+      },
+    });
+  });
+
+  it('records payloads only when the review output policy opts in', () => {
+    const subject = new LangfuseObservability({
+      publicKey: 'pk-lf-test',
+      secretKey: 'sk-lf-test',
+    });
+
+    expect(subject.decorateCall({
+      operation: 'structured-review',
+      provider: 'openai',
+      model: 'gpt-4o',
+      recordPayloadTelemetry: true,
+    })).toMatchObject({
+      experimental_telemetry: {
         recordInputs: true,
         recordOutputs: true,
       },

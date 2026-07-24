@@ -27,7 +27,6 @@ Create a new file at `.github/rules/MyTeam/grammar-checker.md`:
 ---
 id: GrammarChecker
 name: Grammar Checker
-evaluator: base
 severity: error
 ---
 
@@ -74,7 +73,7 @@ See [Project Configuration](/project-config) for the full strictness reference.
 
 ## Writing effective prompts
 
-The Markdown body of your rule file is the prompt sent to the LLM. Specificity here directly determines evaluation quality — a vague prompt produces vague findings.
+The Markdown body of your rule file is the prompt sent to the LLM. Specificity here directly determines review quality — a vague prompt produces vague findings.
 
 **Be explicit about what you're looking for:**
 
@@ -83,7 +82,7 @@ The Markdown body of your rule file is the prompt sent to the LLM. Specificity h
 Check if the headline is good.
 
 # ✅ Specific
-You are a headline evaluator for developer blog posts. Assess whether the headline:
+You are a headline reviewer for developer blog posts. Assess whether the headline:
 
 1. Clearly communicates a specific benefit to the reader
 2. Uses natural, conversational language (avoid buzzwords like "leverage" or "unlock")

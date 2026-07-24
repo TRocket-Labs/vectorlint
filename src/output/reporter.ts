@@ -1,10 +1,10 @@
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
 import path from 'path';
-import { Severity } from '../evaluators/types';
+import { Severity } from '../review/severity';
 import { TokenUsageStats } from '../providers/token-usage';
 
-export interface EvaluationSummary {
+export interface ReviewSummary {
   id: string;
   scoreText: string;
   score?: number;
@@ -135,16 +135,16 @@ export function printGlobalSummary(files: number, errors: number, warnings: numb
   }
 }
 
-export function printEvaluationSummaries(
-  summaries: Map<string, EvaluationSummary[]>
+export function printReviewSummaries(
+  summaries: Map<string, ReviewSummary[]>
 ) {
   if (summaries.size === 0) return;
 
   console.log('');
   console.log(chalk.bold('\nQuality Scores:'));
 
-  for (const [evalName, items] of summaries) {
-    console.log(`  ${chalk.cyan(evalName)}:`);
+  for (const [reviewName, items] of summaries) {
+    console.log(`  ${chalk.cyan(reviewName)}:`);
     // Find max ID length for alignment
     const maxIdLen = Math.max(...items.map(i => i.id.length));
 

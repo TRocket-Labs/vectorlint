@@ -3,7 +3,7 @@ title: Frontmatter field reference
 description: Complete reference for YAML frontmatter fields in VectorLint rule files.
 ---
 
-Every VectorLint rule file begins with a YAML frontmatter block that controls how VectorLint runs the evaluation, handles the result, and reports violations. The Markdown body that follows is the prompt sent to the LLM.
+Every VectorLint rule file begins with a YAML frontmatter block that controls how VectorLint runs the review, handles the result, and reports violations. The Markdown body that follows is the prompt sent to the LLM.
 
 ```markdown
 ---
@@ -27,20 +27,18 @@ Your LLM prompt goes here.
 | Field | Default | Description |
 |---|---|---|
 | `specVersion` | _(none)_ | Rule spec version. Use `1.0.0`. |
-| `evaluator` | `base` | Evaluator type. Use `base` for standard rules. Use `technical-accuracy` for rules that verify factual claims against live web search (requires a search provider). |
 | `severity` | `warning` | How a failing result is reported. `error` causes a non-zero exit code; `warning` reports the issue without failing the run. |
-| `evaluateAs` | `chunk` | Whether to evaluate content in sections (`chunk`) or as a single unit (`document`). Chunking is applied automatically to documents over 600 words. Set to `document` to disable chunking for a specific rule. |
-| `target` | _(none)_ | Regex specification to extract and evaluate a specific portion of the content, such as the H1 headline. See [Target fields](#target-fields) below. |
+| `target` | _(none)_ | Regex specification to extract and review a specific portion of the content, such as the H1 headline. See [Target fields](#target-fields) below. |
 ## Target fields
 
-The `target` field narrows evaluation to a specific part of the document. It is an object with the following sub-fields:
+The `target` field narrows review to a specific part of the document. It is an object with the following sub-fields:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `regex` | string | Yes | Regular expression pattern to match the target content. |
 | `flags` | string | No | Regex flags (e.g., `"mu"` for multiline and Unicode). |
 | `group` | number | No | Capture group index to extract. If omitted, the full match is used. |
-| `required` | boolean | No | When `true`, a missing match immediately reports an `error` with the `suggestion` text and skips LLM evaluation. When `false` or omitted, a missing match causes VectorLint to evaluate the full document instead. |
+| `required` | boolean | No | When `true`, a missing match immediately reports an `error` with the `suggestion` text and skips LLM review. When `false` or omitted, a missing match causes VectorLint to review the full document instead. |
 | `suggestion` | string | No | Message shown when `required: true` and the pattern does not match. |
 
 **Example — targeting only the H1 headline:**
@@ -56,15 +54,13 @@ target:
 
 ## Complete example
 
-The following rule uses the most commonly-used fields. It targets the H1 headline and requires the headline to exist before evaluation runs.
+The following rule uses the most commonly-used fields. It targets the H1 headline and requires the headline to exist before review runs.
 
 ```markdown
 ---
-evaluator: base
 id: HeadlineQuality
 name: Headline Quality
 severity: error
-evaluateAs: document
 target:
   regex: '^#\s+(.+)$'
   flags: "mu"
@@ -73,7 +69,7 @@ target:
   suggestion: Add an H1 headline for the article.
 ---
 
-You are a headline reviewer for developer blog posts. Evaluate the H1 headline
+You are a headline reviewer for developer blog posts. Review the H1 headline
 and report specific, fixable violations — for example: a vague benefit, a
 missing subject, or passive voice. For each violation, quote the exact text and
 suggest a concrete rewrite.

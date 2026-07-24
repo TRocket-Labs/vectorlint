@@ -14,7 +14,7 @@ These settings go at the top of `.vectorlint.ini`, outside any file pattern sect
 | Setting | Default | Description |
 |---|---|---|
 | `RulesPath` | _(none)_ | Path to your custom rule packs directory. Subdirectories inside this path become available pack names. If omitted, only the bundled `VectorLint` preset is available. |
-| `Concurrency` | `4` | Number of rule evaluations to run in parallel. Reduce this if you hit API rate limits. |
+| `Concurrency` | `4` | Number of rule reviews to run in parallel. Reduce this if you hit API rate limits. |
 | `DefaultSeverity` | `warning` | Default severity for reported violations: `warning` or `error`. Individual rules can override this with their own `severity` frontmatter field. |
 
 ```ini
@@ -27,7 +27,7 @@ DefaultSeverity=warning
 
 ## File pattern sections
 
-File pattern sections map glob patterns to rule packs. VectorLint evaluates a file only if at least one pattern matches it.
+File pattern sections map glob patterns to rule packs. VectorLint reviews a file only if at least one pattern matches it.
 
 ```ini
 [**/*.md]
@@ -91,7 +91,7 @@ Set strictness per rule, per pattern:
 [content/docs/**/*.md]
 RunRules=Acme
 GrammarChecker.strictness=9
-TechnicalAccuracy.strictness=strict
+Clarity.strictness=strict
 ```
 
 ### Strictness levels
@@ -111,9 +111,9 @@ GrammarChecker.strictness=strict
 
 ## Global style context (VECTORLINT.md)
 
-Place a `VECTORLINT.md` file in your project root to define style instructions that apply to every evaluation. VectorLint prepends its contents to the system prompt for every rule, automatically applying your tone, terminology, and baseline standards across all checks.
+Place a `VECTORLINT.md` file in your project root to define style instructions that apply to every review. VectorLint prepends its contents to the system prompt for every rule, automatically applying your tone, terminology, and baseline standards across all checks.
 
-Keep `VECTORLINT.md` concise. VectorLint emits a warning if the file exceeds 4,000 tokens, as large context blocks degrade evaluation performance and increase costs.
+Keep `VECTORLINT.md` concise. VectorLint emits a warning if the file exceeds 4,000 tokens, as large context blocks degrade review performance and increase costs.
 
 ### Zero-config mode
 
@@ -170,7 +170,7 @@ GrammarChecker.strictness=7
 [content/docs/**/*.md]
 RunRules=Acme
 GrammarChecker.strictness=9
-TechnicalAccuracy.threshold=9
+Clarity.threshold=9
 
 # Marketing content — brand voice rules
 [content/marketing/**/*.md]

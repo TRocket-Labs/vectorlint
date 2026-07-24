@@ -1,4 +1,4 @@
-import { Severity } from "../evaluators/types";
+import { Severity } from "../review/severity";
 import type { TokenUsage } from "../providers/token-usage";
 
 export type GateChecks = {
@@ -19,9 +19,9 @@ export type GateCheckNotes = {
   fix_preserves_meaning: string;
 };
 
-export function buildEvaluationLLMSchema() {
+export function buildReviewLLMSchema() {
   return {
-    name: "vectorlint_evaluation_result",
+    name: "vectorlint_review_result",
     strict: true,
     schema: {
       type: "object",
@@ -132,7 +132,7 @@ export function buildEvaluationLLMSchema() {
   } as const;
 }
 
-export type EvaluationLLMResult = {
+export type ReviewLLMResult = {
   reasoning: string;
   violations: Array<{
     line: number;
@@ -151,7 +151,7 @@ export type EvaluationLLMResult = {
   }>;
 };
 
-export type EvaluationItem = {
+export type ReviewItem = {
   line?: number;
   description?: string;
   analysis: string;
@@ -167,23 +167,15 @@ export type EvaluationItem = {
   confidence?: number;
 };
 
-export type ScoredEvaluation = {
+export type ScoredReview = {
   final_score: number; // 1-10
   percentage: number;
   violation_count: number;
-  items: Array<EvaluationItem>;
+  items: Array<ReviewItem>;
   severity: typeof Severity.WARNING | typeof Severity.ERROR;
   message: string;
   reasoning?: string;
-  violations: Array<EvaluationItem & { criterionName?: string }>;
-  usage?: TokenUsage;
-  raw_model_output?: unknown;
-};
-
-export type PromptEvaluationResult = {
-  violations: ScoredEvaluation["violations"];
-  word_count: number;
-  reasoning?: string;
+  violations: Array<ReviewItem & { criterionName?: string }>;
   usage?: TokenUsage;
   raw_model_output?: unknown;
 };

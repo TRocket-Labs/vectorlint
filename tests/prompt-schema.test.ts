@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildEvaluationLLMSchema } from "../src/prompts/schema";
+import { buildReviewLLMSchema } from "../src/prompts/schema";
 
 describe("prompt schema verbosity constraints", () => {
   it("includes concise analysis and suggestion descriptions", () => {
-    const schema = buildEvaluationLLMSchema();
+    const schema = buildReviewLLMSchema();
     const violationProperties = schema.schema.properties.violations.items.properties;
 
     expect(violationProperties.analysis).toEqual({
@@ -17,7 +17,7 @@ describe("prompt schema verbosity constraints", () => {
   });
 
   it("includes the concise user-facing message field", () => {
-    const schema = buildEvaluationLLMSchema();
+    const schema = buildReviewLLMSchema();
     const violationProperties = schema.schema.properties.violations.items.properties;
 
     expect(violationProperties.message).toEqual({

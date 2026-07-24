@@ -1,9 +1,10 @@
 export interface AIExecutionContext {
-  operation: 'structured-eval' | 'agent-tool-loop';
+  operation: 'structured-review' | 'tool-calling';
   provider: string;
   model: string;
-  evaluator?: string;
+  reviewer?: string;
   rule?: string;
+  recordPayloadTelemetry?: boolean;
 }
 
 export interface AIObservability {

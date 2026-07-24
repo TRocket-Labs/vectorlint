@@ -7,7 +7,7 @@ VectorLint is configured through four files. Running `vectorlint init` creates t
  
 | File | Location | Purpose | Required |
 |------|----------|---------|----------|
-| `VECTORLINT.md` | Project root | Global style instructions in plain language — prepended to every evaluation | Required for zero-config mode |
+| `VECTORLINT.md` | Project root | Global style instructions in plain language — prepended to every review | Required for zero-config mode |
 | `.vectorlint.ini` | Project root | File patterns, rule packs, strictness overrides | Required for rule packs and file-specific configuration |
 | `config.toml` | `~/.vectorlint/` | LLM provider API keys — applies globally across projects | Always required |
 | Rule pack files | `RulesPath` directory | Targeted LLM prompts for specific checks — for advanced content quality workflows | Optional |
@@ -29,7 +29,7 @@ If you want to check content against a style guide with no additional setup:
 vectorlint init --quick
 ```
 
-This creates a `VECTORLINT.md` file in your project root where you paste your style guide. VectorLint automatically creates a "Style Guide Compliance" rule from it and evaluates your content against it.
+This creates a `VECTORLINT.md` file in your project root where you paste your style guide. VectorLint automatically creates a "Style Guide Compliance" rule from it and reviews your content against it.
 
 Run a check:
 
@@ -53,7 +53,7 @@ This creates both `.vectorlint.ini` and `~/.vectorlint/config.toml`. Edit them m
 
 Each file has its own reference page with complete field definitions, examples, and behavior details.
 
-- [LLM Providers](/llm-providers) — configure your LLM provider, search provider, and false-positive filtering threshold
+- [LLM Providers](/llm-providers) — configure your LLM provider and false-positive filtering threshold
 - [Project Configuration](/project-config) — map file patterns to rule packs, set strictness overrides, and understand cascading behavior
 - [Defining your style rules](/style-guide) — create `VECTORLINT.md` and write targeted rule pack files
 
@@ -75,10 +75,10 @@ VectorLint ships with a built-in preset containing rules for AI pattern detectio
 
 <CardGroup cols={2}>
   <Card title="LLM Providers" icon="key" href="/llm-providers">
-    Configure the model and API keys that power your evaluations.
+    Configure the model and API keys that power your reviews.
   </Card>
   <Card title="Project Configuration" icon="sliders" href="/project-config">
-    Map files to rule packs and tune evaluation behavior.
+    Map files to rule packs and tune review behavior.
   </Card>
   <Card title="Defining your style rules" icon="file-pen" href="/style-guide">
     Create VECTORLINT.md and write custom rule pack files.

@@ -1,11 +1,12 @@
 // Centralized request construction for provider-agnostic use
 
-export interface EvalContext {
+export interface ReviewCallContext {
   fileType?: string;
+  recordPayloadTelemetry?: boolean;
 }
 
 export interface RequestBuilder {
-  buildPromptBodyForStructured(originalBody: string, context?: EvalContext): string;
+  buildPromptBodyForStructured(originalBody: string, context?: ReviewCallContext): string;
 }
 
 export class DefaultRequestBuilder implements RequestBuilder {
@@ -17,7 +18,7 @@ export class DefaultRequestBuilder implements RequestBuilder {
     this.userInstructions = (userInstructions || '').trim();
   }
 
-  buildPromptBodyForStructured(originalBody: string, context?: EvalContext): string {
+  buildPromptBodyForStructured(originalBody: string, context?: ReviewCallContext): string {
     let directive = this.directive;
     if (directive) {
       directive = directive.replaceAll('{{file_type}}', context?.fileType ?? '');

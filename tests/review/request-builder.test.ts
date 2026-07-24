@@ -5,7 +5,7 @@ import {
   buildReviewRequest,
 } from '../../src/review';
 import { ValidationError } from '../../src/errors';
-import { Severity } from '../../src/evaluators/types';
+import { Severity } from '../../src/review/severity';
 import type { PromptFile } from '../../src/schemas/prompt-schemas';
 import type { ReviewContext, ReviewTarget } from '../../src/review';
 

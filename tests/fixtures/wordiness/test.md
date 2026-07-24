@@ -20,4 +20,4 @@ Avoid phrases that add length without adding meaning. "Gather together your depe
 
 ## Review process
 
-Prior to publishing, ask a colleague to read the draft. In order to get useful feedback, be specific about what you want them to evaluate. At this point in time, most teams review docs informally, which often leads to inconsistencies that are hard to catch after the fact.
+Prior to publishing, ask a colleague to read the draft. In order to get useful feedback, be specific about what you want them to assess. At this point in time, most teams review docs informally, which often leads to inconsistencies that are hard to catch after the fact.

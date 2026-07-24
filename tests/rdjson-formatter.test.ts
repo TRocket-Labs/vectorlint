@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { RdJsonFormatter, type RdJsonResult } from '../src/output/rdjson-formatter';
-import { Severity } from '../src/evaluators/types';
+import { Severity } from '../src/review/severity';
 
 describe('RdJsonFormatter', () => {
   it('should produce valid RDJSON output', () => {

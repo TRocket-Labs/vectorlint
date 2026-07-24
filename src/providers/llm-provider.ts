@@ -1,31 +1,11 @@
-import type { TokenUsage } from './token-usage';
-import type { EvalContext } from './request-builder';
+import type { StructuredModelClient } from './structured-model-client';
 
-export interface LLMResult<T> {
-  data: T;
-  usage?: TokenUsage;
-}
+/**
+ * `LLMResult` lives on the permanent structured-output capability. It is
+ * re-exported here so existing deep imports (`from './llm-provider'`) keep
+ * compiling.
+ */
+export type { LLMResult } from './structured-model-client';
 
-export interface AgentToolDefinition {
-  description: string;
-  inputSchema: unknown;
-  execute: (input: unknown) => Promise<unknown>;
-}
-
-export interface AgentToolLoopParams {
-  systemPrompt: string;
-  prompt: string;
-  tools: Record<string, AgentToolDefinition>;
-  maxSteps?: number;
-  maxRetries?: number;
-  maxParallelToolCalls?: number;
-}
-
-export interface AgentToolLoopResult {
-  usage?: TokenUsage;
-}
-
-export interface LLMProvider {
-  runPromptStructured<T = unknown>(content: string, promptText: string, schema: { name: string; schema: Record<string, unknown> }, context?: EvalContext): Promise<LLMResult<T>>;
-  runAgentToolLoop(params: AgentToolLoopParams): Promise<AgentToolLoopResult>;
-}
+/** Compatibility alias for the structured-output provider capability. */
+export type LLMProvider = StructuredModelClient;

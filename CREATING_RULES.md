@@ -1,6 +1,6 @@
 # Creating Rules for VectorLint
 
-A comprehensive guide to creating powerful, reusable content evaluations using VectorLint's prompt system.
+A comprehensive guide to creating powerful, reusable content reviews using VectorLint's prompt system.
 
 ## Table of Contents
 
@@ -36,9 +36,8 @@ Every rule is a Markdown file with two parts:
 ```markdown
 ---
 # YAML Frontmatter (Configuration)
-id: MyEval
-name: My Content Evaluator
-evaluator: base
+id: MyRule
+name: My Content Reviewer
 severity: error
 ---
 
@@ -57,9 +56,7 @@ project/
 │   └── rules/
 │       ├── Acme/                    ← Company style guide pack
 │       │   ├── grammar-checker.md
-│       │   ├── headline-evaluator.md
-│       │   └── Technical/           ← Nested organization supported
-│       │       └── technical-accuracy.md
+│       │   └── headline-reviewer.md
 │       └── TechCorp/                ← Another company's pack
 │           └── brand-voice.md
 └── .vectorlint.ini
@@ -78,7 +75,6 @@ score from the verified findings.
 
 ```markdown
 ---
-evaluator: base
 id: GrammarChecker
 name: Grammar Checker
 severity: error
@@ -117,7 +113,7 @@ Check this content for grammar issues, spelling errors, and punctuation mistakes
 
 The `target` field allows you to:
 
-1. **Specify which part** of content to evaluate (via regex)
+1. **Specify which part** of content to review (via regex)
 2. **Require certain content** to exist (e.g., "must have an H1 headline")
 3. **Provide helpful suggestions** when content is missing
 
@@ -136,13 +132,13 @@ target:
 
 **When `required: true`:**
 
-- If content matches → Evaluation proceeds normally
+- If content matches → Review proceeds normally
 - If no match → Immediate `error` with the suggestion message
 
 **When `required: false` or omitted:**
 
-- If content matches → Evaluate the matched content
-- If no match → Evaluate entire content
+- If content matches → Review the matched content
+- If no match → Review entire content
 
 ---
 
@@ -153,12 +149,10 @@ target:
 | Field         | Type          | Required | Description                                                    |
 | ------------- | ------------- | -------- | -------------------------------------------------------------- |
 | `specVersion` | string/number | No       | Rule specification version (use `1.0.0`)                       |
-| `evaluator`   | string        | No       | Evaluator type: `base`, `technical-accuracy` (default: `base`) |
 | `id`          | string        | **Yes**  | Unique identifier (used in error reporting)                    |
 | `name`        | string        | **Yes**  | Human-readable name                                            |
 | `severity`    | string        | No       | `error` or `warning` (default: `warning`)                      |
 | `strictness`  | number/string | No       | Density penalty: a positive number, `lenient`, `standard`, or `strict` |
-| `evaluateAs`  | string        | No       | `document` or `chunk` (default: `chunk`)                       |
 | `target`      | object        | No       | Content matching specification                                 |
 
 ---
@@ -178,7 +172,7 @@ Check if the headline is good.
 ✅ **Good:**
 
 ```markdown
-You are a headline evaluator for developer blog posts. Assess whether the headline:
+You are a headline reviewer for developer blog posts. Assess whether the headline:
 
 1. Clearly communicates a specific benefit
 2. Uses natural, conversational language (avoid buzzwords)
@@ -208,7 +202,6 @@ Help the LLM understand your domain:
 
 ```markdown
 ---
-evaluator: base
 id: GrammarChecker
 name: Grammar Checker
 severity: error
@@ -226,4 +219,4 @@ Report any errors found with specific examples.
 
 ---
 
-**Happy evaluating! 🚀**
+**Happy reviewing! 🚀**

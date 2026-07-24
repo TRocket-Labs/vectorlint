@@ -2,11 +2,20 @@ import { generateText, Output, NoObjectGeneratedError, stepCountIs, tool } from 
 import type { LanguageModel } from 'ai';
 import { z } from 'zod';
 import pLimit from 'p-limit';
-import { AgentToolLoopParams, AgentToolLoopResult, LLMProvider, LLMResult } from './llm-provider';
+import type { LLMProvider } from './llm-provider';
+import type { LLMResult } from './structured-model-client';
+import type { ToolCallDefinition, ToolCallRunOptions, ToolCallingModelClient } from './tool-calling-model-client';
 import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import { createNoopLogger, type Logger } from '../logging/logger';
 import type { AIExecutionContext, AIObservability } from '../observability/ai-observability';
 import { handleUnknownError } from '../errors';
+
+/**
+ * Conservative default step cap for a single bounded tool-calling run when the
+ * caller does not supply one. Executors should pass an explicit `maxSteps`
+ * derived from the review budget.
+ */
+const DEFAULT_TOOL_CALLING_MAX_STEPS = 10;
 
 export interface VercelAIConfig {
   model: LanguageModel;
@@ -21,7 +30,7 @@ export interface VercelAIConfig {
   observability?: AIObservability;
 }
 
-export class VercelAIProvider implements LLMProvider {
+export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
   private config: VercelAIConfig;
   private builder: RequestBuilder;
   private logger: Logger;
@@ -42,7 +51,7 @@ export class VercelAIProvider implements LLMProvider {
     content: string,
     promptText: string,
     schema: { name: string; schema: Record<string, unknown> },
-    context?: import('./request-builder').EvalContext
+    context?: import('./request-builder').ReviewCallContext
   ): Promise<LLMResult<T>> {
     const systemPrompt = this.builder.buildPromptBodyForStructured(promptText, context);
 
@@ -73,14 +82,17 @@ export class VercelAIProvider implements LLMProvider {
     }
 
     try {
-      const evaluator = this.extractContextValue(context, 'evaluatorName', 'evaluator');
+      const reviewer = this.extractContextValue(context, 'reviewerName', 'reviewer');
       const rule = this.extractContextValue(context, 'ruleName', 'rule');
       const observabilityOptions = this.getObservabilityOptions({
-        operation: 'structured-eval',
+        operation: 'structured-review',
         provider: this.config.providerName ?? 'unknown',
         model: this.config.modelName ?? 'unknown',
-        ...(evaluator ? { evaluator } : {}),
+        ...(reviewer ? { reviewer } : {}),
         ...(rule ? { rule } : {}),
+        ...(context?.recordPayloadTelemetry !== undefined
+          ? { recordPayloadTelemetry: context.recordPayloadTelemetry }
+          : {}),
       });
 
       const result = await generateText({
@@ -135,68 +147,109 @@ export class VercelAIProvider implements LLMProvider {
     }
   }
 
-  runAgentToolLoop = async (params: AgentToolLoopParams): Promise<AgentToolLoopResult> => {
-    const maxParallel = params.maxParallelToolCalls ?? 1;
+  /** Runs bounded tool calling with executor-owned tools and output schema. */
+  async runWithTools<T = unknown>(params: {
+    systemPrompt: string;
+    prompt: string;
+    tools: Record<string, ToolCallDefinition>;
+    schema: { name: string; schema: Record<string, unknown> };
+    options?: ToolCallRunOptions;
+  }): Promise<LLMResult<T>> {
+    const options = params.options ?? {};
+    const maxParallel = options.maxParallelToolCalls ?? 1;
     const limit = pLimit(maxParallel);
+
+    const zodSchema = this.jsonSchemaToZod(params.schema);
 
     const mappedTools = Object.fromEntries(
       Object.entries(params.tools).map(([name, definition]) => [
         name,
         tool({
           description: definition.description,
-          inputSchema: definition.inputSchema as z.ZodType,
+          inputSchema: definition.parameters,
           execute: (input: unknown) => limit(() => definition.execute(input)),
         }),
-      ])
+      ]),
     );
 
-    const result = await generateText({
-      model: this.config.model,
-      system: params.systemPrompt,
-      prompt: params.prompt,
-      ...(params.maxRetries !== undefined ? { maxRetries: params.maxRetries } : {}),
-      ...this.getObservabilityOptions({
-        operation: 'agent-tool-loop',
-        provider: this.config.providerName ?? 'unknown',
-        model: this.config.modelName ?? 'unknown',
-      }),
-      stopWhen: stepCountIs(params.maxSteps ?? 1000),
-      providerOptions: {
-        openai: {
-          parallelToolCalls: maxParallel > 1,
-        },
-      },
-      tools: mappedTools,
-    });
-
     if (this.config.debug) {
-      for (const [i, step] of result.steps.entries()) {
-        const toolNames = step.toolCalls.map((c) => c.toolName).join(', ') || '(none)';
-        this.logger.debug(
-          `[agent] step ${i + 1}: finishReason=${step.finishReason} tools=[${toolNames}]`
-        );
-        if (step.text) {
-          this.logger.debug(
-            `[agent] step ${i + 1} text: ${step.text.slice(0, 500)}${step.text.length > 500 ? '...' : ''}`
-          );
-        }
-      }
-      this.logger.debug(`[agent] final finishReason=${result.finishReason} steps=${result.steps.length}`);
-      if (result.text) {
-        this.logger.debug(
-          `[agent] final text: ${result.text.slice(0, 500)}${result.text.length > 500 ? '...' : ''}`
-        );
-      }
+      this.logger.debug('[vectorlint] Sending tool-calling request via Vercel AI SDK', {
+        model: this.config.model,
+        toolNames: Object.keys(params.tools),
+        maxSteps: options.maxSteps ?? DEFAULT_TOOL_CALLING_MAX_STEPS,
+      });
     }
 
-    return result.usage
-      ? {
+    try {
+      const result = await generateText({
+        model: this.config.model,
+        system: params.systemPrompt,
+        prompt: params.prompt,
+        ...(this.config.temperature !== undefined && { temperature: this.config.temperature }),
+        ...(this.config.maxTokens !== undefined && { maxTokens: this.config.maxTokens }),
+        ...(options.maxRetries !== undefined ? { maxRetries: options.maxRetries } : {}),
+        ...(options.signal !== undefined ? { abortSignal: options.signal } : {}),
+        ...this.getObservabilityOptions({
+          operation: 'tool-calling',
+          provider: this.config.providerName ?? 'unknown',
+          model: this.config.modelName ?? 'unknown',
+          ...(options.recordPayloadTelemetry !== undefined
+            ? { recordPayloadTelemetry: options.recordPayloadTelemetry }
+            : {}),
+        }),
+        stopWhen: stepCountIs(options.maxSteps ?? DEFAULT_TOOL_CALLING_MAX_STEPS),
+        providerOptions: {
+          openai: {
+            parallelToolCalls: maxParallel > 1,
+          },
+        },
+        tools: mappedTools,
+        output: Output.object({
+          schema: zodSchema,
+        }),
+      });
+
+      if (this.config.debug && result.usage) {
+        this.logger.debug('[vectorlint] tool-calling LLM response meta', {
           usage: {
+            input_tokens: result.usage.inputTokens,
+            output_tokens: result.usage.outputTokens,
+            total_tokens: result.usage.totalTokens,
+          },
+          finish_reason: result.finishReason,
+          steps: result.steps.length,
+        });
+      }
+
+      const usage = result.usage
+        ? {
             inputTokens: result.usage.inputTokens ?? 0,
             outputTokens: result.usage.outputTokens ?? 0,
-          },
-        }
-      : {};
+          }
+        : undefined;
+
+      const output: unknown = result.output;
+      if (output === undefined || output === null) {
+        throw new Error(
+          `LLM returned no structured output. Raw text: ${result.text?.slice(0, 500) ?? '(empty)'}`
+        );
+      }
+
+      const llmResult: LLMResult<T> = { data: output as T };
+      if (usage) {
+        llmResult.usage = usage;
+      }
+      return llmResult;
+    } catch (e: unknown) {
+      if (NoObjectGeneratedError.isInstance(e)) {
+        const rawText = e instanceof Error && 'text' in e ? String(e.text) : 'unknown';
+        throw new Error(
+          `LLM failed to generate valid structured output. Raw text: ${rawText}`
+        );
+      }
+      const err = e instanceof Error ? e : new Error(String(e));
+      throw new Error(`Vercel AI SDK tool-calling call failed: ${err.message}`);
+    }
   }
 
   private getObservabilityOptions(context: AIExecutionContext): Record<string, unknown> {
@@ -217,7 +270,7 @@ export class VercelAIProvider implements LLMProvider {
   }
 
   private extractContextValue(
-    context: import('./request-builder').EvalContext | undefined,
+    context: import('./request-builder').ReviewCallContext | undefined,
     ...keys: string[]
   ): string | undefined {
     if (!context) {

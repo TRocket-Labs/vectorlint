@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEFAULT_OUTPUT_FORMAT, DEFAULT_REVIEW_MODE, OutputFormat, REVIEW_MODES } from '../cli/types';
+import { DEFAULT_OUTPUT_FORMAT, DEFAULT_REVIEW_MODEL_CALL, OutputFormat, REVIEW_MODEL_CALLS } from '../cli/types';
 
 // CLI options schema for command line argument validation
 export const CLI_OPTIONS_SCHEMA = z.object({
@@ -8,8 +8,7 @@ export const CLI_OPTIONS_SCHEMA = z.object({
   showPromptTrunc: z.boolean().default(false),
   debugJson: z.boolean().default(false),
   output: z.nativeEnum(OutputFormat).default(DEFAULT_OUTPUT_FORMAT),
-  mode: z.enum(REVIEW_MODES).default(DEFAULT_REVIEW_MODE),
-  print: z.boolean().default(false),
+  modelCall: z.enum(REVIEW_MODEL_CALLS).default(DEFAULT_REVIEW_MODEL_CALL),
   prompts: z.string().optional(),
   config: z.string().optional(),
 });

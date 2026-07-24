@@ -10,9 +10,6 @@ import { loadGlobalConfig } from "./config/global-config";
 
 import { CLI_DESCRIPTION, CLI_VERSION } from "./config/constants";
 
-// Import evaluators module to trigger self-registration of all evaluators
-import "./evaluators/index";
-
 /*
  * Loads environment variables from Global Config and .env files.
 * Hierarchy: CLI/Shell > Local.env > Global Config

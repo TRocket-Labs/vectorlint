@@ -1,6 +1,6 @@
 ---
 title: Configuring a project
-description: Map files to rule packs and tune evaluation behavior with .vectorlint.ini.
+description: Map files to rule packs and tune review behavior with .vectorlint.ini.
 ---
 
 `.vectorlint.ini` is VectorLint's project configuration file. It lives in your project root and controls three things: global behavior settings, where VectorLint looks for custom rules, and which rule packs run on which files.
@@ -9,12 +9,12 @@ Run `vectorlint init` to generate a starter file. You can edit it manually at an
 
 ## Global Settings
 
-These settings apply to all evaluations in the project.
+These settings apply to all reviews in the project.
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `RulesPath` | string | _(none)_ | Root directory for custom rule packs. If omitted, only built-in presets are used. |
-| `Concurrency` | integer | `4` | Number of evaluations to run in parallel. |
+| `Concurrency` | integer | `4` | Number of reviews to run in parallel. |
 | `DefaultSeverity` | string | `warning` | Severity level for reported violations: `warning` or `error`. |
 
 ```ini
@@ -36,7 +36,7 @@ RunRules=Acme
 [content/docs/**/*.md]
 RunRules=Acme
 GrammarChecker.strictness=9
-TechnicalAccuracy.threshold=8.0
+Clarity.threshold=8.0
 
 [content/marketing/**/*.md]
 RunRules=TechCorp
@@ -116,7 +116,7 @@ You can use named levels (`lenient`, `standard`, `strict`) or direct numeric mul
 [content/docs/**/*.md]
 RunRules=Acme
 GrammarChecker.strictness=strict
-TechnicalAccuracy.strictness=20
+Clarity.strictness=20
 ```
 
 ## Complete Example
@@ -137,7 +137,7 @@ GrammarChecker.strictness=5
 [content/docs/**/*.md]
 RunRules=Acme
 GrammarChecker.strictness=9
-TechnicalAccuracy.threshold=8.0
+Clarity.threshold=8.0
 
 # Marketing — brand voice rules
 [content/marketing/**/*.md]
@@ -153,15 +153,15 @@ RunRules=
 
 In addition to `.vectorlint.ini`, you can place a `VECTORLINT.md` file in your project root to define global style instructions in plain language.
 
-**Zero-config mode:** If no `.vectorlint.ini` exists, VectorLint automatically detects `VECTORLINT.md`, creates a synthetic "Style Guide Compliance" rule, and evaluates content against it.
+**Zero-config mode:** If no `.vectorlint.ini` exists, VectorLint automatically detects `VECTORLINT.md`, creates a synthetic "Style Guide Compliance" rule, and reviews content against it.
 
-**Combined mode:** When `.vectorlint.ini` is present, the contents of `VECTORLINT.md` are prepended to the system prompt for every evaluation — making your global tone and terminology preferences active across all rules.
+**Combined mode:** When `.vectorlint.ini` is present, the contents of `VECTORLINT.md` are prepended to the system prompt for every review — making your global tone and terminology preferences active across all rules.
 
 <Note>
-Keep `VECTORLINT.md` concise. VectorLint emits a warning if the file exceeds approximately 4,000 tokens, as very large contexts can degrade evaluation quality and increase API costs.
+Keep `VECTORLINT.md` concise. VectorLint emits a warning if the file exceeds approximately 4,000 tokens, as very large contexts can degrade review quality and increase API costs.
 </Note>
 
 ## Next Steps
 
-- [LLM Providers](/llm-providers) — configure the model that runs evaluations
+- [LLM Providers](/llm-providers) — configure the model that runs reviews
 - [Style Guide](/style-guide) — write custom rules for your content standards

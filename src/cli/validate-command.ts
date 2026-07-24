@@ -19,7 +19,7 @@ const __dirname = dirname(__filename);
 
 /*
  * Registers the 'validate' command with Commander.
- * This command validates prompt configuration files without running evaluations.
+ * This command validates prompt configuration files without running reviews.
  * It checks YAML frontmatter structure, schema compliance, and prompt completeness.
  * 
  * Note: process.exit is intentional in CLI commands to set proper exit codes.

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Severity } from '../evaluators/types';
+import { Severity } from '../review/severity';
 
 /** Severity assigned to a rule and its findings. */
 export type RuleSeverity = typeof Severity.ERROR | typeof Severity.WARNING;

@@ -1,10 +1,8 @@
 ---
 specVersion: 1.0.0
-evaluator: base
 id: UnsupportedClaims
 name: Unsupported Claims
 severity: warning
-evaluateAs: document
 ---
 
 # Unsupported Claims

@@ -4,10 +4,10 @@ import {
   resolveCriterionId,
   resolveSeverity,
 } from '../../src/findings/severity';
-import { Severity } from '../../src/evaluators/types';
-import type { ScoredEvaluation } from '../../src/prompts/schema';
+import { Severity } from '../../src/review/severity';
+import type { ScoredReview } from '../../src/prompts/schema';
 
-function makeScoredEvaluation(severity: Severity): ScoredEvaluation {
+function makeScoredReview(severity: Severity): ScoredReview {
   return {
     final_score: 5,
     percentage: 50,
@@ -20,11 +20,11 @@ function makeScoredEvaluation(severity: Severity): ScoredEvaluation {
 }
 
 describe('resolveSeverity', () => {
-  it('returns the density-derived severity from the scored evaluation', () => {
-    expect(resolveSeverity({ scored: makeScoredEvaluation(Severity.WARNING) })).toBe(
+  it('returns the density-derived severity from the scored review', () => {
+    expect(resolveSeverity({ scored: makeScoredReview(Severity.WARNING) })).toBe(
       Severity.WARNING,
     );
-    expect(resolveSeverity({ scored: makeScoredEvaluation(Severity.ERROR) })).toBe(
+    expect(resolveSeverity({ scored: makeScoredReview(Severity.ERROR) })).toBe(
       Severity.ERROR,
     );
   });

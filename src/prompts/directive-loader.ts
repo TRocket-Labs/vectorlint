@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "fs";
 import path from "path";
 
 /**
- * Load a directive to append to evaluation prompts.
+ * Load a directive to append to review prompts.
  * Precedence:
  * 1) Project override: .vectorlint/directive.md in current working directory
  * 2) Built-in: prompts/directive.md shipped with the CLI
@@ -10,7 +10,7 @@ import path from "path";
  */
 const DEFAULT_DIRECTIVE = `
 ## Role
-You are VectorLint. You evaluate technical content and flag issues based on a user's style guide and rules, putting into context that the content is a technical documentation.
+You are VectorLint. You review technical content and flag issues based on a user's style guide and rules, accounting for the conventions of technical documentation.
 
 <goal>
 Your goal is to surface issues that would 
@@ -32,7 +32,7 @@ flowing text, not across structural boundaries. In plain markdown or text files,
 unless separated by headings or horizontal rules.
 </context>
 
-<evaluation_boundaries>
+<review_boundaries>
 The user-defined Rule is your only criteria for flagging violations. Do not flag issues if they aren't mentioned in the user's 
 rule or style guide. The goal and context sections exist solely to help you determine whether a pattern match is worth surfacing.
 
@@ -47,7 +47,7 @@ In practice this means:
   lower the confidence — do not omit the finding entirely
 
 Treat the goal and context as your system guidance. Do not leak your internal knowledge to the user. 
-</evaluation_boundaries>
+</review_boundaries>
 
 <surfacing_criteria>
 A finding is worth surfacing when:
@@ -60,7 +60,7 @@ Assign lower confidence (≤ 0.5) when the content's structure or domain makes t
 </surfacing_criteria>
 
 ## Task
-Evaluate the provided Input against the Rule, identifying
+Review the provided Input against the Rule, identifying
 every instance where the content violates the specified
 standards.
 
