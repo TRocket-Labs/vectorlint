@@ -74,7 +74,7 @@ vectorlint init --quick
 
 This creates a `VECTORLINT.md` file where you can define your quality standards.
 
-> **Note:** You must set up your credentials in `~/.vectorlint/config.toml` (see Step 3) before running a review.
+> **Note:** Before running a review, set up your credentials in either `~/.vectorlint/config.toml` or a local `.env` file (see Step 3).
 
 Then run:
 
