@@ -1,11 +1,11 @@
 ---
 title: How it works
-description: How VectorLint reviews supplied content through a bounded harness.
+description: How VectorLint applies rules, verifies findings, and reports results.
 ---
 
-VectorLint is a content review harness. You give it target content, source-backed rules, provider credentials, and optional review context. VectorLint runs a bounded review and returns verified findings, scores, diagnostics, and usage metadata.
+VectorLint reviews target files against your content rules and reports specific, evidence-backed findings.
 
-If you haven't run your first check yet, start with the [Quickstart](/quickstart). This page explains the architecture behind that command.
+If you haven't run your first review yet, start with the [Quickstart](/quickstart). This page explains what happens when you run that command.
 
 ## The review pipeline
 
@@ -17,60 +17,30 @@ VectorLint reads your project configuration to determine which rule packs apply 
 
 If no `.vectorlint.ini` exists, VectorLint detects `VECTORLINT.md` and creates a synthetic style-guide rule automatically. This is the zero-config path.
 
-### 2. Build a review request
+### 2. Choose a review approach
 
-The CLI builds a `ReviewRequest` with:
+VectorLint uses `auto` by default and selects an approach based on the content being reviewed. You can override the default with `--model-call` when a particular document needs a different approach.
 
-- target URI, content, content type, and byte length
-- source-backed rules
-- optional caller-supplied review context
-- review budget
-- output policy
-- model-call strategy
+See [Model calls](/model-calls) for selection guidance and CLI examples.
 
-The review contract contains only the inputs needed for a bounded content review.
+### 3. Review the content
 
-### 3. Select a model call
+VectorLint reviews the target against each applicable rule. For long documents, it divides the content into manageable sections and combines the results.
 
-VectorLint supports three model-call values:
+### 4. Validate and score findings
 
-| Model call | Use it for |
-| --- | --- |
-| `single` | Normal reviews using structured model calls without tools |
-| `agent` | Large or context-heavy reviews where the model needs target-section paging |
-| `auto` | Default behavior; VectorLint chooses based on target size and rule count |
+Before reporting a finding, VectorLint confirms that its quoted evidence appears in the target content. It removes duplicate findings and calculates a score from the verified violations.
 
-`agent` is bounded to the current target. The only tool it can use is `read_target_section`, which reads line ranges from the target content already supplied to VectorLint.
+Findings without locatable evidence are omitted from the reported violations.
 
-See [Model calls](/model-calls) for CLI examples and selection details.
+### 5. Present the results
 
-### 4. Process findings
-
-Both model-call paths send raw candidate findings through the same finding-processing pipeline:
-
-1. filter candidates through the evidence gate
-2. verify finding evidence against target content
-3. deduplicate verified findings
-4. score by verified finding count and density
-5. resolve severity
-6. assemble findings, scores, diagnostics, and usage metadata
-
-Unlocatable quoted evidence becomes a diagnostic and does not become a finding.
-
-### 5. Format output
-
-The final `ReviewResult` is routed to the requested output format:
+VectorLint presents the verified findings using the requested output format:
 
 - `line` for human-readable terminal output
 - `json` for VectorLint's native machine-readable output
 - `vale-json` for Vale-compatible integrations
 - `rdjson` for reviewdog-compatible integrations
-
-## Boundaries
-
-VectorLint reviews only the target content and explicit review context supplied to it. It does not search your workspace, read arbitrary files, or expand scope on its own.
-
-This makes VectorLint safe to call from external agents and CI systems: the caller owns exploration, and VectorLint owns constrained review.
 
 ## Next steps
 

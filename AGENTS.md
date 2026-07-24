@@ -86,6 +86,10 @@ These guidelines reduce common LLM coding mistakes. They bias toward caution ove
 - Store coordination artifacts in `.agent-runs/` or another ignored workspace location.
 - If a durable architectural decision must be committed, write it as an ADR. ADRs are the only allowed committed decision/planning artifacts.
 - Product documentation may describe shipped behavior, configuration, and usage, but it must not preserve internal audit, plan, or spec documents as reviewed product docs.
+- `CONTEXT.md` is the project’s ubiquitous language. It may define internal domain concepts needed by contributors, provided those concepts use the same terminology users encounter.
+- `AGENTS.md` should require consistent terminology across code, tests, and documentation.
+- User-facing `/docs` should use only the subset of that language needed for user goals.
+- Internal contracts, processing stages, tool names, architecture constraints, and rejected alternatives should not leak into `/docs` merely because they exist in `CONTEXT.md`.
 
 ## Configuration System
 

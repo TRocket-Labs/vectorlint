@@ -63,8 +63,8 @@ vectorlint --help
 | `--help` | — | Print help and exit |
 | `--version` | — | Print the installed VectorLint version and exit |
 | `--config <path>` | `.vectorlint.ini` | Path to a custom project config file |
-| `--debug-json` | `false` | Write debug JSON artifacts for surfaced findings and review metadata |
-| `--model-call <value>` | `auto` | Model-call strategy: `single`, `agent`, or `auto` |
+| `--debug-json` | `false` | Write debug JSON artifacts under `.vectorlint/runs/` |
+| `--model-call <value>` | `auto` | Review approach: `single`, `agent`, or `auto` |
 | `--output <format>` | `line` | Output format: `line`, `json`, `vale-json`, or `rdjson` |
 | `--show-prompt` | `false` | Print full prompt and injected content |
 | `--show-prompt-trunc` | `false` | Print truncated prompt/content previews |
@@ -72,7 +72,7 @@ vectorlint --help
 
 ### `--model-call`
 
-`--model-call` controls how VectorLint invokes the reviewer model:
+`--model-call` selects the review approach. Leave the default, `auto`, enabled for most reviews.
 
 ```bash
 vectorlint doc.md --model-call single
@@ -80,11 +80,11 @@ vectorlint doc.md --model-call agent
 vectorlint doc.md --model-call auto
 ```
 
-| Value | Behavior |
+| Value | Use it for |
 | --- | --- |
-| `single` | Runs structured model calls without tools |
-| `agent` | Runs bounded target-only paging with `read_target_section` |
-| `auto` | Default; chooses `single` or `agent` based on target size and rule count |
+| `auto` | Most reviews; VectorLint selects an approach for the current document |
+| `single` | Normal, self-contained documents and focused rules |
+| `agent` | Large documents or reviews that compare context across sections |
 
 See [Model calls](/model-calls) for usage guidance.
 

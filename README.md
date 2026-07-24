@@ -1,6 +1,8 @@
-# VectorLint: Prompt it, Lint it! [![npm version](https://img.shields.io/npm/v/vectorlint.svg)](https://www.npmjs.com/package/vectorlint) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+# VectorLint [![npm version](https://img.shields.io/npm/v/vectorlint.svg)](https://www.npmjs.com/package/vectorlint) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-VectorLint is a command-line content review harness that uses LLMs to find observable terminology, technical accuracy, and style violations that require contextual understanding.
+VectorLint is a content review harness that turns observable quality standards into measurable feedback for agents.
+
+VectorLint reviews content against rules that describe observable traits. It returns structured, source-grounded findings and quality scores, giving agents repeatable signals they can use to revise content and review it again.
 
 ![VectorLint Screenshot](./assets/VectorLint_screenshot.jpeg)
 
@@ -30,35 +32,27 @@ Run VectorLint without installing:
 npx vectorlint path/to/article.md
 ```
 
-## Enforce Your Style Guide
+## Define Your Quality Standards
 
-Define rules as Markdown files with YAML frontmatter to enforce your specific content standards:
+Define rules as Markdown files with YAML frontmatter. Each rule describes the observable traits that indicate content does not meet one of your standards.
 
-- **Check SEO Optimization** - Verify content follows SEO best practices
-- **Detect AI-Generated Content** - Identify artificial writing patterns
-- **Verify Technical Accuracy** - Catch outdated or incorrect technical information
-- **Ensure Tone & Voice Consistency** - Match content to appropriate tone for your audience
+Rules can identify prohibited terminology, unsupported claims, repetitive explanations, vague guidance, or other quality issues specific to your content.
 
-If you can write a prompt for it, you can lint it with VectorLint.
+VectorLint works best when each rule states what evidence counts as a finding instead of asking for a general judgment of whether the content is good.
 
 👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
 
 ## Quality Scores
 
-VectorLint scores your content using error density, enabling you to measure quality across documentation. This gives your team a shared understanding of which content needs attention and helps track improvements over time.
+VectorLint turns review results into comparable quality signals. Agents can use those scores to measure whether revisions improve content across repeated review cycles.
 
-- **Density-Based Scoring:** For errors that can be counted, scores are calculated based on **error density (errors per 100 words)**, making quality assessment fair across documents of any length.
+For countable findings, VectorLint calculates scores from error density, or findings per 100 words. This makes results comparable across content of different lengths.
 
-## How VectorLint Reduces False Positives
+## Grounded Findings
 
-VectorLint uses a PAT (Pay A Tax) review approach:
+Every reported finding includes evidence from the reviewed content. VectorLint confirms that evidence can be located in the source and omits findings that cannot be grounded there.
 
-1. **Candidate generation:** the model returns all potential violations with required gate-check fields (rule support, exact evidence, context support, plausible non-violation, and fix quality).
-2. **Deterministic surfacing:** VectorLint applies a strict filter and only surfaces violations that pass all required gates.
-
-This means CLI output is intentionally stricter than raw model candidates, reducing noisy findings and improving precision.
-
-The confidence gate is user-configurable via:
+Adjust finding sensitivity with:
 
 ```bash
 CONFIDENCE_THRESHOLD=0.75
@@ -72,15 +66,15 @@ CONFIDENCE_THRESHOLD=0.75
 
 ### 1. Zero-Config Mode (Fastest)
 
-If you just want to check your content against a style guide:
+If you want to review content against a single set of quality standards:
 
 ```bash
 vectorlint init --quick
 ```
 
-This creates a `VECTORLINT.md` file where you can paste your style guide.
+This creates a `VECTORLINT.md` file where you can define your quality standards.
 
-> **Note:** You must set up your credentials in `~/.vectorlint/config.toml` (see Step 3) before running checks.
+> **Note:** You must set up your credentials in `~/.vectorlint/config.toml` (see Step 3) before running a review.
 
 Then run:
 
@@ -97,14 +91,15 @@ vectorlint init
 ```
 
 This creates:
+
 - **VectorLint Config** (`.vectorlint.ini`): Project-specific settings.
-- **App Config** (`~/.vectorlint/config.toml`): LLM provider API keys.
+- **App Config** (`~/.vectorlint/config.toml`): Model provider API keys.
 
 👉 **[Full configuration reference →](./CONFIGURATION.md)**
 
 ### 3. Configure API Keys
 
-Open your global **App Config** (`~/.vectorlint/config.toml`) and uncomment the section for your preferred LLM provider (OpenAI, Anthropic, Gemini, or Azure).
+Open your global **App Config** (`~/.vectorlint/config.toml`) and uncomment the section for your preferred model provider (OpenAI, Anthropic, Gemini, or Azure).
 
 ```toml
 [env]
@@ -114,7 +109,7 @@ OPENAI_API_KEY = "sk-..."
 
 > *Note: You can also use a local `.env` file in your project, which takes precedence over the global config.*
 
-**Run a check:**
+**Run a review:**
 
 ```bash
 vectorlint doc.md
@@ -124,9 +119,9 @@ VectorLint is bundled with a `VectorLint` preset containing rules for AI pattern
 
 👉 **[Learn how to create custom rules →](./CREATING_RULES.md)**
 
-### 4. Optional: Enable Langfuse observability
+### 4. Optional: Configure Langfuse observability
 
-VectorLint can emit AI execution telemetry through Langfuse without hardcoding Langfuse into the provider layer. This is best-effort instrumentation for the Vercel AI SDK calls used by `VercelAIProvider`.
+VectorLint can send model execution telemetry to Langfuse.
 
 Add these environment variables to your global config or local `.env` file:
 
@@ -144,30 +139,20 @@ Notes:
 - Prompts and outputs are recorded when Langfuse observability is enabled.
 - Do not send secrets, credentials, or PII unless your policy explicitly allows observability tooling to access that data.
 
-## How VectorLint Runs Reviews
+## Choose a Review Approach
 
-VectorLint is a bounded review harness, not a workspace agent. Callers choose
-the target content and any review context; VectorLint reviews that supplied
-content against source-backed rules and returns findings, scores, diagnostics,
-and usage metadata.
-
-Use `--model-call` to choose how the reviewer model is invoked:
+VectorLint chooses a review approach automatically. The default works for most
+content:
 
 ```bash
-vectorlint doc.md --model-call single
-vectorlint doc.md --model-call agent
-vectorlint doc.md --model-call auto
+vectorlint doc.md
 ```
 
-- `single` runs structured model calls without tools. This is best for normal
-  documents and straightforward rule checks.
-- `agent` runs a bounded target-only model call that can page through the
-  current target with `read_target_section`. It cannot search the workspace,
-  read arbitrary files, or override rules.
-- `auto` is the default. VectorLint chooses `single` for normal inputs and
-  `agent` for large or multi-rule reviews that benefit from target paging.
+Use `--model-call` when you need to override that choice for a particular
+review. Choose `single` for normal, self-contained documents or `agent` for
+large documents whose relevant context spans multiple sections.
 
-See [Model calls](docs/model-calls.mdx) for more details.
+See [Model calls](docs/model-calls.mdx) for selection guidance and examples.
 
 ## Contributing
 
@@ -175,5 +160,5 @@ We welcome your contributions! Whether it's adding new rules, fixing bugs, or im
 
 ## Resources
 
-- **[Creating Custom Rules](./CREATING_RULES.md)** - Write your own quality checks in Markdown
+- **[Creating Custom Rules](./CREATING_RULES.md)** - Define observable quality standards in Markdown
 - **[Configuration Guide](./CONFIGURATION.md)** - Complete reference for `.vectorlint.ini`
