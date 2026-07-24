@@ -139,16 +139,16 @@ Notes:
 - Prompts and outputs are recorded when Langfuse observability is enabled.
 - Do not send secrets, credentials, or PII unless your policy explicitly allows observability tooling to access that data.
 
-## Choose a Review Approach
+## Choose a Review Strategy
 
-VectorLint chooses a review approach automatically. The default works for most
+VectorLint chooses a review strategy automatically. The default works for most
 content:
 
 ```bash
 vectorlint doc.md
 ```
 
-Use `--model-call` when you need to override that choice for a particular
+Use `--model-call` when you need to override that strategy for a particular
 review. Choose `single` for normal, self-contained documents or `agent` for
 large documents whose relevant context spans multiple sections.
 
@@ -160,5 +160,5 @@ We welcome your contributions! Whether it's adding new rules, fixing bugs, or im
 
 ## Resources
 
-- **[Creating Custom Rules](./CREATING_RULES.md)** - Define observable quality standards in Markdown
+- **[Creating Rules](./CREATING_RULES.md)** - Define observable quality standards in Markdown
 - **[Configuration Guide](./CONFIGURATION.md)** - Complete reference for `.vectorlint.ini`
