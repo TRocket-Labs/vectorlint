@@ -1,8 +1,30 @@
 # Repository Guidelines
 
-This repository implements VectorLint — a prompt‑driven, structured‑output content review harness. Use this guide to navigate the codebase, run it locally, and contribute safely.
+This repository implements VectorLint — a prompt‑driven, structured‑output content reviewer. Use this guide to navigate the codebase, run it locally, and contribute safely.
 
 Use [`CONTEXT.md`](./CONTEXT.md) as the shared VectorLint domain language across code, docs, tests, and agent work. Prefer its terms when naming modules, writing tests, drafting docs, and describing architecture.
+
+## Project Structure & Module Organization
+
+- `src/`
+  - `index.ts` — CLI entry; orchestrates config, discovery, review, reporting
+  - `boundaries/` — external data validation (config, CLI args, env vars, YAML, API responses)
+  - `chunking/` — content chunking for large documents (recursive chunker, merger, utilities)
+  - `cli/` — command definitions and CLI orchestration
+  - `config/` — configuration loading and management
+  - `errors/` — custom error types and validation errors
+  - `executors/` — bounded single-call and target-paging review strategies
+  - `findings/` — finding verification, filtering, severity, and scoring
+  - `output/` — TTY formatting (reporter, evidence location, line numbering)
+  - `prompts/` — YAML frontmatter parsing, schema validation, directive loading
+  - `providers/` — LLM abstractions (OpenAI, Anthropic, Azure, Gemini), request builder, provider factory
+  - `scan/` — file discovery (fast‑glob) honoring config and exclusions
+  - `review/` — shared review contracts, budgets, boundaries, and request building
+  - `schemas/` — Zod schemas for all external data (API responses, config, CLI, env)
+  - `scoring/` — density-based score calculation
+  - `types/` — TypeScript type definitions
+- `presets/` — bundled rule packs (e.g., `VectorLint/`)
+- `tests/` — Vitest specs for config, scanning, review, providers
 
 ## Agent Behavior Guidelines
 
@@ -42,36 +64,28 @@ These guidelines reduce common LLM coding mistakes. They bias toward caution ove
 - For multi-step tasks, state a brief plan with verification for each step.
 - Loop until the success criteria are verified or a blocker is clear.
 
+### Error Organization
+
+- Put domain error classes in focused error files and import them into the modules that throw them.
+- Reuse the repository's custom error hierarchy instead of throwing native `Error` directly.
+- Catch errors as `unknown`; narrow or convert them with the existing error utilities.
+- Introduce error handling only for real failure modes, not speculative or impossible scenarios.
+
+### Comments
+
+- Write comments only when they explain non-obvious current behavior, invariants, or constraints.
+- Do not preserve planning discussions, rejected alternatives, absent fields, or speculative future architecture in production comments.
+- Do not use comments to restate code that is already clear from names and types.
+- Keep security and scope-boundary comments when they explain constraints that the implementation must preserve.
+- Test supported behavior and current invariants; do not add negative tests solely to memorialize rejected designs.
+
 ### Documentation Artifact Boundaries
 
 - Do not commit raw planning or investigation artifacts to the product codebase.
 - Keep audits, plans, specs, run notes, and similar coordination artifacts out of tracked repo paths such as `docs/audits/`, `docs/plans/`, `docs/specs/`, `audits/`, `plans/`, and `specs/`.
 - Store coordination artifacts in `.agent-runs/` or another ignored workspace location.
 - If a durable architectural decision must be committed, write it as an ADR. ADRs are the only allowed committed decision/planning artifacts.
-- Product documentation may describe shipped behavior, configuration, and usage, but it must not preserve internal audit/plan/spec documents as reviewed product docs.
-
-## Project Structure & Module Organization
-
-- `src/`
-  - `index.ts` — CLI entry; orchestrates config, discovery, evaluation, reporting
-  - `boundaries/` — external data validation (config, CLI args, env vars, YAML, API responses)
-  - `chunking/` — content chunking for large documents (recursive chunker, merger, utilities)
-  - `cli/` — command definitions and CLI orchestration
-  - `config/` — configuration loading and management
-  - `errors/` — custom error types and validation errors
-  - `evaluators/` — evaluation logic (base evaluator, registry, specific evaluators)
-  - `output/` — TTY formatting (reporter, evidence location, line numbering)
-  - `prompts/` — YAML frontmatter parsing, schema validation, directive loading
-  - `providers/` — LLM abstractions (OpenAI, Anthropic, Azure, Gemini), request builder, provider factory
-  - `review/` — neutral review contract, boundary, budget, schemas, and model-call selection
-  - `executors/` — bounded `single` and `agent` model-call executors behind `ReviewExecutor`
-  - `findings/` — shared finding verification, filtering, scoring, diagnostics, and result assembly
-  - `scan/` — file discovery (fast‑glob) honoring config and exclusions
-  - `schemas/` — Zod schemas for all external data (API responses, config, CLI, env)
-  - `scoring/` — score calculation for objective violation checks
-  - `types/` — TypeScript type definitions
-- `presets/` — bundled rule packs (e.g., `VectorLint/`)
-- `tests/` — Vitest specs for config, scanning, evaluation, providers
+- Product documentation may describe shipped behavior, configuration, and usage, but it must not preserve internal audit, plan, or spec documents as reviewed product docs.
 
 ## Configuration System
 
@@ -110,7 +124,7 @@ Rules must be organized into subdirectories (packs) within `RulesPath`.
 
 ### Zero-Config Mode
 
-If you just want to evaluate against a user instruction guide without specific rules:
+If you just want to review against a user instruction guide without specific rules:
 1. Create a `VECTORLINT.md` file with your user instruction content
 2. Run `vectorlint doc.md` — VectorLint creates a synthetic rule from your user instructions
 
@@ -129,19 +143,18 @@ If you just want to evaluate against a user instruction guide without specific r
 
 VectorLint assembles prompts in this order:
 
-1. **Directive** (`src/prompts/directive-loader.ts`) — Role definition, task, and evaluation instructions
+1. **Directive** (`src/prompts/directive-loader.ts`) — Role definition, task, and review instructions
 2. **User Instructions** (`VECTORLINT.md`) — Optional global style context
-3. **Rule** (the prompt body from the rule file) — Specific evaluation criteria
+3. **Rule** (the prompt body from the rule file) — Specific review criteria
 
-The content to evaluate is sent as a **user message** with line numbers prepended.
+The content to review is sent as a **user message** with line numbers prepended.
 
 ### Chunking
 
 For documents >600 words, VectorLint automatically chunks content:
 - Uses recursive splitting (paragraphs → lines → sentences → words)
-- Each chunk is evaluated separately
+- Each chunk is reviewed separately
 - Results are merged and deduplicated
-- Disable with `evaluateAs: document` in rule frontmatter
 
 ## Coding Style & Naming Conventions
 
@@ -177,15 +190,12 @@ For documents >600 words, VectorLint automatically chunks content:
 ## Architecture & Principles
 
 - Boundary validation: all external data (files, CLI, env, APIs) validated at system boundaries using Zod schemas
-- Bounded harness model: callers own exploration and context gathering; VectorLint owns constrained review through `single`/`agent`/`auto` model calls behind the `ReviewExecutor` contract
-- On-page boundary: executors review target content plus explicit review context only; do not add workspace search, arbitrary file reads, model-authored rule overrides, or autonomous agent behavior
 - Type safety: strict TypeScript with no `any`; use `unknown` + schema validation for external data
-- Dependency inversion: depend on `StructuredModelClient`, `ToolCallingModelClient`, and `SearchProvider` interfaces; keep providers thin (transport only)
+- Dependency inversion: depend on `StructuredModelClient` and `ToolCallingModelClient`; keep providers thin (transport only)
 - Dependency injection: inject `RequestBuilder` via provider constructor to avoid coupling
-- Separation of concerns: rules define observable violation checks; schemas enforce structure; CLI orchestrates; executors run model calls; findings process results; reporters format output
+- Separation of concerns: rules define criteria; schemas enforce structure; CLI orchestrates; executors review; finding processors verify; reporters format
 - Separation of concerns: when a file starts combining contracts, orchestration, and utility logic, extract shared helpers and types into focused modules
-- Extensibility: add model providers by implementing the structured/tool-calling model client interfaces
-- Error handling: prefer the repository's custom error hierarchy over native `Error`; catch blocks use `unknown` type and extend existing custom error types before introducing raw exceptions
+- Extensibility: add providers by implementing the model-client contracts; add review strategies behind `ReviewExecutor`
 - Shared domain constants: avoid magic strings for core runtime concepts; define shared constants, enums, or types and import them where needed
 - Naming: choose domain-accurate names that reflect the real abstraction level; avoid use-case-specific terminology in shared runtime code
 - Logging: route runtime logging through an injected logger interface; keep concrete logger implementations behind the abstraction

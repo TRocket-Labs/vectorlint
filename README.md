@@ -51,7 +51,7 @@ VectorLint scores your content using error density, enabling you to measure qual
 
 ## How VectorLint Reduces False Positives
 
-VectorLint uses a PAT (Pay A Tax) evaluation approach:
+VectorLint uses a PAT (Pay A Tax) review approach:
 
 1. **Candidate generation:** the model returns all potential violations with required gate-check fields (rule support, exact evidence, context support, plausible non-violation, and fix quality).
 2. **Deterministic surfacing:** VectorLint applies a strict filter and only surfaces violations that pass all required gates.

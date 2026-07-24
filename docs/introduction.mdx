@@ -5,13 +5,13 @@ description: "VectorLint is a large language model (LLM)-based prose linter that
 
 ## What is VectorLint?
 
-VectorLint is a command-line content review harness that uses large language models (LLMs) to evaluate documentation. Instead of regex patterns that can only catch surface-level issues, VectorLint looks for observable terminology, technical accuracy, and style violations that require contextual understanding to detect.
+VectorLint is a command-line tool that reviews and scores documentation using large language models (LLMs). Unlike regex patterns that catch only surface-level issues, VectorLint can find terminology misuse, unsupported claims, and style inconsistencies that require contextual understanding.
 
 If you can write a prompt for it, you can lint it with VectorLint.
 
 ## Why VectorLint exists
 
-Traditional prose linters like Vale work by matching text against fixed regex patterns and word lists. They catch what you explicitly tell them to catch — but they can't reason about meaning, context, or technical accuracy.
+Traditional prose linters like Vale work by matching text against fixed regex patterns and word lists. They catch what you explicitly tell them to catch — but they can't reason about meaning, context, or internal consistency.
 
 VectorLint fills that gap. You define a rule once as a Markdown prompt, and the LLM applies it across your entire content library — scoring each document, surfacing specific violations, and explaining why each violation matters.
 
@@ -36,11 +36,7 @@ This gives documentation teams something they haven't had before: a **shared, me
 
 ## How scoring works
 
-VectorLint uses two scoring methods depending on the rule type:
-
-**Density-based scoring** is used for rules that count discrete violations (like a grammar checker). VectorLint calculates scores based on error density — errors per 100 words — so results are comparable across documents of any length.
-
-**Rubric-based scoring** is used for rules that measure quality on a spectrum (like tone or completeness). The LLM scores each criterion on a 1–4 scale, which VectorLint normalizes to a 1–10 scale for consistent reporting.
+VectorLint calculates scores from error density—verified violations per 100 words—so results are comparable across documents of different lengths.
 
 ## How false positives are reduced
 
@@ -49,7 +45,7 @@ VectorLint filters raw LLM candidates through a series of gate checks before sur
 1. **Candidate generation** — the LLM returns all potential violations, each with required gate-check fields: rule support, exact evidence, context support, plausible non-violation, and fix quality.
 2. **Deterministic filtering** — VectorLint applies a strict filter and only surfaces violations that pass all required gates.
 
-VectorLint's output is intentionally stricter than raw model candidates; it reports only findings that pass all gates. You can tune how aggressively the pipeline filters findings to match your content workflow. See [Tuning evaluation precision](/false-positive-tuning).
+VectorLint's output is intentionally stricter than raw model candidates; it reports only findings that pass all gates. You can tune how aggressively the pipeline filters findings to match your content workflow. See [Tuning review precision](/false-positive-tuning).
 
 ## Next steps
 

@@ -11,7 +11,7 @@ A system that reviews supplied target content against source-backed rules and re
 _Avoid_: Autonomous agent, workspace agent, agent mode
 
 **Review**:
-One evaluation of target content against one or more rules. A review produces findings, scores, diagnostics, usage metadata, and output.
+A review of target content against one or more rules. It produces findings, scores, diagnostics, usage metadata, and output.
 _Avoid_: Lint run when referring to the domain process, agent session
 
 ### Review Inputs
@@ -48,7 +48,7 @@ _Avoid_: Prompt when referring to the domain concept, model instruction when imp
 
 **Via Negativa Review**:
 A review approach that looks for evidence a rule was violated rather than evidence the content aligns with an ideal. VectorLint rules should be written so a model can answer whether an observable violation condition is present.
-_Avoid_: Alignment review, subjective assessment, rubric judgment
+_Avoid_: Alignment review, subjective assessment
 
 **Violation Condition**:
 An observable yes/no condition that counts as a rule violation when present in target content. A violation condition should be specific enough to ground a finding in finding evidence.
@@ -70,7 +70,7 @@ _Avoid_: Direct rule, standard rule
 
 **Model Call**:
 The call shape VectorLint uses to run a reviewer model against target content during a review.
-_Avoid_: Execution strategy, content access, process mode, evaluator type, rule type, mode
+_Avoid_: Execution strategy, content access, process mode, rule type, mode
 
 **Single Model Call**:
 A model call where VectorLint supplies the review request and target content without giving the model a read tool. If VectorLint chunks a large target, each chunk is still reviewed through a single model call.
