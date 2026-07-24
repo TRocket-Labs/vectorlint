@@ -1,8 +1,8 @@
-import type { CheckItem } from "../prompts/schema";
+import type { ReviewItem } from "../prompts/schema";
 
 export function mergeViolations(
-  chunkViolations: CheckItem[][]
-): CheckItem[] {
+  chunkViolations: ReviewItem[][]
+): ReviewItem[] {
   const all = chunkViolations.flat();
 
   // Deduplicate using composite key (quoted_text + description + analysis)

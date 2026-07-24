@@ -1,9 +1,9 @@
 ---
 title: Running your first style check
-description: Use VECTORLINT.md to run your first content evaluation without writing any rules.
+description: Use VECTORLINT.md to run your first content review without writing any rules.
 ---
 
-The fastest way to get value from VectorLint is to create a `VECTORLINT.md` file in your project root. This is the zero-config path — no rule pack files, no `.vectorlint.ini` required. VectorLint detects the file automatically, creates a "Style Guide Compliance" rule from its contents, and evaluates your content against it.
+The fastest way to get value from VectorLint is to create a `VECTORLINT.md` file in your project root. This is the zero-config path — no rule pack files, no `.vectorlint.ini` required. VectorLint detects the file automatically, creates a "Style Guide Compliance" rule from its contents, and reviews your content against it.
 
 ## Before you start
 
@@ -11,7 +11,7 @@ You'll need a working VectorLint installation with an LLM provider configured. I
 
 ## Step 1: Create your VECTORLINT.md
 
-Create a file called `VECTORLINT.md` in your project root. Write your style standards as plain-language instructions — short imperative rules grouped under headings. VectorLint passes this content directly to the LLM as context for every evaluation.
+Create a file called `VECTORLINT.md` in your project root. Write your style standards as plain-language instructions — short imperative rules grouped under headings. VectorLint passes this content directly to the LLM as context for every review.
 
 Here's a minimal example to start from:
 
@@ -65,9 +65,9 @@ Because `VECTORLINT.md` is plain language, anyone on your team can read and edit
 
 `VECTORLINT.md` handles broad, always-applicable standards well. It also supports creating custom rule pack files — targeted LLM prompts that enforce specific, measurable criteria that plain-language instructions can't capture precisely enough.
 
-For example, a `VECTORLINT.md` rule like "avoid passive voice" gives the LLM general guidance. A rule pack file with a structured prompt, scoring rubric, and audience context gives it precise, reproducible criteria with weighted scoring.
+For example, a `VECTORLINT.md` rule like "avoid passive voice" gives the LLM general guidance. A rule pack file with a structured prompt and audience context gives it precise, reproducible criteria.
 
 When you're ready to go beyond `VECTORLINT.md`:
 
 - [Customize style rules](/customize-style-rules) — step-by-step guide to writing your first rule pack file and crafting effective prompts
-- [Defining your style rules](/style-guide) — full reference for rule anatomy, evaluation modes, targeting, and examples
+- [Defining your style rules](/style-guide) — full reference for rule anatomy, targeting, and examples

@@ -4,13 +4,13 @@ import type {
   ReviewResult,
   ReviewScore,
 } from '../review/types';
-import { computeFilterDecision } from '../evaluators/violation-filter';
+import { computeFilterDecision } from '../findings/filter-decision';
 import {
   verifyFindingEvidence,
   FINDING_EVIDENCE_NOT_LOCATABLE,
   type VerifiedFindingCoords,
 } from './finding-evidence-verifier';
-import { scoreCheck } from './scorer';
+import { scoreFindings } from './scorer';
 import { buildRuleId, resolveCriterionId } from './severity';
 import type { FindingProcessingInput, RawViolation } from './types';
 
@@ -19,24 +19,7 @@ interface VerifiedEntry {
   coords: VerifiedFindingCoords;
 }
 
-/**
- * The single finding-processing pipeline for objective Via Negativa violation
- * checks (Phase 3). Transforms raw candidate findings into a formatter-ready
- * {@link ReviewResult}.
- *
- * Order (audit lines 167-174):
- *   1. filter candidates by the evidence gate (`computeFilterDecision`);
- *   2. verify each surfaced finding's evidence (anchored quote or diagnostic);
- *   3. deduplicate verified findings by `(quoted_text, line)`;
- *   4. score by verified finding count/density;
- *   5. resolve severity from the density score;
- *   6. assemble findings, score, and diagnostics.
- *
- * The verified finding count — not the raw candidate count — drives the score
- * (audit Finding #6). Unanchored evidence becomes a
- * `finding-evidence-not-locatable` warn diagnostic and emits no finding.
- * `hadOperationalErrors` is `true` only when a diagnostic is `error` level.
- */
+/** Transforms candidate violations into a formatter-ready {@link ReviewResult}. */
 export function processFindings(input: FindingProcessingInput): ReviewResult {
   const surfaced = filterCandidates(input.candidateFindings);
   const { verified, evidenceDiagnostics } = verifyAndDedupe(
@@ -44,7 +27,7 @@ export function processFindings(input: FindingProcessingInput): ReviewResult {
     input.targetContent,
   );
 
-  const scored = scoreCheck({
+  const scored = scoreFindings({
     verifiedViolations: verified.map((entry) => entry.raw),
     wordCount: input.wordCount,
     ...(input.promptMeta.strictness !== undefined
@@ -97,11 +80,7 @@ export function processFindings(input: FindingProcessingInput): ReviewResult {
   return { findings, scores, diagnostics, hadOperationalErrors };
 }
 
-/**
- * Drops candidate findings that fail the evidence gate. Filtered candidates
- * contribute neither findings nor diagnostics, matching the current standard
- * orchestrator behavior.
- */
+/** Drops candidate findings that fail the evidence gate. */
 function filterCandidates(candidates: readonly RawViolation[]): RawViolation[] {
   const surfaced: RawViolation[] = [];
   for (const candidate of candidates) {
@@ -115,8 +94,8 @@ function filterCandidates(candidates: readonly RawViolation[]): RawViolation[] {
 
 /**
  * Verifies each surfaced finding's evidence and deduplicates verified findings
- * by `(quoted_text, line)`. Unanchored findings become warn diagnostics and are
- * not emitted.
+ * by their anchored coordinates. Unanchored findings become warn diagnostics
+ * and are not emitted.
  */
 function verifyAndDedupe(
   surfaced: readonly RawViolation[],
@@ -150,15 +129,11 @@ function verifyAndDedupe(
     }
 
     const coords = verification.finding;
-    const dedupeKey = candidate.quoted_text
-      ? `${candidate.quoted_text}:${coords.line}`
-      : null;
-    if (dedupeKey) {
-      if (seen.has(dedupeKey)) {
-        continue;
-      }
-      seen.add(dedupeKey);
+    const dedupeKey = `${coords.line}:${coords.column}:${coords.match}`;
+    if (seen.has(dedupeKey)) {
+      continue;
     }
+    seen.add(dedupeKey);
 
     verified.push({ raw: candidate, coords });
   }

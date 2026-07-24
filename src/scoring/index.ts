@@ -1,7 +1,1 @@
-export {
-  type CheckScoringOptions,
-  type JudgeScoringOptions,
-  calculateCheckScore,
-  calculateJudgeScore,
-  averageJudgeScores,
-} from "./scorer";
+export { type ScoringOptions, calculateScore } from "./scorer";

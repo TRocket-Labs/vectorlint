@@ -1,12 +1,12 @@
 ---
-title: Tuning evaluation precision
+title: Tuning review precision
 description: Use `CONFIDENCE_THRESHOLD` and strictness overrides together to reduce noise and get accurate findings across different content types.
 ---
 
-VectorLint gives you two complementary levers for controlling evaluation precision. Used together, they let you calibrate how aggressively VectorLint surfaces findings — globally across your project, and per content type.
+VectorLint gives you two complementary levers for controlling review precision. Used together, they let you calibrate how aggressively VectorLint surfaces findings — globally across your project, and per content type.
 
-- **`CONFIDENCE_THRESHOLD`** — controls how strictly the PAT pipeline filters raw model candidates before surfacing them. A global setting that applies to every evaluation.
-- **Strictness overrides** — controls how harshly check rules score error density for specific file patterns. Set per content type in `.vectorlint.ini`.
+- **`CONFIDENCE_THRESHOLD`** — controls how strictly the PAT pipeline filters raw model candidates before surfacing them. A global setting that applies to every review.
+- **Strictness overrides** — controls how harshly rules score error density for specific file patterns. Set per content type in `.vectorlint.ini`.
 
 Understanding when to reach for each one is the key to a low-noise, high-signal workflow.
 
@@ -47,7 +47,7 @@ Different content types warrant different quality bars. A draft circulated inter
 [content/docs/**/*.md]
 RunRules=TechDocs
 GrammarChecker.strictness=strict
-TechnicalAccuracy.strictness=9
+Clarity.strictness=9
 
 # Blog posts — standard. Quality matters, but tone is flexible.
 [content/blog/**/*.md]
@@ -75,7 +75,7 @@ RunRules=
 
 In CI, false positives block merges. A finding that a writer might reasonably dismiss becomes a pipeline failure that needs explaining. Two adjustments help:
 
-**Raise `CONFIDENCE_THRESHOLD` in CI.** Set it higher in your CI environment's `.env` than in local development. This means only the highest-confidence findings block a merge — lower-confidence candidates still get caught locally where a writer can evaluate them in context.
+**Raise `CONFIDENCE_THRESHOLD` in CI.** Set it higher in your CI environment's `.env` than in local development. This means only the highest-confidence findings block a merge — lower-confidence candidates still get caught locally where a writer can review them in context.
 
 ```bash
 # .env in CI environment

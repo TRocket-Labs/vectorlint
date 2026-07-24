@@ -13,8 +13,7 @@ import { handleUnknownError } from '../errors';
 /**
  * Conservative default step cap for a single bounded tool-calling run when the
  * caller does not supply one. Executors should pass an explicit `maxSteps`
- * derived from the review budget (audit Finding #7) rather than relying on
- * this default.
+ * derived from the review budget.
  */
 const DEFAULT_TOOL_CALLING_MAX_STEPS = 10;
 
@@ -52,7 +51,7 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
     content: string,
     promptText: string,
     schema: { name: string; schema: Record<string, unknown> },
-    context?: import('./request-builder').EvalContext
+    context?: import('./request-builder').ReviewCallContext
   ): Promise<LLMResult<T>> {
     const systemPrompt = this.builder.buildPromptBodyForStructured(promptText, context);
 
@@ -83,13 +82,13 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
     }
 
     try {
-      const evaluator = this.extractContextValue(context, 'evaluatorName', 'evaluator');
+      const reviewer = this.extractContextValue(context, 'reviewerName', 'reviewer');
       const rule = this.extractContextValue(context, 'ruleName', 'rule');
       const observabilityOptions = this.getObservabilityOptions({
-        operation: 'structured-eval',
+        operation: 'structured-review',
         provider: this.config.providerName ?? 'unknown',
         model: this.config.modelName ?? 'unknown',
-        ...(evaluator ? { evaluator } : {}),
+        ...(reviewer ? { reviewer } : {}),
         ...(rule ? { rule } : {}),
         ...(context?.recordPayloadTelemetry !== undefined
           ? { recordPayloadTelemetry: context.recordPayloadTelemetry }
@@ -148,13 +147,7 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
     }
   }
 
-  /**
-   * Bounded tool-calling transport (audit Finding #2). Performs a single
-   * bounded generation that may execute caller-supplied tools and then emits
-   * structured output. The tool map, step budget, and schema are all
-   * executor-owned; the provider defines no product tools and runs no
-   * autonomous product loop (audit Product Decision).
-   */
+  /** Runs bounded tool calling with executor-owned tools and output schema. */
   async runWithTools<T = unknown>(params: {
     systemPrompt: string;
     prompt: string;
@@ -277,7 +270,7 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
   }
 
   private extractContextValue(
-    context: import('./request-builder').EvalContext | undefined,
+    context: import('./request-builder').ReviewCallContext | undefined,
     ...keys: string[]
   ): string | undefined {
     if (!context) {

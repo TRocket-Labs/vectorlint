@@ -1,10 +1,7 @@
 ---
-evaluator: base
-type: check
 id: Inclusivity
 name: Inclusivity
 severity: warning
-evaluateAs: document
 ---
 
 # Inclusivity

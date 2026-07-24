@@ -8,18 +8,18 @@ A caller builds a `ReviewRequest`; an executor returns a `ReviewResult`.
 - `types.ts` — all review-domain interfaces (`ReviewTarget`, `ReviewRule`,
   `ReviewContext`, `ReviewBudget`, `ReviewFinding`, `ReviewScore`,
   `ReviewDiagnostic`, `ReviewResult`, `ReviewRequest`, `ReviewModelCall`).
-- `schemas.ts` — Zod schemas mirroring every external shape (boundary
-  validation). All schemas are strict; legacy scoring-mode, rubric, and
-  model-authored rule-override fields are rejected.
+- `schemas.ts` — strict Zod schemas mirroring every external shape (boundary
+  validation).
 - `budget.ts` — `DEFAULT_REVIEW_BUDGET`, `REVIEW_BUDGET_SCHEMA`,
-  `enforceBudget()`, and `BudgetExceededError` (extends `VectorlintError`).
+  and `enforceBudget()`.
+- `errors.ts` — review-domain errors, including `BudgetExceededError`.
 - `boundary.ts` — `buildScope()` / `isInScope()` enforcing the on-page boundary.
 - `executor.ts` — `ReviewExecutor` interface, `REVIEW_MODEL_CALLS`
   (`single | agent | auto`), `chooseModelCall()`.
 - `request-builder.ts` — `buildReviewRequest()` bridging `PromptFile` to
   `ReviewRequest`.
 
-## On-page boundary (audit Finding #5)
+## On-page boundary
 
 - Target content is always in scope.
 - Caller-supplied context is in scope.
@@ -33,10 +33,3 @@ A caller builds a `ReviewRequest`; an executor returns a `ReviewResult`.
 not how rules are scored. `single` sends target + rule in one structured call;
 `agent` gives the executor a target-scoped read-section capability; `auto`
 picks `single` for normal-sized inputs and `agent` for large ones.
-
-## Wiring status
-
-Phase 2 (this module) is purely additive and is **not** wired into the CLI.
-Phase 3 emits `ReviewResult` via shared finding processing; Phase 4 implements
-executors behind `ReviewExecutor` and removes the old agent loop. See
-`docs/audits/2026-07-10-vectorlint-harness-architecture-audit.md`.

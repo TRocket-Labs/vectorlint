@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
-import { loadRules, type PromptFile } from '../src/prompts/prompt-loader.js';
-import { validateAll, validatePrompt } from '../src/prompts/prompt-validator.js';
+import { loadRules } from '../src/prompts/prompt-loader.js';
+import { validateAll } from '../src/prompts/prompt-validator.js';
 
 function writePrompt(dir: string, name: string, yaml: string, body = 'Body') {
   const full = path.join(dir, name);
@@ -22,10 +22,8 @@ describe('PromptValidator', () => {
       'criteria:',
       '  - name: A',
       '    id: A',
-      '    weight: 2',
       '  - name: B',
       '    id: B',
-      '    weight: 2',
     ].join('\n');
     writePrompt(promptsDir, 'ok.md', yaml);
     const { prompts } = loadRules(promptsDir);
@@ -47,7 +45,6 @@ describe('PromptValidator', () => {
       'criteria:',
       '  - name: A',
       '    id: A',
-      '    weight: 2',
     ].join('\n');
     writePrompt(promptsDir, 'bad.md', yaml);
     const { prompts } = loadRules(promptsDir);
@@ -56,23 +53,24 @@ describe('PromptValidator', () => {
     expect(res.errors.some(e => /Invalid global target\.regex/i.test(e.message))).toBe(true);
   });
 
-  it('errors on invalid weights (manual prompt)', () => {
-    const p: PromptFile = {
-      id: 'x',
-      filename: 'x.md',
-      fullPath: '/path/to/x.md',
-      body: '',
-      meta: {
-        id: 'x',
-        name: 'X',
-        criteria: [
-          { id: 'A', name: 'A', weight: 0 },
-          { id: 'B', name: 'B', weight: -1 },
-        ],
-      },
-    };
-    const res = validatePrompt(p);
-    const weightErrors = res.filter(e => /Invalid weight/i.test(e.message));
-    expect(weightErrors.length).toBeGreaterThanOrEqual(2);
+  it('validates regex with the default execution flags', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'vlint-'));
+    const promptsDir = path.join(root, 'prompts');
+    mkdirSync(promptsDir, { recursive: true });
+    const yaml = [
+      'id: TestPrompt',
+      'name: Test Prompt',
+      'target:',
+      "  regex: '\\a'",
+      'criteria:',
+      '  - name: A',
+      '    id: A',
+    ].join('\n');
+    writePrompt(promptsDir, 'bad-default-flags.md', yaml);
+
+    const { prompts } = loadRules(promptsDir);
+    const res = validateAll(prompts);
+
+    expect(res.errors.some(e => /Invalid global target\.regex/i.test(e.message))).toBe(true);
   });
 });

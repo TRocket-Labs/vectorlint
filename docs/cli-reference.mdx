@@ -114,8 +114,6 @@ VectorLint reads configuration from environment variables in addition to config 
 | `ANTHROPIC_API_KEY` | — | API key for Anthropic |
 | `GEMINI_API_KEY` | — | API key for Google Gemini |
 | `AZURE_OPENAI_API_KEY` | — | API key for Azure OpenAI |
-| `SEARCH_PROVIDER` | — | Search provider for `technical-accuracy` evaluator: `perplexity` |
-| `PERPLEXITY_API_KEY` | — | API key for Perplexity search |
 | `CONFIDENCE_THRESHOLD` | `0.75` | PAT pipeline confidence gate. Lower surfaces more findings; higher surfaces fewer. |
 
 For the full environment variable reference see [Environment variables](/env-variables).
@@ -124,5 +122,5 @@ For the full environment variable reference see [Environment variables](/env-var
 
 - [Installation](/installation) — install VectorLint globally or run with npx
 - [Configuration](/configuration) — configure VectorLint for your project
-- [Tuning evaluation precision](/false-positive-tuning) — adjust `CONFIDENCE_THRESHOLD` and strictness
+- [Tuning review precision](/false-positive-tuning) — adjust `CONFIDENCE_THRESHOLD` and strictness
 - [CI Integration](/ci-integration) — use exit codes to gate merges on content quality

@@ -8,7 +8,7 @@ export interface FindingEvidenceInput {
   quoted_text: string;
   context_before?: string;
   context_after?: string;
-  /** Optional 1-based line hint from the model; never used as a fallback. */
+  /** Optional 1-based line hint from the model. */
   line?: number;
 }
 
@@ -36,17 +36,7 @@ export interface FindingEvidenceVerification {
   diagnostic?: FindingEvidenceDiagnostic;
 }
 
-/**
- * The single source of truth for finding evidence verification
- * (audit Finding #6).
- *
- * Wraps the existing `locateQuotedText` fuzzy matcher; it never reimplements
- * matching. On a successful anchor it returns a verified finding with the
- * located line/column/match. When the quoted text cannot be anchored it
- * returns a `finding-evidence-not-locatable` warn diagnostic and NO finding —
- * it never falls back to a model-provided line number the way the old agent
- * path did.
- */
+/** Verifies and locates a candidate finding's quoted evidence. */
 export function verifyFindingEvidence(
   content: string,
   findingEvidence: FindingEvidenceInput,

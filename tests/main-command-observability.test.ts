@@ -12,7 +12,7 @@ const MOCK_LOAD_CONFIG = vi.hoisted(() => vi.fn());
 const MOCK_RESOLVE_TARGETS = vi.hoisted(() => vi.fn());
 const MOCK_CREATE_OBSERVABILITY = vi.hoisted(() => vi.fn());
 const MOCK_CREATE_PROVIDER = vi.hoisted(() => vi.fn());
-const MOCK_EVALUATE_FILES = vi.hoisted(() => vi.fn());
+const MOCK_REVIEW_FILES = vi.hoisted(() => vi.fn());
 const MOCK_LOAD_RULE_FILE = vi.hoisted(() => vi.fn());
 const MOCK_LIST_ALL_PACKS = vi.hoisted(() => vi.fn());
 const MOCK_FIND_RULE_FILES = vi.hoisted(() => vi.fn());
@@ -55,7 +55,7 @@ vi.mock('../src/providers/provider-factory', async (importOriginal) => {
 });
 
 vi.mock('../src/cli/orchestrator', () => ({
-  evaluateFiles: MOCK_EVALUATE_FILES,
+  reviewFiles: MOCK_REVIEW_FILES,
 }));
 
 vi.mock('../src/prompts/prompt-loader', () => ({
@@ -115,7 +115,7 @@ describe('Main command observability lifecycle', () => {
     MOCK_LOAD_RULE_FILE.mockReturnValue({ prompt: undefined, warning: undefined });
     MOCK_RESOLVE_TARGETS.mockReturnValue(['README.md']);
     MOCK_CREATE_PROVIDER.mockReturnValue({ mocked: true });
-    MOCK_EVALUATE_FILES.mockResolvedValue({
+    MOCK_REVIEW_FILES.mockResolvedValue({
       totalFiles: 1,
       totalErrors: 0,
       totalWarnings: 0,

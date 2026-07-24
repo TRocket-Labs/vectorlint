@@ -8,7 +8,7 @@ import { AgentModelCallExecutor } from './agent-model-call-executor';
 /**
  * The model-client dependencies every executor composes. Both capabilities are
  * supplied because the resolved {@link ModelCall} is not known until
- * {@link chooseModelCall} runs at review time (audit Finding #2).
+ * {@link chooseModelCall} runs at review time.
  */
 export interface ExecutorDeps {
   structuredModelClient: StructuredModelClient;

@@ -1,14 +1,12 @@
 import { z } from 'zod';
 
-import { VectorlintError } from '../errors';
 import type { ToolCallDefinition } from '../providers/tool-calling-model-client';
 import type { ReviewTargetReadCapability } from '../review/executor';
+import { TargetSectionRangeError } from './errors';
 
 /**
- * The single executor-owned tool name exposed to the bounded tool-calling
- * transport (audit Product Decision): page through the target under review by
- * 1-based line range. This is the only agent-like capability that survives the
- * Phase 4 agent removal.
+ * The executor-owned tool for paging through the target under review by
+ * 1-based line range.
  */
 export const READ_TARGET_SECTION_TOOL_NAME = 'read_target_section';
 
@@ -31,21 +29,6 @@ const READ_TARGET_SECTION_DESCRIPTION = [
   'describing the valid range instead of aborting the review.',
 ].join(' ');
 
-/**
- * Thrown by {@link TargetReadCapability.readTargetSection} when the requested
- * window is outside the target's valid line range. The tool adapter translates
- * this into a model-visible error result so the bounded run continues.
- */
-export class TargetSectionRangeError extends VectorlintError {
-  constructor(
-    message: string,
-    public readonly lineCount: number,
-  ) {
-    super(message, 'TARGET_SECTION_RANGE');
-    this.name = 'TargetSectionRangeError';
-  }
-}
-
 /** Success result of a {@link TargetReadCapability.readTargetSection} call. */
 export interface TargetSectionResult {
   startLine: number;
@@ -62,8 +45,7 @@ export interface TargetSectionErrorResult {
 }
 
 /**
- * The on-page boundary adapter (audit Finding #5): a target-only
- * {@link ReviewTargetReadCapability} bound to the in-memory
+ * A target-only {@link ReviewTargetReadCapability} bound to the in-memory
  * `ReviewTarget.content`. It performs NO filesystem access and reads no URI
  * other than the target it was constructed from. The agent executor exposes
  * this single capability to the model via {@link buildReadTargetSectionTool}.

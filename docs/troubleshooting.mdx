@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-description: Diagnose and fix common VectorLint issues with installation, configuration, API keys, and evaluation output.
+description: Diagnose and fix common VectorLint issues with installation, configuration, API keys, and review output.
 ---
 
 <Note>
@@ -96,24 +96,6 @@ ANTHROPIC_API_KEY = "sk-ant-..."
 ```
 
 See [Environment variables](/env-variables) for the full variable reference.
-
----
-
-### Search provider not working for TechnicalAccuracy rules
-
-**Symptom:** Rules using `evaluator: technical-accuracy` produce no findings or return an error about search.
-
-**Cause:** No search provider is configured.
-
-**Fix:** Add a search provider to your config:
-
-```toml
-[env]
-SEARCH_PROVIDER = "perplexity"
-PERPLEXITY_API_KEY = "pplx-..."
-```
-
-Without a search provider, `technical-accuracy` evaluators cannot verify facts against external sources and will return reduced-confidence or no results.
 
 ---
 

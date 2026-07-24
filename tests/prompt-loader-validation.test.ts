@@ -22,12 +22,11 @@ describe('Prompt Loader Validation', () => {
         }
     });
 
-    describe('Base Evaluator', () => {
-        it('should load base prompt with criteria (optional weight)', () => {
+    describe('rule frontmatter', () => {
+        it('should load a rule with criteria', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
-name: Test Evaluator
+name: Test Rule
 criteria:
   - name: Quality
     id: QualityCheck
@@ -37,15 +36,13 @@ Check content.`);
             const { prompts, warnings } = loadRules(tmpDir);
             expect(warnings).toHaveLength(0);
             expect(prompts).toHaveLength(1);
-            expect(prompts[0].meta.evaluator).toBe('base');
             expect(prompts[0].meta.criteria).toHaveLength(1);
         });
 
-        it('should load base prompt without criteria', () => {
+        it('should load a rule without criteria', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
-name: Test Evaluator
+name: Test Rule
 ---
 Check content.`);
 
@@ -54,28 +51,9 @@ Check content.`);
             expect(prompts).toHaveLength(1);
         });
 
-        it('should load base prompt with weight in criteria', () => {
+        it('should reject a rule missing id', () => {
             createPrompt('test.md', `---
-evaluator: base
-id: Test
-name: Test Evaluator
-criteria:
-  - name: Quality
-    id: QualityCheck
-    weight: 1
----
-Check content.`);
-
-            const { prompts, warnings } = loadRules(tmpDir);
-            expect(warnings).toHaveLength(0);
-            expect(prompts).toHaveLength(1);
-            expect(prompts[0].meta.criteria![0].weight).toBe(1);
-        });
-
-        it('should reject base prompt missing id', () => {
-            createPrompt('test.md', `---
-evaluator: base
-name: Test Evaluator
+name: Test Rule
 ---
 Check content.`);
 
@@ -85,9 +63,8 @@ Check content.`);
             expect(warnings[0]).toContain('test.md');
         });
 
-        it('should reject base prompt missing name', () => {
+        it('should reject a rule missing name', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
 ---
 Check content.`);
@@ -98,11 +75,10 @@ Check content.`);
             expect(warnings[0]).toContain('test.md');
         });
 
-        it('should reject base prompt with criterion missing id', () => {
+        it('should reject a rule with criterion missing id', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
-name: Test Evaluator
+name: Test Rule
 criteria:
   - name: Quality
 ---
@@ -114,11 +90,10 @@ Check content.`);
             expect(warnings[0]).toContain('test.md');
         });
 
-        it('should reject base prompt with criterion missing name', () => {
+        it('should reject a rule with criterion missing name', () => {
             createPrompt('test.md', `---
-evaluator: base
 id: Test
-name: Test Evaluator
+name: Test Rule
 criteria:
   - id: QualityCheck
 ---
@@ -131,54 +106,19 @@ Check content.`);
         });
     });
 
-    describe('Judge boundary rejection (Phase 3)', () => {
-        it('rejects judge-typed prompts at the loader boundary', () => {
-            createPrompt('judge.md', `---
-evaluator: base
-id: Judge
-name: Judge Prompt
-type: judge
-criteria:
-  - name: Clarity
-    id: Clarity
----
-Judge content.`);
-
-            const { prompts, warnings } = loadRules(tmpDir);
-            expect(prompts).toHaveLength(0);
-            expect(warnings.length).toBeGreaterThan(0);
-            expect(warnings[0]).toContain('judge.md');
-            expect(warnings[0]).toMatch(/judge/i);
-        });
-
-        it('rejects subjective-typed prompts (deprecated judge alias)', () => {
-            createPrompt('subjective.md', `---
-evaluator: base
-id: Subjective
-name: Subjective Prompt
-type: subjective
----
-Subjective content.`);
-
-            const { prompts, warnings } = loadRules(tmpDir);
-            expect(prompts).toHaveLength(0);
-            expect(warnings.length).toBeGreaterThan(0);
-            expect(warnings[0]).toContain('subjective.md');
-        });
-
-        it('still loads check-typed prompts', () => {
-            createPrompt('check.md', `---
-evaluator: base
-id: Check
-name: Check Prompt
-type: check
+    describe('ignored frontmatter', () => {
+        it('ignores a supplied type field', () => {
+            createPrompt('test.md', `---
+id: Test
+name: Test Prompt
+type: unused
 ---
 Check content.`);
 
             const { prompts, warnings } = loadRules(tmpDir);
             expect(warnings).toHaveLength(0);
             expect(prompts).toHaveLength(1);
-            expect(prompts[0].meta.type).toBe('check');
+            expect(prompts[0].meta).not.toHaveProperty('type');
         });
     });
 });

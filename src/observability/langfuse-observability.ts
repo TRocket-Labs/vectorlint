@@ -60,7 +60,7 @@ export class LangfuseObservability implements AIObservability {
         metadata: {
           provider: context.provider,
           model: context.model,
-          ...(context.evaluator ? { evaluator: context.evaluator } : {}),
+          ...(context.reviewer ? { reviewer: context.reviewer } : {}),
           ...(context.rule ? { rule: context.rule } : {}),
         },
         recordInputs: context.recordPayloadTelemetry === true,

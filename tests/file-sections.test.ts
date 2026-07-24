@@ -51,7 +51,7 @@ describe('File-centric configuration (File Sections)', () => {
             const config = {
                 'critical/**/*.md': {
                     RunRules: 'VectorLint',
-                    'technical-accuracy.strictness': '9',
+                    'clarity.strictness': '9',
                     'readability.severity': 'error'
                 }
             };
@@ -59,7 +59,7 @@ describe('File-centric configuration (File Sections)', () => {
             const sections = parser.parseSections(config);
 
             expect(sections[0].overrides).toEqual({
-                'technical-accuracy.strictness': '9',
+                'clarity.strictness': '9',
                 'readability.severity': 'error'
             });
         });
@@ -142,15 +142,15 @@ describe('File-centric configuration (File Sections)', () => {
     describe('Integration: Pattern priority and override merging', () => {
         it('applies prompts with overrides based on file path patterns', () => {
             const sections: FilePatternConfig[] = [
-                createFilePatternConfig('**/*.md', ['VectorLint'], { 'technical-accuracy.strictness': 7 }),
-                createFilePatternConfig('docs/api/**/*.md', ['APIPack'], { 'technical-accuracy.strictness': 9 })
+                createFilePatternConfig('**/*.md', ['VectorLint'], { 'clarity.strictness': 7 }),
+                createFilePatternConfig('docs/api/**/*.md', ['APIPack'], { 'clarity.strictness': 9 })
             ];
 
             const result = resolver.resolveConfiguration('docs/api/users.md', sections);
 
             // Cascading: APIPack applies on top of VectorLint
             expect(result.packs).toEqual(['VectorLint', 'APIPack']);
-            expect(result.overrides['technical-accuracy.strictness']).toBe(9); // Later wins
+            expect(result.overrides['clarity.strictness']).toBe(9); // Later wins
         });
     });
 });

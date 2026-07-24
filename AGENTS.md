@@ -184,7 +184,7 @@ For documents >600 words, VectorLint automatically chunks content:
 - Dependency injection: inject `RequestBuilder` via provider constructor to avoid coupling
 - Separation of concerns: rules define observable violation checks; schemas enforce structure; CLI orchestrates; executors run model calls; findings process results; reporters format output
 - Separation of concerns: when a file starts combining contracts, orchestration, and utility logic, extract shared helpers and types into focused modules
-- Extensibility: add model providers by implementing the structured/tool-calling model client interfaces or search by implementing `SearchProvider`
+- Extensibility: add model providers by implementing the structured/tool-calling model client interfaces
 - Error handling: prefer the repository's custom error hierarchy over native `Error`; catch blocks use `unknown` type and extend existing custom error types before introducing raw exceptions
 - Shared domain constants: avoid magic strings for core runtime concepts; define shared constants, enums, or types and import them where needed
 - Naming: choose domain-accurate names that reflect the real abstraction level; avoid use-case-specific terminology in shared runtime code
@@ -207,7 +207,3 @@ VectorLint supports multiple output formats via the `--output` flag:
 - Anthropic: Claude models (Opus, Sonnet, Haiku)
 - Azure OpenAI: Azure-hosted OpenAI models
 - Google Gemini: Gemini Pro and other Gemini models
-
-### Search Providers
-
-- Perplexity: Sonar models with web search capabilities (used by technical-accuracy evaluator)

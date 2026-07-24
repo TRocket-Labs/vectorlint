@@ -27,8 +27,6 @@ Create a new file at `.github/rules/MyTeam/grammar-checker.md`:
 ---
 id: GrammarChecker
 name: Grammar Checker
-evaluator: base
-type: check
 severity: error
 ---
 
@@ -75,7 +73,7 @@ See [Project Configuration](/project-config) for the full strictness reference.
 
 ## Writing effective prompts
 
-The Markdown body of your rule file is the prompt sent to the LLM. Specificity here directly determines evaluation quality — a vague prompt produces vague findings.
+The Markdown body of your rule file is the prompt sent to the LLM. Specificity here directly determines review quality — a vague prompt produces vague findings.
 
 **Be explicit about what you're looking for:**
 
@@ -84,7 +82,7 @@ The Markdown body of your rule file is the prompt sent to the LLM. Specificity h
 Check if the headline is good.
 
 # ✅ Specific
-You are a headline evaluator for developer blog posts. Assess whether the headline:
+You are a headline reviewer for developer blog posts. Assess whether the headline:
 
 1. Clearly communicates a specific benefit to the reader
 2. Uses natural, conversational language (avoid buzzwords like "leverage" or "unlock")
@@ -102,23 +100,8 @@ You are a headline evaluator for developer blog posts. Assess whether the headli
 - Direct answers over lengthy preambles
 ```
 
-**Use meaningful weights** to reflect real-world importance. Scale them to signal what actually matters in your content workflow:
-
-```yaml
-criteria:
-  - name: Technical Accuracy
-    id: TechnicalAccuracy
-    weight: 40       # Critical — factual errors erode trust
-  - name: Readability
-    id: Readability
-    weight: 30       # Important — but recoverable in editing
-  - name: SEO
-    id: SEO
-    weight: 10       # Nice to have
-```
-
 ## Next steps
 
-- [Defining your style rules](/style-guide) — full reference for rule anatomy, evaluation modes, targeting, and examples
+- [Defining your style rules](/style-guide) — full reference for rule anatomy, targeting, and examples
 - [Project Configuration](/project-config) — control which rules run on which files
 - [LLM Providers](/llm-providers) — switch providers or tune false-positive filtering

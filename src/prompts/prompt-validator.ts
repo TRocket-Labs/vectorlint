@@ -1,5 +1,6 @@
 import { PromptFile, PromptMeta, PromptCriterionSpec } from '../schemas/prompt-schemas';
-import { Severity } from '../evaluators/types';
+import { Severity } from '../review/severity';
+import { DEFAULT_TARGET_FLAGS } from './target';
 
 export type ValidationLevel = Severity;
 export interface Validation {
@@ -39,26 +40,6 @@ export function validatePrompt(p: PromptFile): Validation[] {
     if (!c.id && !c.name) {
       out.push({ file: p.filename, level: Severity.ERROR, message: 'Criterion missing id/name' });
     }
-    const w = Number(c.weight);
-    if (!Number.isFinite(w) || w <= 0) {
-      out.push({ file: p.filename, level: Severity.ERROR, message: `Invalid weight for ${c.name || c.id}` });
-    }
-    if (c.target) {
-      if (!validateFlags(c.target.flags)) {
-        out.push({ file: p.filename, level: Severity.ERROR, message: `Invalid regex flags in target for ${c.name || c.id}` });
-      }
-      if (c.target.group !== undefined && (!Number.isInteger(c.target.group) || c.target.group < 0)) {
-        out.push({ file: p.filename, level: Severity.ERROR, message: `Invalid target.group for ${c.name || c.id}` });
-      }
-      if (c.target.regex) {
-        try { new RegExp(c.target.regex, c.target.flags || ''); } catch {
-          out.push({ file: p.filename, level: Severity.ERROR, message: `Invalid target.regex for ${c.name || c.id}` });
-        }
-      }
-      if (c.target.suggestion && typeof c.target.suggestion !== 'string') {
-        out.push({ file: p.filename, level: Severity.ERROR, message: `Invalid target.suggestion for ${c.name || c.id}` });
-      }
-    }
   }
 
   const dups = uniqueIds(meta.criteria);
@@ -75,7 +56,7 @@ export function validatePrompt(p: PromptFile): Validation[] {
       out.push({ file: p.filename, level: Severity.ERROR, message: 'Invalid global target.group' });
     }
     if (meta.target.regex) {
-      try { new RegExp(meta.target.regex, meta.target.flags || ''); } catch {
+      try { new RegExp(meta.target.regex, meta.target.flags || DEFAULT_TARGET_FLAGS); } catch {
         out.push({ file: p.filename, level: Severity.ERROR, message: 'Invalid global target.regex' });
       }
     }

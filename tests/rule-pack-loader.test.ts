@@ -110,15 +110,15 @@ describe('RulePackLoader', () => {
             mkdirSync(path.join(packDir, 'Advanced', 'Deep'));
 
             // Create .md files
-            writeFileSync(path.join(packDir, 'technical-accuracy.md'), '# Eval');
-            writeFileSync(path.join(packDir, 'readability.md'), '# Eval');
-            writeFileSync(path.join(packDir, 'Advanced', 'deep-check.md'), '# Eval');
-            writeFileSync(path.join(packDir, 'Advanced', 'Deep', 'nested.md'), '# Eval');
+            writeFileSync(path.join(packDir, 'clarity.md'), '# Rule');
+            writeFileSync(path.join(packDir, 'readability.md'), '# Rule');
+            writeFileSync(path.join(packDir, 'Advanced', 'deep-check.md'), '# Rule');
+            writeFileSync(path.join(packDir, 'Advanced', 'Deep', 'nested.md'), '# Rule');
 
             const files = await loader.findRuleFiles(packDir);
 
             expect(files).toHaveLength(4);
-            expect(files).toContain(path.join(packDir, 'technical-accuracy.md'));
+            expect(files).toContain(path.join(packDir, 'clarity.md'));
             expect(files).toContain(path.join(packDir, 'readability.md'));
             expect(files).toContain(path.join(packDir, 'Advanced', 'deep-check.md'));
             expect(files).toContain(path.join(packDir, 'Advanced', 'Deep', 'nested.md'));
@@ -129,7 +129,7 @@ describe('RulePackLoader', () => {
             mkdirSync(packDir);
 
             // Create various file types
-            writeFileSync(path.join(packDir, 'eval.md'), '# Eval');
+            writeFileSync(path.join(packDir, 'rule.md'), '# Rule');
             writeFileSync(path.join(packDir, 'README.txt'), 'text file');
             writeFileSync(path.join(packDir, 'script.js'), 'console.log()');
             writeFileSync(path.join(packDir, 'config.json'), '{}');
@@ -137,7 +137,7 @@ describe('RulePackLoader', () => {
             const files = await loader.findRuleFiles(packDir);
 
             expect(files).toHaveLength(1);
-            expect(files[0]).toBe(path.join(packDir, 'eval.md'));
+            expect(files[0]).toBe(path.join(packDir, 'rule.md'));
         });
 
         it('returns empty array when pack directory is empty', async () => {

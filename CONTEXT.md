@@ -145,7 +145,3 @@ _Avoid_: Rate limit, timeout when referring to the full budget concept
 **Autonomous Agent Mode**:
 The old VectorLint direction where VectorLint exposed workspace tools to a model and let it explore beyond the target content. This is historical language only; current domain language should use single model call, agent model call, caller, and content review harness.
 _Avoid_: Agent mode as a current feature, workspace-agent review
-
-**Judge Rule**:
-The historical rubric-style assessment rule where a model graded content against criteria. This rule style is removed from the future-facing product model.
-_Avoid_: Rubric mode, subjective check, evaluator kind

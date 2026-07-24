@@ -7,7 +7,7 @@ import { loadConfig } from '../src/boundaries/config-loader.js';
 import { ScanPathResolver } from '../src/boundaries/scan-path-resolver.js';
 import { DEFAULT_CONFIG_FILENAME } from '../src/config/constants.js';
 
-describe('Eval Pack System End-to-End', () => {
+describe('Rule Pack System End-to-End', () => {
     let tempDir: string;
     let promptsDir: string;
 
@@ -25,7 +25,7 @@ describe('Eval Pack System End-to-End', () => {
     });
 
     it('complete workflow: config → packs → files → resolution', async () => {
-        // 1. Setup eval pack structure
+        // 1. Setup rule pack structure
         const vectorLintDir = path.join(promptsDir, 'VectorLint');
         const customPackDir = path.join(promptsDir, 'CustomPack');
 
@@ -33,10 +33,10 @@ describe('Eval Pack System End-to-End', () => {
         mkdirSync(path.join(vectorLintDir, 'Technical'));
         mkdirSync(customPackDir);
 
-        // Create eval files
+        // Create rule files
         writeFileSync(
-            path.join(vectorLintDir, 'technical-accuracy.md'),
-            '---\nid: technical-accuracy\n---\n# Technical Accuracy'
+            path.join(vectorLintDir, 'clarity.md'),
+            '---\nid: clarity\n---\n# Clarity'
         );
         writeFileSync(
             path.join(vectorLintDir, 'readability.md'),
@@ -47,8 +47,8 @@ describe('Eval Pack System End-to-End', () => {
             '---\nid: deep-check\n---\n# Deep Check'
         );
         writeFileSync(
-            path.join(customPackDir, 'custom-eval.md'),
-            '---\nid: custom-eval\n---\n# Custom'
+            path.join(customPackDir, 'custom-rule.md'),
+            '---\nid: custom-rule\n---\n# Custom'
         );
 
         // 2. Create config file
@@ -57,7 +57,7 @@ RulesPath = ${promptsDir}
 
 [docs/**/*.md]
 RunRules = VectorLint
-technical-accuracy.strictness = 9
+clarity.strictness = 9
 
 [docs/blog/**/*.md]
 RunRules = VectorLint, CustomPack
@@ -71,7 +71,7 @@ readability.severity = error
         expect(config.scanPaths).toHaveLength(2);
         expect(config.rulesPath).toBe(promptsDir);
 
-        // 4. Discover eval packs
+        // 4. Discover rule packs
         const loader = new RulePackLoader();
         const packs = await loader.listAllPacks(promptsDir);
         const packNames = packs.map(p => p.name);
@@ -80,7 +80,7 @@ readability.severity = error
         expect(packNames).toContain('VectorLint');
         expect(packNames).toContain('CustomPack');
 
-        // 5. Load eval files from packs
+        // 5. Load rule files from packs
         const vectorLintPack = packs.find(p => p.name === 'VectorLint')!;
         expect(packs.find(p => p.name === 'VectorLint')?.isPreset).toBe(false);
         const customPack = packs.find(p => p.name === 'CustomPack')!;
@@ -103,7 +103,7 @@ readability.severity = error
 
         expect(docsFileResolution.packs).toEqual(['VectorLint']);
         expect(docsFileResolution.overrides).toEqual({
-            'technical-accuracy.strictness': '9'
+            'clarity.strictness': '9'
         });
 
         // Test file in docs/blog/
@@ -116,7 +116,7 @@ readability.severity = error
         expect(blogFileResolution.packs).toContain('VectorLint');
         expect(blogFileResolution.packs).toContain('CustomPack');
         expect(blogFileResolution.overrides).toEqual({
-            'technical-accuracy.strictness': '9',
+            'clarity.strictness': '9',
             'readability.severity': 'error'
         });
     });
@@ -126,7 +126,7 @@ readability.severity = error
         const vectorLintDir = path.join(promptsDir, 'VectorLint');
         mkdirSync(vectorLintDir);
         writeFileSync(
-            path.join(vectorLintDir, 'eval.md'),
+            path.join(vectorLintDir, 'rule.md'),
             '---\nid: test\n---\n# Test'
         );
 

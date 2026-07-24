@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCheckScore } from '../../src/scoring';
-import { Severity } from '../../src/evaluators/types';
-import { scoreCheck } from '../../src/findings/scorer';
+import { calculateScore } from '../../src/scoring';
+import { Severity } from '../../src/review/severity';
+import { scoreFindings } from '../../src/findings/scorer';
 import type { RawViolation } from '../../src/findings/types';
 
 const FULLY_SUPPORTED_CHECKS = {
@@ -25,17 +25,17 @@ function violation(overrides: Partial<RawViolation> = {}): RawViolation {
   };
 }
 
-describe('scoreCheck', () => {
-  it('returns the same numeric result as calculateCheckScore for the same density', () => {
+describe('scoreFindings', () => {
+  it('returns the same numeric result as calculateScore for the same density', () => {
     const verified = [violation(), violation()];
-    const result = scoreCheck({
+    const result = scoreFindings({
       verifiedViolations: verified,
       wordCount: 100,
       strictness: 'standard',
       promptSeverity: Severity.WARNING,
     });
 
-    const direct = calculateCheckScore(verified, 100, {
+    const direct = calculateScore(verified, 100, {
       strictness: 'standard',
       promptSeverity: Severity.WARNING,
     });
@@ -48,9 +48,7 @@ describe('scoreCheck', () => {
   });
 
   it('is driven by the verified finding count, not a raw candidate count', () => {
-    // 1 verified violation over 100 words at standard strictness:
-    // density 1 -> 100 - 1*10 = 90 -> 9.0/10
-    const one = scoreCheck({
+    const one = scoreFindings({
       verifiedViolations: [violation()],
       wordCount: 100,
       strictness: 'standard',
@@ -58,8 +56,7 @@ describe('scoreCheck', () => {
     expect(one.score).toBe(9.0);
     expect(one.scoreText).toBe('9.0/10');
 
-    // 2 verified violations -> density 2 -> 100 - 2*10 = 80 -> 8.0/10
-    const two = scoreCheck({
+    const two = scoreFindings({
       verifiedViolations: [violation(), violation()],
       wordCount: 100,
       strictness: 'standard',
@@ -69,9 +66,7 @@ describe('scoreCheck', () => {
   });
 
   it('resolves error severity from the density score when score is low and prompt severity is error', () => {
-    // 20 violations over 100 words at standard strictness:
-    // density 20 -> 100 - 20*10 = -100 -> clamp 0 -> 0.0/10 -> prompt severity
-    const result = scoreCheck({
+    const result = scoreFindings({
       verifiedViolations: Array.from({ length: 20 }, () => violation()),
       wordCount: 100,
       strictness: 'standard',
@@ -81,14 +76,25 @@ describe('scoreCheck', () => {
     expect(result.severity).toBe(Severity.ERROR);
   });
 
-  it('forwards strictness and prompt severity options to calculateCheckScore', () => {
+  it('forwards strictness and prompt severity options to calculateScore', () => {
     const verified = [violation()];
-    const result = scoreCheck({
+    const result = scoreFindings({
       verifiedViolations: verified,
       wordCount: 100,
       strictness: 'strict',
     });
-    const direct = calculateCheckScore(verified, 100, { strictness: 'strict' });
+    const direct = calculateScore(verified, 100, { strictness: 'strict' });
     expect(result.score).toBe(direct.final_score);
+  });
+
+  it('returns a perfect score for an empty zero-word target', () => {
+    const result = scoreFindings({
+      verifiedViolations: [],
+      wordCount: 0,
+    });
+
+    expect(result.score).toBe(10);
+    expect(result.scoreText).toBe('10.0/10');
+    expect(result.findingCount).toBe(0);
   });
 });

@@ -132,7 +132,7 @@ describe('VercelAIProvider', () => {
 
       const provider = new VercelAIProvider(config);
       const schema = {
-        name: 'submit_evaluation',
+        name: 'submit_review',
         schema: {
           properties: {
             score: { type: 'number' },
@@ -226,7 +226,7 @@ describe('VercelAIProvider', () => {
       const observability = {
         init: vi.fn(),
         decorateCall: vi.fn(() => ({
-          experimental_telemetry: { isEnabled: true, functionId: 'vectorlint.structured-eval' },
+          experimental_telemetry: { isEnabled: true, functionId: 'vectorlint.structured-review' },
         })),
         shutdown: vi.fn(),
       };
@@ -250,15 +250,15 @@ describe('VercelAIProvider', () => {
       );
 
       expect(observability.decorateCall).toHaveBeenCalledWith({
-        operation: 'structured-eval',
+        operation: 'structured-review',
         provider: 'openai',
         model: 'gpt-4o',
-        evaluator: undefined,
+        reviewer: undefined,
         rule: undefined,
       });
       expect(MOCK_GENERATE_TEXT).toHaveBeenCalledWith(
         expect.objectContaining({
-          experimental_telemetry: { isEnabled: true, functionId: 'vectorlint.structured-eval' },
+          experimental_telemetry: { isEnabled: true, functionId: 'vectorlint.structured-review' },
         })
       );
     });
@@ -296,7 +296,7 @@ describe('VercelAIProvider', () => {
       expect(call).not.toHaveProperty('experimental_telemetry');
       expect(logger.warn).toHaveBeenCalledWith(
         '[vectorlint] Failed to decorate AI call for observability; continuing without telemetry options',
-        expect.objectContaining({ error: 'telemetry failed', operation: 'structured-eval' })
+        expect.objectContaining({ error: 'telemetry failed', operation: 'structured-review' })
       );
     });
   });

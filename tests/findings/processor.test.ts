@@ -39,8 +39,8 @@ function baseInput(
 ): FindingProcessingInput {
   return {
     pack: 'TestPack',
-    ruleId: 'CheckPrompt',
-    ruleSource: '/repo/prompts/CheckPrompt.md',
+    ruleId: 'RulePrompt',
+    ruleSource: '/repo/prompts/RulePrompt.md',
     candidateFindings,
     wordCount: 100,
     promptMeta: { severity: 'warning', strictness: 'standard' },
@@ -53,7 +53,6 @@ describe('processFindings', () => {
   const originalThreshold = process.env.CONFIDENCE_THRESHOLD;
 
   beforeEach(() => {
-    // Default threshold (0.75) unless a test opts in.
     delete process.env.CONFIDENCE_THRESHOLD;
   });
 
@@ -65,13 +64,12 @@ describe('processFindings', () => {
     }
   });
 
-  describe('golden objective-check output', () => {
+  describe('finding output', () => {
     beforeEach(() => {
-      // Surface every gate-passing candidate regardless of confidence.
       process.env.CONFIDENCE_THRESHOLD = '0.0';
     });
 
-    it('produces byte-for-byte findings/score matching the standard orchestrator path', () => {
+    it('produces verified findings and a density score', () => {
       const input = baseInput([
         violation(),
         violation({
@@ -86,10 +84,9 @@ describe('processFindings', () => {
 
       const result = processFindings(input);
 
-      // Score: density 2/100 at standard strictness (10) -> 100 - 20 -> 8.0/10.
       expect(result.scores).toEqual([
         {
-          ruleId: 'TestPack.CheckPrompt',
+          ruleId: 'TestPack.RulePrompt',
           score: 8.0,
           scoreText: '8.0/10',
           severity: 'warning',
@@ -97,12 +94,10 @@ describe('processFindings', () => {
         },
       ]);
 
-      // Findings: Pack.Rule (check violations carry no criterion name),
-      // anchored lines/columns/match.
       expect(result.findings).toHaveLength(2);
       expect(result.findings[0]).toMatchObject({
-        ruleId: 'TestPack.CheckPrompt',
-        ruleSource: '/repo/prompts/CheckPrompt.md',
+        ruleId: 'TestPack.RulePrompt',
+        ruleSource: '/repo/prompts/RulePrompt.md',
         severity: 'warning',
         message: 'Issue 1',
         line: 1,
@@ -112,7 +107,7 @@ describe('processFindings', () => {
         fix: 'Fix 1',
       });
       expect(result.findings[1]).toMatchObject({
-        ruleId: 'TestPack.CheckPrompt',
+        ruleId: 'TestPack.RulePrompt',
         severity: 'warning',
         message: 'Issue 2',
         line: 2,
@@ -130,7 +125,7 @@ describe('processFindings', () => {
     });
   });
 
-  describe('evidence verification (audit Finding #6)', () => {
+  describe('evidence verification', () => {
     beforeEach(() => {
       process.env.CONFIDENCE_THRESHOLD = '0.0';
     });
@@ -146,14 +141,11 @@ describe('processFindings', () => {
       expect(result.diagnostics).toHaveLength(1);
       expect(result.diagnostics[0]?.code).toBe(FINDING_EVIDENCE_NOT_LOCATABLE);
       expect(result.diagnostics[0]?.level).toBe('warn');
-      // Score reflects 0 verified findings -> perfect 10.0/10.
       expect(result.scores[0]?.score).toBe(10.0);
       expect(result.scores[0]?.findingCount).toBe(0);
     });
 
     it('counts only verified findings toward the score, not raw candidate count', () => {
-      // One anchored + one unanchored candidate. Verified count = 1.
-      // Density 1/100 -> 100 - 10 -> 9.0/10 (the intentional fix).
       const result = processFindings(
         baseInput([
           violation({ quoted_text: 'Alpha text' }),
@@ -175,12 +167,19 @@ describe('processFindings', () => {
       expect(result.hadOperationalErrors).toBe(false);
     });
 
-    it('deduplicates verified findings by quoted_text and line', () => {
+    it('deduplicates candidates that resolve to the same verified anchor', () => {
       const result = processFindings(
-        baseInput([
-          violation({ quoted_text: 'Alpha text', line: 1 }),
-          violation({ quoted_text: 'Alpha text', line: 1, message: 'dup' }),
-        ]),
+        baseInput(
+          [
+            violation({ quoted_text: 'Alpha text Beta', line: 1 }),
+            violation({
+              quoted_text: 'Alpha text Beta extra',
+              line: 1,
+              message: 'duplicate anchor',
+            }),
+          ],
+          { targetContent: 'Alpha text Beta\n' },
+        ),
       );
 
       expect(result.findings).toHaveLength(1);
@@ -190,7 +189,6 @@ describe('processFindings', () => {
 
   describe('candidate filtering', () => {
     it('drops candidates that fail computeFilterDecision without a diagnostic', () => {
-      // Default threshold 0.75: confidence 0.2 is filtered out.
       const result = processFindings(
         baseInput([
           violation({ quoted_text: 'Alpha text', confidence: 0.2 }),
@@ -199,7 +197,6 @@ describe('processFindings', () => {
 
       expect(result.findings).toEqual([]);
       expect(result.diagnostics).toEqual([]);
-      // No verified findings -> 10.0/10.
       expect(result.scores[0]?.findingCount).toBe(0);
     });
 
@@ -224,8 +221,8 @@ describe('processFindings', () => {
 
     it('attributes findings to Pack.Rule when violations carry no criterion name', () => {
       const result = processFindings(baseInput([violation({ quoted_text: 'Alpha text' })]));
-      expect(result.findings[0]?.ruleId).toBe('TestPack.CheckPrompt');
-      expect(result.scores[0]?.ruleId).toBe('TestPack.CheckPrompt');
+      expect(result.findings[0]?.ruleId).toBe('TestPack.RulePrompt');
+      expect(result.scores[0]?.ruleId).toBe('TestPack.RulePrompt');
     });
 
     it('attributes findings to Pack.Rule.Criterion when a violation names a declared criterion', () => {
@@ -246,15 +243,13 @@ describe('processFindings', () => {
           },
         ),
       );
-      expect(result.findings[0]?.ruleId).toBe('TestPack.CheckPrompt.Hedging');
-      // The score stays at Pack.Rule (no criterion), matching the orchestrator.
-      expect(result.scores[0]?.ruleId).toBe('TestPack.CheckPrompt');
+      expect(result.findings[0]?.ruleId).toBe('TestPack.RulePrompt.Hedging');
+      expect(result.scores[0]?.ruleId).toBe('TestPack.RulePrompt');
     });
   });
 
   describe('severity resolution', () => {
     it('resolves error severity from the density score and stamps it on findings', () => {
-      // 20 verified violations over 100 words -> 0.0/10 -> prompt severity error.
       const result = processFindings(
         baseInput(
           Array.from({ length: 20 }, (_, i) =>

@@ -1,11 +1,8 @@
 ---
 specVersion: 2.0.0
-evaluator: base
-type: check
 id: AIPattern
 name: AI Pattern
 severity: warning
-evaluateAs: document
 ---
 
 # AI Pattern

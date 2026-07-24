@@ -7,7 +7,7 @@ import { DefaultRequestBuilder } from '../../src/providers/request-builder';
 import type { ToolCallDefinition, ToolCallingModelClient, ToolCallRunOptions } from '../../src/providers/tool-calling-model-client';
 import type { LLMResult } from '../../src/providers/structured-model-client';
 import type { TokenUsage } from '../../src/providers/token-usage';
-import type { CheckLLMResult } from '../../src/prompts/schema';
+import type { ReviewLLMResult } from '../../src/prompts/schema';
 import type { TargetSectionErrorResult, TargetSectionResult } from '../../src/executors/target-read-capability-adapter';
 
 const SUPPORTED_CHECKS = {
@@ -28,7 +28,7 @@ const SUPPORTED_NOTES = {
   fix_preserves_meaning: 'yes',
 };
 
-type ModelViolation = CheckLLMResult['violations'][number];
+type ModelViolation = ReviewLLMResult['violations'][number];
 
 function modelViolation(overrides: Partial<ModelViolation> = {}): ModelViolation {
   return {
@@ -62,7 +62,7 @@ interface FakeToolClient extends ToolCallingModelClient {
 }
 
 function makeFakeClient(
-  respond: () => { data: CheckLLMResult; usage?: TokenUsage },
+  respond: () => { data: ReviewLLMResult; usage?: TokenUsage },
 ): FakeToolClient {
   const fake = {
     calls: 0,
@@ -181,6 +181,25 @@ describe('AgentModelCallExecutor', () => {
     // The agent instruction names the only tool and the target.
     expect(client.captured[0]!.prompt).toContain('read_target_section');
     expect(client.captured[0]!.prompt).toContain('file:///repo/docs/guide.md');
+  });
+
+  it('includes caller-supplied context in the system prompt', async () => {
+    const client = makeFakeClient(() => ({
+      data: { reasoning: 'r', violations: [] },
+    }));
+    const executor = new AgentModelCallExecutor(client, new DefaultRequestBuilder());
+
+    await executor.run(makeRequest([makeRule()], {
+      context: [{
+        label: 'Current API contract',
+        relation: 'reference',
+        content: 'The endpoint returns HTTP 202.',
+      }],
+    }));
+
+    expect(client.captured[0]!.systemPrompt).toContain('## Caller-supplied context');
+    expect(client.captured[0]!.systemPrompt).toContain('### Current API contract');
+    expect(client.captured[0]!.systemPrompt).toContain('The endpoint returns HTTP 202.');
   });
 
   it('stops and records an operational error when the model-call budget is exhausted', async () => {

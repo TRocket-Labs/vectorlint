@@ -1,22 +1,10 @@
-import type {
-  CheckResult,
-  JudgeResult,
-  CheckItem,
-  JudgeLLMResult,
-} from "../prompts/schema";
-import { EvaluationType, Severity } from "../evaluators/types";
+import type { ReviewItem, ScoredReview } from "../prompts/schema";
+import { Severity } from "../review/severity";
 
-export interface CheckScoringOptions {
-  // Strictness factor. Higher = more penalty per violation.
+export interface ScoringOptions {
   strictness?: number | "lenient" | "strict" | "standard" | undefined;
   defaultSeverity?: typeof Severity.WARNING | typeof Severity.ERROR | undefined;
   promptSeverity?: typeof Severity.WARNING | typeof Severity.ERROR | undefined;
-}
-
-export interface JudgeScoringOptions {
-  promptCriteria?:
-  | Array<{ name: string; weight?: number | undefined }>
-  | undefined;
 }
 
 function resolveStrictness(
@@ -37,33 +25,25 @@ function resolveStrictness(
 }
 
 /**
- * Calculates check score based on violation density.
+ * Calculates a score from violation density.
  *
  * Formula: Score = (100 - (violations/wordCount * 100 * strictness)) / 10
  */
-export function calculateCheckScore(
-  violations: CheckItem[],
+export function calculateScore(
+  violations: ReviewItem[],
   wordCount: number,
-  options: CheckScoringOptions = {}
-): CheckResult {
+  options: ScoringOptions = {}
+): ScoredReview {
   const strictness = resolveStrictness(options.strictness);
-
   const mappedViolations = violations.map((item) => ({
     ...item,
     ...(item.description !== undefined ? { criterionName: item.description } : {}),
   }));
-
-  // Density Calculation: Violations per 100 words
   const density = (mappedViolations.length / wordCount) * 100;
-
-  // Score Calculation: 100 - (Density * Strictness), clamped 0-100
   const rawScore = Math.max(0, Math.min(100, 100 - density * strictness));
   const finalScore = rawScore / 10;
 
-  // Determine severity
-  let severity: typeof Severity.WARNING | typeof Severity.ERROR =
-    Severity.WARNING;
-
+  let severity: typeof Severity.WARNING | typeof Severity.ERROR = Severity.WARNING;
   if (finalScore < 10) {
     if (options.promptSeverity !== undefined) {
       severity = options.promptSeverity;
@@ -74,12 +54,10 @@ export function calculateCheckScore(
 
   const message =
     mappedViolations.length > 0
-      ? `Found ${mappedViolations.length} issue${mappedViolations.length > 1 ? "s" : ""
-      }`
+      ? `Found ${mappedViolations.length} issue${mappedViolations.length > 1 ? "s" : ""}`
       : "No issues found";
 
   return {
-    type: EvaluationType.CHECK,
     final_score: Number(finalScore.toFixed(1)),
     percentage: Number(rawScore.toFixed(1)),
     violation_count: mappedViolations.length,
@@ -87,176 +65,5 @@ export function calculateCheckScore(
     message,
     violations: mappedViolations,
     severity,
-  };
-}
-
-/**
- * Calculates judge score from criteria results.
- *
- * Each criterion score (1-4) is normalized to 1-10 scale,
- * then weighted average is calculated.
- */
-export function calculateJudgeScore(
-  criteria: JudgeLLMResult["criteria"],
-  options: JudgeScoringOptions = {}
-): JudgeResult {
-  let totalWeightedScore = 0;
-  let totalWeight = 0;
-
-  const criteriaWithCalculations = criteria.map((c) => {
-    // Find weight from prompt definition
-    const definedCriterion = options.promptCriteria?.find(
-      (dc) => dc.name === c.name
-    );
-    const weight = definedCriterion?.weight || 1;
-
-    // Normalize 1-4 score to 1-10 scale
-    const normalizedScore = 1 + ((c.score - 1) / 3) * 9;
-    const weightedPoints = normalizedScore * weight;
-
-    totalWeightedScore += weightedPoints;
-    totalWeight += weight;
-
-    return {
-      ...c,
-      weight,
-      normalized_score: Number(normalizedScore.toFixed(2)),
-      weighted_points: Number(weightedPoints.toFixed(2)),
-    };
-  });
-
-  const finalScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 1;
-
-  return {
-    type: EvaluationType.JUDGE,
-    final_score: Number(finalScore.toFixed(1)),
-    criteria: criteriaWithCalculations,
-  };
-}
-
-// Averages judge scores from multiple chunk evaluations.
-export function averageJudgeScores(
-  results: JudgeResult[],
-  chunkWordCounts: number[]
-): JudgeResult {
-  if (results.length === 0) {
-    return {
-      type: EvaluationType.JUDGE,
-      final_score: 0,
-      criteria: [],
-    };
-  }
-
-  // Warn if array lengths don't match (indicates a programming error)
-  if (results.length !== chunkWordCounts.length) {
-    console.warn(
-      `[vectorlint] Array length mismatch in averageJudgeScores: ` +
-      `${results.length} results vs ${chunkWordCounts.length} word counts`
-    );
-  }
-
-  const totalWords = chunkWordCounts.reduce((a, b) => a + b, 0);
-
-  type JudgeViolation = JudgeResult["criteria"][number]["violations"][number];
-
-  // Aggregate criteria scores weighted by chunk size
-  const criteriaMap = new Map<
-    string,
-    {
-      totalScore: number;
-      totalWeight: number;
-      weight: number;
-      violations: JudgeViolation[];
-      summaries: string[];
-      reasonings: string[];
-    }
-  >();
-
-  for (let i = 0; i < results.length; i++) {
-    const result = results[i];
-    const chunkWeight =
-      totalWords > 0
-        ? (chunkWordCounts[i] || 0) / totalWords
-        : 1 / results.length;
-
-    for (const criterion of result?.criteria || []) {
-      if (!criteriaMap.has(criterion.name)) {
-        criteriaMap.set(criterion.name, {
-          totalScore: 0,
-          totalWeight: 0,
-          weight: criterion.weight || 1,
-          violations: [],
-          summaries: [],
-          reasonings: [],
-        });
-      }
-
-      const entry = criteriaMap.get(criterion.name)!;
-      entry.totalScore += criterion.score * chunkWeight;
-      entry.totalWeight += chunkWeight;
-
-      // Collect raw violations (keeps all gate fields)
-      for (const v of criterion.violations || []) {
-        entry.violations.push(v);
-      }
-
-      if (criterion.summary) {
-        entry.summaries.push(criterion.summary);
-      }
-      if (criterion.reasoning) {
-        entry.reasonings.push(criterion.reasoning);
-      }
-    }
-  }
-
-  // Build aggregated criteria
-  const aggregatedCriteria: JudgeResult["criteria"] = [];
-  let totalWeightedScore = 0;
-  let totalWeight = 0;
-
-  for (const [name, entry] of Array.from(criteriaMap.entries())) {
-    const avgScore =
-      entry.totalWeight > 0 ? entry.totalScore / entry.totalWeight : 0;
-    const roundedScore = Math.max(1, Math.min(4, Math.round(avgScore))) as
-      | 1
-      | 2
-      | 3
-      | 4;
-    const normalizedScore = 1 + ((roundedScore - 1) / 3) * 9;
-    const weightedPoints = normalizedScore * entry.weight;
-
-    totalWeightedScore += weightedPoints;
-    totalWeight += entry.weight;
-
-    // Deduplicate violations using composite key
-    const seen = new Set<string>();
-    const uniqueViolations = entry.violations.filter((v) => {
-      const key = [
-        v.quoted_text?.toLowerCase().trim() || "",
-        v.analysis?.toLowerCase().trim() || "",
-      ].join("|");
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    aggregatedCriteria.push({
-      name,
-      score: roundedScore,
-      weight: entry.weight,
-      normalized_score: Number(normalizedScore.toFixed(2)),
-      weighted_points: Number(weightedPoints.toFixed(2)),
-      summary: entry.summaries.join(" "),
-      reasoning: entry.reasonings.join(" "),
-      violations: uniqueViolations,
-    });
-  }
-
-  const finalScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
-
-  return {
-    type: EvaluationType.JUDGE,
-    final_score: Number(finalScore.toFixed(1)),
-    criteria: aggregatedCriteria,
   };
 }

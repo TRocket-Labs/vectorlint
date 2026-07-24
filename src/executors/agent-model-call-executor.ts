@@ -1,6 +1,9 @@
 import type { ToolCallDefinition, ToolCallingModelClient } from '../providers/tool-calling-model-client';
-import type { EvalContext, RequestBuilder } from '../providers/request-builder';
-import { buildCheckLLMSchema, type CheckLLMResult } from '../prompts/schema';
+import type { ReviewCallContext, RequestBuilder } from '../providers/request-builder';
+import {
+  buildReviewLLMSchema,
+  type ReviewLLMResult,
+} from '../prompts/schema';
 import { countWords } from '../chunking';
 import { processFindings } from '../findings';
 import { enforceBudget } from '../review/budget';
@@ -16,7 +19,8 @@ import type { ReviewExecutor } from '../review/executor';
 import { TargetReadCapability, buildReadTargetSectionTool } from './target-read-capability-adapter';
 import {
   budgetExceededDiagnostic,
-  buildEvalContext,
+  buildReviewCallContext,
+  buildReviewPrompt,
   buildReviewUsage,
   splitRuleId,
   toFindingSeverity,
@@ -24,13 +28,12 @@ import {
 } from './shared';
 
 /**
- * The agent `modelCall` {@link ReviewExecutor} (audit Product Decision; Finding #2).
+ * The agent `modelCall` {@link ReviewExecutor}.
  *
  * Reviews target content against source-backed rules through a single bounded
  * tool-calling run per rule via an injected {@link ToolCallingModelClient}. The
  * only executor-owned tool exposed to the model is `read_target_section`,
- * which pages through the in-memory `request.target.content` (the on-page
- * boundary, audit Finding #5). Rule prompts come verbatim from
+ * which pages through the in-memory `request.target.content`. Rule prompts come verbatim from
  * {@link ReviewRule.body} — no model-supplied rule override is introduced —
  * candidate findings flow through the shared {@link processFindings} pipeline,
  * and the model-call budget is enforced via the review budget module before
@@ -46,12 +49,12 @@ export class AgentModelCallExecutor implements ReviewExecutor {
   ) {}
 
   async run(request: ReviewRequest): Promise<ReviewResult> {
-    const schema = buildCheckLLMSchema();
+    const schema = buildReviewLLMSchema();
     const capability = new TargetReadCapability(request.target.content);
     // Exactly one executor-owned tool is exposed: target-section paging.
     const tools = buildReadTargetSectionTool(capability);
     const context = {
-      ...buildEvalContext(request.target.uri),
+      ...buildReviewCallContext(request.target.uri),
       recordPayloadTelemetry: request.outputPolicy.recordPayloadTelemetry,
     };
 
@@ -66,7 +69,7 @@ export class AgentModelCallExecutor implements ReviewExecutor {
 
     try {
       for (const rule of request.rules) {
-        const ruleResult = await this.reviewRule(
+        const contentReview = await this.reviewTargetWithRule(
           request,
           rule,
           schema,
@@ -76,10 +79,10 @@ export class AgentModelCallExecutor implements ReviewExecutor {
           counters,
           elapsedMs,
         );
-        findings.push(...ruleResult.findings);
-        scores.push(...ruleResult.scores);
-        diagnostics.push(...ruleResult.diagnostics);
-        if (ruleResult.hadOperationalErrors) {
+        findings.push(...contentReview.findings);
+        scores.push(...contentReview.scores);
+        diagnostics.push(...contentReview.diagnostics);
+        if (contentReview.hadOperationalErrors) {
           hadOperationalErrors = true;
         }
       }
@@ -107,12 +110,12 @@ export class AgentModelCallExecutor implements ReviewExecutor {
    * model page through the target via `read_target_section`, then projects the
    * returned violations through {@link processFindings}.
    */
-  private async reviewRule(
+  private async reviewTargetWithRule(
     request: ReviewRequest,
     rule: ReviewRule,
-    schema: ReturnType<typeof buildCheckLLMSchema>,
+    schema: ReturnType<typeof buildReviewLLMSchema>,
     tools: Record<string, ToolCallDefinition>,
-    context: EvalContext,
+    context: ReviewCallContext,
     targetLineCount: number,
     counters: RunCounters,
     elapsedMs: () => number,
@@ -125,11 +128,14 @@ export class AgentModelCallExecutor implements ReviewExecutor {
       elapsedMs: elapsedMs(),
     });
 
-    const { data, usage } = await this.client.runWithTools<CheckLLMResult>({
+    const { data, usage } = await this.client.runWithTools<ReviewLLMResult>({
       // The source-backed rule body, wrapped with the directive/user
       // instructions exactly as the single-call path does. No model-supplied
       // rule override is introduced.
-      systemPrompt: this.builder.buildPromptBodyForStructured(rule.body, context),
+      systemPrompt: this.builder.buildPromptBodyForStructured(
+        buildReviewPrompt(rule.body, request.context),
+        context,
+      ),
       prompt: this.buildTargetPrompt(request.target.uri, targetLineCount),
       tools,
       schema,

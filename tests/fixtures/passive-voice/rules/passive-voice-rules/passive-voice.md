@@ -1,10 +1,7 @@
 ---
-evaluator: base
-type: check
 id: PassiveVoice
 name: Passive Voice
 severity: warning
-evaluateAs: document
 ---
 
 # Passive Voice

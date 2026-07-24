@@ -4,13 +4,12 @@ const FILE_URI_RE = /^file:\/\/(?<authority>[^/]*)(?<path>\/.*)?$/;
 
 /**
  * Lexically resolves '.' and '..' segments in a path string. Pure: performs no
- * filesystem reads. The normalization philosophy is adapted from
- * src/agent/path-utils.ts (resolveWithinRoot), which is removed in Phase 4;
- * copied here so src/review/ has no agent import and no filesystem access.
+ * filesystem reads. The helper is kept local so src/review/ has no agent
+ * import and no filesystem access.
  *
- * Symlink canonicalization is intentionally NOT performed inside the contract:
- * callers are responsible for canonicalizing real files into target/context
- * URIs before building a ReviewRequest.
+ * The contract does not perform symlink canonicalization. Callers must
+ * canonicalize real files into target/context URIs before building a
+ * ReviewRequest.
  */
 function resolveDotSegments(input: string): string {
   const segments: string[] = [];
@@ -41,7 +40,7 @@ export function normalizeReviewUri(uri: string): string {
 }
 
 /**
- * Builds the on-page boundary scope (audit Finding #5) from the target URI and
+ * Builds the on-page boundary scope from the target URI and
  * any caller-supplied context URIs. Only these URIs are in scope; arbitrary
  * workspace files are out of scope unless the caller explicitly includes them.
  */

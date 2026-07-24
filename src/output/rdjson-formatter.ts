@@ -1,5 +1,5 @@
-import type { Issue, EvaluationScore } from './json-formatter';
-import { Severity } from '../evaluators/types';
+import type { Issue, ReviewScoreOutput } from './json-formatter';
+import { Severity } from '../review/severity';
 
 export interface RdJsonResult {
     source: {
@@ -48,7 +48,7 @@ export interface RdJsonSuggestion {
 
 interface FileResult {
     issues: Issue[];
-    evaluationScores: EvaluationScore[];
+    reviewScores: ReviewScoreOutput[];
 }
 
 export class RdJsonFormatter {
@@ -56,16 +56,16 @@ export class RdJsonFormatter {
 
     addIssue(file: string, issue: Issue): void {
         if (!this.files[file]) {
-            this.files[file] = { issues: [], evaluationScores: [] };
+            this.files[file] = { issues: [], reviewScores: [] };
         }
         this.files[file].issues.push(issue);
     }
 
-    addEvaluationScore(file: string, score: EvaluationScore): void {
+    addReviewScore(file: string, score: ReviewScoreOutput): void {
         if (!this.files[file]) {
-            this.files[file] = { issues: [], evaluationScores: [] };
+            this.files[file] = { issues: [], reviewScores: [] };
         }
-        this.files[file].evaluationScores.push(score);
+        this.files[file].reviewScores.push(score);
     }
 
     toRdJsonFormat(): RdJsonResult {

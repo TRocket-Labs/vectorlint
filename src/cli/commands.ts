@@ -4,8 +4,6 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createProvider } from '../providers/provider-factory';
-import { PerplexitySearchProvider } from '../providers/perplexity-provider';
-import type { SearchProvider } from '../providers/search-provider';
 import { loadConfig } from '../boundaries/config-loader';
 import { loadUserInstructions } from '../boundaries/user-instruction-loader';
 import { loadRuleFile, type PromptFile } from '../prompts/prompt-loader';
@@ -17,7 +15,7 @@ import { loadDirective } from '../prompts/directive-loader';
 import { resolveTargets } from '../scan/file-resolver';
 import { parseCliOptions, parseEnvironment } from '../boundaries/index';
 import { handleUnknownError } from '../errors/index';
-import { evaluateFiles } from './orchestrator';
+import { reviewFiles } from './orchestrator';
 import { DEFAULT_REVIEW_MODEL_CALL, OUTPUT_FORMATS, OutputFormat } from './types';
 import { DEFAULT_CONFIG_FILENAME, USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { createWinstonLogger } from '../logging/winston-logger';
@@ -71,10 +69,7 @@ async function runOrExit<T>(
   }
 }
 
-/*
- * Registers the main evaluation command with Commander.
- * This is the default command that runs content evaluations against target files.
- */
+/** Registers the main content-review command with Commander. */
 export function registerMainCommand(program: Command): void {
   program
     .option('-v, --verbose', 'Enable verbose logging')
@@ -94,9 +89,6 @@ export function registerMainCommand(program: Command): void {
         return;
       }
 
-      // --mode is removed (audit Product Decision): the autonomous workspace-agent
-      // surface is gone. Fail clearly and point users at the replacement rather
-      // than silently mapping it onto --model-call.
       if (program.opts().mode !== undefined) {
         console.error('Error: --mode is no longer supported. Use --model-call single|agent|auto instead.');
         process.exit(1);
@@ -185,7 +177,7 @@ export function registerMainCommand(program: Command): void {
       }
 
       if (targets.length === 0) {
-        console.error('Error: no target files found to evaluate.');
+        console.error('Error: no target files found to review.');
         process.exit(1);
       }
 
@@ -213,18 +205,12 @@ export function registerMainCommand(program: Command): void {
           requestBuilder
         );
 
-        // Create search provider if API key is available
-        const searchProvider: SearchProvider | undefined = process.env.PERPLEXITY_API_KEY
-          ? new PerplexitySearchProvider({ logger: runtimeLogger })
-          : undefined;
-
-        // Run evaluations via orchestrator
-        const result = await evaluateFiles(targets, {
+        // Run reviews via the orchestrator.
+        const result = await reviewFiles(targets, {
           prompts,
           rulesPath,
           provider,
           requestBuilder,
-          ...(searchProvider ? { searchProvider } : {}),
           concurrency: config.concurrency,
           verbose: cliOptions.verbose,
           logger: runtimeLogger,

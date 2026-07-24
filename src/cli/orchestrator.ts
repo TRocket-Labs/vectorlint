@@ -7,7 +7,7 @@ import { ScanPathResolver } from '../boundaries/scan-path-resolver';
 import { ValeJsonFormatter, type JsonIssue } from '../output/vale-json-formatter';
 import { JsonFormatter, type Issue } from '../output/json-formatter';
 import { RdJsonFormatter } from '../output/rdjson-formatter';
-import { printFileHeader, printIssueRow, printEvaluationSummaries, type EvaluationSummary } from '../output/reporter';
+import { printFileHeader, printIssueRow, printReviewSummaries, type ReviewSummary } from '../output/reporter';
 import { handleUnknownError } from '../errors/index';
 import { USER_INSTRUCTION_FILENAME } from '../config/constants';
 import { OutputFormat } from './types';
@@ -16,14 +16,14 @@ import { chooseModelCall } from '../review/executor';
 import { buildReviewRequest } from '../review/request-builder';
 import type { ReviewResult, ReviewSeverity, ReviewTarget } from '../review/types';
 import type {
-  EvaluationOptions, EvaluationResult, ReportIssueParams, EvaluateFileResult,
+  ReviewOptions, ReviewRunResult, ReportIssueParams, ReviewFileResult,
 } from './types';
 import {
   calculateCost,
   TokenUsageStats
 } from '../providers/token-usage';
 import { writeDebugRunArtifact } from '../debug/run-artifact';
-import { Severity } from '../evaluators/types';
+import { Severity } from '../review/severity';
 
 function getModelInfoFromEnv(): { provider?: string; name?: string; tag?: string } {
   const provider = process.env.LLM_PROVIDER;
@@ -140,9 +140,7 @@ function writeReviewDebugArtifact(relFile: string, result: ReviewResult): void {
       file: relFile,
       ...(Object.keys(model).length > 0 ? { model } : {}),
       ...(model.tag !== undefined ? { subdir: model.tag } : {}),
-      prompt: {
-        evaluation_type: 'check',
-      },
+      prompt: {},
       raw_model_output: null,
       filter_decisions: [],
       surfaced_violations: result.findings,
@@ -158,12 +156,12 @@ function writeReviewDebugArtifact(relFile: string, result: ReviewResult): void {
  * Determines the source-backed prompts that apply to a file, honoring the
  * configured scan paths. When no rules match but a VECTORLINT.md user
  * instruction guide exists, a synthetic rule is added so the reviewer model
- * evaluates against the user instructions in the system prompt.
+ * reviews against the user instructions in the system prompt.
  */
 function resolveApplicablePrompts(
   relFile: string,
   prompts: PromptFile[],
-  scanPaths: EvaluationOptions['scanPaths'],
+  scanPaths: ReviewOptions['scanPaths'],
   userInstructionContent: string | undefined,
 ): PromptFile[] {
   const toRun: PromptFile[] = [];
@@ -216,16 +214,16 @@ function resolveApplicablePrompts(
 }
 
 /*
- * Evaluates a single file: builds a ReviewRequest from the applicable
+ * Reviews a single file: builds a ReviewRequest from the applicable
  * source-backed prompts, resolves the model-call strategy, dispatches through
  * the selected ReviewExecutor, and routes the resulting ReviewResult to the
  * existing line/json/vale output sinks.
  */
-async function evaluateFile(
+async function reviewFile(
   file: string,
-  options: EvaluationOptions,
+  options: ReviewOptions,
   jsonFormatter: ValeJsonFormatter | JsonFormatter | RdJsonFormatter,
-): Promise<EvaluateFileResult> {
+): Promise<ReviewFileResult> {
   const {
     prompts,
     scanPaths,
@@ -234,7 +232,7 @@ async function evaluateFile(
     debugJson,
   } = options;
 
-  const allScores = new Map<string, EvaluationSummary[]>();
+  const allScores = new Map<string, ReviewSummary[]>();
 
   const content = readFileSync(file, "utf-8");
   const relFile = path.relative(process.cwd(), file) || file;
@@ -253,7 +251,7 @@ async function evaluateFile(
   // No applicable rules: nothing to review for this file.
   if (toRun.length === 0) {
     if (outputFormat === OutputFormat.Line) {
-      printEvaluationSummaries(allScores);
+      printReviewSummaries(allScores);
       console.log("");
     }
     return {
@@ -266,8 +264,6 @@ async function evaluateFile(
     };
   }
 
-  // Build the review request and dispatch through the executor selected by the
-  // resolved model-call strategy (audit Product Decision; Finding #2).
   const target: ReviewTarget = {
     uri: pathToFileURL(path.resolve(file)).href,
     content,
@@ -348,7 +344,7 @@ async function evaluateFile(
   }
 
   if (outputFormat === OutputFormat.Line) {
-    printEvaluationSummaries(allScores);
+    printReviewSummaries(allScores);
     console.log("");
   }
 
@@ -366,10 +362,10 @@ async function evaluateFile(
  * Runs reviews across all target files, dispatching each through the executor
  * selected by the model-call strategy, and aggregates the results.
  */
-export async function evaluateFiles(
+export async function reviewFiles(
   targets: string[],
-  options: EvaluationOptions
-): Promise<EvaluationResult> {
+  options: ReviewOptions
+): Promise<ReviewRunResult> {
   const { outputFormat = OutputFormat.Line } = options;
 
   let hadOperationalErrors = false;
@@ -393,7 +389,7 @@ export async function evaluateFiles(
   for (const file of targets) {
     try {
       totalFiles += 1;
-      const fileResult = await evaluateFile(file, options, jsonFormatter);
+      const fileResult = await reviewFile(file, options, jsonFormatter);
       totalErrors += fileResult.errors;
       totalWarnings += fileResult.warnings;
       requestFailures += fileResult.requestFailures;
