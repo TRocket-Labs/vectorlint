@@ -45,6 +45,29 @@ const MOCK_MODEL = {
   modelId: 'gpt-4o',
 } as unknown as LanguageModel;
 
+const REVIEW_SCHEMA = {
+  name: 'submit_review',
+  schema: {
+    properties: {
+      score: { type: 'number' },
+      violations: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            line: { type: 'number' },
+            rule_quote: { type: 'string' },
+            severity: { type: 'string' },
+          },
+          required: ['line', 'rule_quote', 'severity'],
+        },
+      },
+    },
+    required: ['score', 'violations'],
+    type: 'object',
+  },
+} as const;
+
 describe('VercelAIProvider structured output repair', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -65,34 +88,12 @@ describe('VercelAIProvider structured output repair', () => {
     );
 
     const provider = new VercelAIProvider(config);
-    const schema = {
-      name: 'submit_review',
-      schema: {
-        properties: {
-          score: { type: 'number' },
-          violations: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                line: { type: 'number' },
-                rule_quote: { type: 'string' },
-                severity: { type: 'string' },
-              },
-              required: ['line', 'rule_quote', 'severity'],
-            },
-          },
-        },
-        required: ['score', 'violations'],
-        type: 'object',
-      },
-    };
 
     const result = await provider.runWithTools({
       systemPrompt: 'system',
       prompt: 'prompt',
       tools: {},
-      schema,
+      schema: REVIEW_SCHEMA,
     });
 
     expect(result.data).toEqual({
@@ -107,56 +108,29 @@ describe('VercelAIProvider structured output repair', () => {
     });
   });
 
-  it('preserves usage from the failed call when repair succeeds', async () => {
+  it('omits usage when the call rejects before usage is recorded', async () => {
     const config: VercelAIConfig = { model: MOCK_MODEL };
 
     const innerViolations = '[\n  {\n    "line": 9,\n    "rule_quote": "Example: "Let me be clear"",\n    "severity": "medium"\n  }\n]';
     const rawText = JSON.stringify({ score: 70, violations: innerViolations });
 
     const { NoObjectGeneratedError } = ERROR_CLASSES;
-    const error = new NoObjectGeneratedError('Failed to generate object', rawText) as Error & {
-      // The SDK attaches usage from the partial result; simulate it here.
-      usage?: unknown;
-    };
-    // runWithTools only reads .text off the error, so usage stays undefined
-    // when the call throws before producing a result. Repair returns no usage,
-    // matching the structured path.
+    // runWithTools reads only .text off the error. The provider assigns usage
+    // after generateText resolves, so a rejection leaves usage undefined.
+    const error = new NoObjectGeneratedError('Failed to generate object', rawText);
     MOCK_GENERATE_TEXT.mockRejectedValue(error);
 
     const provider = new VercelAIProvider(config);
-    const schema = {
-      name: 'submit_review',
-      schema: {
-        properties: {
-          score: { type: 'number' },
-          violations: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                line: { type: 'number' },
-                rule_quote: { type: 'string' },
-                severity: { type: 'string' },
-              },
-              required: ['line', 'rule_quote', 'severity'],
-            },
-          },
-        },
-        required: ['score', 'violations'],
-        type: 'object',
-      },
-    };
 
     const result = await provider.runWithTools({
       systemPrompt: 'system',
       prompt: 'prompt',
       tools: {},
-      schema,
+      schema: REVIEW_SCHEMA,
     });
 
-    // usage is hoisted before the try block; when the call throws, it stays
-    // undefined, so the repaired result carries no usage property.
     expect(result.usage).toBeUndefined();
+    expect(result.data).toMatchObject({ score: 70 });
   });
 
   it('rethrows when repaired text fails schema validation', async () => {
@@ -172,35 +146,13 @@ describe('VercelAIProvider structured output repair', () => {
     );
 
     const provider = new VercelAIProvider(config);
-    const schema = {
-      name: 'submit_review',
-      schema: {
-        properties: {
-          score: { type: 'number' },
-          violations: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                line: { type: 'number' },
-                rule_quote: { type: 'string' },
-                severity: { type: 'string' },
-              },
-              required: ['line', 'rule_quote', 'severity'],
-            },
-          },
-        },
-        required: ['score', 'violations'],
-        type: 'object',
-      },
-    };
 
     await expect(
       provider.runWithTools({
         systemPrompt: 'system',
         prompt: 'prompt',
         tools: {},
-        schema,
+        schema: REVIEW_SCHEMA,
       })
     ).rejects.toThrow('LLM failed to generate valid structured output');
   });
@@ -217,30 +169,8 @@ describe('VercelAIProvider structured output repair', () => {
     );
 
     const provider = new VercelAIProvider(config);
-    const schema = {
-      name: 'submit_review',
-      schema: {
-        properties: {
-          score: { type: 'number' },
-          violations: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                line: { type: 'number' },
-                rule_quote: { type: 'string' },
-                severity: { type: 'string' },
-              },
-              required: ['line', 'rule_quote', 'severity'],
-            },
-          },
-        },
-        required: ['score', 'violations'],
-        type: 'object',
-      },
-    };
 
-    const result = await provider.runPromptStructured('content', 'prompt text', schema);
+    const result = await provider.runPromptStructured('content', 'prompt text', REVIEW_SCHEMA);
 
     expect(result.data).toEqual({
       score: 70,
@@ -267,35 +197,13 @@ describe('VercelAIProvider structured output repair', () => {
     );
 
     const provider = new VercelAIProvider(config);
-    const schema = {
-      name: 'submit_review',
-      schema: {
-        properties: {
-          score: { type: 'number' },
-          violations: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                line: { type: 'number' },
-                rule_quote: { type: 'string' },
-                severity: { type: 'string' },
-              },
-              required: ['line', 'rule_quote', 'severity'],
-            },
-          },
-        },
-        required: ['score', 'violations'],
-        type: 'object',
-      },
-    };
 
     await expect(
       provider.runWithTools({
         systemPrompt: 'system',
         prompt: 'prompt',
         tools: {},
-        schema,
+        schema: REVIEW_SCHEMA,
       })
     ).rejects.toThrow('LLM failed to generate valid structured output');
   });
@@ -318,35 +226,13 @@ describe('VercelAIProvider structured output repair', () => {
     );
 
     const provider = new VercelAIProvider(config);
-    const schema = {
-      name: 'submit_review',
-      schema: {
-        properties: {
-          score: { type: 'number' },
-          violations: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                line: { type: 'number' },
-                rule_quote: { type: 'string' },
-                severity: { type: 'string' },
-              },
-              required: ['line', 'rule_quote', 'severity'],
-            },
-          },
-        },
-        required: ['score', 'violations'],
-        type: 'object',
-      },
-    };
 
     await expect(
       provider.runWithTools({
         systemPrompt: 'system',
         prompt: 'prompt',
         tools: {},
-        schema,
+        schema: REVIEW_SCHEMA,
       })
     ).rejects.toThrow('LLM failed to generate valid structured output');
   });
