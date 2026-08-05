@@ -9,6 +9,7 @@ import { DefaultRequestBuilder, RequestBuilder } from './request-builder';
 import { createNoopLogger, type Logger } from '../logging/logger';
 import type { AIExecutionContext, AIObservability } from '../observability/ai-observability';
 import { handleUnknownError } from '../errors';
+import { repairNestedJson } from './utils';
 
 /**
  * Conservative default step cap for a single bounded tool-calling run when the
@@ -81,6 +82,8 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
       }
     }
 
+    let usage: { inputTokens: number; outputTokens: number } | undefined;
+
     try {
       const reviewer = this.extractContextValue(context, 'reviewerName', 'reviewer');
       const rule = this.extractContextValue(context, 'ruleName', 'rule');
@@ -118,7 +121,7 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
         });
       }
 
-      const usage = result.usage ? {
+      usage = result.usage ? {
         inputTokens: result.usage.inputTokens ?? 0,
         outputTokens: result.usage.outputTokens ?? 0,
       } : undefined;
@@ -136,11 +139,9 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
       }
       return llmResult;
     } catch (e: unknown) {
-      if (NoObjectGeneratedError.isInstance(e)) {
-        const rawText = e instanceof Error && 'text' in e ? String(e.text) : 'unknown';
-        throw new Error(
-          `LLM failed to generate valid structured output. Raw text: ${rawText}`
-        );
+      const repaired = this.handleNoObjectGenerated(e, zodSchema, usage);
+      if (repaired !== undefined) {
+        return { data: repaired.data as T, ...(repaired.usage ? { usage: repaired.usage } : {}) };
       }
       const err = e instanceof Error ? e : new Error(String(e));
       throw new Error(`Vercel AI SDK call failed: ${err.message}`);
@@ -179,6 +180,8 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
         maxSteps: options.maxSteps ?? DEFAULT_TOOL_CALLING_MAX_STEPS,
       });
     }
+
+    let usage: { inputTokens: number; outputTokens: number } | undefined;
 
     try {
       const result = await generateText({
@@ -221,7 +224,7 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
         });
       }
 
-      const usage = result.usage
+      usage = result.usage
         ? {
             inputTokens: result.usage.inputTokens ?? 0,
             outputTokens: result.usage.outputTokens ?? 0,
@@ -241,11 +244,9 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
       }
       return llmResult;
     } catch (e: unknown) {
-      if (NoObjectGeneratedError.isInstance(e)) {
-        const rawText = e instanceof Error && 'text' in e ? String(e.text) : 'unknown';
-        throw new Error(
-          `LLM failed to generate valid structured output. Raw text: ${rawText}`
-        );
+      const repaired = this.handleNoObjectGenerated(e, zodSchema, usage);
+      if (repaired !== undefined) {
+        return { data: repaired.data as T, ...(repaired.usage ? { usage: repaired.usage } : {}) };
       }
       const err = e instanceof Error ? e : new Error(String(e));
       throw new Error(`Vercel AI SDK tool-calling call failed: ${err.message}`);
@@ -267,6 +268,52 @@ export class VercelAIProvider implements LLMProvider, ToolCallingModelClient {
       });
       return {};
     }
+  }
+
+  /**
+   * Shared handling for NoObjectGeneratedError: attempts structured-output
+   * repair on the failed call's raw text, logging a debug line on success.
+   * Returns `{ data, usage? }` when repair succeeds, rethrows when repair is
+   * not possible, and returns `undefined` when `e` is some other error so the
+   * caller can rethrow with its own call-failed framing.
+   */
+  private handleNoObjectGenerated(
+    e: unknown,
+    zodSchema: z.ZodType,
+    usage: { inputTokens: number; outputTokens: number } | undefined,
+  ): { data: unknown; usage?: { inputTokens: number; outputTokens: number } } | undefined {
+    if (!NoObjectGeneratedError.isInstance(e)) {
+      return undefined;
+    }
+    const rawText = e instanceof Error && 'text' in e ? String(e.text) : 'unknown';
+    const repaired = this.tryRepairStructuredOutput(rawText, zodSchema);
+    if (repaired !== undefined) {
+      this.logger.debug('[vectorlint] Structured output repaired after NoObjectGeneratedError');
+      return { data: repaired, ...(usage ? { usage } : {}) };
+    }
+    throw new Error(
+      `LLM failed to generate valid structured output. Raw text: ${rawText.slice(0, 500)}`
+    );
+  }
+
+  /**
+   * Attempts to repair a raw text payload that failed structured generation.
+   * Models sometimes emit a field as a JSON string (double encoding) with
+   * unescaped internal quotes; this walks the parsed object, repairs such
+   * values, and validates the result against the schema. Returns the validated
+   * data, or `undefined` if repair is not possible.
+   */
+  private tryRepairStructuredOutput(rawText: string, zodSchema: z.ZodType): unknown {
+    let outer: unknown;
+    try {
+      outer = JSON.parse(rawText);
+    } catch {
+      return undefined;
+    }
+
+    const repaired = repairNestedJson(outer);
+    const result = zodSchema.safeParse(repaired);
+    return result.success ? result.data : undefined;
   }
 
   private extractContextValue(
